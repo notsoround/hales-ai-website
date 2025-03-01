@@ -1,8 +1,12 @@
 # Hales AI Website
 
-## Project Setup Guide
+## Project Overview
+This is the main repository for the Hales AI website, featuring advanced AI telephony, workflow automation, and digital cloning technology.
 
-### Installation Steps
+## Important Note
+The `examplecode` directory contains reference implementations and backup code. This is not part of the main application - all active development should be done in the root-level `src` directory. Do not modify the `examplecode` directory unless specifically instructed to do so.
+
+## Development Setup
 
 1. **Clone the Project:**
    ```bash
@@ -19,60 +23,101 @@
    npm install
    ```
 
-4. **Create a `.env` File:**
-   In the root directory, create a `.env` file with:
-   ```bash
-   VITE_VAPI_PUBLIC_KEY=
-   VITE_VAPI_ASSISTANT_ID=
+4. **Environment Variables:**
+   Create a `.env` file in the root directory with:
    ```
-   Replace empty values with your actual keys.
+   NEXT_PUBLIC_VAPI_PUBLIC_KEY=
+   NEXT_PUBLIC_VAPI_ASSISTANT_ID=
+   ```
 
-5. **Development:**
+5. **Run Development Server:**
    ```bash
    npm run dev
    ```
-   Visit `http://localhost:5173` (or the port shown in terminal)
+   Access at `http://localhost:3000`
+
+## Project Structure
+
+```
+/
+├── src/                # Main application code
+│   ├── components/     # Reusable UI components
+│   ├── pages/         # Page components and routes
+│   ├── services/      # External service integrations
+│   ├── hooks/         # Custom React hooks
+│   ├── lib/           # Utility functions and helpers
+│   └── assets/        # Static assets
+│
+└── examplecode/       # Reference implementations and backups (DO NOT MODIFY)
+```
+
+### Protected Routes
+- `/elite-ops`: Password protected page for team contacts (password: "halesai")
+
+### Key Components
+- `VoiceButton`: Handles voice interactions using Vapi
+- `MatrixBackground`: Animated background effect
+- `PasswordProtection`: Handles route protection
+- `HamburgerMenu`: Mobile navigation menu
+- `ProjectShowcase`: Displays project cards
+
+## Deployment
+
+The site is deployed at https://hales.ai using the following setup:
+
+### Server Configuration
+- Server IP: 143.198.69.38
+- Docker container running on port 3000
+- Nginx reverse proxy handling SSL and domain routing
+- SSL certificates managed by Let's Encrypt
 
 ### Deployment Steps
 
-1. **Push Changes:**
+1. **Push changes to main branch:**
    ```bash
    git add .
    git commit -m "your commit message"
    git push origin main
    ```
 
-2. **SSH to Server:**
+2. **SSH into server:**
    ```bash
    ssh root@143.198.69.38
    ```
 
-3. **Update Server Code:**
+3. **Update and restart container:**
    ```bash
    cd HalesGlobal
    git pull origin main
-   ```
-
-4. **Docker Operations:**
-   ```bash
-   # List running containers
-   docker container ls
-   
-   # Stop existing container (if any)
-   docker stop $(docker ps -q --filter publish=3000)
-   
-   # Build new image
+   docker stop $(docker ps -a -q --filter "publish=3000")
    docker build -t halesglobal .
-   
-   # Run new container
    docker run -d -p 3000:3000 halesglobal
    ```
 
-The site should now be live with your latest changes!
+### Architecture Notes
+- The application runs in a Docker container on port 3000
+- Nginx handles SSL termination and proxies requests to the container
+- Domain hales.ai points to 143.198.69.38
+- SSL certificates are stored in /etc/letsencrypt/live/hales.ai/
 
-## Tech Stack
-- Vite + React
-- TypeScript
-- Tailwind CSS
-- Docker
-- Nginx
+## Technical Stack
+- **Frontend Framework**: React with Vite
+- **Styling**: Tailwind CSS
+- **Animations**: Framer Motion
+- **Voice Integration**: Vapi service
+- **Container**: Docker
+- **Server**: Nginx on Ubuntu 24.04
+- **SSL**: Let's Encrypt
+- **State Management**: React hooks
+- **Build Tool**: Vite
+
+## Maintenance
+- Regular updates to dependencies via `npm update`
+- SSL certificate auto-renewal through Let's Encrypt
+- Docker container logs available via `docker logs [container-id]`
+- Nginx logs at `/var/log/nginx/`
+
+## Code Organization
+- All active development should be done in the root-level `src` directory
+- The `examplecode` directory contains reference implementations and should not be modified
+- Changes should only be made to files outside of `examplecode`

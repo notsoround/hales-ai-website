@@ -1,10 +1,13 @@
 import React from 'react';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import './styles.css';
+import BackButton from '../../components/BackButton';
 
 const ContactUs = () => {
   return (
     <div className="contact-us-container">
+      <BackButton onBack={() => window.location.href = '/'} />
+      
       <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
         Contact Us
       </h1>

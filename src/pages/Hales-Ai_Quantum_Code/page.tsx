@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import './styles.css';
+import BackButton from '../../components/BackButton';
 
 // Constants
 const INCREASE_RATE = 500000; // Rate of increase per 50ms
@@ -233,6 +234,9 @@ export default function HalesAIQuantumCode() {
         <div className="stars" />
         <div className="multiverse-rings" />
       </div>
+
+      {/* Back Button */}
+      <BackButton onBack={() => window.location.href = '/'} />
 
       {/* Main interface */}
       <main className="quantum-interface">

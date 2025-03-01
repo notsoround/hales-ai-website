@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import './styles.css';
 import PasswordProtection from '../../components/PasswordProtection';
+import BackButton from '../../components/BackButton';
 
 const EliteOpsPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -157,6 +158,8 @@ const EliteOpsPage = () => {
         className="absolute top-0 left-0 w-full h-full"
         style={{ background: 'linear-gradient(to bottom, #000000, #1a1a2e)' }}
       />
+      
+      <BackButton onBack={() => window.location.href = '/'} />
       
       <div className="relative z-10 container mx-auto px-4 py-12">
         <motion.h1 
