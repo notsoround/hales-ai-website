@@ -1,0 +1,353 @@
+/* Cosmic Background */
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: #000;
+    font-family: 'Arial', sans-serif;
+    color: #fff;
+    overflow-x: hidden;
+}
+
+.universe-bg {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, #1B2735 0%, #090A0F 100%);
+    z-index: -2;
+}
+
+/* Stars Animation */
+.stars {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48cmVjdCB3aWR0aD0iMiIgaGVpZ2h0PSIyIiBmaWxsPSIjZmZmIi8+PC9zdmc+') repeat;
+    animation: twinkle 2s infinite;
+    z-index: -1;
+}
+
+/* Multiverse Rings */
+.multiverse-rings {
+    position: fixed;
+    width: 200vmax;
+    height: 200vmax;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: repeating-radial-gradient(
+        circle at center,
+        transparent 0,
+        transparent 40px,
+        rgba(65, 105, 225, 0.1) 40px,
+        rgba(65, 105, 225, 0.1) 41px
+    );
+    animation: rotate 60s linear infinite;
+    z-index: -1;
+}
+
+.multiverse-rings::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: repeating-radial-gradient(
+        circle at center,
+        transparent 0,
+        transparent 35px,
+        rgba(138, 43, 226, 0.1) 35px,
+        rgba(138, 43, 226, 0.1) 36px
+    );
+    animation: rotate 40s linear infinite reverse;
+}
+
+/* Quantum Button */
+.quantum-interface {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+.quantum-button-container {
+    position: relative;
+    margin-bottom: 4rem;
+}
+
+/* Quantum Counters */
+.quantum-counters {
+    position: absolute;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+    font-size: 1.2rem;
+    color: #B0C4DE;
+    z-index: 100;
+    text-shadow: 0 0 10px rgba(176, 196, 222, 0.7);
+    background: rgba(0, 0, 0, 0.6);
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(138, 43, 226, 0.3);
+    width: min(300px, 90vw);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+}
+
+.counter-display {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem;
+}
+
+.counter-display span:last-child {
+    color: #FF69B4;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 105, 180, 0.7);
+    min-width: 120px;
+}
+
+.quantum-button {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.button-core {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle at center, 
+        rgba(255, 0, 255, 0.8) 0%,
+        rgba(128, 0, 128, 0.9) 40%,
+        rgba(75, 0, 130, 1) 100%
+    );
+    box-shadow: 
+        0 0 50px rgba(255, 0, 255, 0.6),
+        inset 0 0 30px rgba(255, 0, 255, 0.4);
+    animation: pulse 2s ease-in-out infinite;
+    z-index: 1;
+}
+
+.button-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    background: radial-gradient(circle at center,
+        rgba(255, 0, 255, 0.1) 0%,
+        rgba(128, 0, 128, 0.2) 50%,
+        rgba(75, 0, 130, 0.3) 100%
+    );
+    border: 2px solid rgba(255, 0, 255, 0.5);
+    animation: glow 3s ease-in-out infinite;
+}
+
+.button-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    z-index: 1;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+/* Oracle Text and Results */
+.oracle-text {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.prophecy {
+    font-size: 1.5rem;
+    color: #B0C4DE;
+    text-shadow: 0 0 10px rgba(176, 196, 222, 0.5);
+    margin-bottom: 2rem;
+    opacity: 0.8;
+    animation: fadeInOut 4s ease-in-out infinite;
+    transition: opacity 2s ease;
+}
+
+.result-display {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.measurement-text {
+    font-size: 1.2rem;
+    color: #98FB98;
+    text-shadow: 0 0 10px rgba(152, 251, 152, 0.5);
+    margin-bottom: 1rem;
+    transition: opacity 0.3s ease;
+}
+
+.quantum-states {
+    font-family: monospace;
+    font-size: 1.1rem;
+    color: #fff;
+    margin: 1rem 0;
+    line-height: 1.5;
+}
+
+/* Explanation Button and Container */
+.explanation-button {
+    margin-top: 2rem;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(45deg, #FF4E50, #F9D423);
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeInUp 0.5s ease forwards;
+    box-shadow: 0 0 20px rgba(249, 212, 35, 0.5);
+}
+
+.explanation-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(249, 212, 35, 0.7);
+    background: linear-gradient(45deg, #F9D423, #FF4E50);
+}
+
+.quantum-explanation {
+    margin-top: 4rem;
+    padding: 2rem;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 15px;
+    border: 1px solid rgba(138, 43, 226, 0.3);
+    max-width: 600px;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 0.5s ease;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.quantum-explanation.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.explanation-text {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: #B0C4DE;
+    text-shadow: 0 0 10px rgba(176, 196, 222, 0.3);
+    text-align: left;
+    margin-bottom: 2rem;
+    max-width: 100%;
+}
+
+/* Ripple Effect */
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(0);
+    animation: ripple 1s linear;
+    pointer-events: none;
+}
+
+/* Animations */
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+}
+
+@keyframes rotate {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.95); }
+    50% { 
+        transform: translate(-50%, -50%) scale(1);
+        box-shadow: 
+            0 0 80px rgba(255, 0, 255, 0.8),
+            inset 0 0 50px rgba(255, 0, 255, 0.6);
+    }
+}
+
+@keyframes glow {
+    0%, 100% { 
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.5;
+    }
+    50% { 
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Hover Effects */
+.quantum-button:hover .button-core {
+    animation: pulse 1s ease-in-out infinite;
+    box-shadow: 
+        0 0 70px rgba(255, 0, 255, 0.8),
+        inset 0 0 40px rgba(255, 0, 255, 0.6);
+}
+
+.quantum-button:hover .button-glow {
+    animation: glow 1.5s ease-in-out infinite;
+}
+
+.quantum-button:active {
+    transform: scale(0.95);
+}

@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.cursor-trail {
+  width: 30px;
+  height: 8px;
+  background: rgba(0, 230, 230, 0.2);
+  border-radius: 4px;
+  position: fixed;
+  pointer-events: none;
+  transition: all 0.15s ease;
+  transition-property: width, height, border, transform;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.cursor-dot {
+  width: 8px;
+  height: 8px;
+  background: rgb(0, 230, 230);
+  border-radius: 50%;
+  position: fixed;
+  pointer-events: none;
+  z-index: 101;
+  transition: width 0.2s, height 0.2s;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 25%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 75%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.5;
+  }
+  75% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-100px) translateX(20px);
+    opacity: 0;
+  }
+}
+
+.animate-gradient {
+  background-size: 300% 300%;
+  animation: gradient 6s ease infinite;
+}
+
+.animate-gradient-slow {
+  background-size: 300% 300%;
+  animation: gradient 8s ease infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse 8s ease infinite;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .cursor-trail, .cursor-dot {
+    display: none;
+  }
+}
