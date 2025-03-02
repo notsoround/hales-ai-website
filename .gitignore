@@ -32,3 +32,4 @@ yarn-error.log*
 
 # Testing
 /coverage
+examplecode/reference-files/node_modules/
