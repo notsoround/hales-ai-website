@@ -236,7 +236,7 @@ export default function HalesAIQuantumCode() {
       </div>
 
       {/* Back Button */}
-      <BackButton onBack={() => window.location.href = '/'} />
+      <BackButton />
 
       {/* Main interface */}
       <main className="quantum-interface">

@@ -159,7 +159,7 @@ const EliteOpsPage = () => {
         style={{ background: 'linear-gradient(to bottom, #000000, #1a1a2e)' }}
       />
       
-      <BackButton onBack={() => window.location.href = '/'} />
+      <BackButton />
       
       <div className="relative z-10 container mx-auto px-4 py-12">
         <motion.h1 
