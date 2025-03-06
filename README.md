@@ -34,7 +34,7 @@ The `examplecode` directory contains reference implementations and backup code. 
    ```bash
    npm run dev
    ```
-   Access at `http://localhost:3000`
+   Access at `http://localhost:5174` (or another port if 5173 is in use)
 
 ## Project Structure
 
@@ -60,6 +60,10 @@ The `examplecode` directory contains reference implementations and backup code. 
 - `PasswordProtection`: Handles route protection
 - `HamburgerMenu`: Mobile navigation menu
 - `ProjectShowcase`: Displays project cards
+- `BackButton`: Navigation component for returning to home page from other routes
+  - Appears on all non-home pages
+  - Positioned in top-left corner
+  - Features gradient background with hover effects
 
 ## Deployment
 
