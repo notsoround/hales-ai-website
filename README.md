@@ -69,15 +69,20 @@ The `examplecode` directory contains reference implementations and backup code. 
 
 The site is deployed at https://hales.ai using the following setup:
 
-### GitHub Credentials
-- Username: notsoround
-- Personal Access Token: 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
-
 ### Server Configuration
 - Server IP: 143.198.69.38
 - Docker container running on port 3000
 - Nginx reverse proxy handling SSL and domain routing
 - SSL certificates managed by Let's Encrypt
+
+### Deployment Prerequisites
+1. **Environment Variables:**
+   Make sure your `.env` file contains the GitHub credentials:
+   ```
+   GITHUB_USERNAME=your_github_username
+   GITHUB_TOKEN=your_github_personal_access_token
+   ```
+   These credentials are used for authentication when pushing to and pulling from GitHub.
 
 ### Deployment Steps
 
@@ -86,9 +91,7 @@ The site is deployed at https://hales.ai using the following setup:
    git add .
    git commit -m "your commit message"
    git push origin main
-   # When prompted:
-   # Username: notsoround
-   # Password: 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
+   # If prompted for credentials, use the values from your .env file
    ```
 
 2. **SSH into server:**
@@ -96,14 +99,50 @@ The site is deployed at https://hales.ai using the following setup:
    ssh root@143.198.69.38
    ```
 
-3. **Update and restart container:**
+3. **Clean Deployment (Recommended):**
+   This approach avoids merge conflicts and ensures a clean deployment:
+   ```bash
+   # Backup existing code
+   cd ~
+   mv HalesGlobal HalesGlobal_backup_$(date +%Y%m%d)
+   
+   # Clone fresh copy
+   git clone https://github.com/notsoround/HalesGlobal.git
+   
+   # Deploy
+   cd HalesGlobal
+   docker stop $(docker ps -a -q --filter "publish=3000")
+   docker build -t halesglobal .
+   docker run -d -p 3000:3000 halesglobal
+   ```
+
+4. **Alternative: Update Existing Repository:**
+   Only use this if you need to preserve local changes on the server:
    ```bash
    cd HalesGlobal
+   git stash  # Save any local changes
    git pull origin main
    docker stop $(docker ps -a -q --filter "publish=3000")
    docker build -t halesglobal .
    docker run -d -p 3000:3000 halesglobal
    ```
+
+### Troubleshooting Deployment Issues
+
+1. **Merge Conflicts:**
+   If you encounter merge conflicts during `git pull`, use the clean deployment method above.
+
+2. **Authentication Issues:**
+   - Ensure your GitHub token is valid and has the necessary permissions
+   - If your token has expired, generate a new one at GitHub → Settings → Developer settings → Personal access tokens
+
+3. **Docker Issues:**
+   - If the container fails to start, check logs: `docker logs $(docker ps -a -q -l)`
+   - If the build fails, try rebuilding with no cache: `docker build --no-cache -t halesglobal .`
+
+4. **Nginx Issues:**
+   - Check Nginx logs: `tail -50 /var/log/nginx/error.log`
+   - Verify Nginx is running: `systemctl status nginx`
 
 ### Architecture Notes
 - The application runs in a Docker container on port 3000
