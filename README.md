@@ -69,6 +69,10 @@ The `examplecode` directory contains reference implementations and backup code. 
 
 The site is deployed at https://hales.ai using the following setup:
 
+### GitHub Credentials
+- Username: notsoround
+- Personal Access Token: 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
+
 ### Server Configuration
 - Server IP: 143.198.69.38
 - Docker container running on port 3000
@@ -82,6 +86,9 @@ The site is deployed at https://hales.ai using the following setup:
    git add .
    git commit -m "your commit message"
    git push origin main
+   # When prompted:
+   # Username: notsoround
+   # Password: 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
    ```
 
 2. **SSH into server:**
