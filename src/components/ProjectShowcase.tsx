@@ -9,8 +9,7 @@ const projects = [
     title: 'AI Assistant Development',
     description:
       'Advanced AI assistant with natural language processing capabilities, helping businesses automate customer interactions.',
-    image:
-      'https://hales.ai/_next/image?url=%2Fgiri.webp&w=128&q=75',
+    image: 'https://hales.ai/giri.webp',
     category: 'Artificial Intelligence',
     specs: {
       technology: 'GPT-4, TensorFlow, PyTorch',
@@ -63,7 +62,7 @@ const projects = [
     title: 'Healthcare AI Solutions',
     description:
       'AI-powered healthcare solutions for improved patient care and medical diagnosis assistance.',
-    image: 'https://hales.ai/_next/image?url=%2Fbrady.webp&w=128&q=75',
+    image: 'https://hales.ai/brady.webp',
     category: 'Healthcare',
     specs: {
       certifications: 'HIPAA, ISO 27001, CE Mark',
@@ -89,7 +88,7 @@ const projects = [
     title: 'AI Voice Assistant',
     description:
       'Voice-enabled AI assistant for seamless hands-free interaction and task automation.',
-    image: 'https://hales.ai/_next/image?url=%2Fivonna.png&w=128&q=75',
+    image: 'https://hales.ai/ivonna.png',
     category: 'Voice Technology',
     specs: {
       accuracy: '98% speech recognition rate',
@@ -116,7 +115,7 @@ const projects = [
     description:
       'AI-powered emergency response system for faster and more efficient crisis management.',
     image:
-      'https://hales.ai/_next/image?url=%2Fkate.webp&w=128&q=75',
+      'https://hales.ai/kate.webp',
     category: 'Emergency Services',
     specs: {
       responseTime: '<10 seconds average',
@@ -142,7 +141,7 @@ const projects = [
     title: 'Brutal Bot',
     description:
       'Unleashed AI assistant with zero restrictions, designed for unrestricted conversations and extreme problem-solving scenarios.',
-    image: 'https://hales.ai/_next/image?url=%2Fbrutal.jpeg&w=128&q=75',
+    image: 'https://hales.ai/brutal.jpeg',
     category: 'Unrestricted AI',
     specs: {
       technology: 'Custom LLM, Advanced NLP',
@@ -169,7 +168,7 @@ const projects = [
     title: 'Luna Listkeeper',
     description:
       'Advanced AI schedule manager seamlessly integrated with ChatGPT and Telegram for intelligent task management and organization.',
-    image: 'https://hales.ai/_next/image?url=%2Fluna.webp&w=128&q=75',
+    image: 'https://hales.ai/luna.webp',
     category: 'Task Management',
     specs: {
       technology: 'GPT Integration, Telegram API',
@@ -196,7 +195,7 @@ const projects = [
     title: 'Big Book Bot',
     description:
       'Interactive AI expert that enables deep conversations with the Big Book of Alcoholics Anonymous and other literary works, providing personalized guidance and insights.',
-    image: 'https://hales.ai/_next/image?url=%2Fbig_book.webp&w=128&q=75',
+    image: 'https://hales.ai/big_book.webp',
     category: 'Recovery Support',
     specs: {
       technology: 'Advanced LLM, Knowledge Graph',
@@ -223,7 +222,7 @@ const projects = [
     title: 'Elon Musk Bot',
     description:
       'Experience the brilliance of the world\'s richest innovator as your personal AI secretary, bringing Elon\'s unique perspective to your daily communications.',
-    image: 'https://hales.ai/_next/image?url=%2Felon.webp&w=128&q=75',
+    image: 'https://hales.ai/elon.webp',
     category: 'Celebrity AI',
     specs: {
       technology: 'Advanced Voice Cloning, Personality Modeling',
@@ -250,7 +249,7 @@ const projects = [
     title: 'Dr. Mining Manhattan',
     description:
       'Expert AI system specializing in artisanal small-scale mining safety and operations, providing crucial guidance for the Global Community Miner Forum.',
-    image: 'https://hales.ai/_next/image?url=%2Fmining.webp&w=128&q=75',
+    image: 'https://hales.ai/mining.webp',
     category: 'Mining Safety',
     specs: {
       technology: 'Specialized Mining Knowledge Base',
@@ -277,7 +276,7 @@ const projects = [
     title: 'Sophia',
     description:
       'Comprehensive AI insurance specialist designed to navigate the complex world of insurance with expertise and ease.',
-    image: 'https://assets.grok.com/users/4e45f239-6b4e-4abd-8be9-10ffef935d5c/xOF3AQMpFv5VWVHN-generated_image.jpg',
+    image: 'https://hales.ai/sophia.webp',
     category: 'Insurance Expert',
     specs: {
       technology: 'Insurance-specific LLM',
@@ -304,7 +303,7 @@ const projects = [
     title: 'Commy Trader',
     description:
       'Sophisticated AI trading system specialized in metals, minerals, and gemstones, optimizing trading strategies in the commodity market.',
-    image: 'https://hales.ai/_next/image?url=%2Fcommy.webp&w=128&q=75',
+    image: 'https://hales.ai/commy.webp',
     category: 'Commodity Trading',
     specs: {
       technology: 'Advanced Trading Algorithms',
