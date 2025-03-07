@@ -158,7 +158,7 @@ function App() {
             </div>
 
             {/* Navigation Bar */}
-            <nav className="fixed top-[40px] left-0 right-0 z-50 bg-[#0a1a2b]/50 backdrop-blur-md border-b border-[#00e6e6]/10">
+            <nav className="fixed top-[40px] left-0 right-0 z-50 bg-[#0a1a2b]/80 backdrop-blur-md border-b border-[#00e6e6]/20 shadow-lg">
               <div className="max-w-7xl mx-auto px-4 flex justify-between items-center h-16">
                 <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] to-[#1a1aff] animate-gradient">
                   Hales AI
@@ -181,11 +181,11 @@ function App() {
             </nav>
 
             {/* Main Content */}
-            <div className="pt-[96px]">
+            <div className="pt-[100px]">
               {/* Hero Section */}
-              <div className="relative min-h-[85vh] flex items-start justify-center overflow-hidden">
-                <div className="absolute w-[600px] h-[600px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-20 animate-pulse-slow"></div>
-                <div className="absolute w-[500px] h-[500px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-20 animate-pulse-slow delay-700"></div>
+              <div className="relative min-h-[85vh] max-h-screen flex items-start justify-center overflow-hidden">
+                <div className="absolute w-[600px] h-[600px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-15 animate-pulse-slow"></div>
+                <div className="absolute w-[500px] h-[500px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-15 animate-pulse-slow delay-700"></div>
 
                 {/* Decorative Grid Lines */}
                 <div className="absolute inset-0 grid grid-cols-6 gap-4 pointer-events-none">
@@ -195,13 +195,16 @@ function App() {
                 </div>
 
                 <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-                  <div className="space-y-4">
-                    <p className="text-sm text-[#00e6e6]/70 animate-pulse">🚧 Under Construction 🚧</p>
+                  <div className="space-y-8 mt-10">
                     <div className="relative inline-block">
                       <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
                         Hales AI
                       </h1>
                       <div className="absolute -top-4 -right-4 w-8 h-8 bg-gradient-to-r from-[#00e6e6] to-[#1a1aff] rounded-full opacity-20 animate-ping"></div>
+                    </div>
+                    
+                    <div className="flex justify-center">
+                      <p className="text-base font-semibold text-[#00e6e6] animate-pulse bg-[#0a1a2b]/50 py-2 px-4 rounded-full inline-block border border-[#00e6e6]/30">🚧 Under Construction 🚧</p>
                     </div>
                     
                     <div className="relative">
@@ -211,13 +214,9 @@ function App() {
                         cloning technology
                       </p>
                     </div>
-                  </div>
-                  <div className="relative">
-                    {/* Decorative circles */}
-                    <div className="absolute -left-12 top-1/2 w-24 h-24 bg-gradient-to-r from-[#00e6e6]/5 to-[#1a1aff]/5 rounded-full blur-xl"></div>
-                    <div className="absolute -right-12 top-1/2 w-24 h-24 bg-gradient-to-r from-[#1a1aff]/5 to-[#00e6e6]/5 rounded-full blur-xl"></div>
                     
-                    <div className="flex gap-6 justify-center flex-wrap relative">
+                    {/* Get Started and Learn More buttons */}
+                    <div className="flex gap-6 justify-center flex-wrap relative mt-8">
                       <button
                         onClick={() => setCurrentPage('get-started')}
                         className="group relative px-8 py-3 bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] rounded-full font-semibold hover:opacity-90 transition-all duration-300 animate-gradient transform hover:scale-105"
@@ -233,39 +232,42 @@ function App() {
                         <div className="absolute inset-0 rounded-full bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </button>
                     </div>
-                  </div>
-                  
-                  {/* Voice Button */}
-                  <div className="relative mt-12 flex flex-col items-center">
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#00e6e6]/5 via-transparent to-[#1a1aff]/5 rounded-full blur-3xl"></div>
-                    <div className="relative">
-                      <div className="absolute -inset-4 bg-gradient-to-r from-[#00e6e6]/10 to-[#1a1aff]/10 rounded-full blur-md"></div>
-                      <div className="relative z-10 transform hover:scale-105 transition-transform duration-300">
-                        <VoiceButton
-                          onStart={handleVoiceStart}
-                          onStop={handleVoiceStop}
-                          onMessage={handleVoiceMessage}
-                          className="mx-auto shadow-lg shadow-[#00e6e6]/10"
-                        />
+                    
+                    {/* Voice Button */}
+                    <div className="relative mt-8 flex flex-col items-center">
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#00e6e6]/5 via-transparent to-[#1a1aff]/5 rounded-full blur-3xl"></div>
+                      <div className="relative">
+                        <div className="absolute -inset-4 bg-gradient-to-r from-[#00e6e6]/10 to-[#1a1aff]/10 rounded-full blur-md"></div>
+                        <div className="relative z-10 transform hover:scale-105 transition-transform duration-300">
+                          <VoiceButton
+                            onStart={handleVoiceStart}
+                            onStop={handleVoiceStop}
+                            onMessage={handleVoiceMessage}
+                            className="mx-auto shadow-lg shadow-[#00e6e6]/10"
+                          />
+                        </div>
                       </div>
+                      <p className="mt-4 text-sm text-[#00e6e6]/70 animate-pulse">
+                        Click to speak with AI
+                      </p>
                     </div>
-                    <p className="mt-4 text-sm text-[#00e6e6]/70 animate-pulse">
-                      Click to speak with AI
-                    </p>
-                  </div>
-                </div>
-
-                <div className="absolute bottom-6 w-full text-center">
-                  <div className="animate-bounce">
-                    <div className="w-8 h-8 mx-auto border-2 border-[#00e6e6] rounded-full flex items-center justify-center text-[#00e6e6]">
-                      ↓
+                    
+                    {/* Down Arrow - Fixed position at bottom */}
+                    <div className="w-full text-center mt-8 mb-4">
+                      <a href="#our-solutions" className="inline-block">
+                        <div className="animate-bounce">
+                          <div className="w-8 h-8 mx-auto border-2 border-[#00e6e6] rounded-full flex items-center justify-center text-[#00e6e6]">
+                            ↓
+                          </div>
+                        </div>
+                      </a>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Services Grid */}
-              <div className="max-w-7xl mx-auto px-4 py-24">
+              <div id="our-solutions" className="max-w-7xl mx-auto px-4 pt-16 pb-24 relative" style={{ marginTop: '40px' }}>
                 <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
                   Our Solutions
                 </h2>
@@ -339,7 +341,7 @@ function App() {
               <ProjectShowcase />
 
               {/* Features Section */}
-              <div className="bg-gradient-to-b from-[#0a1a2b] to-[#0a0f16] py-24">
+              <div className="bg-gradient-to-b from-[#0a1a2b] to-[#0a0f16] py-24 mt-8">
                 <div className="max-w-7xl mx-auto px-4">
                   <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
                     Why Choose Us
@@ -384,7 +386,7 @@ function App() {
               </div>
 
               {/* Tech Stack */}
-              <div className="py-24 px-4">
+              <div className="py-24 px-4 mt-8">
                 <div className="max-w-7xl mx-auto">
                   <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
                     Our Tech Stack
@@ -445,7 +447,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f16] text-white relative">
+    <div className="min-h-screen bg-[#0a0f16]/90 text-white relative">
       <GridBackground />
       {renderPage()}
     </div>
