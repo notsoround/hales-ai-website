@@ -4,37 +4,27 @@ interface IntegrationsMarqueeProps {
   className?: string;
 }
 
-// Placeholder logos for integrations
+// Custom logos for integrations using local images from the Integrations_images folder
 const topRowLogos = [
-  { name: 'OpenAI', logo: 'https://cdn.worldvectorlogo.com/logos/openai-2.svg' },
-  { name: 'Anthropic', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Anthropic_logo.svg/1200px-Anthropic_logo.svg.png' },
-  { name: '11 Labs', logo: 'https://assets-global.website-files.com/646218c67da47160c64a84d5/6462e1e8e7e7d1d7d0b0b47c_11ElevenLabs-logo-circle.png' },
-  { name: 'Deepgram', logo: 'https://cdn.worldvectorlogo.com/logos/deepgram.svg' },
-  { name: 'Assembly AI', logo: 'https://cdn.worldvectorlogo.com/logos/assemblyai.svg' },
-  { name: 'PlayHT', logo: 'https://play.ht/favicon/favicon-32x32.png' },
-  { name: 'Azure', logo: 'https://cdn.worldvectorlogo.com/logos/azure-1.svg' },
-  { name: 'Gemini', logo: 'https://seeklogo.com/images/G/google-gemini-logo-A5680F3396-seeklogo.com.png' },
-  { name: 'Groq', logo: 'https://cdn.worldvectorlogo.com/logos/groq.svg' },
-  { name: 'Perplexity', logo: 'https://cdn.worldvectorlogo.com/logos/perplexity-ai.svg' },
-  { name: 'Gladia', logo: 'https://cdn.worldvectorlogo.com/logos/gladia.svg' },
-  { name: 'Langfuse', logo: 'https://cdn.worldvectorlogo.com/logos/langfuse.svg' },
-  { name: 'Twilio', logo: 'https://cdn.worldvectorlogo.com/logos/twilio-2.svg' }
+  { name: 'Integration 1', logo: '/Integrations_images/image.webp' },
+  { name: 'Integration 2', logo: '/Integrations_images/image%20(1).webp' },
+  { name: 'Integration 3', logo: '/Integrations_images/image%20(2).webp' },
+  { name: 'Integration 4', logo: '/Integrations_images/image%20(3).webp' },
+  { name: 'Integration 5', logo: '/Integrations_images/image%20(4).webp' },
+  { name: 'Integration 6', logo: '/Integrations_images/image%20(5).webp' },
+  { name: 'Integration 7', logo: '/Integrations_images/image%20(6).webp' },
+  { name: 'Integration 8', logo: '/Integrations_images/image%20(7).webp' }
 ];
 
 const bottomRowLogos = [
-  { name: 'AWS S3', logo: 'https://cdn.worldvectorlogo.com/logos/aws-s3.svg' },
-  { name: 'GCP Cloud', logo: 'https://cdn.worldvectorlogo.com/logos/google-cloud-1.svg' },
-  { name: 'Google Calendar', logo: 'https://cdn.worldvectorlogo.com/logos/google-calendar-2020-2.svg' },
-  { name: 'Zendesk', logo: 'https://cdn.worldvectorlogo.com/logos/zendesk-1.svg' },
-  { name: 'Notion', logo: 'https://cdn.worldvectorlogo.com/logos/notion-2.svg' },
-  { name: 'Zapier', logo: 'https://cdn.worldvectorlogo.com/logos/zapier-1.svg' },
-  { name: 'Apollo.io', logo: 'https://cdn.worldvectorlogo.com/logos/apollo-graphql-compact.svg' },
-  { name: 'Google Sheets', logo: 'https://cdn.worldvectorlogo.com/logos/google-sheets-full-logo-1.svg' },
-  { name: 'Salesforce', logo: 'https://cdn.worldvectorlogo.com/logos/salesforce-2.svg' },
-  { name: 'Hubspot', logo: 'https://cdn.worldvectorlogo.com/logos/hubspot-1.svg' },
-  { name: 'Five9', logo: 'https://cdn.worldvectorlogo.com/logos/five9.svg' },
-  { name: 'Make', logo: 'https://cdn.worldvectorlogo.com/logos/make-2.svg' },
-  { name: 'Slack', logo: 'https://cdn.worldvectorlogo.com/logos/slack-new-logo.svg' }
+  { name: 'Integration 9', logo: '/Integrations_images/image%20(8).webp' },
+  { name: 'Integration 10', logo: '/Integrations_images/image%20(9).webp' },
+  { name: 'Integration 11', logo: '/Integrations_images/image%20(10).webp' },
+  { name: 'Integration 12', logo: '/Integrations_images/image%20(11).webp' },
+  { name: 'Integration 13', logo: '/Integrations_images/image%20(12).webp' },
+  { name: 'Integration 14', logo: '/Integrations_images/image%20(13).webp' },
+  { name: 'Integration 15', logo: '/Integrations_images/image%20(14).webp' },
+  { name: 'Integration 16', logo: '/Integrations_images/image%20(15).webp' }
 ];
 
 export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps) {
@@ -52,7 +42,7 @@ export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps
       if (scrollWidth <= viewportWidth) return;
       
       let currentPosition = 0;
-      const speed = 0.5; // pixels per frame
+      const speed = 1.0; // pixels per frame - increased for better visibility
       
       const scroll = () => {
         if (!topRowRef.current) return;
@@ -81,7 +71,7 @@ export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps
       if (scrollWidth <= viewportWidth) return;
       
       let currentPosition = 0;
-      const speed = 0.5; // pixels per frame
+      const speed = 1.0; // pixels per frame - increased for better visibility
       
       const scroll = () => {
         if (!bottomRowRef.current) return;
@@ -128,14 +118,23 @@ export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps
                   {[...topRowLogos, ...topRowLogos].map((logo, index) => (
                     <div 
                       key={`top-${index}`} 
-                      className="flex items-center justify-center mx-8 h-16 w-16 bg-[#0a1a2b]/50 rounded-lg p-2"
+                      className="flex items-center justify-center mx-8 h-20 w-20 bg-[#0a1a2b]/30 rounded-lg p-2 border border-[#00e6e6]/10 hover:border-[#00e6e6]/40 transition-all hover:scale-110 duration-300"
                       title={logo.name}
                     >
-                      <img 
-                        src={logo.logo} 
-                        alt={logo.name} 
-                        className="max-h-full max-w-full object-contain filter brightness-0 invert opacity-70 hover:opacity-100 transition-opacity"
-                      />
+                      {/* Simple colored background with text */}
+                      <div
+                        className="w-full h-full bg-[#00e6e6]/20 rounded-md flex items-center justify-center"
+                        style={{
+                          backgroundImage: `url(${logo.logo})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat'
+                        }}
+                      >
+                        <div className="bg-[#0a1a2b]/70 text-[#00e6e6] text-xs p-1 rounded absolute bottom-0 left-0 right-0 text-center">
+                          {logo.name}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -151,14 +150,23 @@ export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps
                   {[...bottomRowLogos, ...bottomRowLogos].map((logo, index) => (
                     <div 
                       key={`bottom-${index}`} 
-                      className="flex items-center justify-center mx-8 h-16 w-16 bg-[#0a1a2b]/50 rounded-lg p-2"
+                      className="flex items-center justify-center mx-8 h-20 w-20 bg-[#0a1a2b]/30 rounded-lg p-2 border border-[#00e6e6]/10 hover:border-[#00e6e6]/40 transition-all hover:scale-110 duration-300"
                       title={logo.name}
                     >
-                      <img 
-                        src={logo.logo} 
-                        alt={logo.name} 
-                        className="max-h-full max-w-full object-contain filter brightness-0 invert opacity-70 hover:opacity-100 transition-opacity"
-                      />
+                      {/* Simple colored background with text */}
+                      <div
+                        className="w-full h-full bg-[#00e6e6]/20 rounded-md flex items-center justify-center"
+                        style={{
+                          backgroundImage: `url(${logo.logo})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat'
+                        }}
+                      >
+                        <div className="bg-[#0a1a2b]/70 text-[#00e6e6] text-xs p-1 rounded absolute bottom-0 left-0 right-0 text-center">
+                          {logo.name}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

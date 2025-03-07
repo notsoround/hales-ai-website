@@ -21,19 +21,19 @@ const ContactUs = () => {
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-[#00e6e6]" />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-                  info@halesai.com
+                  Matt@hales.ai
                 </span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-[#00e6e6]" />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-                  +1 (555) 123-4567
+                  +1 (786) 708-2214
                 </span>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="w-5 h-5 text-[#00e6e6]" />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-                  123 AI Street, Tech City, TC 12345
+                  123 AI Street, Starbase, Tx 
                 </span>
               </div>
             </div>
