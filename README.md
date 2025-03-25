@@ -96,7 +96,9 @@ The site is deployed at https://hales.ai using the following setup:
 
 2. **SSH into server:**
    ```bash
-   ssh root@143.198.69.38
+   ssh root@134.199.239.171
+
+
    ```
 
 3. **Clean Deployment (Recommended):**
@@ -110,21 +112,21 @@ The site is deployed at https://hales.ai using the following setup:
    git clone https://github.com/notsoround/HalesGlobal.git
    
    # Deploy
-   cd HalesGlobal
+   cd Hales
    docker stop $(docker ps -a -q --filter "publish=3000")
-   docker build -t halesglobal .
-   docker run -d -p 3000:3000 halesglobal
+   docker build -t hales-ai-website .
+   docker run -d -p 3000:3000 hales-ai-website
    ```
 
 4. **Alternative: Update Existing Repository:**
    Only use this if you need to preserve local changes on the server:
    ```bash
-   cd HalesGlobal
+   cd Hales
    git stash  # Save any local changes
    git pull origin main
    docker stop $(docker ps -a -q --filter "publish=3000")
-   docker build -t halesglobal .
-   docker run -d -p 3000:3000 halesglobal
+   docker build -t hales-ai-website .
+   docker run -d -p 3000:3000 hales-ai-website
    ```
 
 ### Troubleshooting Deployment Issues
@@ -138,7 +140,7 @@ The site is deployed at https://hales.ai using the following setup:
 
 3. **Docker Issues:**
    - If the container fails to start, check logs: `docker logs $(docker ps -a -q -l)`
-   - If the build fails, try rebuilding with no cache: `docker build --no-cache -t halesglobal .`
+   - If the build fails, try rebuilding with no cache: `docker build --no-cache -t hales-ai-webste .`
 
 4. **Nginx Issues:**
    - Check Nginx logs: `tail -50 /var/log/nginx/error.log`
@@ -149,6 +151,7 @@ The site is deployed at https://hales.ai using the following setup:
 - Nginx handles SSL termination and proxies requests to the container
 - Domain hales.ai points to 143.198.69.38
 - SSL certificates are stored in /etc/letsencrypt/live/hales.ai/
+
 
 ## Technical Stack
 - **Frontend Framework**: React with Vite
