@@ -23,7 +23,6 @@ import { ChatInterface } from './components/ChatInterface';
 import { VoiceButton } from './components/VoiceButton';
 import { IntegrationsMarquee } from './components/IntegrationsMarquee';
 import SocialFeeds from './components/SocialFeeds';
-import SplashCursor from './components/SplashCursor';
 
 // Lazy load the pages
 const MattsTasklist = lazy(() => import('./pages/matts-tasklist/page'));
@@ -450,7 +449,6 @@ const EliteOps = lazy(() => import('./pages/elite-ops/page'));
   return (
     <div className="min-h-screen bg-[#0a0f16]/90 text-white relative">
       <GridBackground />
-      <SplashCursor />
       {renderPage()}
     </div>
   );
