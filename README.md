@@ -51,8 +51,8 @@ The `examplecode` directory contains reference implementations and backup code. 
 └── examplecode/       # Reference implementations and backups (DO NOT MODIFY)
 ```
 
-### Protected Routes
-- `/elite-ops`: Password protected page for team contacts (password: "halesai")
+### Routes
+- `/elite-ops`: Team contacts and Elite Operations Unit information
 
 ### Key Components
 - `VoiceButton`: Handles voice interactions using Vapi
