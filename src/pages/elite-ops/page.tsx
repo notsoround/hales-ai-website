@@ -1,16 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import './styles.css';
-import PasswordProtection from '../../components/PasswordProtection';
 import BackButton from '../../components/BackButton';
 
 const EliteOpsPage = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -65,7 +61,7 @@ const EliteOpsPage = () => {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [isAuthenticated]);
+  }, []);
 
   const contacts = [
     {
@@ -141,15 +137,6 @@ const EliteOpsPage = () => {
       phone: '+1-530-748-8372'
     }
   ];
-
-  if (!isAuthenticated) {
-    return (
-      <PasswordProtection
-        onSuccess={() => setIsAuthenticated(true)}
-        correctPassword="halesai"
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">

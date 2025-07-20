@@ -4,27 +4,35 @@ interface IntegrationsMarqueeProps {
   className?: string;
 }
 
-// Custom logos for integrations using local images from the Integrations_images folder
+// Professional integrations with real service names
 const topRowLogos = [
-  { name: 'Integration 1', logo: '/Integrations_images/image.webp' },
-  { name: 'Integration 2', logo: '/Integrations_images/image%20(1).webp' },
-  { name: 'Integration 3', logo: '/Integrations_images/image%20(2).webp' },
-  { name: 'Integration 4', logo: '/Integrations_images/image%20(3).webp' },
-  { name: 'Integration 5', logo: '/Integrations_images/image%20(4).webp' },
-  { name: 'Integration 6', logo: '/Integrations_images/image%20(5).webp' },
-  { name: 'Integration 7', logo: '/Integrations_images/image%20(6).webp' },
-  { name: 'Integration 8', logo: '/Integrations_images/image%20(7).webp' }
+  { name: 'Veo 3', category: 'AI Video' },
+  { name: 'Google Cloud', category: 'Cloud Platform' },
+  { name: 'Microsoft Azure', category: 'Cloud Services' },
+  { name: 'Eleven Labs', category: 'AI Voice' },
+  { name: 'Cline', category: 'AI Assistant' },
+  { name: 'Cursor', category: 'AI IDE' },
+  { name: 'OpenAI', category: 'AI Platform' },
+  { name: 'Claude', category: 'AI Assistant' },
+  { name: 'Hugging Face', category: 'AI Models' },
+  { name: 'Replicate', category: 'AI APIs' },
+  { name: 'Anthropic', category: 'AI Research' },
+  { name: 'Cohere', category: 'AI Language' }
 ];
 
 const bottomRowLogos = [
-  { name: 'Integration 9', logo: '/Integrations_images/image%20(8).webp' },
-  { name: 'Integration 10', logo: '/Integrations_images/image%20(9).webp' },
-  { name: 'Integration 11', logo: '/Integrations_images/image%20(10).webp' },
-  { name: 'Integration 12', logo: '/Integrations_images/image%20(11).webp' },
-  { name: 'Integration 13', logo: '/Integrations_images/image%20(12).webp' },
-  { name: 'Integration 14', logo: '/Integrations_images/image%20(13).webp' },
-  { name: 'Integration 15', logo: '/Integrations_images/image%20(14).webp' },
-  { name: 'Integration 16', logo: '/Integrations_images/image%20(15).webp' }
+  { name: 'DeepSeek', category: 'AI Models' },
+  { name: 'Twilio', category: 'Communications' },
+  { name: 'Digital Ocean', category: 'Cloud Hosting' },
+  { name: 'Pinecone', category: 'Vector DB' },
+  { name: 'Open Source', category: 'Community' },
+  { name: 'Make.com', category: 'Automation' },
+  { name: 'Zapier', category: 'Workflows' },
+  { name: 'GitHub', category: 'Development' },
+  { name: 'Vercel', category: 'Deployment' },
+  { name: 'Netlify', category: 'Hosting' },
+  { name: 'Slack', category: 'Team Chat' },
+  { name: 'Stripe', category: 'Payments' }
 ];
 
 export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps) {
@@ -32,66 +40,14 @@ export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps
   const bottomRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Animation for top row (right to left)
-    const animateTopRow = () => {
-      if (!topRowRef.current) return;
-      
-      const scrollWidth = topRowRef.current.scrollWidth;
-      const viewportWidth = topRowRef.current.offsetWidth;
-      
-      if (scrollWidth <= viewportWidth) return;
-      
-      let currentPosition = 0;
-      const speed = 1.0; // pixels per frame - increased for better visibility
-      
-      const scroll = () => {
-        if (!topRowRef.current) return;
-        
-        currentPosition -= speed;
-        
-        // Reset position when we've scrolled the full width of the content
-        if (Math.abs(currentPosition) >= scrollWidth / 2) {
-          currentPosition = 0;
-        }
-        
-        topRowRef.current.style.transform = `translateX(${currentPosition}px)`;
-        requestAnimationFrame(scroll);
-      };
-      
-      requestAnimationFrame(scroll);
-    };
+    // Simple CSS animation approach - more reliable
+    if (topRowRef.current) {
+      topRowRef.current.style.animation = 'scrollRight 40s linear infinite';
+    }
     
-    // Animation for bottom row (left to right)
-    const animateBottomRow = () => {
-      if (!bottomRowRef.current) return;
-      
-      const scrollWidth = bottomRowRef.current.scrollWidth;
-      const viewportWidth = bottomRowRef.current.offsetWidth;
-      
-      if (scrollWidth <= viewportWidth) return;
-      
-      let currentPosition = 0;
-      const speed = 1.0; // pixels per frame - increased for better visibility
-      
-      const scroll = () => {
-        if (!bottomRowRef.current) return;
-        
-        currentPosition += speed;
-        
-        // Reset position when we've scrolled the full width of the content
-        if (currentPosition >= scrollWidth / 2) {
-          currentPosition = 0;
-        }
-        
-        bottomRowRef.current.style.transform = `translateX(${currentPosition}px)`;
-        requestAnimationFrame(scroll);
-      };
-      
-      requestAnimationFrame(scroll);
-    };
-    
-    animateTopRow();
-    animateBottomRow();
+    if (bottomRowRef.current) {
+      bottomRowRef.current.style.animation = 'scrollLeft 40s linear infinite';
+    }
   }, []);
 
   return (
@@ -118,22 +74,29 @@ export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps
                   {[...topRowLogos, ...topRowLogos].map((logo, index) => (
                     <div 
                       key={`top-${index}`} 
-                      className="flex items-center justify-center mx-8 h-20 w-20 bg-[#0a1a2b]/30 rounded-lg p-2 border border-[#00e6e6]/10 hover:border-[#00e6e6]/40 transition-all hover:scale-110 duration-300"
-                      title={logo.name}
+                      className="flex-shrink-0 mx-6 group cursor-pointer"
+                      title={`${logo.name} - ${logo.category}`}
                     >
-                      {/* Simple colored background with text */}
-                      <div
-                        className="w-full h-full bg-[#00e6e6]/20 rounded-md flex items-center justify-center"
-                        style={{
-                          backgroundImage: `url(${logo.logo})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          backgroundRepeat: 'no-repeat'
-                        }}
-                      >
-                        <div className="bg-[#0a1a2b]/70 text-[#00e6e6] text-xs p-1 rounded absolute bottom-0 left-0 right-0 text-center">
-                          {logo.name}
+                      <div className="relative w-32 h-24 bg-gradient-to-br from-[#0a1a2b]/60 to-[#0a0f16]/60 rounded-xl p-3 border border-[#00e6e6]/20 hover:border-[#00e6e6]/60 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#00e6e6]/20 backdrop-blur-sm">
+                        {/* Content */}
+                        <div className="h-full flex flex-col justify-between">
+                          {/* Service name */}
+                          <div className="text-center">
+                            <h4 className="text-sm font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] to-[#00ccff] leading-tight">
+                              {logo.name}
+                            </h4>
+                          </div>
+                          
+                          {/* Category badge */}
+                          <div className="text-center">
+                            <span className="inline-block px-2 py-1 text-xs bg-[#00e6e6]/20 text-[#00e6e6] rounded-full border border-[#00e6e6]/30">
+                              {logo.category}
+                            </span>
+                          </div>
                         </div>
+                        
+                        {/* Hover glow effect */}
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#00e6e6]/0 via-[#00e6e6]/5 to-[#00ccff]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
                     </div>
                   ))}
@@ -150,22 +113,29 @@ export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps
                   {[...bottomRowLogos, ...bottomRowLogos].map((logo, index) => (
                     <div 
                       key={`bottom-${index}`} 
-                      className="flex items-center justify-center mx-8 h-20 w-20 bg-[#0a1a2b]/30 rounded-lg p-2 border border-[#00e6e6]/10 hover:border-[#00e6e6]/40 transition-all hover:scale-110 duration-300"
-                      title={logo.name}
+                      className="flex-shrink-0 mx-6 group cursor-pointer"
+                      title={`${logo.name} - ${logo.category}`}
                     >
-                      {/* Simple colored background with text */}
-                      <div
-                        className="w-full h-full bg-[#00e6e6]/20 rounded-md flex items-center justify-center"
-                        style={{
-                          backgroundImage: `url(${logo.logo})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          backgroundRepeat: 'no-repeat'
-                        }}
-                      >
-                        <div className="bg-[#0a1a2b]/70 text-[#00e6e6] text-xs p-1 rounded absolute bottom-0 left-0 right-0 text-center">
-                          {logo.name}
+                      <div className="relative w-32 h-24 bg-gradient-to-br from-[#0a1a2b]/60 to-[#0a0f16]/60 rounded-xl p-3 border border-[#00e6e6]/20 hover:border-[#00e6e6]/60 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#00e6e6]/20 backdrop-blur-sm">
+                        {/* Content */}
+                        <div className="h-full flex flex-col justify-between">
+                          {/* Service name */}
+                          <div className="text-center">
+                            <h4 className="text-sm font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] to-[#00ccff] leading-tight">
+                              {logo.name}
+                            </h4>
+                          </div>
+                          
+                          {/* Category badge */}
+                          <div className="text-center">
+                            <span className="inline-block px-2 py-1 text-xs bg-[#00e6e6]/20 text-[#00e6e6] rounded-full border border-[#00e6e6]/30">
+                              {logo.category}
+                            </span>
+                          </div>
                         </div>
+                        
+                        {/* Hover glow effect */}
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#00e6e6]/0 via-[#00e6e6]/5 to-[#00ccff]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
                     </div>
                   ))}

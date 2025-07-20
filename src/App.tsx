@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import HamburgerMenu from './components/HamburgerMenu';
 import { GridBackground } from './components/GridBackground';
-import AbstractBall from './components/AbstractBall';
 import { ProjectShowcase } from './components/ProjectShowcase';
 import { GetStarted } from './components/GetStarted';
 import { LearnMore } from './components/LearnMore';
@@ -183,16 +182,10 @@ const EliteOps = lazy(() => import('./pages/elite-ops/page'));
             {/* Main Content */}
             <div className="pt-[100px]">
               {/* Hero Section */}
-              <div className="relative min-h-[85vh] max-h-screen flex items-start justify-center overflow-hidden">
+              <div className="relative h-[80vh] flex items-start justify-center overflow-hidden">
                 <div className="absolute w-[600px] h-[600px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-15 animate-pulse-slow"></div>
                 <div className="absolute w-[500px] h-[500px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-15 animate-pulse-slow delay-700"></div>
 
-                {/* Decorative Grid Lines */}
-                <div className="absolute inset-0 grid grid-cols-6 gap-4 pointer-events-none">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-full border-l border-[#00e6e6]/5"></div>
-                  ))}
-                </div>
 
                 <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
                   <div className="space-y-8 mt-10">
@@ -267,7 +260,7 @@ const EliteOps = lazy(() => import('./pages/elite-ops/page'));
               </div>
 
               {/* Services Grid */}
-              <div id="our-solutions" className="max-w-7xl mx-auto px-4 pt-16 pb-24 relative" style={{ marginTop: '40px' }}>
+              <div id="our-solutions" className="max-w-7xl mx-auto px-4 pt-4 pb-24 relative">
                 <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
                   Our Solutions
                 </h2>
@@ -388,28 +381,135 @@ const EliteOps = lazy(() => import('./pages/elite-ops/page'));
               {/* Tech Stack */}
               <div className="py-24 px-4 mt-8">
                 <div className="max-w-7xl mx-auto">
-                  <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
+                  <h2 className="text-4xl font-bold text-center mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
                     Our Tech Stack
                   </h2>
-                  <div className="flex flex-wrap justify-center gap-8">
+                  <p className="text-center text-lg mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
+                    12 cutting-edge technologies powering enterprise-grade AI solutions
+                  </p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                     {[
-                      { name: 'vapi.ai', icon: <Code2 className="w-6 h-6" /> },
-                      { name: 'retell.ai', icon: <Mic2 className="w-6 h-6" /> },
-                      { name: 'n8n', icon: <Workflow className="w-6 h-6" /> },
-                      { name: 'make.com', icon: <Settings className="w-6 h-6" /> },
-                      { name: 'cal.com', icon: <Calendar className="w-6 h-6" /> },
-                      { name: 'VSCode', icon: <FileCode2 className="w-6 h-6" /> },
+                      // AI/ML
+                      { 
+                        name: 'OpenAI', 
+                        icon: <Bot className="w-6 h-6" />, 
+                        description: 'Advanced language models for AI conversations',
+                        category: 'AI/ML'
+                      },
+                      { 
+                        name: 'Claude', 
+                        icon: <MessageSquareMore className="w-6 h-6" />, 
+                        description: 'Anthropic\'s AI assistant for complex reasoning',
+                        category: 'AI/ML'
+                      },
+                      { 
+                        name: 'LangChain', 
+                        icon: <Network className="w-6 h-6" />, 
+                        description: 'Framework for building AI applications',
+                        category: 'AI/ML'
+                      },
+                      
+                      // Cloud & Infrastructure
+                      { 
+                        name: 'AWS', 
+                        icon: <Globe className="w-6 h-6" />, 
+                        description: 'Scalable cloud infrastructure and services',
+                        category: 'Cloud'
+                      },
+                      { 
+                        name: 'Docker', 
+                        icon: <Settings className="w-6 h-6" />, 
+                        description: 'Containerization for consistent deployments',
+                        category: 'DevOps'
+                      },
+                      
+                      // Frontend
+                      { 
+                        name: 'React', 
+                        icon: <Code2 className="w-6 h-6" />, 
+                        description: 'Modern UI framework for dynamic interfaces',
+                        category: 'Frontend'
+                      },
+                      { 
+                        name: 'TypeScript', 
+                        icon: <FileCode2 className="w-6 h-6" />, 
+                        description: 'Type-safe development for robust applications',
+                        category: 'Frontend'
+                      },
+                      
+                      // Backend & Databases
+                      { 
+                        name: 'Node.js', 
+                        icon: <Settings className="w-6 h-6" />, 
+                        description: 'High-performance backend runtime',
+                        category: 'Backend'
+                      },
+                      { 
+                        name: 'PostgreSQL', 
+                        icon: <Network className="w-6 h-6" />, 
+                        description: 'Enterprise-grade relational database',
+                        category: 'Database'
+                      },
+                      
+                      // DevOps & Integration
+                      { 
+                        name: 'GitHub Actions', 
+                        icon: <Workflow className="w-6 h-6" />, 
+                        description: 'Automated CI/CD and deployment pipelines',
+                        category: 'DevOps'
+                      },
+                      { 
+                        name: 'Vercel', 
+                        icon: <Globe className="w-6 h-6" />, 
+                        description: 'Lightning-fast deployment platform',
+                        category: 'DevOps'
+                      },
+                      
+                      // Business Integration
+                      { 
+                        name: 'Stripe', 
+                        icon: <Phone className="w-6 h-6" />, 
+                        description: 'Secure payment processing and billing',
+                        category: 'Business'
+                      },
                     ].map((tech, index) => (
                       <div
                         key={index}
-                        className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#00e6e6]/10 via-[#00ccff]/10 via-[#4d4dff]/10 to-[#1a1aff]/10 hover:from-[#00e6e6]/20 hover:via-[#00ccff]/20 hover:via-[#4d4dff]/20 hover:to-[#1a1aff]/20 animate-gradient"
+                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-[#0a1a2b]/60 to-[#0a0f16]/60 border border-[#00e6e6]/20 hover:border-[#00e6e6]/60 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#00e6e6]/20 backdrop-blur-sm cursor-pointer"
+                        title={tech.description}
                       >
-                        <span className="text-[#00e6e6]">{tech.icon}</span>
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
+                        {/* Category badge */}
+                        <div className="absolute top-2 right-2 px-2 py-1 text-xs bg-[#00e6e6]/20 text-[#00e6e6] rounded-full border border-[#00e6e6]/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          {tech.category}
+                        </div>
+                        
+                        {/* Icon */}
+                        <div className="mb-4 text-[#00e6e6] group-hover:text-[#00ccff] transition-colors duration-300">
+                          {tech.icon}
+                        </div>
+                        
+                        {/* Technology name */}
+                        <h3 className="text-lg font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] to-[#00ccff] group-hover:from-[#00ccff] group-hover:to-[#4d4dff] transition-all duration-300">
                           {tech.name}
-                        </span>
+                        </h3>
+                        
+                        {/* Description - shows on hover */}
+                        <p className="text-sm text-[#00e6e6]/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 leading-relaxed">
+                          {tech.description}
+                        </p>
+                        
+                        {/* Hover glow effect */}
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#00e6e6]/0 via-[#00e6e6]/5 to-[#00ccff]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
                     ))}
+                  </div>
+                  
+                  {/* Bottom tagline */}
+                  <div className="text-center mt-12">
+                    <p className="text-sm bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#4d4dff] animate-gradient">
+                      Enterprise-grade technology stack • Rapid deployment • Scalable solutions
+                    </p>
                   </div>
                 </div>
               </div>
