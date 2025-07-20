@@ -23,6 +23,7 @@ import { ChatInterface } from './components/ChatInterface';
 import { VoiceButton } from './components/VoiceButton';
 import { IntegrationsMarquee } from './components/IntegrationsMarquee';
 import SocialFeeds from './components/SocialFeeds';
+import SplashCursor from './components/SplashCursor';
 
 // Lazy load the pages
 const MattsTasklist = lazy(() => import('./pages/matts-tasklist/page'));
@@ -31,7 +32,7 @@ const AboutUs = lazy(() => import('./pages/about-us/page'));
 const ContactUs = lazy(() => import('./pages/contact-us/page'));
 const EliteOps = lazy(() => import('./pages/elite-ops/page'));
 
-function App() {
+  function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops'>('home');
   const [isIntersecting, setIsIntersecting] = useState<Record<string, boolean>>({});
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -449,6 +450,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#0a0f16]/90 text-white relative">
       <GridBackground />
+      <SplashCursor />
       {renderPage()}
     </div>
   );

@@ -33,7 +33,7 @@ const ContactUs = () => {
               <div className="flex items-center space-x-3">
                 <MapPin className="w-5 h-5 text-[#00e6e6]" />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-                  123 AI Street, Starbase, Tx 
+                  Matt-GPT AI Street, Starbase, Tx 
                 </span>
               </div>
             </div>
