@@ -70,7 +70,7 @@ The `examplecode` directory contains reference implementations and backup code. 
 The site is deployed at https://hales.ai using the following setup:
 
 ### Server Configuration
-- Server IP: 143.198.69.38
+- Server IP: 134.199.239.171
 - Docker container running on port 3000
 - Nginx reverse proxy handling SSL and domain routing
 - SSL certificates managed by Let's Encrypt
@@ -105,14 +105,14 @@ The site is deployed at https://hales.ai using the following setup:
    This approach avoids merge conflicts and ensures a clean deployment:
    ```bash
    # Backup existing code
-   cd ~
+   cd ~/projects
    mv HalesGlobal HalesGlobal_backup_$(date +%Y%m%d)
    
    # Clone fresh copy
    git clone https://github.com/notsoround/HalesGlobal.git
    
    # Deploy
-   cd Hales
+   cd ~/projects/HalesGlobal
    docker stop $(docker ps -a -q --filter "publish=3000")
    docker build -t hales-ai-website .
    docker run -d -p 3000:3000 hales-ai-website
@@ -121,7 +121,7 @@ The site is deployed at https://hales.ai using the following setup:
 4. **Alternative: Update Existing Repository:**
    Only use this if you need to preserve local changes on the server:
    ```bash
-   cd Hales
+   cd ~/projects/HalesGlobal
    git stash  # Save any local changes
    git pull origin main
    docker stop $(docker ps -a -q --filter "publish=3000")
@@ -149,7 +149,7 @@ The site is deployed at https://hales.ai using the following setup:
 ### Architecture Notes
 - The application runs in a Docker container on port 3000
 - Nginx handles SSL termination and proxies requests to the container
-- Domain hales.ai points to 143.198.69.38
+- Domain hales.ai points to 134.199.239.171
 - SSL certificates are stored in /etc/letsencrypt/live/hales.ai/
 
 
