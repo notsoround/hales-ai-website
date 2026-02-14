@@ -95,24 +95,6 @@ body {
   animation: pulse 8s ease infinite;
 }
 
-@keyframes scrollRight {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes scrollLeft {
-  0% {
-    transform: translateX(-50%);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
 /* Mobile-specific styles */
 @media (max-width: 768px) {
   .cursor-trail, .cursor-dot {
