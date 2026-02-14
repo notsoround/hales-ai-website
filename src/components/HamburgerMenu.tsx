@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
-type PageType = 'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test';
+type PageType = 'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test' | 'cupcake';
 
 interface HamburgerMenuProps {
   onNavigate: (page: PageType) => void;
@@ -17,7 +17,8 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ onNavigate, currentPage }
     { id: 'about-us', label: 'About Us', value: 'about-us' },
     { id: 'contact-us', label: 'Contact Us', value: 'contact-us' },
     { id: 'elite-ops', label: 'Elite Ops', value: 'elite-ops' },
-    { id: 'cupcake-test', label: '🧁 Cupcake', value: 'cupcake-test' },
+    { id: 'cupcake-test', label: '🧁 Cupcake Demo', value: 'cupcake-test' },
+    { id: 'cupcake', label: '🧁 Cupcake Dashboard', value: 'cupcake' },
   ];
 
   const handleMenuClick = (value: PageType) => {
