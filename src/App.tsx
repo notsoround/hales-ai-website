@@ -30,9 +30,10 @@ const AboutUs = lazy(() => import('./pages/about-us/page'));
 const ContactUs = lazy(() => import('./pages/contact-us/page'));
 const EliteOps = lazy(() => import('./pages/elite-ops/page'));
 const CupcakeTest = lazy(() => import('./pages/cupcake-test/page'));
+const CupcakeDashboard = lazy(() => import('./pages/cupcake/page'));
 
   function App() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test' | 'cupcake'>('home');
   const [isIntersecting, setIsIntersecting] = useState<Record<string, boolean>>({});
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isGlobResponding, setIsGlobResponding] = useState(false);
@@ -149,6 +150,12 @@ const CupcakeTest = lazy(() => import('./pages/cupcake-test/page'));
         return (
           <Suspense fallback={<div className="text-center p-4">Loading Cupcake...</div>}>
             <CupcakeTest />
+          </Suspense>
+        );
+      case 'cupcake':
+        return (
+          <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Cupcake Dashboard...</div>}>
+            <CupcakeDashboard />
           </Suspense>
         );
       default:
