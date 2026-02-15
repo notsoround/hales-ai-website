@@ -2,8 +2,55 @@ import { useState, useRef, useEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import { ProjectCard } from './ProjectCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { SparkleEffect } from './SparkleEffect';
 
 const projects = [
+  {
+    id: 13,
+    title: 'Summit 2026: Strategic Planning',
+    description:
+      'Executive strategic planning session to define the roadmap for Hales AI in 2026. Interactive scheduling and resource access.',
+    image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=1600',
+    category: 'Executive Summit',
+    specs: {
+      technology: 'Interactive Presentation',
+      features: [
+        'Strategic Roadmap',
+        'Resource Planning',
+        'Growth Targets',
+        'Team Alignment',
+      ],
+      accuracy: '100% Alignment',
+      deployment: 'Q1 2026',
+      scalability: 'Global Expansion',
+    },
+    review: {
+      text: 'Crucial planning session for our next phase of growth.',
+      author: 'Matt Hales',
+      role: 'CEO',
+      date: 'Pending Schedule',
+    },
+    interactive: {
+      actions: [
+        {
+          label: 'Schedule in December (Fast Track)',
+          onClick: () => window.open('mailto:matt@hales.ai?subject=Schedule Summit: December Option', '_blank'),
+          primary: true,
+        },
+        {
+          label: 'Schedule in January',
+          onClick: () => window.open('mailto:matt@hales.ai?subject=Schedule Summit: January Option', '_blank'),
+          primary: false,
+        },
+      ],
+      files: [
+        { name: '2025_Growth_Report.pdf', size: '2.4 MB', type: 'PDF' },
+        { name: '2026_Strategic_Roadmap_Draft.pdf', size: '1.8 MB', type: 'PDF' },
+        { name: 'Resource_Allocation_Brief.docx', size: '850 KB', type: 'DOCX' },
+        { name: 'Competitor_Analysis_Q4.pptx', size: '5.2 MB', type: 'PPTX' }
+      ]
+    }
+  },
   {
     id: 1,
     title: 'AI Assistant Development',
@@ -383,19 +430,20 @@ export function ProjectShowcase() {
 
   return (
     <animated.div
+      id="project-showcase"
       ref={containerRef}
-      className="py-24 relative overflow-hidden bg-gradient-to-b from-[#0a1a2b] to-[#0a0f16]"
+      className="py-24 relative overflow-hidden bg-background"
       style={{
         transform: backgroundY.to((y) => `translateY(${y}px)`),
       }}
     >
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
-          <h2 className="text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] animate-gradient">
+          <h2 className="text-6xl font-bold mb-4 font-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
             Featured Projects
           </h2>
-          <p className="text-xl max-w-2xl mx-auto bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] animate-gradient-slow">
-            Explore our latest innovations in AI and technology solutions
+          <p className="text-xl max-w-2xl mx-auto text-gray-400 font-light">
+            Explore our latest innovations in <span className="text-primary">AI</span> and <span className="text-secondary">technology</span> solutions
           </p>
         </div>
 
@@ -412,12 +460,12 @@ export function ProjectShowcase() {
               return (
                 <div
                   key={projects[index].id}
-                  className={`transition-all duration-500 ${
-                    offset === 0
-                      ? 'opacity-100 scale-100 z-10'
-                      : 'opacity-50 scale-90 z-0'
-                  }`}
+                  className={`transition-all duration-500 relative ${offset === 0
+                    ? 'opacity-100 scale-100 z-10'
+                    : 'opacity-50 scale-90 z-0'
+                    }`}
                 >
+                  {offset === 0 && <SparkleEffect />}
                   <ProjectCard project={projects[index]} index={index} />
                 </div>
               );
@@ -426,17 +474,17 @@ export function ProjectShowcase() {
 
           <button
             onClick={prevProject}
-            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-6 bg-gradient-to-r from-[#00e6e6]/20 via-[#00ccff]/20 to-[#1a1aff]/20 hover:from-[#00e6e6]/30 hover:via-[#00ccff]/30 hover:to-[#1a1aff]/30 rounded-full p-4 backdrop-blur-sm transition-all hover:scale-110"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-6 bg-surface border border-white/5 hover:border-primary/50 rounded-full p-4 backdrop-blur-sm transition-all hover:scale-110 hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] group"
             aria-label="Previous project"
           >
-            <ChevronLeft className="w-6 h-6 text-[#00e6e6]" />
+            <ChevronLeft className="w-6 h-6 text-gray-400 group-hover:text-primary transition-colors" />
           </button>
           <button
             onClick={nextProject}
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-6 bg-gradient-to-r from-[#00e6e6]/20 via-[#00ccff]/20 to-[#1a1aff]/20 hover:from-[#00e6e6]/30 hover:via-[#00ccff]/30 hover:to-[#1a1aff]/30 rounded-full p-4 backdrop-blur-sm transition-all hover:scale-110"
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-6 bg-surface border border-white/5 hover:border-primary/50 rounded-full p-4 backdrop-blur-sm transition-all hover:scale-110 hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] group"
             aria-label="Next project"
           >
-            <ChevronRight className="w-6 h-6 text-[#00e6e6]" />
+            <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-primary transition-colors" />
           </button>
 
           <div className="flex justify-center gap-2 mt-8">
@@ -444,11 +492,10 @@ export function ProjectShowcase() {
               <button
                 key={i}
                 onClick={() => setCurrentIndex(i)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  i === currentIndex
-                    ? 'bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] w-8 animate-gradient'
-                    : 'bg-[#00e6e6]/20 hover:bg-[#00e6e6]/40'
-                }`}
+                className={`w-2 h-2 rounded-full transition-all ${i === currentIndex
+                  ? 'bg-gradient-to-r from-primary via-white to-secondary w-8'
+                  : 'bg-white/10 hover:bg-white/30'
+                  }`}
                 aria-label={`Go to project ${i + 1}`}
               />
             ))}

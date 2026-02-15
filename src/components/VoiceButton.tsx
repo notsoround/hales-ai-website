@@ -78,17 +78,17 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
   useEffect(() => {
     if (!isSessionActive && textRef.current) {
       const timeline = gsap.timeline({ repeat: -1 });
-      timeline.to(textRef.current, { 
-        scale: 1.03, 
-        duration: 0.8, 
-        ease: "power1.inOut" 
+      timeline.to(textRef.current, {
+        scale: 1.03,
+        duration: 0.8,
+        ease: "power1.inOut"
       });
-      timeline.to(textRef.current, { 
-        scale: 1, 
-        duration: 0.8, 
-        ease: "power1.inOut" 
+      timeline.to(textRef.current, {
+        scale: 1,
+        duration: 0.8,
+        ease: "power1.inOut"
       });
-      
+
       return () => {
         timeline.kill();
       };
@@ -157,9 +157,9 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
       {/* Floating particles around the button */}
       <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
         {[...Array(8)].map((_, i) => (
-          <div 
+          <div
             key={i}
-            className="absolute w-2 h-2 rounded-full bg-[#00e6e6]/30"
+            className="absolute w-2 h-2 rounded-full bg-primary/30"
             style={{
               top: `${Math.random() * 100}%`,
               left: `${Math.random() * 100}%`,
@@ -168,60 +168,59 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
           />
         ))}
       </div>
-      
+
       <button
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         disabled={buttonState === STATES.LOADING || buttonState === STATES.STOPPING}
-        className={`relative group overflow-hidden rounded-full border border-[#00e6e6]/30 px-8 py-4 transition-all duration-300 w-full ${
-          buttonState === STATES.TALKING 
-            ? 'bg-gradient-to-r from-[#00e6e6]/20 via-[#00ccff]/20 to-[#1a1aff]/20 animate-gradient'
-            : 'bg-transparent hover:bg-[#00e6e6]/10'
-        }`}
+        className={`relative group overflow-hidden rounded-full border border-primary/30 px-8 py-4 transition-all duration-300 w-full glass-panel ${buttonState === STATES.TALKING
+            ? 'bg-gradient-to-r from-primary/20 via-secondary/20 to-primary/20 animate-gradient shadow-[0_0_30px_rgba(0,230,230,0.3)]'
+            : 'bg-surface/30 hover:bg-surface/50 hover:border-primary/50'
+          }`}
       >
         <div className="flex items-center justify-between w-full">
-          <span ref={textRef} className="font-mono text-white tracking-wider">
+          <span ref={textRef} className="font-mono text-white tracking-wider font-bold">
             {getButtonText()}
           </span>
-          
+
           <div className="flex items-center justify-center w-8 h-8 ml-4">
             {buttonState === STATES.TALKING ? (
               <div className="relative">
-                <Volume2 size={20} className="text-[#00e6e6]" />
-                <div 
-                  className="absolute inset-0 bg-[#00e6e6] rounded-full opacity-20 animate-pulse"
-                  style={{ 
+                <Volume2 size={20} className="text-primary" />
+                <div
+                  className="absolute inset-0 bg-primary rounded-full opacity-20 animate-pulse"
+                  style={{
                     transform: `scale(${1 + volumeLevel / 100})`,
                     transition: 'transform 0.1s ease-out'
                   }}
                 />
               </div>
             ) : (
-              <Mic size={20} className="text-[#00e6e6] animate-pulse" />
+              <Mic size={20} className="text-primary animate-pulse" />
             )}
           </div>
         </div>
-        
+
         {/* Background glow effect */}
-        <div 
-          className="absolute inset-0 bg-gradient-to-r from-[#00e6e6]/5 via-[#00ccff]/5 to-[#1a1aff]/5 animate-gradient"
+        <div
+          className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 animate-gradient"
           style={{
             opacity: buttonState === STATES.TALKING ? 0.5 : 0.2
           }}
         />
-        
+
         {/* Loading/Stopping overlay */}
         {(buttonState === STATES.LOADING || buttonState === STATES.STOPPING) && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-full">
             {buttonState === STATES.LOADING ? (
               <div className="flex space-x-3">
-                <div className="h-3 w-3 bg-[#00e6e6] rounded-full animate-[pulse_0.6s_ease-in-out_infinite]"></div>
-                <div className="h-3 w-3 bg-[#00e6e6] rounded-full animate-[pulse_0.6s_ease-in-out_0.2s_infinite]"></div>
-                <div className="h-3 w-3 bg-[#00e6e6] rounded-full animate-[pulse_0.6s_ease-in-out_0.4s_infinite]"></div>
+                <div className="h-3 w-3 bg-primary rounded-full animate-[pulse_0.6s_ease-in-out_infinite]"></div>
+                <div className="h-3 w-3 bg-primary rounded-full animate-[pulse_0.6s_ease-in-out_0.2s_infinite]"></div>
+                <div className="h-3 w-3 bg-primary rounded-full animate-[pulse_0.6s_ease-in-out_0.4s_infinite]"></div>
               </div>
             ) : (
-              <div className="w-6 h-6 border-[3px] border-[#00e6e6] border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-6 h-6 border-[3px] border-primary border-t-transparent rounded-full animate-spin"></div>
             )}
           </div>
         )}

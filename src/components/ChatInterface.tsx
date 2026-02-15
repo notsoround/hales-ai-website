@@ -29,7 +29,7 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
     // Initialize audio player
     const player = new Audio();
     setAudioPlayer(player);
-    
+
     // Add welcome message
     if (messages.length === 0) {
       setMessages([
@@ -40,7 +40,7 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
         }
       ]);
     }
-    
+
     // Initialize conversation when component mounts
     const initConversation = async () => {
       if (!initializationAttempted && vapiService.isConfigured()) {
@@ -50,7 +50,7 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
         } catch (error) {
           // Add a system message to inform the user
           setMessages(prev => [
-            ...prev, 
+            ...prev,
             {
               role: 'assistant',
               content: "I'm having trouble connecting to my voice service. You can still chat with me, but voice features might be limited.",
@@ -61,9 +61,9 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
         }
       }
     };
-    
+
     initConversation();
-    
+
     return () => {
       if (player) {
         player.pause();
@@ -101,19 +101,19 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
 
     const userMessage = input.trim();
     setInput('');
-    
+
     // Add user message to chat
     const newUserMessage: ChatMessage = {
       role: 'user',
       content: userMessage,
       timestamp: new Date()
     };
-    
+
     setMessages(prev => [...prev, newUserMessage]);
     onMessageSent(userMessage);
-    
+
     setIsLoading(true);
-    
+
     try {
       // Check if Vapi service is configured
       if (!vapiService.isConfigured()) {
@@ -124,7 +124,7 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
         }, 1000);
         return;
       }
-      
+
       // Send message to Vapi.ai
       const response = await vapiService.sendMessage(userMessage);
       handleAssistantResponse(response.message, response.audioUrl);
@@ -142,10 +142,10 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
       timestamp: new Date(),
       audioUrl
     };
-    
+
     setMessages(prev => [...prev, assistantMessage]);
     onMessageReceived(responseText);
-    
+
     // Play audio if available
     if (audioUrl) {
       playAudio(audioUrl);
@@ -155,41 +155,40 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 w-80 h-96 bg-[#0a1a2b] rounded-2xl shadow-xl border border-[#00e6e6]/20 flex flex-col overflow-hidden z-50">
+    <div className="fixed bottom-4 right-4 w-80 h-96 glass-panel rounded-2xl shadow-xl flex flex-col overflow-hidden z-50">
       {/* Header */}
-      <div className="p-3 border-b border-[#00e6e6]/20 flex justify-between items-center bg-gradient-to-r from-[#00e6e6]/10 via-[#00ccff]/10 to-[#1a1aff]/10 animate-gradient">
-        <h3 className="font-semibold text-[#00e6e6]">Hales AI Assistant</h3>
-        <button 
+      <div className="p-3 border-b border-white/10 flex justify-between items-center bg-surface/50">
+        <h3 className="font-semibold text-primary font-display">Hales AI Assistant</h3>
+        <button
           onClick={onClose}
-          className="text-[#00e6e6] hover:text-[#00ccff] transition-colors"
+          className="text-primary hover:text-white transition-colors"
         >
           <X size={18} />
         </button>
       </div>
-      
+
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
         {messages.map((msg, index) => (
-          <div 
-            key={index} 
+          <div
+            key={index}
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <div 
-              className={`max-w-[80%] p-3 rounded-2xl ${
-                msg.role === 'user' 
-                  ? 'bg-gradient-to-r from-[#00e6e6]/20 via-[#00ccff]/20 to-[#1a1aff]/20 text-white' 
-                  : 'bg-[#0a0f16] text-[#00e6e6]'
-              }`}
+            <div
+              className={`max-w-[80%] p-3 rounded-2xl ${msg.role === 'user'
+                  ? 'bg-gradient-to-r from-primary/20 to-secondary/20 text-white border border-primary/20'
+                  : 'bg-surface/50 text-gray-200 border border-white/5'
+                }`}
             >
-              <p>{msg.content}</p>
-              <div className="text-xs opacity-50 mt-1 flex justify-between items-center">
+              <p className="text-sm leading-relaxed">{msg.content}</p>
+              <div className="text-[10px] opacity-50 mt-1 flex justify-between items-center">
                 <span>
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 {msg.role === 'assistant' && msg.audioUrl && (
-                  <button 
+                  <button
                     onClick={() => playAudio(msg.audioUrl!)}
-                    className="ml-2 text-[#00e6e6] hover:text-[#00ccff]"
+                    className="ml-2 text-primary hover:text-white"
                   >
                     <Mic size={12} />
                   </button>
@@ -200,39 +199,40 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-[#0a0f16] p-3 rounded-2xl max-w-[80%]">
+            <div className="bg-surface/50 p-3 rounded-2xl max-w-[80%] border border-white/5">
               <div className="flex space-x-2">
-                <div className="w-2 h-2 rounded-full bg-[#00e6e6] animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-[#00ccff] animate-pulse delay-150"></div>
-                <div className="w-2 h-2 rounded-full bg-[#1a1aff] animate-pulse delay-300"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse delay-150"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse delay-300"></div>
               </div>
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-3 border-t border-[#00e6e6]/20 flex gap-2">
+      <form onSubmit={handleSubmit} className="p-3 border-t border-white/10 flex gap-2 bg-surface/50">
         <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 bg-[#0a0f16] border border-[#00e6e6]/20 rounded-full px-4 py-2 focus:outline-none focus:border-[#00e6e6] text-white"
+          className="flex-1 bg-black/20 border border-white/10 rounded-full px-4 py-2 focus:outline-none focus:border-primary/50 focus:bg-black/40 text-white text-sm placeholder-gray-500 transition-all"
         />
         <button
           type="button"
-          className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00e6e6]/20 via-[#00ccff]/20 to-[#1a1aff]/20 flex items-center justify-center text-[#00e6e6] hover:text-[#00ccff] transition-colors"
+          className="w-9 h-9 rounded-full bg-surface/50 border border-white/10 flex items-center justify-center text-primary hover:text-white hover:bg-surface hover:border-primary/30 transition-all"
         >
-          <Mic size={18} />
+          <Mic size={16} />
         </button>
         <button
           type="submit"
-          className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] flex items-center justify-center text-white hover:opacity-90 transition-opacity animate-gradient"
+          disabled={!input.trim()}
+          className="w-9 h-9 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center text-black hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
         >
-          <Send size={18} />
+          <Send size={16} />
         </button>
       </form>
     </div>
