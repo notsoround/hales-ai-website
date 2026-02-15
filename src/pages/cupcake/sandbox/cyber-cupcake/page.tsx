@@ -130,11 +130,11 @@ const CyberCupcake: React.FC = () => {
             <span className={`inline-block w-2 h-6 bg-green-400 ml-1 ${showCursor ? 'opacity-100' : 'opacity-0'}`}></span>
           </div>
           <div className="mt-8 text-green-500/50 text-sm">
-            > SYSTEM STATUS: <span className="text-green-400">CUPCAKE_OS v3.1.4</span><br/>
-            > MEMORY: <span className="text-green-400">87% SWEETNESS</span><br/>
-            > PROCESSES: <span className="text-green-400">42 FROSTING_THREADS</span><br/>
+            &gt; SYSTEM STATUS: <span className="text-green-400">CUPCAKE_OS v3.1.4</span><br/>
+            &gt; MEMORY: <span className="text-green-400">87% SWEETNESS</span><br/>
+            &gt; PROCESSES: <span className="text-green-400">42 FROSTING_THREADS</span><br/>
             <br/>
-            > <span className="text-green-300">READY FOR COMMANDS...</span>
+            &gt; <span className="text-green-300">READY FOR COMMANDS...</span>
           </div>
         </div>
 
