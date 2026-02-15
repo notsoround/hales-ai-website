@@ -11,7 +11,7 @@ const navItems = [
     { name: 'About Us', id: 'about-us' },
     { name: 'Contact Us', id: 'contact-us' },
     { name: 'Elite Ops', id: 'elite-ops' },
-    { name: 'Cupcake', id: 'cupcake' },
+    { name: '🧁 Cupcake', id: 'cupcake' },
 ];
 
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
