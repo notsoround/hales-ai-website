@@ -32,13 +32,88 @@ const ContactUs = lazy(() => import('./pages/contact-us/page'));
 const EliteOps = lazy(() => import('./pages/elite-ops/page'));
 const CupcakeTest = lazy(() => import('./pages/cupcake-test/page'));
 const CupcakeDashboard = lazy(() => import('./pages/cupcake/page'));
+const SandboxIndex = lazy(() => import('./pages/cupcake/sandbox/page'));
+
+// Auto-discover sandbox pages at build time (Cupcake creates these via exec pipeline)
+const sandboxModules = import.meta.glob<{ default: React.ComponentType }>(
+  './pages/cupcake/sandbox/*/page.tsx'
+);
+
+// Filter out _template from sandbox modules
+const activeSandboxModules = Object.fromEntries(
+  Object.entries(sandboxModules).filter(([path]) => !path.includes('_template'))
+);
+
+// Map pathname to page state value
+function pathnameToPage(pathname: string): string {
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  const routes: Record<string, string> = {
+    '/': 'home',
+    '/about-us': 'about-us',
+    '/contact-us': 'contact-us',
+    '/elite-ops': 'elite-ops',
+    '/matts-tasklist': 'matts-tasklist',
+    '/quantum-code': 'quantum-code',
+    '/get-started': 'get-started',
+    '/learn-more': 'learn-more',
+    '/cupcake': 'cupcake',
+    '/cupcake-test': 'cupcake-test',
+    '/cupcake/sandbox': 'cupcake-sandbox',
+  };
+  if (routes[clean]) return routes[clean];
+  // Check for sandbox sub-pages: /cupcake/sandbox/<slug>
+  const sandboxMatch = clean.match(/^\/cupcake\/sandbox\/([a-z0-9-]+)$/);
+  if (sandboxMatch) return `cupcake-sandbox-${sandboxMatch[1]}`;
+  return 'home';
+}
+
+// Map page state value back to pathname
+function pageToPathname(page: string): string {
+  if (page === 'home') return '/';
+  if (page === 'cupcake-sandbox') return '/cupcake/sandbox';
+  if (page.startsWith('cupcake-sandbox-')) return `/cupcake/sandbox/${page.replace('cupcake-sandbox-', '')}`;
+  return `/${page}`;
+}
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test' | 'cupcake'>('home');
+  const [currentPage, setCurrentPageState] = useState<string>(() => pathnameToPage(window.location.pathname));
   const [isIntersecting, setIsIntersecting] = useState<Record<string, boolean>>({});
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isGlobResponding, setIsGlobResponding] = useState(false);
+  const [SandboxComponent, setSandboxComponent] = useState<React.ComponentType | null>(null);
   const observerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Navigate with URL update
+  const setCurrentPage = (page: string) => {
+    const path = pageToPathname(page);
+    window.history.pushState({ page }, '', path);
+    setCurrentPageState(page);
+  };
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPageState(pathnameToPage(window.location.pathname));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Load dynamic sandbox page component when needed
+  useEffect(() => {
+    if (currentPage.startsWith('cupcake-sandbox-')) {
+      const slug = currentPage.replace('cupcake-sandbox-', '');
+      const modulePath = `./pages/cupcake/sandbox/${slug}/page.tsx`;
+      const loader = activeSandboxModules[modulePath];
+      if (loader) {
+        loader().then((mod) => setSandboxComponent(() => mod.default));
+      } else {
+        setSandboxComponent(null);
+      }
+    } else {
+      setSandboxComponent(null);
+    }
+  }, [currentPage]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -159,7 +234,36 @@ function App() {
             <CupcakeDashboard />
           </Suspense>
         );
+      case 'cupcake-sandbox':
+        return (
+          <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Sandbox...</div>}>
+            <SandboxIndex />
+          </Suspense>
+        );
       default:
+        // Check if it's a dynamic sandbox page
+        if (currentPage.startsWith('cupcake-sandbox-') && SandboxComponent) {
+          return (
+            <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading sandbox page...</div>}>
+              <SandboxComponent />
+            </Suspense>
+          );
+        }
+        if (currentPage.startsWith('cupcake-sandbox-') && !SandboxComponent) {
+          return (
+            <div className="min-h-screen bg-[#0a0f16] flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-2xl text-pink-400/40 mb-4">Page not found</p>
+                <button
+                  onClick={() => setCurrentPage('cupcake-sandbox')}
+                  className="text-pink-400 hover:text-pink-300 transition"
+                >
+                  &larr; Back to Sandbox
+                </button>
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="relative">
             {/* Announcement Bar */}
@@ -182,7 +286,7 @@ function App() {
                     {['About Us', 'Contact Us', 'Elite Ops'].map((item) => (
                       <button
                         key={item}
-                        onClick={() => setCurrentPage(item.toLowerCase().replace(' ', '-') as any)}
+                        onClick={() => setCurrentPage(item.toLowerCase().replace(' ', '-'))}
                         className="text-[#00e6e6] hover:text-[#00ccff] transition"
                       >
                         {item}
