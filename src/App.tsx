@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import {
   Headphones,
   MessageSquareMore,
@@ -22,63 +22,11 @@ import { Footer } from './components/Footer';
 const AboutUs = lazy(() => import('./pages/about-us/page'));
 const ContactUs = lazy(() => import('./pages/contact-us/page'));
 const EliteOps = lazy(() => import('./pages/elite-ops/page'));
-const CupcakeTest = lazy(() => import('./pages/cupcake-test/page'));
-const CupcakeDashboard = lazy(() => import('./pages/cupcake/page'));
-const SandboxIndex = lazy(() => import('./pages/cupcake/sandbox/page'));
-
-// Auto-discover sandbox pages at build time
-const sandboxModules = import.meta.glob<{ default: React.ComponentType }>(
-  './pages/cupcake/sandbox/*/page.tsx'
-);
-const activeSandboxModules = Object.fromEntries(
-  Object.entries(sandboxModules).filter(([path]) => !path.includes('_template'))
-);
-
-// URL routing helpers
-function pathnameToPage(pathname: string): string {
-  const clean = pathname.replace(/\/+$/, '') || '/';
-  const routes: Record<string, string> = {
-    '/': 'home', '/about-us': 'about-us', '/contact-us': 'contact-us',
-    '/elite-ops': 'elite-ops', '/get-started': 'get-started', '/learn-more': 'learn-more',
-    '/cupcake': 'cupcake', '/cupcake-test': 'cupcake-test', '/cupcake/sandbox': 'cupcake-sandbox',
-  };
-  if (routes[clean]) return routes[clean];
-  const sandboxMatch = clean.match(/^\/cupcake\/sandbox\/([a-z0-9-]+)$/);
-  if (sandboxMatch) return `cupcake-sandbox-${sandboxMatch[1]}`;
-  return 'home';
-}
-function pageToPathname(page: string): string {
-  if (page === 'home') return '/';
-  if (page === 'cupcake-sandbox') return '/cupcake/sandbox';
-  if (page.startsWith('cupcake-sandbox-')) return `/cupcake/sandbox/${page.replace('cupcake-sandbox-', '')}`;
-  return `/${page}`;
-}
+const CupcakeTest = lazy(() => import("./pages/cupcake-test/page"));
+const CupcakeDashboard = lazy(() => import("./pages/cupcake/page"));
 
 function App() {
-  const [currentPage, setCurrentPageState] = useState<string>(() => pathnameToPage(window.location.pathname));
-  const [SandboxComponent, setSandboxComponent] = useState<React.ComponentType | null>(null);
-
-  const setCurrentPage = (page: string) => {
-    const path = pageToPathname(page);
-    window.history.pushState({ page }, '', path);
-    setCurrentPageState(page);
-  };
-
-  useEffect(() => {
-    const handlePopState = () => setCurrentPageState(pathnameToPage(window.location.pathname));
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  useEffect(() => {
-    if (currentPage.startsWith('cupcake-sandbox-')) {
-      const slug = currentPage.replace('cupcake-sandbox-', '');
-      const modulePath = `./pages/cupcake/sandbox/${slug}/page.tsx`;
-      const loader = activeSandboxModules[modulePath];
-      if (loader) { loader().then((mod) => setSandboxComponent(() => mod.default)); }
-      else { setSandboxComponent(null); }
-    } else { setSandboxComponent(null); }
-  }, [currentPage]);
+  const [currentPage, setCurrentPage] = useState<'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test' | 'cupcake'>('home');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const handleMessageSent = (message: string) => {
@@ -125,38 +73,19 @@ function App() {
             <EliteOps />
           </Suspense>
         );
-      case 'cupcake-test':
+      case "cupcake-test":
         return (
           <Suspense fallback={<div className="text-center p-4">Loading...</div>}>
             <CupcakeTest />
           </Suspense>
         );
-      case 'cupcake':
+      case "cupcake":
         return (
           <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Cupcake...</div>}>
             <CupcakeDashboard />
           </Suspense>
         );
-      case 'cupcake-sandbox':
-        return (
-          <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Sandbox...</div>}>
-            <SandboxIndex />
-          </Suspense>
-        );
       default:
-        if (currentPage.startsWith('cupcake-sandbox-') && SandboxComponent) {
-          return <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading...</div>}><SandboxComponent /></Suspense>;
-        }
-        if (currentPage.startsWith('cupcake-sandbox-')) {
-          return (
-            <div className="min-h-screen bg-[#0a0f16] flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-2xl text-pink-400/40 mb-4">Page not found</p>
-                <button onClick={() => setCurrentPage('cupcake-sandbox')} className="text-pink-400 hover:text-pink-300 transition">&larr; Back to Sandbox</button>
-              </div>
-            </div>
-          );
-        }
         return (
           <div className="min-h-screen bg-[#020410] text-white relative font-sans selection:bg-primary/20 selection:text-primary">
             <Navbar onNavigate={setCurrentPage} currentPage={currentPage} />
