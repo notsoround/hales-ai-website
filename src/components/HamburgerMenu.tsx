@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
-type PageType = 'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test' | 'cupcake';
-
 interface HamburgerMenuProps {
-  onNavigate: (page: PageType) => void;
-  currentPage: PageType;
+  onNavigate: (page: string) => void;
+  currentPage: string;
 }
 
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ onNavigate, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const menuItems: Array<{ id: string; label: string; value: PageType }> = [
+  const menuItems: Array<{ id: string; label: string; value: string }> = [
     { id: 'task-list', label: 'Task List', value: 'matts-tasklist' },
     { id: 'quantum-code', label: 'Quantum Code', value: 'quantum-code' },
     { id: 'about-us', label: 'About Us', value: 'about-us' },
@@ -19,9 +17,10 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ onNavigate, currentPage }
     { id: 'elite-ops', label: 'Elite Ops', value: 'elite-ops' },
     { id: 'cupcake-test', label: '🧁 Cupcake Demo', value: 'cupcake-test' },
     { id: 'cupcake', label: '🧁 Cupcake Dashboard', value: 'cupcake' },
+    { id: 'cupcake-sandbox', label: '🧁 Cupcake Sandbox', value: 'cupcake-sandbox' },
   ];
 
-  const handleMenuClick = (value: PageType) => {
+  const handleMenuClick = (value: string) => {
     onNavigate(value);
     setIsOpen(false);
   };
