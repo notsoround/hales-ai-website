@@ -1,21 +1,13 @@
-import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import {
-  Bot,
-  Calendar,
-  Code2,
-  FileCode2,
-  Globe,
   Headphones,
   MessageSquareMore,
-  Mic2,
   Network,
-  Phone,
   Settings,
-  Workflow,
 } from 'lucide-react';
-import HamburgerMenu from './components/HamburgerMenu';
-import { GridBackground } from './components/GridBackground';
-import AbstractBall from './components/AbstractBall';
+import { Navbar } from './components/Navbar';
+import { Hero3D } from './components/Hero3D';
+import { BentoGrid } from './components/BentoGrid';
 import { ProjectShowcase } from './components/ProjectShowcase';
 import { GetStarted } from './components/GetStarted';
 import { LearnMore } from './components/LearnMore';
@@ -23,10 +15,10 @@ import { ChatInterface } from './components/ChatInterface';
 import { VoiceButton } from './components/VoiceButton';
 import { IntegrationsMarquee } from './components/IntegrationsMarquee';
 import SocialFeeds from './components/SocialFeeds';
+import DotCursor from './components/DotCursor';
+import { Footer } from './components/Footer';
 
 // Lazy load the pages
-const MattsTasklist = lazy(() => import('./pages/matts-tasklist/page'));
-const QuantumCode = lazy(() => import('./pages/Hales-Ai_Quantum_Code/page'));
 const AboutUs = lazy(() => import('./pages/about-us/page'));
 const ContactUs = lazy(() => import('./pages/contact-us/page'));
 const EliteOps = lazy(() => import('./pages/elite-ops/page'));
@@ -34,40 +26,27 @@ const CupcakeTest = lazy(() => import('./pages/cupcake-test/page'));
 const CupcakeDashboard = lazy(() => import('./pages/cupcake/page'));
 const SandboxIndex = lazy(() => import('./pages/cupcake/sandbox/page'));
 
-// Auto-discover sandbox pages at build time (Cupcake creates these via exec pipeline)
+// Auto-discover sandbox pages at build time
 const sandboxModules = import.meta.glob<{ default: React.ComponentType }>(
   './pages/cupcake/sandbox/*/page.tsx'
 );
-
-// Filter out _template from sandbox modules
 const activeSandboxModules = Object.fromEntries(
   Object.entries(sandboxModules).filter(([path]) => !path.includes('_template'))
 );
 
-// Map pathname to page state value
+// URL routing helpers
 function pathnameToPage(pathname: string): string {
   const clean = pathname.replace(/\/+$/, '') || '/';
   const routes: Record<string, string> = {
-    '/': 'home',
-    '/about-us': 'about-us',
-    '/contact-us': 'contact-us',
-    '/elite-ops': 'elite-ops',
-    '/matts-tasklist': 'matts-tasklist',
-    '/quantum-code': 'quantum-code',
-    '/get-started': 'get-started',
-    '/learn-more': 'learn-more',
-    '/cupcake': 'cupcake',
-    '/cupcake-test': 'cupcake-test',
-    '/cupcake/sandbox': 'cupcake-sandbox',
+    '/': 'home', '/about-us': 'about-us', '/contact-us': 'contact-us',
+    '/elite-ops': 'elite-ops', '/get-started': 'get-started', '/learn-more': 'learn-more',
+    '/cupcake': 'cupcake', '/cupcake-test': 'cupcake-test', '/cupcake/sandbox': 'cupcake-sandbox',
   };
   if (routes[clean]) return routes[clean];
-  // Check for sandbox sub-pages: /cupcake/sandbox/<slug>
   const sandboxMatch = clean.match(/^\/cupcake\/sandbox\/([a-z0-9-]+)$/);
   if (sandboxMatch) return `cupcake-sandbox-${sandboxMatch[1]}`;
   return 'home';
 }
-
-// Map page state value back to pathname
 function pageToPathname(page: string): string {
   if (page === 'home') return '/';
   if (page === 'cupcake-sandbox') return '/cupcake/sandbox';
@@ -77,95 +56,33 @@ function pageToPathname(page: string): string {
 
 function App() {
   const [currentPage, setCurrentPageState] = useState<string>(() => pathnameToPage(window.location.pathname));
-  const [isIntersecting, setIsIntersecting] = useState<Record<string, boolean>>({});
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isGlobResponding, setIsGlobResponding] = useState(false);
   const [SandboxComponent, setSandboxComponent] = useState<React.ComponentType | null>(null);
-  const observerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Navigate with URL update
   const setCurrentPage = (page: string) => {
     const path = pageToPathname(page);
     window.history.pushState({ page }, '', path);
     setCurrentPageState(page);
   };
 
-  // Handle browser back/forward
   useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPageState(pathnameToPage(window.location.pathname));
-    };
+    const handlePopState = () => setCurrentPageState(pathnameToPage(window.location.pathname));
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Load dynamic sandbox page component when needed
   useEffect(() => {
     if (currentPage.startsWith('cupcake-sandbox-')) {
       const slug = currentPage.replace('cupcake-sandbox-', '');
       const modulePath = `./pages/cupcake/sandbox/${slug}/page.tsx`;
       const loader = activeSandboxModules[modulePath];
-      if (loader) {
-        loader().then((mod) => setSandboxComponent(() => mod.default));
-      } else {
-        setSandboxComponent(null);
-      }
-    } else {
-      setSandboxComponent(null);
-    }
+      if (loader) { loader().then((mod) => setSandboxComponent(() => mod.default)); }
+      else { setSandboxComponent(null); }
+    } else { setSandboxComponent(null); }
   }, [currentPage]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const id = entry.target.getAttribute('data-id');
-          if (id) {
-            setIsIntersecting((prev) => ({
-              ...prev,
-              [id]: entry.isIntersecting,
-            }));
-          }
-        });
-      },
-      {
-        threshold: 0.2,
-        rootMargin: '50px',
-      }
-    );
-
-    observerRefs.current.forEach((element) => {
-      observer.observe(element);
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  const setRef = (id: string) => (element: HTMLDivElement | null) => {
-    if (element) {
-      element.setAttribute('data-id', id);
-      observerRefs.current.set(id, element);
-    } else {
-      observerRefs.current.delete(id);
-    }
-  };
-
-  const handleGlobInteractionStart = () => {
-    if (!isChatOpen) {
-      setIsChatOpen(true);
-    }
-  };
-
-  const handleGlobInteractionEnd = () => {
-    // Optional: Add any behavior when interaction ends
-  };
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const handleMessageSent = (message: string) => {
     console.log('User message:', message);
-    setIsGlobResponding(true);
-    setTimeout(() => {
-      setIsGlobResponding(false);
-    }, 3000);
   };
 
   const handleMessageReceived = (message: string) => {
@@ -174,7 +91,6 @@ function App() {
 
   const handleVoiceStart = () => {
     console.log('Voice recording started');
-    setIsGlobResponding(true);
   };
 
   const handleVoiceStop = () => {
@@ -183,27 +99,14 @@ function App() {
 
   const handleVoiceMessage = (message: string) => {
     console.log('Voice message received:', message);
-    setIsGlobResponding(false);
   };
 
   const renderPage = () => {
     switch (currentPage) {
       case 'get-started':
-        return <GetStarted />;
+        return <GetStarted onNavigate={setCurrentPage} />;
       case 'learn-more':
         return <LearnMore />;
-      case 'matts-tasklist':
-        return (
-          <Suspense fallback={<div className="text-center p-4">Loading Task List...</div>}>
-            <MattsTasklist />
-          </Suspense>
-        );
-      case 'quantum-code':
-        return (
-          <Suspense fallback={<div className="text-center p-4">Loading Quantum Code...</div>}>
-            <QuantumCode />
-          </Suspense>
-        );
       case 'about-us':
         return (
           <Suspense fallback={<div className="text-center p-4">Loading About Us...</div>}>
@@ -241,332 +144,171 @@ function App() {
           </Suspense>
         );
       default:
-        // Check if it's a dynamic sandbox page
         if (currentPage.startsWith('cupcake-sandbox-') && SandboxComponent) {
-          return (
-            <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading sandbox page...</div>}>
-              <SandboxComponent />
-            </Suspense>
-          );
+          return <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading...</div>}><SandboxComponent /></Suspense>;
         }
-        if (currentPage.startsWith('cupcake-sandbox-') && !SandboxComponent) {
+        if (currentPage.startsWith('cupcake-sandbox-')) {
           return (
             <div className="min-h-screen bg-[#0a0f16] flex items-center justify-center">
               <div className="text-center">
                 <p className="text-2xl text-pink-400/40 mb-4">Page not found</p>
-                <button
-                  onClick={() => setCurrentPage('cupcake-sandbox')}
-                  className="text-pink-400 hover:text-pink-300 transition"
-                >
-                  &larr; Back to Sandbox
-                </button>
+                <button onClick={() => setCurrentPage('cupcake-sandbox')} className="text-pink-400 hover:text-pink-300 transition">&larr; Back to Sandbox</button>
               </div>
             </div>
           );
         }
         return (
-          <div className="relative">
-            {/* Announcement Bar */}
-            <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#00e6e6]/10 to-[#1a1aff]/10 py-2">
-              <div className="max-w-7xl mx-auto px-4">
-                <p className="text-center text-sm bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] to-[#1a1aff] animate-gradient">
-                  🎉 Welcome to the next generation of AI technology
-                </p>
-              </div>
-            </div>
+          <div className="min-h-screen bg-[#020410] text-white relative font-sans selection:bg-primary/20 selection:text-primary">
+            <Navbar onNavigate={setCurrentPage} currentPage={currentPage} />
 
-            {/* Navigation Bar */}
-            <nav className="fixed top-[40px] left-0 right-0 z-50 bg-[#0a1a2b]/80 backdrop-blur-md border-b border-[#00e6e6]/20 shadow-lg">
-              <div className="max-w-7xl mx-auto px-4 flex justify-between items-center h-16">
-                <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] to-[#1a1aff] animate-gradient">
-                  Hales AI
-                </div>
-                <div className="flex items-center">
-                  <div className="hidden md:flex space-x-6 mr-6">
-                    {['About Us', 'Contact Us', 'Elite Ops'].map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => setCurrentPage(item.toLowerCase().replace(' ', '-'))}
-                        className="text-[#00e6e6] hover:text-[#00ccff] transition"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                  <HamburgerMenu onNavigate={setCurrentPage} currentPage={currentPage} />
-                </div>
-              </div>
-            </nav>
-
-            {/* Main Content */}
-            <div className="pt-[100px]">
-              {/* Hero Section */}
-              <div className="relative min-h-[85vh] max-h-screen flex items-start justify-center overflow-hidden">
-                <div className="absolute w-[600px] h-[600px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-15 animate-pulse-slow"></div>
-                <div className="absolute w-[500px] h-[500px] bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] rounded-full filter blur-[128px] opacity-15 animate-pulse-slow delay-700"></div>
-
-                {/* Decorative Grid Lines */}
-                <div className="absolute inset-0 grid grid-cols-6 gap-4 pointer-events-none">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-full border-l border-[#00e6e6]/5"></div>
-                  ))}
-                </div>
-
-                <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-                  <div className="space-y-8 mt-10">
-                    <div className="relative inline-block">
-                      <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
+            {/* Hero & Main Content */}
+            <div className="relative">
+              <Hero3D />
+              <div className="pt-[120px] relative z-10">
+                {/* Hero Section */}
+                <div className="relative min-h-[90vh] flex items-center justify-center px-4 overflow-hidden">
+                  <div className="text-center max-w-5xl mx-auto space-y-8">
+                    <div className="relative inline-block group">
+                      <h1 className="text-7xl md:text-8xl lg:text-9xl font-bold font-display tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-primary to-secondary animate-gradient-slow pb-4">
                         Hales AI
                       </h1>
-                      <div className="absolute -top-4 -right-4 w-8 h-8 bg-gradient-to-r from-[#00e6e6] to-[#1a1aff] rounded-full opacity-20 animate-ping"></div>
+                      <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary blur-3xl opacity-20 group-hover:opacity-100 transition-opacity duration-500 rounded-full" />
                     </div>
-                    
-                    <div className="flex justify-center">
-                      <p className="text-base font-semibold text-[#00e6e6] animate-pulse bg-[#0a1a2b]/50 py-2 px-4 rounded-full inline-block border border-[#00e6e6]/30">🚧 Under Construction 🚧</p>
-                    </div>
-                    
-                    <div className="relative">
-                      <div className="absolute -left-8 top-1/2 w-4 h-20 bg-gradient-to-b from-[#00e6e6]/0 via-[#00e6e6]/20 to-[#00e6e6]/0"></div>
-                      <p className="text-lg md:text-xl lg:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-                        Transforming businesses with advanced AI telephony, workflow automation, and digital
-                        cloning technology
-                      </p>
-                    </div>
-                    
-                    {/* Get Started and Learn More buttons */}
-                    <div className="flex gap-6 justify-center flex-wrap relative mt-8">
+
+
+                    <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed font-light">
+                      Transforming businesses with <span className="text-white font-medium">advanced AI telephony</span>,
+                      <span className="text-white font-medium"> workflow automation</span>, and
+                      <span className="text-white font-medium"> digital cloning</span> technology.
+                    </p>
+
+                    {/* Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mt-12">
                       <button
                         onClick={() => setCurrentPage('get-started')}
-                        className="group relative px-8 py-3 bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] rounded-full font-semibold hover:opacity-90 transition-all duration-300 animate-gradient transform hover:scale-105"
+                        className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg hover:scale-105 transition-transform duration-300"
                       >
-                        <span className="relative z-10">Get Started</span>
-                        <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-secondary blur opacity-50 group-hover:opacity-100 transition-opacity" />
+                        <span className="relative flex items-center gap-2">
+                          Get Started <span className="group-hover:translate-x-1 transition-transform">→</span>
+                        </span>
                       </button>
                       <button
                         onClick={() => setCurrentPage('learn-more')}
-                        className="group relative px-8 py-3 border border-[#00e6e6]/20 rounded-full font-semibold bg-gradient-to-r from-[#00e6e6]/10 via-[#00ccff]/10 via-[#4d4dff]/10 to-[#1a1aff]/10 hover:from-[#00e6e6]/20 hover:via-[#00ccff]/20 hover:via-[#4d4dff]/20 hover:to-[#1a1aff]/20 transition-all duration-300 animate-gradient transform hover:scale-105"
+                        className="px-8 py-4 rounded-full border border-white/20 hover:bg-white/5 hover:border-white/40 transition-all duration-300 font-medium text-lg backdrop-blur-sm"
                       >
-                        <span className="relative z-10">Learn More</span>
-                        <div className="absolute inset-0 rounded-full bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        Learn More
                       </button>
                     </div>
-                    
-                    {/* Voice Button */}
-                    <div className="relative mt-8 flex flex-col items-center">
-                      <div className="absolute inset-0 bg-gradient-to-r from-[#00e6e6]/5 via-transparent to-[#1a1aff]/5 rounded-full blur-3xl"></div>
-                      <div className="relative">
-                        <div className="absolute -inset-4 bg-gradient-to-r from-[#00e6e6]/10 to-[#1a1aff]/10 rounded-full blur-md"></div>
-                        <div className="relative z-10 transform hover:scale-105 transition-transform duration-300">
-                          <VoiceButton
-                            onStart={handleVoiceStart}
-                            onStop={handleVoiceStop}
-                            onMessage={handleVoiceMessage}
-                            className="mx-auto shadow-lg shadow-[#00e6e6]/10"
-                          />
-                        </div>
+
+                    {/* Voice Interaction */}
+                    <div className="mt-16 relative">
+                      <div className="glass-panel inline-flex flex-col items-center p-8 rounded-3xl hover:scale-105 transition-transform duration-500">
+                        <VoiceButton
+                          onStart={handleVoiceStart}
+                          onStop={handleVoiceStop}
+                          onMessage={handleVoiceMessage}
+                          className="shadow-[0_0_50px_rgba(0,240,255,0.3)]"
+                        />
+                        <p className="mt-4 text-sm text-primary/60 font-medium tracking-wide">
+                          TAP TO SPEAK
+                        </p>
                       </div>
-                      <p className="mt-4 text-sm text-[#00e6e6]/70 animate-pulse">
-                        Click to speak with AI
-                      </p>
-                    </div>
-                    
-                    {/* Down Arrow - Fixed position at bottom */}
-                    <div className="w-full text-center mt-8 mb-4">
-                      <a href="#our-solutions" className="inline-block">
-                        <div className="animate-bounce">
-                          <div className="w-8 h-8 mx-auto border-2 border-[#00e6e6] rounded-full flex items-center justify-center text-[#00e6e6]">
-                            ↓
-                          </div>
-                        </div>
-                      </a>
                     </div>
                   </div>
                 </div>
+
+                {/* Scroll Indicator */}
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/30 animate-bounce">
+                  <div className="w-1 h-12 rounded-full bg-gradient-to-b from-primary/0 via-primary to-primary/0" />
+                </div>
               </div>
 
-              {/* Services Grid */}
-              <div id="our-solutions" className="max-w-7xl mx-auto px-4 pt-16 pb-24 relative" style={{ marginTop: '40px' }}>
-                <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
+              <div id="our-solutions" className="max-w-7xl mx-auto px-4 py-32 relative z-10">
+                <h2 className="text-5xl md:text-6xl font-bold font-display text-center mb-20 bg-clip-text text-transparent bg-gradient-to-r from-white via-primary to-secondary animate-gradient">
                   Our Solutions
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <BentoGrid onNavigate={setCurrentPage} />
+              </div>
+
+            </div>
+
+            {/* Project Showcase */}
+            <ProjectShowcase />
+
+            {/* Features Section - Why Choose Us */}
+            <div className="bg-gradient-to-b from-[#0a1a2b] to-[#0a0f16] py-24 relative z-10">
+              <div className="max-w-7xl mx-auto px-4">
+                <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
+                  Why Choose Us
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                   {[
                     {
-                      icon: <Phone className="w-8 h-8" />,
-                      title: 'AI Telephony',
-                      description:
-                        'Advanced conversational AI powered by vapi.ai and retell.ai for natural phone interactions',
-                      ref: 'telephony',
+                      icon: <Network className="w-6 h-6" />,
+                      title: 'Advanced AI',
+                      description: 'Cutting-edge artificial intelligence technology',
                     },
                     {
-                      icon: <Mic2 className="w-8 h-8" />,
-                      title: 'Voice Cloning',
-                      description:
-                        'Create perfect digital replicas of voices for personalized AI interactions',
-                      ref: 'cloning',
+                      icon: <Settings className="w-6 h-6" />,
+                      title: 'Automation',
+                      description: 'Streamlined workflow automation solutions',
                     },
                     {
-                      icon: <Workflow className="w-8 h-8" />,
-                      title: 'Workflow Automation',
-                      description: 'Streamline processes with n8n and make.com integrations',
-                      ref: 'workflow',
+                      icon: <Headphones className="w-6 h-6" />,
+                      title: '24/7 Support',
+                      description: 'Round-the-clock technical assistance',
                     },
                     {
-                      icon: <Calendar className="w-8 h-8" />,
-                      title: 'Smart Scheduling',
-                      description:
-                        'Seamless appointment booking with Cal.com and Calendly integration',
-                      ref: 'scheduling',
+                      icon: <MessageSquareMore className="w-6 h-6" />,
+                      title: 'Custom Integration',
+                      description: 'Seamless integration with existing systems',
                     },
-                    {
-                      icon: <Globe className="w-8 h-8" />,
-                      title: 'Web Development',
-                      description: 'Custom AI-powered websites and web applications',
-                      ref: 'web',
-                    },
-                    {
-                      icon: <Bot className="w-8 h-8" />,
-                      title: 'Custom AI Solutions',
-                      description:
-                        'Tailored artificial intelligence solutions for your specific needs',
-                      ref: 'custom',
-                    },
-                  ].map((service, index) => (
-                    <div
-                      key={index}
-                      ref={setRef(service.ref)}
-                      className={`p-6 rounded-2xl bg-gradient-to-br from-[#0a1a2b]/50 to-[#0a0f16]/50 border border-[#00e6e6]/10 transform transition-all duration-500 hover:scale-105 backdrop-blur-sm ${
-                        isIntersecting[service.ref]
-                          ? 'opacity-100 translate-y-0'
-                          : 'opacity-0 translate-y-10'
-                      }`}
-                    >
-                      <div className="mb-4 text-[#00e6e6] animate-gradient">
-                        {service.icon}
+                  ].map((feature, index) => (
+                    <div key={index} className="text-center p-6 glass-panel rounded-2xl hover:scale-105 transition-transform duration-300">
+                      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse-slow">
+                        {feature.icon}
                       </div>
-                      <h3 className="text-xl font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
-                        {service.title}
+                      <h3 className="text-lg font-semibold mb-2 text-white">
+                        {feature.title}
                       </h3>
-                      <p className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-                        {service.description}
+                      <p className="text-gray-400">
+                        {feature.description}
                       </p>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Project Showcase */}
-              <ProjectShowcase />
-
-              {/* Features Section */}
-              <div className="bg-gradient-to-b from-[#0a1a2b] to-[#0a0f16] py-24 mt-8">
-                <div className="max-w-7xl mx-auto px-4">
-                  <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
-                    Why Choose Us
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {[
-                      {
-                        icon: <Network className="w-6 h-6" />,
-                        title: 'Advanced AI',
-                        description: 'Cutting-edge artificial intelligence technology',
-                      },
-                      {
-                        icon: <Settings className="w-6 h-6" />,
-                        title: 'Automation',
-                        description: 'Streamlined workflow automation solutions',
-                      },
-                      {
-                        icon: <Headphones className="w-6 h-6" />,
-                        title: '24/7 Support',
-                        description: 'Round-the-clock technical assistance',
-                      },
-                      {
-                        icon: <MessageSquareMore className="w-6 h-6" />,
-                        title: 'Custom Integration',
-                        description: 'Seamless integration with existing systems',
-                      },
-                    ].map((feature, index) => (
-                      <div key={index} className="text-center p-6">
-                        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gradient-to-r from-[#00e6e6]/10 via-[#00ccff]/10 via-[#4d4dff]/10 to-[#1a1aff]/10 flex items-center justify-center text-[#00e6e6] animate-gradient">
-                          {feature.icon}
-                        </div>
-                        <h3 className="text-lg font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
-                          {feature.title}
-                        </h3>
-                        <p className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-                          {feature.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Tech Stack */}
-              <div className="py-24 px-4 mt-8">
-                <div className="max-w-7xl mx-auto">
-                  <h2 className="text-4xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
-                    Our Tech Stack
-                  </h2>
-                  <div className="flex flex-wrap justify-center gap-8">
-                    {[
-                      { name: 'vapi.ai', icon: <Code2 className="w-6 h-6" /> },
-                      { name: 'retell.ai', icon: <Mic2 className="w-6 h-6" /> },
-                      { name: 'n8n', icon: <Workflow className="w-6 h-6" /> },
-                      { name: 'make.com', icon: <Settings className="w-6 h-6" /> },
-                      { name: 'cal.com', icon: <Calendar className="w-6 h-6" /> },
-                      { name: 'VSCode', icon: <FileCode2 className="w-6 h-6" /> },
-                    ].map((tech, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#00e6e6]/10 via-[#00ccff]/10 via-[#4d4dff]/10 to-[#1a1aff]/10 hover:from-[#00e6e6]/20 hover:via-[#00ccff]/20 hover:via-[#4d4dff]/20 hover:to-[#1a1aff]/20 animate-gradient"
-                      >
-                        <span className="text-[#00e6e6]">{tech.icon}</span>
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
-                          {tech.name}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Integrations Section */}
-              <div className="bg-gradient-to-b from-[#0a0f16] to-[#0a1a2b] py-12">
-                <IntegrationsMarquee />
-              </div>
-
-              {/* Social Feeds Section */}
-              <div className="relative">
-                <SocialFeeds />
-              </div>
-
-              {/* Footer */}
-              <footer className="border-t border-[#00e6e6]/20 py-12">
-                <div className="max-w-7xl mx-auto px-4 text-center">
-                  <p className="bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
-                    © 2025 Hales AI - Transforming Business with AI
-                  </p>
-                </div>
-              </footer>
-
-              {/* Chat Interface */}
-              <ChatInterface 
-                isOpen={isChatOpen}
-                onClose={() => setIsChatOpen(false)}
-                onMessageSent={handleMessageSent}
-                onMessageReceived={handleMessageReceived}
-              />
             </div>
+
+            {/* Integrations Section */}
+            <div className="bg-gradient-to-b from-[#0a0f16] to-[#0a1a2b] py-24 relative z-10">
+              <IntegrationsMarquee />
+            </div>
+
+            {/* Social Feeds Section */}
+            <div className="relative z-10">
+              <SocialFeeds />
+            </div>
+
+            {/* Footer */}
+            <Footer />
+
+            {/* Chat Interface */}
+            <ChatInterface
+              isOpen={isChatOpen}
+              onClose={() => setIsChatOpen(false)}
+              onMessageSent={handleMessageSent}
+              onMessageReceived={handleMessageReceived}
+            />
           </div>
         );
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f16]/90 text-white relative">
-      <GridBackground />
+    <div className="min-h-screen bg-[#020410] text-white relative">
+      <DotCursor />
       {renderPage()}
     </div>
   );

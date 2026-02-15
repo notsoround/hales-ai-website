@@ -1,26 +1,25 @@
 import React, { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
+type PageType = 'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops';
+
 interface HamburgerMenuProps {
-  onNavigate: (page: string) => void;
-  currentPage: string;
+  onNavigate: (page: PageType) => void;
+  currentPage: PageType;
 }
 
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ onNavigate, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const menuItems: Array<{ id: string; label: string; value: string }> = [
+  const menuItems: Array<{ id: string; label: string; value: PageType }> = [
     { id: 'task-list', label: 'Task List', value: 'matts-tasklist' },
     { id: 'quantum-code', label: 'Quantum Code', value: 'quantum-code' },
     { id: 'about-us', label: 'About Us', value: 'about-us' },
     { id: 'contact-us', label: 'Contact Us', value: 'contact-us' },
     { id: 'elite-ops', label: 'Elite Ops', value: 'elite-ops' },
-    { id: 'cupcake-test', label: '🧁 Cupcake Demo', value: 'cupcake-test' },
-    { id: 'cupcake', label: '🧁 Cupcake Dashboard', value: 'cupcake' },
-    { id: 'cupcake-sandbox', label: '🧁 Cupcake Sandbox', value: 'cupcake-sandbox' },
   ];
 
-  const handleMenuClick = (value: string) => {
+  const handleMenuClick = (value: PageType) => {
     onNavigate(value);
     setIsOpen(false);
   };

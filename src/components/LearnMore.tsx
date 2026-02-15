@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   BookOpen,
   Code2,
-  FileText,
   Globe,
   Headphones,
   MessageSquareMore,
@@ -83,27 +82,29 @@ export function LearnMore() {
   const [selectedResource, setSelectedResource] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen bg-[#0a0f16] text-white py-24">
-      <div className="max-w-7xl mx-auto px-4">
+    <div className="min-h-screen bg-background text-white py-24 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
-          <h1 className="text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] animate-gradient">
+          <h1 className="text-6xl font-bold mb-6 font-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
             Learn More About Hales AI
           </h1>
-          <p className="text-xl max-w-2xl mx-auto text-gray-300">
+          <p className="text-xl max-w-2xl mx-auto text-gray-400 font-light">
             Discover how our AI solutions can transform your business
           </p>
         </div>
 
         {/* Search */}
         <div className="max-w-2xl mx-auto mb-16">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#00e6e6]" />
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-primary transition-colors" />
             <input
               type="text"
               placeholder="Search documentation..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full py-4 pl-12 pr-4 rounded-full bg-[#0a1a2b] border border-[#00e6e6]/20 focus:border-[#00e6e6] focus:outline-none focus:ring-2 focus:ring-[#00e6e6]/20 transition-all"
+              className="w-full py-4 pl-12 pr-4 rounded-full bg-surface/50 border border-white/10 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-white placeholder-gray-500"
             />
           </div>
         </div>
@@ -113,30 +114,30 @@ export function LearnMore() {
           {features.map((feature, index) => (
             <div
               key={index}
-              className="p-6 rounded-2xl bg-gradient-to-br from-[#0a1a2b]/50 to-[#0a0f16]/50 border border-[#00e6e6]/10 hover:scale-105 transition-all duration-300"
+              className="p-6 rounded-2xl glass-panel group hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300"
             >
-              <div className="text-[#00e6e6] mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] animate-gradient">
+              <div className="text-primary mb-4 group-hover:scale-110 transition-transform origin-left">{feature.icon}</div>
+              <h3 className="text-xl font-semibold mb-2 font-display text-white group-hover:text-primary transition-colors">
                 {feature.title}
               </h3>
-              <p className="text-gray-400">{feature.description}</p>
+              <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
 
         {/* Video Resources */}
         <div className="mb-24">
-          <h2 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] animate-gradient">
+          <h2 className="text-4xl font-bold text-center mb-12 font-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
             Video Tutorials
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {resources.map((resource, index) => (
               <div
                 key={index}
-                className="rounded-2xl bg-[#0a1a2b]/50 overflow-hidden hover:scale-105 transition-all duration-300"
+                className="rounded-2xl glass-panel overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 group"
               >
                 {selectedResource === index ? (
-                  <div className="aspect-video">
+                  <div className="aspect-video bg-black">
                     <iframe
                       width="100%"
                       height="100%"
@@ -149,18 +150,20 @@ export function LearnMore() {
                   </div>
                 ) : (
                   <div
-                    className="aspect-video bg-gradient-to-r from-[#0a1a2b] to-[#0a0f16] flex items-center justify-center cursor-pointer"
+                    className="aspect-video bg-surface/30 relative flex items-center justify-center cursor-pointer group-hover:bg-surface/50 transition-colors overflow-hidden"
                     onClick={() => setSelectedResource(index)}
                   >
-                    <PlayCircle className="w-16 h-16 text-[#00e6e6] opacity-50" />
+                    <img src="/video-thumb.png" alt="Select Video" className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-700" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20 backdrop-blur-[2px]" />
+                    <PlayCircle className="w-16 h-16 text-primary/50 group-hover:text-primary group-hover:scale-110 transition-all duration-300 relative z-10" />
                   </div>
                 )}
                 <div className="p-6">
-                  <div className="text-[#00e6e6] mb-4">{resource.icon}</div>
-                  <h3 className="text-xl font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] animate-gradient">
+                  <div className="text-primary mb-4">{resource.icon}</div>
+                  <h3 className="text-xl font-semibold mb-2 font-display text-white">
                     {resource.title}
                   </h3>
-                  <p className="text-gray-400">{resource.description}</p>
+                  <p className="text-gray-400 text-sm">{resource.description}</p>
                 </div>
               </div>
             ))}
@@ -169,14 +172,17 @@ export function LearnMore() {
 
         {/* FAQ Section */}
         <div>
-          <h2 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] to-[#1a1aff] animate-gradient">
+          <h2 className="text-4xl font-bold text-center mb-12 font-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
             Frequently Asked Questions
           </h2>
           <div className="max-w-3xl mx-auto space-y-4">
             {faqs.map((faq, index) => (
               <div
                 key={index}
-                className="rounded-xl bg-[#0a1a2b]/50 border border-[#00e6e6]/10"
+                className={`rounded-xl border transition-all duration-300 ${expandedFaq === index
+                  ? 'bg-surface/80 border-primary/50 shadow-lg shadow-primary/5'
+                  : 'bg-surface/30 border-white/5 hover:border-white/10'
+                  }`}
               >
                 <button
                   className="w-full px-6 py-4 flex items-center justify-between text-left"
@@ -184,15 +190,20 @@ export function LearnMore() {
                     setExpandedFaq(expandedFaq === index ? null : index)
                   }
                 >
-                  <span className="font-semibold">{faq.question}</span>
+                  <span className={`font-semibold transition-colors ${expandedFaq === index ? 'text-primary' : 'text-white'
+                    }`}>
+                    {faq.question}
+                  </span>
                   {expandedFaq === index ? (
-                    <ChevronUp className="w-5 h-5 text-[#00e6e6]" />
+                    <ChevronUp className="w-5 h-5 text-primary" />
                   ) : (
-                    <ChevronDown className="w-5 h-5 text-[#00e6e6]" />
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
                   )}
                 </button>
                 {expandedFaq === index && (
-                  <div className="px-6 pb-4 text-gray-400">{faq.answer}</div>
+                  <div className="px-6 pb-4 text-gray-400 text-sm leading-relaxed border-t border-white/5 pt-4">
+                    {faq.answer}
+                  </div>
                 )}
               </div>
             ))}
