@@ -1,4 +1,5 @@
-import { useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
+import type { ComponentType } from 'react';
 import {
   Headphones,
   MessageSquareMore,
@@ -24,10 +25,98 @@ const ContactUs = lazy(() => import('./pages/contact-us/page'));
 const EliteOps = lazy(() => import('./pages/elite-ops/page'));
 const CupcakeTest = lazy(() => import("./pages/cupcake-test/page"));
 const CupcakeDashboard = lazy(() => import("./pages/cupcake/page"));
+const SandboxIndex = lazy(() => import("./pages/cupcake/sandbox/page"));
+
+// Auto-discover sandbox pages at build time (Cupcake creates these via n8n sandbox builder)
+const sandboxModules = import.meta.glob<{ default: ComponentType }>(
+  './pages/cupcake/sandbox/*/page.tsx'
+);
+
+// Filter out _template from sandbox modules
+const activeSandboxModules = Object.fromEntries(
+  Object.entries(sandboxModules).filter(([path]) => !path.includes('_template'))
+);
+
+type PageKey =
+  | 'home'
+  | 'get-started'
+  | 'learn-more'
+  | 'matts-tasklist'
+  | 'quantum-code'
+  | 'about-us'
+  | 'contact-us'
+  | 'elite-ops'
+  | 'cupcake-test'
+  | 'cupcake'
+  | 'cupcake-sandbox'
+  | `cupcake-sandbox-${string}`;
+
+function pathnameToPage(pathname: string): PageKey {
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  const routes: Record<string, PageKey> = {
+    '/': 'home',
+    '/get-started': 'get-started',
+    '/learn-more': 'learn-more',
+    '/about-us': 'about-us',
+    '/contact-us': 'contact-us',
+    '/elite-ops': 'elite-ops',
+    '/cupcake': 'cupcake',
+    '/cupcake-test': 'cupcake-test',
+    '/cupcake/sandbox': 'cupcake-sandbox',
+  };
+  if (routes[clean]) return routes[clean];
+
+  // Sandbox sub-pages: /cupcake/sandbox/<slug>
+  const sandboxMatch = clean.match(/^\/cupcake\/sandbox\/([a-z0-9-]+)$/);
+  if (sandboxMatch) return `cupcake-sandbox-${sandboxMatch[1]}`;
+
+  return 'home';
+}
+
+function pageToPathname(page: PageKey): string {
+  if (page === 'home') return '/';
+  if (page === 'cupcake-sandbox') return '/cupcake/sandbox';
+  if (page.startsWith('cupcake-sandbox-')) {
+    return `/cupcake/sandbox/${page.replace('cupcake-sandbox-', '')}`;
+  }
+  return `/${page}`;
+}
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'get-started' | 'learn-more' | 'matts-tasklist' | 'quantum-code' | 'about-us' | 'contact-us' | 'elite-ops' | 'cupcake-test' | 'cupcake'>('home');
+  const [currentPage, setCurrentPageState] = useState<PageKey>(() => pathnameToPage(window.location.pathname));
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [SandboxComponent, setSandboxComponent] = useState<ComponentType | null>(null);
+
+  // Navigate with URL update (so direct links like /cupcake/sandbox/... work)
+  const setCurrentPage = (page: PageKey) => {
+    window.history.pushState({ page }, '', pageToPathname(page));
+    setCurrentPageState(page);
+  };
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPageState(pathnameToPage(window.location.pathname));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Load dynamic sandbox page component when needed
+  useEffect(() => {
+    if (currentPage.startsWith('cupcake-sandbox-')) {
+      const slug = currentPage.replace('cupcake-sandbox-', '');
+      const modulePath = `./pages/cupcake/sandbox/${slug}/page.tsx`;
+      const loader = (activeSandboxModules as Record<string, () => Promise<{ default: ComponentType }>>)[modulePath];
+      if (loader) {
+        loader().then((mod) => setSandboxComponent(() => mod.default));
+      } else {
+        setSandboxComponent(null);
+      }
+    } else {
+      setSandboxComponent(null);
+    }
+  }, [currentPage]);
 
   const handleMessageSent = (message: string) => {
     console.log('User message:', message);
@@ -50,6 +139,26 @@ function App() {
   };
 
   const renderPage = () => {
+    if (currentPage.startsWith('cupcake-sandbox-')) {
+      if (SandboxComponent) return <SandboxComponent />;
+      return (
+        <div className="min-h-screen bg-[#020410] text-white flex items-center justify-center px-6">
+          <div className="max-w-xl text-center space-y-4">
+            <div className="text-2xl font-semibold text-pink-300">Sandbox page not found</div>
+            <div className="text-white/70">
+              This sandbox slug is not deployed yet. Go back to the sandbox index to see what exists.
+            </div>
+            <button
+              onClick={() => setCurrentPage('cupcake-sandbox')}
+              className="px-5 py-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10"
+            >
+              Back to Sandbox Index
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     switch (currentPage) {
       case 'get-started':
         return <GetStarted onNavigate={setCurrentPage} />;
@@ -83,6 +192,12 @@ function App() {
         return (
           <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Cupcake...</div>}>
             <CupcakeDashboard />
+          </Suspense>
+        );
+      case "cupcake-sandbox":
+        return (
+          <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Sandbox...</div>}>
+            <SandboxIndex />
           </Suspense>
         );
       default:
