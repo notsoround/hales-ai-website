@@ -1,176 +1,68 @@
-# Hales AI Website
+# Hales AI
 
-## Project Overview
-This is the main repository for the Hales AI website, featuring advanced AI telephony, workflow automation, and digital cloning technology.
+The company website for [Hales AI](https://hales.ai) — a one-person AI shop building telephony agents, workflow automation, and custom AI solutions.
 
-## Important Note
-The `examplecode` directory contains reference implementations and backup code. This is not part of the main application - all active development should be done in the root-level `src` directory. Do not modify the `examplecode` directory unless specifically instructed to do so.
+**Live at**: [https://hales.ai](https://hales.ai)
 
-## Development Setup
+## What's Here
 
-1. **Clone the Project:**
-   ```bash
-   git clone https://github.com/notsoround/HalesGlobal.git
-   ```
+- **Main site**: Company landing page with 3D hero, service grid, integrations marquee, and embedded voice agent
+- **Cupcake Dashboard** (`/cupcake`): Password-protected control panel for Cupcake, a multi-channel AI assistant that runs across Telegram, phone, web, and CLI
+- **Sandbox** (`/cupcake/sandbox/*`): AI-generated pages deployed via automated pipeline — code gen → git → Docker → live in ~2 minutes
 
-2. **Navigate to project folder:**
-   ```bash
-   cd HalesGlobal
-   ```
+## Tech Stack
 
-3. **Install Dependencies:**
-   ```bash
-   npm install
-   ```
+- **Framework**: React 18 + Vite + TypeScript
+- **Styling**: Tailwind CSS + Framer Motion
+- **Voice**: Vapi.ai embedded widget (tap-to-speak on landing page)
+- **3D**: Three.js animated hero background
+- **Hosting**: Docker container on DigitalOcean, nginx reverse proxy, Let's Encrypt SSL
+- **Deployment**: Webhook-triggered — `git pull` → `docker build --no-cache` → swap container
+- **Automation**: n8n workflow handles the full deploy pipeline with Telegram notifications
 
-4. **Environment Variables:**
-   Create a `.env` file in the root directory with:
-   ```
-   NEXT_PUBLIC_VAPI_PUBLIC_KEY=
-   NEXT_PUBLIC_VAPI_ASSISTANT_ID=
-   ```
-
-5. **Run Development Server:**
-   ```bash
-   npm run dev
-   ```
-   Access at `http://localhost:5174` (or another port if 5173 is in use)
-
-## Project Structure
+## Architecture
 
 ```
-/
-├── src/                # Main application code
-│   ├── components/     # Reusable UI components
-│   ├── pages/         # Page components and routes
-│   ├── services/      # External service integrations
-│   ├── hooks/         # Custom React hooks
-│   ├── lib/           # Utility functions and helpers
-│   └── assets/        # Static assets
-│
-└── examplecode/       # Reference implementations and backups (DO NOT MODIFY)
+hales.ai (nginx + SSL)
+    → Docker container (port 3000)
+        → React SPA
+            ├── /             Landing page
+            ├── /cupcake      Dashboard (auth required)
+            ├── /cupcake/sandbox/*  Auto-generated pages
+            └── /cupcake-test Demo page
 ```
 
-### Routes
-- `/elite-ops`: Team contacts and Elite Operations Unit information
+## Development
 
-### Key Components
-- `VoiceButton`: Handles voice interactions using Vapi
-- `MatrixBackground`: Animated background effect
-- `PasswordProtection`: Handles route protection
-- `HamburgerMenu`: Mobile navigation menu
-- `ProjectShowcase`: Displays project cards
-- `BackButton`: Navigation component for returning to home page from other routes
-  - Appears on all non-home pages
-  - Positioned in top-left corner
-  - Features gradient background with hover effects
+```bash
+git clone https://github.com/notsoround/hales-ai-website.git
+cd hales-ai-website
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+Environment variables (optional, for voice widget):
+```
+VITE_VAPI_PUBLIC_KEY=
+VITE_VAPI_ASSISTANT_ID=
+```
 
 ## Deployment
 
-The site is deployed at https://hales.ai using the following setup:
+The production deploy is fully automated via n8n webhook:
 
-### Server Configuration
-- Server IP: 134.199.239.171
-- Docker container running on port 3000
-- Nginx reverse proxy handling SSL and domain routing
-- SSL certificates managed by Let's Encrypt
+```bash
+# Trigger deploy
+curl -X POST https://automate.hales.ai/webhook/cupcake-deploy
 
-### Deployment Prerequisites
-1. **Environment Variables:**
-   Make sure your `.env` file contains the GitHub credentials:
-   ```
-   GITHUB_USERNAME=your_github_username
-   GITHUB_TOKEN=your_github_personal_access_token
-   ```
-   These credentials are used for authentication when pushing to and pulling from GitHub.
+# Or manually on the droplet
+ssh root@134.199.239.171
+/var/www/deploy-hales-ai.sh
+```
 
-### Deployment Steps
+The deploy script includes content verification gates — it checks for required UI markers and rejects deploys that would regress the design.
 
-1. **Push changes to main branch:**
-   ```bash
-   git add .
-   git commit -m "your commit message"
-   git push origin main
-   # If prompted for credentials, use the values from your .env file
-   ```
+---
 
-2. **SSH into server:**
-   ```bash
-   ssh root@134.199.239.171
-
-
-   ```
-
-3. **Clean Deployment (Recommended):**
-   This approach avoids merge conflicts and ensures a clean deployment:
-   ```bash
-   # Backup existing code
-   cd ~/projects
-   mv HalesGlobal HalesGlobal_backup_$(date +%Y%m%d)
-   
-   # Clone fresh copy
-   git clone https://github.com/notsoround/HalesGlobal.git
-   
-   # Deploy
-   cd ~/projects/HalesGlobal
-   docker stop $(docker ps -a -q --filter "publish=3000")
-   docker build -t hales-ai-website .
-   docker run -d -p 3000:3000 hales-ai-website
-   ```
-
-4. **Alternative: Update Existing Repository:**
-   Only use this if you need to preserve local changes on the server:
-   ```bash
-   cd ~/projects/HalesGlobal
-   git stash  # Save any local changes
-   git pull origin main
-   docker stop $(docker ps -a -q --filter "publish=3000")
-   docker build -t hales-ai-website .
-   docker run -d -p 3000:3000 hales-ai-website
-   ```
-
-### Troubleshooting Deployment Issues
-
-1. **Merge Conflicts:**
-   If you encounter merge conflicts during `git pull`, use the clean deployment method above.
-
-2. **Authentication Issues:**
-   - Ensure your GitHub token is valid and has the necessary permissions
-   - If your token has expired, generate a new one at GitHub → Settings → Developer settings → Personal access tokens
-
-3. **Docker Issues:**
-   - If the container fails to start, check logs: `docker logs $(docker ps -a -q -l)`
-   - If the build fails, try rebuilding with no cache: `docker build --no-cache -t hales-ai-webste .`
-
-4. **Nginx Issues:**
-   - Check Nginx logs: `tail -50 /var/log/nginx/error.log`
-   - Verify Nginx is running: `systemctl status nginx`
-
-### Architecture Notes
-- The application runs in a Docker container on port 3000
-- Nginx handles SSL termination and proxies requests to the container
-- Domain hales.ai points to 134.199.239.171
-- SSL certificates are stored in /etc/letsencrypt/live/hales.ai/
-
-
-## Technical Stack
-- **Frontend Framework**: React with Vite
-- **Styling**: Tailwind CSS
-- **Animations**: Framer Motion
-- **Voice Integration**: Vapi service
-- **Container**: Docker
-- **Server**: Nginx on Ubuntu 24.04
-- **SSL**: Let's Encrypt
-- **State Management**: React hooks
-- **Build Tool**: Vite
-
-## Maintenance
-- Regular updates to dependencies via `npm update`
-- SSL certificate auto-renewal through Let's Encrypt
-- Docker container logs available via `docker logs [container-id]`
-- Nginx logs at `/var/log/nginx/`
-
-## Code Organization
-- All active development should be done in the root-level `src` directory
-- The `examplecode` directory contains reference implementations and should not be modified
-- Changes should only be made to files outside of `examplecode`
+Built and maintained by [Matt Hales](https://hales.ai)
