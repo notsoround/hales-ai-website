@@ -13,7 +13,7 @@ interface Message {
 // --- Auth Gate ---
 const AUTH_KEY = 'cupcake_auth_token';
 const AUTH_EXPIRY_KEY = 'cupcake_auth_expiry';
-const VALID_PASSWORD = 'CupcakeDestroyer2026!';
+const VALID_PASSWORD = import.meta.env.VITE_CUPCAKE_PASSWORD || '';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem(AUTH_KEY);
