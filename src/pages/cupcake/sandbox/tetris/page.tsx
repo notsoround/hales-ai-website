@@ -56,7 +56,7 @@ const TetrisPage: React.FC = () => {
             </div>
           )}
           <iframe
-            src="https://notsoround.github.io/tetris-2026/"
+            src="/tetris.html"
             title="Tetris"
             className="w-full h-full border-0"
             onLoad={() => setIframeLoaded(true)}
