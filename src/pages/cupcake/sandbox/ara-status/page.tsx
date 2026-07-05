@@ -24,7 +24,7 @@ const COMPONENTS: Component[] = [
     status: 'ok',
     headline: 'Running · LaunchAgent · survives reboots',
     details: [
-      'v2026.2.13 on Matt’s Mac, port 18789 (loopback)',
+      'v2026.6.11 on Matt’s Mac (upgraded 2026-07-05), port 18789 (loopback)',
       'RPC probe OK · auto-starts on login/reboot',
       'Restart: node openclaw.mjs gateway restart',
     ],
@@ -109,10 +109,6 @@ const COMPONENTS: Component[] = [
 
 const WARNINGS = [
   {
-    title: 'OpenClaw is 5 months behind',
-    body: 'Local build 2026.2.13 (Feb 14) vs latest 2026.7.1-beta.2. Upgrade planned — event-driven scheduling, control-UI improvements, and more since Feb.',
-  },
-  {
     title: 'Gateway Node comes from nvm',
     body: 'The LaunchAgent uses nvm’s Node v22.22.1. If nvm upgrades or removes it, the service breaks. Fix: openclaw doctor --repair, or install Node 22+ via Homebrew.',
   },
@@ -127,6 +123,7 @@ const TIMELINE = [
   { time: '409 hunt', text: 'Traced Telegram conflicts to a cupcake-gateway Docker container on the droplet polling the same bot for 3 months. Stopped it, disabled restart. Zero conflicts since.' },
   { time: 'Voice', text: 'Rediscovered the ElevenLabs TTS webhook, fixed the payload shape, test-fired a voice note, taught Ara to use it.' },
   { time: 'Workspace', text: 'Recovered Cupcake’s full workspace (memory, 10 skills, architecture docs) from the droplet back to the Mac.' },
+  { time: 'Core update', text: 'OpenClaw upgraded 2026.2.13 → 2026.6.11 (latest stable): rebuilt, config migrated, all channels re-verified.' },
   { time: 'Ara upgrade', text: 'Ara inherited the entire toolkit: sandbox deploys, email/calendar, image gen, voice — plus her own exec allowlist.' },
 ];
 
