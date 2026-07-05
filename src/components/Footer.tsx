@@ -27,7 +27,7 @@ export function Footer() {
                             <a href="https://x.com/hales_ai" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:bg-primary/20 hover:text-primary transition-all duration-300 hover:scale-110">
                                 <Twitter size={18} />
                             </a>
-                            <a href="https://youtube.com/@hales_ai" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:bg-red-500/20 hover:text-red-500 transition-all duration-300 hover:scale-110">
+                            <a href="https://www.youtube.com/@HalesAi" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:bg-red-500/20 hover:text-red-500 transition-all duration-300 hover:scale-110">
                                 <Youtube size={18} />
                             </a>
                             <a href="https://www.linkedin.com/company/hales-asi" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:bg-blue-600/20 hover:text-blue-500 transition-all duration-300 hover:scale-110">
