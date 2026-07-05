@@ -1,192 +1,111 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface IntegrationsMarqueeProps {
   className?: string;
 }
 
-// Professional integrations with real service names
-const topRowLogos = [
-  { name: 'Veo 3', category: 'AI Video' },
-  { name: 'Google Cloud', category: 'Cloud Platform' },
-  { name: 'Microsoft Azure', category: 'Cloud Services' },
-  { name: 'Eleven Labs', category: 'AI Voice' },
-  { name: 'Cline', category: 'AI Assistant' },
-  { name: 'Cursor', category: 'AI IDE' },
-  { name: 'OpenAI', category: 'AI Platform' },
+interface Integration {
+  name: string;
+  category: string;
+  logo?: string; // path under /Integrations_images/
+}
+
+// Row 1 — AI stack
+const topRowLogos: Integration[] = [
+  { name: 'OpenAI', category: 'AI Platform', logo: '/Integrations_images/openai.webp' },
   { name: 'Claude', category: 'AI Assistant' },
+  { name: 'Gemini', category: 'AI Models', logo: '/Integrations_images/gemini.webp' },
+  { name: 'ElevenLabs', category: 'AI Voice', logo: '/Integrations_images/elevenlabs.webp' },
+  { name: 'Vapi', category: 'AI Telephony' },
+  { name: 'Grok', category: 'AI Models' },
+  { name: 'DeepSeek', category: 'AI Models' },
+  { name: 'OpenRouter', category: 'AI Gateway' },
   { name: 'Hugging Face', category: 'AI Models' },
-  { name: 'Replicate', category: 'AI APIs' },
-  { name: 'Anthropic', category: 'AI Research' },
-  { name: 'Cohere', category: 'AI Language' }
+  { name: 'Cursor', category: 'AI IDE' },
 ];
 
-const bottomRowLogos = [
-  { name: 'DeepSeek', category: 'AI Models' },
-  { name: 'Twilio', category: 'Communications' },
-  { name: 'Digital Ocean', category: 'Cloud Hosting' },
-  { name: 'Pinecone', category: 'Vector DB' },
-  { name: 'Open Source', category: 'Community' },
+// Row 2 — infrastructure & tools
+const bottomRowLogos: Integration[] = [
+  { name: 'Google Cloud', category: 'Cloud', logo: '/Integrations_images/google-cloud.webp' },
+  { name: 'Microsoft Azure', category: 'Cloud', logo: '/Integrations_images/azure.webp' },
+  { name: 'Twilio', category: 'Communications', logo: '/Integrations_images/twilio.webp' },
+  { name: 'Slack', category: 'Team Chat', logo: '/Integrations_images/slack.webp' },
+  { name: 'HubSpot', category: 'CRM', logo: '/Integrations_images/hubspot.webp' },
+  { name: 'Google Calendar', category: 'Scheduling', logo: '/Integrations_images/google-calendar.webp' },
+  { name: 'Google Sheets', category: 'Data', logo: '/Integrations_images/google-sheets.webp' },
+  { name: 'n8n', category: 'Automation' },
   { name: 'Make.com', category: 'Automation' },
   { name: 'Zapier', category: 'Workflows' },
-  { name: 'GitHub', category: 'Development' },
-  { name: 'Vercel', category: 'Deployment' },
-  { name: 'Netlify', category: 'Hosting' },
-  { name: 'Slack', category: 'Team Chat' },
-  { name: 'Stripe', category: 'Payments' }
+  { name: 'DigitalOcean', category: 'Hosting' },
+  { name: 'Stripe', category: 'Payments' },
 ];
+
+function LogoCard({ item, keyPrefix, index }: { item: Integration; keyPrefix: string; index: number }) {
+  return (
+    <div
+      key={`${keyPrefix}-${index}`}
+      className="flex-shrink-0 mx-4 group cursor-default"
+      title={`${item.name} — ${item.category}`}
+    >
+      <div className="relative flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/50 hover:bg-white/[0.06] transition-all duration-300 hover:scale-[1.04] hover:shadow-lg hover:shadow-primary/10 backdrop-blur-sm">
+        {item.logo ? (
+          <img
+            src={item.logo}
+            alt={`${item.name} logo`}
+            loading="lazy"
+            className="w-8 h-8 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 border border-white/10 flex items-center justify-center text-xs font-bold text-primary">
+            {item.name.slice(0, 2)}
+          </div>
+        )}
+        <div className="leading-tight whitespace-nowrap">
+          <div className="text-sm font-semibold text-white group-hover:text-primary transition-colors">{item.name}</div>
+          <div className="text-[11px] text-gray-500">{item.category}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function IntegrationsMarquee({ className = '' }: IntegrationsMarqueeProps) {
   const topRowRef = useRef<HTMLDivElement>(null);
   const bottomRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Simple CSS animation approach - more reliable
     if (topRowRef.current) {
-      topRowRef.current.style.animation = 'scrollRight 40s linear infinite';
+      topRowRef.current.style.animation = 'scrollRight 45s linear infinite';
     }
-
     if (bottomRowRef.current) {
       bottomRowRef.current.style.animation = 'scrollLeft 40s linear infinite';
     }
   }, []);
 
   return (
-    <div className="py-24 relative">
+    <div className={`overflow-hidden ${className}`}>
       <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left side - Marquee */}
-          {/* Left side - Marquee */}
-          <div className={`overflow-hidden ${className}`}>
-            <div className="py-8">
-              <h2 className="text-4xl font-bold text-center mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
-                INTEGRATIONS
-              </h2>
-              <h3 className="text-5xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
-                Integrate with over 40+ apps instantly.
-              </h3>
+        <div className="py-8">
+          <p className="text-center text-sm font-semibold tracking-[0.3em] text-primary/70 mb-3">INTEGRATIONS</p>
+          <h3 className="text-4xl md:text-5xl font-bold text-center mb-14 bg-clip-text text-transparent bg-gradient-to-r from-white via-primary to-secondary animate-gradient">
+            Plays nice with your whole stack.
+          </h3>
 
-              {/* Top row - moving right to left */}
-              <div className="relative overflow-hidden mb-8">
-                <div
-                  ref={topRowRef}
-                  className="flex items-center whitespace-nowrap"
-                >
-                  {/* Double the logos to create seamless loop */}
-                  {[...topRowLogos, ...topRowLogos].map((logo, index) => (
-                    <div
-                      key={`top-${index}`}
-                      className="flex-shrink-0 mx-6 group cursor-pointer"
-                      title={`${logo.name} - ${logo.category}`}
-                    >
-                      <div className="relative w-32 h-24 bg-gradient-to-br from-surface/60 to-background/60 rounded-xl p-3 border border-primary/20 hover:border-primary/60 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/20 backdrop-blur-sm">
-                        {/* Content */}
-                        <div className="h-full flex flex-col justify-between">
-                          {/* Service name */}
-                          <div className="text-center">
-                            <h4 className="text-sm font-semibold text-white group-hover:text-primary transition-colors leading-tight">
-                              {logo.name}
-                            </h4>
-                          </div>
-
-                          {/* Category badge */}
-                          <div className="text-center">
-                            <span className="inline-block px-2 py-1 text-xs bg-primary/10 text-primary rounded-full border border-primary/20">
-                              {logo.category}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Hover glow effect */}
-                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/0 via-primary/5 to-secondary/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bottom row - moving left to right */}
-              <div className="relative overflow-hidden">
-                <div
-                  ref={bottomRowRef}
-                  className="flex items-center whitespace-nowrap"
-                >
-                  {/* Double the logos to create seamless loop */}
-                  {[...bottomRowLogos, ...bottomRowLogos].map((logo, index) => (
-                    <div
-                      key={`bottom-${index}`}
-                      className="flex-shrink-0 mx-6 group cursor-pointer"
-                      title={`${logo.name} - ${logo.category}`}
-                    >
-                      <div className="relative w-32 h-24 bg-gradient-to-br from-surface/60 to-background/60 rounded-xl p-3 border border-primary/20 hover:border-primary/60 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/20 backdrop-blur-sm">
-                        {/* Content */}
-                        <div className="h-full flex flex-col justify-between">
-                          {/* Service name */}
-                          <div className="text-center">
-                            <h4 className="text-sm font-semibold text-white group-hover:text-primary transition-colors leading-tight">
-                              {logo.name}
-                            </h4>
-                          </div>
-
-                          {/* Category badge */}
-                          <div className="text-center">
-                            <span className="inline-block px-2 py-1 text-xs bg-primary/10 text-primary rounded-full border border-primary/20">
-                              {logo.category}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Hover glow effect */}
-                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/0 via-primary/5 to-secondary/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          {/* Top row — scrolls right */}
+          <div className="relative overflow-hidden mb-6 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+            <div ref={topRowRef} className="flex items-center whitespace-nowrap w-max">
+              {[...topRowLogos, ...topRowLogos].map((item, index) => (
+                <LogoCard item={item} keyPrefix="top" index={index} key={`top-${index}`} />
+              ))}
             </div>
           </div>
 
-          {/* Right side - Hexagon Grid */}
-          <div className="flex items-center justify-center">
-            <div className="relative w-full max-w-md aspect-square">
-              {/* Hexagon grid pattern */}
-              <svg
-                viewBox="0 0 500 500"
-                className="w-full h-full opacity-30"
-              >
-                <defs>
-                  <pattern
-                    id="hexagons"
-                    width="50"
-                    height="43.4"
-                    patternUnits="userSpaceOnUse"
-                    patternTransform="scale(2) rotate(0)"
-                  >
-                    <path
-                      d="M25,0 L50,14.3 L50,37.7 L25,52 L0,37.7 L0,14.3 Z"
-                      fill="none"
-                      stroke="#00e6e6"
-                      strokeWidth="1"
-                    />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#hexagons)" />
-
-                {/* Colored dots */}
-                <circle cx="100" cy="100" r="5" fill="#00e6e6" className="animate-pulse-slow" />
-                <circle cx="200" cy="150" r="5" fill="#00ccff" className="animate-pulse-slow" />
-                <circle cx="300" cy="200" r="5" fill="#4d4dff" className="animate-pulse-slow" />
-                <circle cx="150" cy="250" r="5" fill="#1a1aff" className="animate-pulse-slow" />
-                <circle cx="250" cy="300" r="5" fill="#00e6e6" className="animate-pulse-slow" />
-                <circle cx="350" cy="350" r="5" fill="#00ccff" className="animate-pulse-slow" />
-                <circle cx="400" cy="150" r="5" fill="#4d4dff" className="animate-pulse-slow" />
-                <circle cx="100" cy="350" r="5" fill="#1a1aff" className="animate-pulse-slow" />
-              </svg>
-
-              {/* Glowing orbs */}
-              <div className="absolute top-1/4 left-1/4 w-8 h-8 bg-[#00e6e6] rounded-full filter blur-md opacity-50 animate-pulse-slow"></div>
-              <div className="absolute top-2/3 left-1/2 w-6 h-6 bg-[#00ccff] rounded-full filter blur-md opacity-40 animate-pulse-slow delay-700"></div>
-              <div className="absolute top-1/2 left-3/4 w-10 h-10 bg-[#4d4dff] rounded-full filter blur-md opacity-30 animate-pulse-slow delay-500"></div>
-              <div className="absolute top-3/4 left-1/3 w-12 h-12 bg-[#1a1aff] rounded-full filter blur-md opacity-20 animate-pulse-slow delay-300"></div>
+          {/* Bottom row — scrolls left */}
+          <div className="relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+            <div ref={bottomRowRef} className="flex items-center whitespace-nowrap w-max">
+              {[...bottomRowLogos, ...bottomRowLogos].map((item, index) => (
+                <LogoCard item={item} keyPrefix="bottom" index={index} key={`bottom-${index}`} />
+              ))}
             </div>
           </div>
         </div>

@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
-import { Mic, Volume2 } from 'lucide-react';
-import { gsap } from 'gsap';
+import { useEffect, useCallback, useState } from 'react';
+import { Mic, Square } from 'lucide-react';
 import useVapi from '../hooks/use-vapi';
 
 interface VoiceButtonProps {
@@ -11,48 +10,38 @@ interface VoiceButtonProps {
 }
 
 export function VoiceButton({ onStart, onStop, onMessage, className = '' }: VoiceButtonProps) {
-  // Button states
   const STATES = {
     INITIAL: 'initial',
     HOVER: 'hover',
     LOADING: 'loading',
     TALKING: 'talking',
-    STOPPING: 'stopping'
+    STOPPING: 'stopping',
   };
 
   const [buttonState, setButtonState] = useState(STATES.INITIAL);
   const [isHovering, setIsHovering] = useState(false);
   const { volumeLevel, isSessionActive, conversation, toggleCall } = useVapi();
-  const textRef = useRef<HTMLSpanElement>(null);
 
   // State machine transitions
   useEffect(() => {
     switch (buttonState) {
       case STATES.LOADING:
-        if (isSessionActive) {
-          setButtonState(STATES.TALKING);
-        }
+        if (isSessionActive) setButtonState(STATES.TALKING);
         break;
       case STATES.STOPPING:
-        if (!isSessionActive) {
-          setButtonState(STATES.INITIAL);
-        }
+        if (!isSessionActive) setButtonState(STATES.INITIAL);
         break;
       case STATES.TALKING:
-        if (!isSessionActive) {
-          setButtonState(STATES.INITIAL);
-        }
+        if (!isSessionActive) setButtonState(STATES.INITIAL);
         break;
       case STATES.INITIAL:
       case STATES.HOVER:
-        if (isSessionActive) {
-          setButtonState(STATES.TALKING);
-        }
+        if (isSessionActive) setButtonState(STATES.TALKING);
         break;
     }
   }, [isSessionActive, buttonState, STATES]);
 
-  // Handle hover state
+  // Hover state
   useEffect(() => {
     if (buttonState === STATES.INITIAL && isHovering) {
       setButtonState(STATES.HOVER);
@@ -61,41 +50,20 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
     }
   }, [isHovering, buttonState, STATES]);
 
-  // Handle loading timeout
+  // Loading/stopping timeout guard
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     if (buttonState === STATES.LOADING || buttonState === STATES.STOPPING) {
       timeoutId = setTimeout(() => {
         setButtonState(isSessionActive ? STATES.TALKING : STATES.INITIAL);
-      }, 5000); // Reset state after 5 seconds if no response
+      }, 5000);
     }
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [buttonState, isSessionActive, STATES]);
 
-  // Pulse animation for the button
-  useEffect(() => {
-    if (!isSessionActive && textRef.current) {
-      const timeline = gsap.timeline({ repeat: -1 });
-      timeline.to(textRef.current, {
-        scale: 1.03,
-        duration: 0.8,
-        ease: "power1.inOut"
-      });
-      timeline.to(textRef.current, {
-        scale: 1,
-        duration: 0.8,
-        ease: "power1.inOut"
-      });
-
-      return () => {
-        timeline.kill();
-      };
-    }
-  }, [isSessionActive]);
-
-  // Handle messages
+  // Surface assistant messages
   useEffect(() => {
     if (conversation.length > 0) {
       const lastMessage = conversation[conversation.length - 1];
@@ -127,104 +95,97 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
     }
   }, [isSessionActive, onStart, onStop, toggleCall]);
 
-  const handleMouseEnter = () => {
-    setIsHovering(true);
-  };
+  const isTalking = buttonState === STATES.TALKING;
+  const isBusy = buttonState === STATES.LOADING || buttonState === STATES.STOPPING;
 
-  const handleMouseLeave = () => {
-    setIsHovering(false);
-  };
-
-  const getButtonText = () => {
+  const label = (() => {
     switch (buttonState) {
-      case STATES.INITIAL:
-        return "PRESS TO TALK";
-      case STATES.HOVER:
-        return "GIVE IT A TRY";
-      case STATES.LOADING:
-        return "GIVE IT A SEC..";
-      case STATES.TALKING:
-        return "PRESS TO STOP";
-      case STATES.STOPPING:
-        return "STOPPING...";
-      default:
-        return "PRESS TO TALK";
+      case STATES.HOVER: return 'Tap to start a live call';
+      case STATES.LOADING: return 'Connecting…';
+      case STATES.TALKING: return 'Live — tap to end';
+      case STATES.STOPPING: return 'Ending call…';
+      default: return 'Talk to our AI';
     }
-  };
+  })();
+
+  // 7 waveform bars, center-weighted, driven by live volume
+  const bars = [0.45, 0.7, 0.9, 1, 0.9, 0.7, 0.45];
+  const vol = Math.min(volumeLevel ?? 0, 1);
 
   return (
-    <div className={`relative ${className}`}>
-      {/* Floating particles around the button */}
-      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
-        {[...Array(8)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 rounded-full bg-primary/30"
-            style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              animation: `float ${3 + Math.random() * 4}s linear ${Math.random() * 5}s infinite`
-            }}
-          />
-        ))}
-      </div>
-
-      <button
-        onClick={handleClick}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        disabled={buttonState === STATES.LOADING || buttonState === STATES.STOPPING}
-        className={`relative group overflow-hidden rounded-full border border-primary/30 px-8 py-4 transition-all duration-300 w-full glass-panel ${buttonState === STATES.TALKING
-            ? 'bg-gradient-to-r from-primary/20 via-secondary/20 to-primary/20 animate-gradient shadow-[0_0_30px_rgba(0,230,230,0.3)]'
-            : 'bg-surface/30 hover:bg-surface/50 hover:border-primary/50'
-          }`}
-      >
-        <div className="flex items-center justify-between w-full">
-          <span ref={textRef} className="font-mono text-white tracking-wider font-bold">
-            {getButtonText()}
-          </span>
-
-          <div className="flex items-center justify-center w-8 h-8 ml-4">
-            {buttonState === STATES.TALKING ? (
-              <div className="relative">
-                <Volume2 size={20} className="text-primary" />
-                <div
-                  className="absolute inset-0 bg-primary rounded-full opacity-20 animate-pulse"
-                  style={{
-                    transform: `scale(${1 + volumeLevel / 100})`,
-                    transition: 'transform 0.1s ease-out'
-                  }}
-                />
-              </div>
-            ) : (
-              <Mic size={20} className="text-primary animate-pulse" />
-            )}
-          </div>
-        </div>
-
-        {/* Background glow effect */}
+    <div className={`relative flex flex-col items-center ${className}`}>
+      {/* Rotating conic ring */}
+      <div className="relative w-32 h-32">
         <div
-          className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 animate-gradient"
+          className={`absolute -inset-1 rounded-full transition-opacity duration-500 ${isTalking ? 'opacity-100' : 'opacity-60'}`}
           style={{
-            opacity: buttonState === STATES.TALKING ? 0.5 : 0.2
+            background: 'conic-gradient(from 0deg, #00F0FF, #7000FF, #FF0055, #00F0FF)',
+            animation: `spin ${isTalking ? 3 : 9}s linear infinite`,
+            filter: 'blur(6px)',
+          }}
+        />
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: 'conic-gradient(from 180deg, #00F0FF, #7000FF, #FF0055, #00F0FF)',
+            animation: `spin ${isTalking ? 3 : 9}s linear infinite`,
+            padding: '2px',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            maskComposite: 'exclude',
           }}
         />
 
-        {/* Loading/Stopping overlay */}
-        {(buttonState === STATES.LOADING || buttonState === STATES.STOPPING) && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-full">
-            {buttonState === STATES.LOADING ? (
-              <div className="flex space-x-3">
-                <div className="h-3 w-3 bg-primary rounded-full animate-[pulse_0.6s_ease-in-out_infinite]"></div>
-                <div className="h-3 w-3 bg-primary rounded-full animate-[pulse_0.6s_ease-in-out_0.2s_infinite]"></div>
-                <div className="h-3 w-3 bg-primary rounded-full animate-[pulse_0.6s_ease-in-out_0.4s_infinite]"></div>
-              </div>
-            ) : (
-              <div className="w-6 h-6 border-[3px] border-primary border-t-transparent rounded-full animate-spin"></div>
-            )}
+        {/* Orb core */}
+        <button
+          onClick={handleClick}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
+          disabled={isBusy}
+          aria-label={label}
+          className={`absolute inset-[3px] rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-xl border border-white/10 ${
+            isTalking
+              ? 'bg-[#0A0F1E]/80 shadow-[0_0_60px_rgba(0,240,255,0.35)]'
+              : 'bg-[#0A0F1E]/90 hover:bg-[#101830]/90 shadow-[0_0_40px_rgba(112,0,255,0.2)] hover:shadow-[0_0_50px_rgba(0,240,255,0.3)]'
+          } ${isBusy ? 'cursor-wait' : 'cursor-pointer'}`}
+        >
+          {isBusy ? (
+            <div className="w-7 h-7 border-[3px] border-primary border-t-transparent rounded-full animate-spin" />
+          ) : isTalking ? (
+            <div className="flex items-end justify-center gap-[5px] h-10">
+              {bars.map((weight, i) => (
+                <span
+                  key={i}
+                  className="w-[5px] rounded-full bg-gradient-to-t from-primary to-secondary"
+                  style={{
+                    height: `${Math.max(14, (14 + 80 * weight * vol))}%`,
+                    transition: 'height 0.12s ease-out',
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <Mic size={34} className="text-primary drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
+          )}
+        </button>
+
+        {/* Stop hint while talking */}
+        {isTalking && (
+          <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-accent/90 border border-white/20 flex items-center justify-center shadow-lg pointer-events-none">
+            <Square size={12} className="text-white" fill="currentColor" />
           </div>
         )}
-      </button>
+      </div>
+
+      {/* Label */}
+      <div className="mt-5 text-center select-none">
+        <p className={`text-sm font-semibold tracking-wide transition-colors duration-300 ${isTalking ? 'text-primary' : 'text-white/90'}`}>
+          {label}
+        </p>
+        <p className="mt-1 text-xs text-gray-500">
+          {isTalking ? 'You’re talking to Hales AI right now' : 'Live demo · no signup · ~30 seconds'}
+        </p>
+      </div>
     </div>
   );
 }

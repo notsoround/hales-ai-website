@@ -23,7 +23,6 @@ import { Footer } from './components/Footer';
 const AboutUs = lazy(() => import('./pages/about-us/page'));
 const ContactUs = lazy(() => import('./pages/contact-us/page'));
 const EliteOps = lazy(() => import('./pages/elite-ops/page'));
-const CupcakeTest = lazy(() => import("./pages/cupcake-test/page"));
 const CupcakeDashboard = lazy(() => import("./pages/cupcake/page"));
 const SandboxIndex = lazy(() => import("./pages/cupcake/sandbox/page"));
 
@@ -41,12 +40,9 @@ type PageKey =
   | 'home'
   | 'get-started'
   | 'learn-more'
-  | 'matts-tasklist'
-  | 'quantum-code'
   | 'about-us'
   | 'contact-us'
   | 'elite-ops'
-  | 'cupcake-test'
   | 'cupcake'
   | 'cupcake-sandbox'
   | `cupcake-sandbox-${string}`;
@@ -61,7 +57,6 @@ function pathnameToPage(pathname: string): PageKey {
     '/contact-us': 'contact-us',
     '/elite-ops': 'elite-ops',
     '/cupcake': 'cupcake',
-    '/cupcake-test': 'cupcake-test',
     '/cupcake/sandbox': 'cupcake-sandbox',
   };
   if (routes[clean]) return routes[clean];
@@ -182,12 +177,6 @@ function App() {
             <EliteOps />
           </Suspense>
         );
-      case "cupcake-test":
-        return (
-          <Suspense fallback={<div className="text-center p-4">Loading...</div>}>
-            <CupcakeTest />
-          </Suspense>
-        );
       case "cupcake":
         return (
           <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Cupcake...</div>}>
@@ -246,18 +235,12 @@ function App() {
                     </div>
 
                     {/* Voice Interaction */}
-                    <div className="mt-16 relative">
-                      <div className="glass-panel inline-flex flex-col items-center p-8 rounded-3xl hover:scale-105 transition-transform duration-500">
-                        <VoiceButton
-                          onStart={handleVoiceStart}
-                          onStop={handleVoiceStop}
-                          onMessage={handleVoiceMessage}
-                          className="shadow-[0_0_50px_rgba(0,240,255,0.3)]"
-                        />
-                        <p className="mt-4 text-sm text-primary/60 font-medium tracking-wide">
-                          TAP TO SPEAK
-                        </p>
-                      </div>
+                    <div className="mt-16 relative flex justify-center">
+                      <VoiceButton
+                        onStart={handleVoiceStart}
+                        onStop={handleVoiceStop}
+                        onMessage={handleVoiceMessage}
+                      />
                     </div>
                   </div>
                 </div>
