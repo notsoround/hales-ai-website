@@ -1,45 +1,48 @@
-# hales.ai Master Checklist — Architect's Plan (2026-07-05)
+# hales.ai Master Checklist — Architect's Plan (updated 2026-07-05, evening)
 
-Audit of the live site + codebase. ✅ = done in the 2026-07-05 cleanup pass.
+✅ = done & deployed to production · ⏳ = remaining
 
-## 1. Quick wins (done this pass)
-- [x] Delete 6 dead components (AbstractBall, CursorTrail, GridBackground, HamburgerMenu, MatrixBackground, PasswordProtection)
-- [x] Delete committed `src/App.tsx.bak.1771204434`
-- [x] Delete ~3MB unreferenced public assets (6 sound files, duplicate `Hales-Ai_Quantum_Code/` folder, unused avatars adam/phil/elite_ops 2&4)
-- [x] Strip dead GLSL shader blocks from `index.html` (only deleted AbstractBall used them)
-- [x] Fix dead YouTube link in Footer (`@hales_ai` 404 → `@HalesAi`)
-- [x] Real SEO head: title, meta description, canonical, OG + Twitter cards, theme-color
-- [x] Branded `favicon.svg` (was the default Vite logo — embarrassing for an agency site)
-- [x] `CLAUDE.md` harness for this repo
+## 1. Quick wins ✅ ALL DONE
+- [x] Delete 6 dead components + committed `App.tsx.bak`
+- [x] Delete ~3MB unreferenced public assets (sounds, dupe Quantum_Code folder, unused avatars)
+- [x] Strip dead GLSL shaders from `index.html`
+- [x] Fix dead YouTube link (`@hales_ai` → `@HalesAi`)
+- [x] Real SEO head: title, description, canonical, OG + Twitter cards, theme-color
+- [x] Branded `favicon.svg`
+- [x] `CLAUDE.md` harness + `.claude/` skills (deploy-website, new-sandbox-page) + global n8n-hales skill
 
-## 2. Security & deps (HIGH PRIORITY — next pass)
-- [ ] **74 Dependabot vulnerabilities (1 critical, 35 high)** — https://github.com/notsoround/hales-ai-website/security/dependabot. Run `npm audit`, upgrade deps, retest build.
-- [ ] `/cupcake` dashboard auth: PasswordProtection.tsx was dead code; verify `src/pages/cupcake/page.tsx`'s own auth actually gates it (it fetches automate.hales.ai/webhook/cupcake-web) and the password isn't client-side-only theater.
-- [ ] Rotate the OpenRouter key hardcoded in n8n workflow HTTP nodes (also on the ops checklist).
+## 2. Security & deps ✅ DONE
+- [x] **74 → 0 vulnerabilities.** Upgraded vite 5→8, removed unused bcrypt/gsap/axios + dead VapiService.ts. `npm audit` = clean.
+- [x] Bumped Docker build image node 18 → 22 (vite 8 needs ≥20.19).
+- [ ] ⏳ Rotate the OpenRouter key hardcoded in n8n workflow HTTP nodes (ops item, separate from the site).
+- [ ] ⏳ `/cupcake` password is client-side only (baked into the JS bundle) — fine as a soft gate, but not real security. For anything sensitive, move auth server-side (n8n check).
 
-## 3. Brand & design (the "phenomenal" pass)
-- [ ] **Integrations marquee has NO logos** — it renders text-only names. `public/Integrations_images/` holds 16 downloaded logo webps that were never wired in. Rename them meaningfully (they're `image (1).webp`…), map to services, render real logos. ⚠️ `IntegrationsMarquee.tsx` is gate-protected — update droplet hash on deploy.
-- [ ] **Logo**: Navbar + Footer + hero are all text-gradient wordmarks. Design a real mark (the new favicon's "H" motif can seed it; Matt's `/draw` pipeline with Gemini 3 Pro Image can generate candidates). ⚠️ Navbar.tsx is gate-protected.
-- [ ] Hero: "Hales AI" headline + tagline is fine but generic; consider a stronger value prop + social proof strip.
-- [ ] Per-service sections/pages: AI Telephony, Voice Cloning, Automation, Smart Scheduling, Web Dev — each needs its own pitch + CTA (currently one BentoGrid + generic "Why Choose Us" with filler copy like "Cutting-edge artificial intelligence technology").
-- [ ] Decide whether 🧁 Cupcake belongs in the main client-facing nav (it's Matt's personal AI dashboard; consider moving to footer only).
+## 3. Brand & design ✅ MOSTLY DONE
+- [x] **Integrations marquee now shows real logos** — identified & wired 10 (OpenAI, Gemini, ElevenLabs, Google Cloud, Azure, Twilio, Slack, HubSpot, Google Calendar, Google Sheets), clean monogram fallbacks for the rest, edge-fade masks, modern pill cards.
+- [x] **Voice button redesigned** — animated conic-gradient orb with live waveform driven by real Vapi volume, clear state labels ("Talk to our AI" / "Live — tap to end"). The old one divided a 0–1 volume by 100 so it literally never moved.
+- [x] **Real logo mark** — SVG "H" monogram in the Navbar + favicon (seed for a fuller brand identity later).
+- [x] Removed personal 🧁 Cupcake link from the client-facing top nav (still reachable in footer).
+- [ ] ⏳ Per-service deep pages (AI Telephony, Voice Cloning, etc.) — BentoGrid links exist; dedicated pages with individual pitches + CTAs would be the next polish.
+- [ ] ⏳ "Why Choose Us" copy is still generic ("Cutting-edge artificial intelligence technology") — worth a rewrite.
+- [ ] ⏳ Full custom logo/wordmark from a designer or the /draw pipeline (current mark is clean but simple).
 
-## 4. Functional completion ("everything clicks through")
-- [ ] **ChatInterface is rendered but unreachable** — `isChatOpen` starts false and nothing ever opens it. Add a floating chat button (it already talks to the cupcake-web webhook) or remove it. ⚠️ touches App.tsx (gated).
-- [ ] Contact flow is mailto-only (`contact-us/page.tsx`, Footer, ProjectShowcase). Wire a real form → n8n webhook (Action Hub can send the email) with success/error states.
-- [ ] Voice button (Vapi) on hero: verify the full call flow works with the AraVoice assistant and has visible error handling when mic permission is denied.
-- [ ] Remove `/cupcake-test` route from production (test page exposed; also dead `matts-tasklist` / `quantum-code` PageKey entries). ⚠️ App.tsx (gated).
-- [ ] Add a proper 404 view for unknown paths (currently silently falls back to home).
-- [ ] LinkedIn URL is `company/hales-asi` — resolves 200 but verify it's actually the right company page (looks like a typo of hales-ai).
+## 4. Functional completion ✅ MOSTLY DONE
+- [x] **Chat widget now works** — rewired from the broken Vapi REST path to the live cupcake-web n8n webhook; floating launcher button on home; verified end-to-end (real AI reply received in preview).
+- [x] **Contact form is real** — submits to the cupcake-actions webhook (emails matt@hales.ai) with sending/success/error states. Was mailto-only.
+- [x] **Voice button now actually connects** — root cause found: `.env` was excluded from the Docker build, so `VITE_VAPI_ASSISTANT_ID` was empty in the live bundle (the button could never start a call — that's why it "looked the same"). Fixed via Docker build args; assistant ID now baked in.
+- [x] Removed exposed `/cupcake-test` route + dead PageKey entries.
+- [x] Added a real 404 view for unknown paths.
+- [ ] ⏳ Verify the live Vapi call quality/error-handling on a real phone (needs a human mic test).
+- [ ] ⏳ LinkedIn URL `company/hales-asi` resolves but looks like a typo of `hales-ai` — confirm the correct page.
 
-## 5. Tech & SEO hardening
-- [ ] Main bundle is 1.58MB (459KB gzip) — code-split: three/vapi/framer chunks via `build.rollupOptions.output.manualChunks`; lazy-load below-the-fold sections.
-- [ ] nginx: verify gzip/brotli + cache headers for `/assets/*` (immutable hashed filenames).
-- [ ] Add `robots.txt` + `sitemap.xml` (list real routes; exclude /cupcake*).
-- [ ] Add structured data (LocalBusiness/Organization JSON-LD).
-- [ ] og:image is a repurposed video thumb — generate a proper 1200×630 social card (again: /draw pipeline).
-- [ ] Lighthouse pass on mobile after code-split; the DotCursor + heavy Framer animations may hurt mobile perf — test and gate them to desktop.
+## 5. Tech & SEO ✅ DONE
+- [x] **Main bundle 1,576KB → 95KB** (26KB gzip) via manual chunks (three / motion / vapi split out).
+- [x] nginx: immutable cache for `/assets/*`, no-cache HTML shell, tuned gzip.
+- [x] `robots.txt` + `sitemap.xml` (excludes /cupcake).
+- [x] Organization JSON-LD structured data.
+- [ ] ⏳ Proper 1200×630 social share image (currently reuses video-thumb.png).
+- [ ] ⏳ Mobile Lighthouse pass (DotCursor now gated to fine-pointer devices, which helps).
 
-## 6. Deploy-gate bookkeeping
-Gate-protected files (droplet `deploy-hales-ai.sh` hash-pins them): `App.tsx`, `Navbar.tsx`, `Hero3D.tsx`, `IntegrationsMarquee.tsx`, `VoiceButton.tsx`.
-Items above marked ⚠️ require updating the corresponding `assert_file_hash` sha256 on the droplet when deployed. Process documented in CLAUDE.md.
+## 6. Deploy-gate bookkeeping ✅ MAINTAINED
+- [x] All gate hashes updated for changed protected files (App.tsx, Navbar, IntegrationsMarquee, VoiceButton); gate marker "TAP TO SPEAK" → "VoiceButton"; verified consistent.
+- [x] Deploy pipeline health confirmed end-to-end (multiple clean deploys tonight, smoke checks passing).
