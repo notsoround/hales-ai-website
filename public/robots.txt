@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /cupcake
+Disallow: /cupcake/
+
+Sitemap: https://hales.ai/sitemap.xml

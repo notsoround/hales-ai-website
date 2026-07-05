@@ -11,8 +11,21 @@ const navItems = [
     { name: 'About Us', id: 'about-us' },
     { name: 'Contact Us', id: 'contact-us' },
     { name: 'Elite Ops', id: 'elite-ops' },
-    { name: '🧁 Cupcake', id: 'cupcake' },
 ];
+
+const LogoMark = () => (
+    <svg viewBox="0 0 64 64" className="w-9 h-9" aria-hidden="true">
+        <defs>
+            <linearGradient id="hales-mark" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#00F0FF" />
+                <stop offset="1" stopColor="#7000FF" />
+            </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="14" fill="#0A0F1E" />
+        <path d="M18 14v36M46 14v36M18 32h28" stroke="url(#hales-mark)" strokeWidth="7" strokeLinecap="round" fill="none" />
+        <circle cx="46" cy="14" r="5" fill="#00F0FF" />
+    </svg>
+);
 
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -41,9 +54,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
                             {/* Logo */}
                             <button
                                 onClick={() => onNavigate('home')}
-                                className="text-2xl font-bold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient hover:scale-105 transition-transform"
+                                aria-label="Hales AI home"
+                                className="flex items-center gap-3 hover:scale-105 transition-transform"
                             >
-                                Hales AI
+                                <LogoMark />
+                                <span className="text-2xl font-bold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-white to-secondary animate-gradient">
+                                    Hales AI
+                                </span>
                             </button>
 
                             {/* Desktop Menu */}

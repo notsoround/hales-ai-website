@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Mic, X } from 'lucide-react';
-import { vapiService } from '../services/VapiService';
+import { Send, X, Sparkles } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  audioUrl?: string;
 }
 
 interface ChatInterfaceProps {
@@ -16,225 +14,142 @@ interface ChatInterfaceProps {
   onClose: () => void;
 }
 
+const CHAT_WEBHOOK = 'https://automate.hales.ai/webhook/cupcake-web';
+
+async function askHalesAI(message: string): Promise<string> {
+  const res = await fetch(CHAT_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      command: message,
+      context: 'Public chat widget on hales.ai — visitor question. Be helpful, concise, and professional about Hales AI services (AI telephony, voice cloning, workflow automation, smart scheduling, web development).',
+      source: 'website-chat',
+      timestamp: Date.now(),
+    }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return data.reply || data.result || data.results?.[0]?.result || "Thanks! We'll get back to you shortly.";
+}
+
 export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClose }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      content: "Hey! I'm the Hales AI assistant. Ask me anything about AI phone agents, automation, or what we can build for you.",
+      timestamp: new Date(),
+    },
+  ]);
   const [isLoading, setIsLoading] = useState(false);
-  const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null);
-  const [initializationAttempted, setInitializationAttempted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Initialize audio player
-    const player = new Audio();
-    setAudioPlayer(player);
-
-    // Add welcome message
-    if (messages.length === 0) {
-      setMessages([
-        {
-          role: 'assistant',
-          content: "Hello! I'm your AI assistant. How can I help you today?",
-          timestamp: new Date()
-        }
-      ]);
-    }
-
-    // Initialize conversation when component mounts
-    const initConversation = async () => {
-      if (!initializationAttempted && vapiService.isConfigured()) {
-        try {
-          await vapiService.initializeConversation();
-          setInitializationAttempted(true);
-        } catch (error) {
-          // Add a system message to inform the user
-          setMessages(prev => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: "I'm having trouble connecting to my voice service. You can still chat with me, but voice features might be limited.",
-              timestamp: new Date()
-            }
-          ]);
-          setInitializationAttempted(true);
-        }
-      }
-    };
-
-    initConversation();
-
-    return () => {
-      if (player) {
-        player.pause();
-        player.src = '';
-      }
-    };
-  }, [messages.length, initializationAttempted]);
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages, isLoading]);
 
-  const playAudio = (url: string) => {
-    if (audioPlayer && url) {
-      audioPlayer.src = url;
-      audioPlayer.play().catch(err => {
-        console.error('Error playing audio:', err);
-      });
-    }
-  };
+  useEffect(() => {
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    const text = input.trim();
+    if (!text || isLoading) return;
 
-    const userMessage = input.trim();
     setInput('');
-
-    // Add user message to chat
-    const newUserMessage: ChatMessage = {
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, newUserMessage]);
-    onMessageSent(userMessage);
-
+    setMessages((prev) => [...prev, { role: 'user', content: text, timestamp: new Date() }]);
+    onMessageSent(text);
     setIsLoading(true);
 
     try {
-      // Check if Vapi service is configured
-      if (!vapiService.isConfigured()) {
-        // If not configured, use a fallback response
-        setTimeout(() => {
-          const fallbackResponse = "I'm not fully configured yet. Please check your Vapi.ai API credentials in the .env file.";
-          handleAssistantResponse(fallbackResponse);
-        }, 1000);
-        return;
-      }
-
-      // Send message to Vapi.ai
-      const response = await vapiService.sendMessage(userMessage);
-      handleAssistantResponse(response.message, response.audioUrl);
-    } catch (error) {
-      handleAssistantResponse("Sorry, I encountered an error processing your request. Please try again later.");
+      const reply = await askHalesAI(text);
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply, timestamp: new Date() }]);
+      onMessageReceived(reply);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: "Hmm, I couldn't reach the server just now. Email matt@hales.ai and we'll get right back to you.",
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleAssistantResponse = (responseText: string, audioUrl?: string) => {
-    const assistantMessage: ChatMessage = {
-      role: 'assistant',
-      content: responseText,
-      timestamp: new Date(),
-      audioUrl
-    };
-
-    setMessages(prev => [...prev, assistantMessage]);
-    onMessageReceived(responseText);
-
-    // Play audio if available
-    if (audioUrl) {
-      playAudio(audioUrl);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 w-80 h-96 glass-panel rounded-2xl shadow-xl flex flex-col overflow-hidden z-50">
-      {/* Header */}
-      <div className="p-3 border-b border-white/10 flex justify-between items-center bg-surface/50">
-        <h3 className="font-semibold text-primary font-display">Hales AI Assistant</h3>
-        <button
-          onClick={onClose}
-          className="text-primary hover:text-white transition-colors"
-        >
-          <X size={18} />
-        </button>
-      </div>
+    <div className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] max-w-md">
+      <div className="rounded-3xl border border-white/10 bg-[#0A0F1E]/95 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden flex flex-col max-h-[70vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-gradient-to-r from-primary/10 to-secondary/10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+              <Sparkles size={16} className="text-black" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">Hales AI</div>
+              <div className="text-[11px] text-primary/80 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Online
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close chat" className="p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] p-3 rounded-2xl ${msg.role === 'user'
-                  ? 'bg-gradient-to-r from-primary/20 to-secondary/20 text-white border border-primary/20'
-                  : 'bg-surface/50 text-gray-200 border border-white/5'
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-[240px]">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-gradient-to-r from-primary/90 to-secondary/90 text-black font-medium rounded-br-md'
+                    : 'bg-white/[0.06] border border-white/10 text-gray-200 rounded-bl-md'
                 }`}
-            >
-              <p className="text-sm leading-relaxed">{msg.content}</p>
-              <div className="text-[10px] opacity-50 mt-1 flex justify-between items-center">
-                <span>
-                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                {msg.role === 'assistant' && msg.audioUrl && (
-                  <button
-                    onClick={() => playAudio(msg.audioUrl!)}
-                    className="ml-2 text-primary hover:text-white"
-                  >
-                    <Mic size={12} />
-                  </button>
-                )}
+              >
+                {m.content}
               </div>
             </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-surface/50 p-3 rounded-2xl max-w-[80%] border border-white/5">
-              <div className="flex space-x-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse delay-150"></div>
-                <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse delay-300"></div>
+          ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white/[0.06] border border-white/10 flex gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-primary/70 animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 rounded-full bg-primary/70 animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 rounded-full bg-primary/70 animate-bounce [animation-delay:300ms]" />
               </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="p-3 border-t border-white/10 flex gap-2 bg-surface/50">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 bg-black/20 border border-white/10 rounded-full px-4 py-2 focus:outline-none focus:border-primary/50 focus:bg-black/40 text-white text-sm placeholder-gray-500 transition-all"
-        />
-        <button
-          type="button"
-          className="w-9 h-9 rounded-full bg-surface/50 border border-white/10 flex items-center justify-center text-primary hover:text-white hover:bg-surface hover:border-primary/30 transition-all"
-        >
-          <Mic size={16} />
-        </button>
-        <button
-          type="submit"
-          disabled={!input.trim()}
-          className="w-9 h-9 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center text-black hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
-        >
-          <Send size={16} />
-        </button>
-      </form>
+        {/* Input */}
+        <form onSubmit={handleSubmit} className="p-3 border-t border-white/10 flex gap-2">
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about AI phone agents, pricing…"
+            className="flex-1 px-4 py-3 rounded-2xl bg-black/30 border border-white/10 focus:border-primary/50 focus:outline-none text-sm text-white placeholder-gray-600"
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            aria-label="Send message"
+            className="px-4 rounded-2xl bg-gradient-to-r from-primary to-secondary text-black disabled:opacity-40 hover:scale-105 transition-transform"
+          >
+            <Send size={18} />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

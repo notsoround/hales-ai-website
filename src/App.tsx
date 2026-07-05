@@ -6,6 +6,7 @@ import {
   Network,
   Settings,
 } from 'lucide-react';
+import { MessageCircle, X } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { Hero3D } from './components/Hero3D';
 import { BentoGrid } from './components/BentoGrid';
@@ -45,7 +46,8 @@ type PageKey =
   | 'elite-ops'
   | 'cupcake'
   | 'cupcake-sandbox'
-  | `cupcake-sandbox-${string}`;
+  | `cupcake-sandbox-${string}`
+  | 'not-found';
 
 function pathnameToPage(pathname: string): PageKey {
   const clean = pathname.replace(/\/+$/, '') || '/';
@@ -65,7 +67,7 @@ function pathnameToPage(pathname: string): PageKey {
   const sandboxMatch = clean.match(/^\/cupcake\/sandbox\/([a-z0-9-]+)$/);
   if (sandboxMatch) return `cupcake-sandbox-${sandboxMatch[1]}`;
 
-  return 'home';
+  return clean === '/' ? 'home' : 'not-found';
 }
 
 function pageToPathname(page: PageKey): string {
@@ -188,6 +190,21 @@ function App() {
           <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Sandbox...</div>}>
             <SandboxIndex />
           </Suspense>
+        );
+      case 'not-found':
+        return (
+          <div className="min-h-screen bg-[#020410] text-white flex items-center justify-center px-6">
+            <div className="max-w-xl text-center space-y-6">
+              <div className="text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">404</div>
+              <p className="text-xl text-gray-400">That page doesn&apos;t exist — but our AI probably could build it.</p>
+              <button
+                onClick={() => setCurrentPage('home')}
+                className="px-8 py-4 bg-white text-black rounded-full font-bold hover:scale-105 transition-transform"
+              >
+                Back to Hales AI
+              </button>
+            </div>
+          </div>
         );
       default:
         return (
@@ -321,13 +338,20 @@ function App() {
             {/* Footer */}
             <Footer />
 
-            {/* Chat Interface */}
+            {/* Chat Interface + floating launcher */}
             <ChatInterface
               isOpen={isChatOpen}
               onClose={() => setIsChatOpen(false)}
               onMessageSent={handleMessageSent}
               onMessageReceived={handleMessageReceived}
             />
+            <button
+              onClick={() => setIsChatOpen((v) => !v)}
+              aria-label={isChatOpen ? 'Close chat' : 'Chat with Hales AI'}
+              className="fixed bottom-6 right-4 sm:right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary text-black flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.4)] hover:scale-110 transition-transform"
+            >
+              {isChatOpen ? <X size={24} /> : <MessageCircle size={24} />}
+            </button>
           </div>
         );
     }
@@ -335,7 +359,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#020410] text-white relative">
-      <DotCursor />
+      {typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches && <DotCursor />}
       {renderPage()}
     </div>
   );
