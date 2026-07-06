@@ -361,6 +361,12 @@ const CupcakeDashboard: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               </div>
 
               <div className="border-t border-gray-800 pt-4 mt-4">
+                <a
+                  href="/cupcake/sandbox"
+                  className="block w-full px-3 py-2 mb-1 text-left text-pink-300 hover:text-white text-sm font-semibold rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 transition-colors"
+                >
+                  🎨 Pages I&apos;ve Built →
+                </a>
                 <button
                   onClick={onLogout}
                   className="w-full px-3 py-2 text-left text-gray-400 hover:text-pink-400 text-sm rounded-lg hover:bg-gray-800/50 transition-colors"
