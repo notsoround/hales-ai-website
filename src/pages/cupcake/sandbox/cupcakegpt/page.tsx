@@ -3,7 +3,8 @@
 // Talks to n8n webhooks on automate.hales.ai (CORS-enabled).
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+// framer-motion intentionally not used: tab switches must render instantly and
+// never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
   Home, MessageCircle, Camera, CalendarDays, Send, Mic, Volume2, VolumeX, Loader2,
 } from 'lucide-react';
@@ -68,20 +69,12 @@ const CupcakeGPT: React.FC = () => {
 
       {/* Content */}
       <main className="flex-1 max-w-md w-full mx-auto px-4 pb-28 pt-4">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.18 }}
-          >
-            {tab === 'feed' && <FeedView />}
-            {tab === 'chat' && <ChatView speak={speak} />}
-            {tab === 'snap' && <SnapView />}
-            {tab === 'week' && <WeekView />}
-          </motion.div>
-        </AnimatePresence>
+        <div key={tab}>
+          {tab === 'feed' && <FeedView />}
+          {tab === 'chat' && <ChatView speak={speak} />}
+          {tab === 'snap' && <SnapView />}
+          {tab === 'week' && <WeekView />}
+        </div>
       </main>
 
       {/* Bottom nav */}
@@ -289,8 +282,7 @@ const SnapView: React.FC = () => {
       )}
 
       {result && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-white/[0.05] border border-pink-500/20 rounded-2xl p-4">
+        <div className="bg-white/[0.05] border border-pink-500/20 rounded-2xl p-4">
           <p className="font-semibold text-pink-200">{result.Description || result.description || 'Logged'}</p>
           <div className="grid grid-cols-3 gap-2 mt-3 text-center">
             <Stat label="Calories" value={result.Calories ?? result.calories} />
@@ -298,7 +290,7 @@ const SnapView: React.FC = () => {
             <Stat label="Protein (g)" value={result.Protein ?? result.protein_g} />
           </div>
           {!result.error && <p className="text-xs text-emerald-300/70 mt-3">✓ Saved to your food log</p>}
-        </motion.div>
+        </div>
       )}
     </div>
   );
