@@ -1,33 +1,54 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Vapi from '@vapi-ai/web';
+import VapiImport from '@vapi-ai/web';
 
-// Use the same API key and assistant ID
-const publicKey = 'eda08098-2253-4393-bbec-c2aeefb87582';
-const assistantId = '1ec0bb05-5e47-4f1d-9857-03e1c5d793ec';
+// Vite/CJS interop: @vapi-ai/web is CJS (`exports.default = Vapi`). Depending
+// on the bundler, the default import is either the constructor or
+// `{ default: Constructor }`. `new imported(key)` then becomes
+// `new Module.default(key)` in the live bundle and throws
+// "X.default is not a constructor".
+type VapiCtor = new (publicKey: string) => {
+    on: (event: string, handler: (...args: any[]) => void) => void;
+    start: (assistantId: string) => Promise<unknown>;
+    stop: () => void;
+};
+
+function resolveVapiCtor(mod: unknown): VapiCtor {
+    let current: any = mod;
+    for (let i = 0; i < 4 && current; i += 1) {
+        if (typeof current === 'function') return current as VapiCtor;
+        current = current.default;
+    }
+    throw new Error('Vapi web SDK export is not a constructor');
+}
+
+const Vapi = resolveVapiCtor(VapiImport);
+
+// Public *web* token (not VAPI_API_KEY) + public marketing assistant.
+// Token is origin-locked to hales.ai / localhost and allowlisted to this
+// assistant only — it cannot start Cupcake or any other agent.
+const publicKey = '28a2818f-aba9-4e01-a0f7-315e6d8ce914';
+const assistantId = '05b176e0-5a95-4777-baf1-612922bfeded';
 
 const useVapi = () => {
     const [volumeLevel, setVolumeLevel] = useState(0);
     const [isSessionActive, setIsSessionActive] = useState(false);
     const [conversation, setConversation] = useState<{ role: string, text: string }[]>([]);
-    const vapiRef = useRef<any>(null);
+    const vapiRef = useRef<InstanceType<VapiCtor> | null>(null);
 
     const initializeVapi = useCallback(() => {
+        if (typeof window === 'undefined') return;
         try {
             if (!vapiRef.current) {
-                console.log('Initializing Vapi with config:', { publicKey, assistantId });
                 const vapiInstance = new Vapi(publicKey);
-                console.log('Vapi instance created successfully');
                 vapiRef.current = vapiInstance;
 
                 vapiInstance.on('call-start', () => {
-                    console.log('Vapi call started');
                     setIsSessionActive(true);
                 });
 
                 vapiInstance.on('call-end', () => {
-                    console.log('Vapi call ended');
                     setIsSessionActive(false);
                     setConversation([]);
                 });
@@ -37,7 +58,6 @@ const useVapi = () => {
                 });
 
                 vapiInstance.on('message', (message: any) => {
-                    console.log('Vapi message received:', message);
                     if (message.type === 'transcript' && message.transcriptType === 'final') {
                         setConversation((prev) => [
                             ...prev,
@@ -47,29 +67,19 @@ const useVapi = () => {
                 });
 
                 vapiInstance.on('error', (e: Error) => {
-                    console.error('Vapi error details:', {
-                        message: e.message,
-                        stack: e.stack,
-                        name: e.name
-                    });
+                    console.error('Vapi error:', e?.message || e);
                 });
             }
         } catch (error) {
             const err = error as Error;
-            console.error('Error initializing Vapi:', {
-                message: err.message,
-                stack: err.stack,
-                name: err.name
-            });
+            console.error('Error initializing Vapi:', err.message);
         }
     }, []);
 
     useEffect(() => {
-        console.log('useEffect running, initializing Vapi');
         initializeVapi();
         return () => {
             if (vapiRef.current) {
-                console.log('Cleaning up Vapi instance');
                 vapiRef.current.stop();
                 vapiRef.current = null;
             }
@@ -78,37 +88,23 @@ const useVapi = () => {
 
     const toggleCall = async () => {
         try {
-            console.log('Toggle call clicked, current state:', {
-                isSessionActive,
-                hasVapiInstance: !!vapiRef.current
-            });
-            
             if (!vapiRef.current) {
-                console.log('No Vapi instance found, reinitializing');
                 initializeVapi();
-                // Wait a bit for initialization
-                await new Promise(resolve => setTimeout(resolve, 500));
             }
 
             if (!vapiRef.current) {
                 throw new Error('Failed to initialize Vapi instance');
             }
-            
+
             if (isSessionActive) {
-                console.log('Stopping Vapi call');
-                await vapiRef.current.stop();
+                vapiRef.current.stop();
             } else {
-                console.log('Attempting to start Vapi call with assistant:', assistantId);
                 await vapiRef.current.start(assistantId);
-                console.log('Vapi call started successfully');
             }
         } catch (err) {
             const error = err as Error;
-            console.error('Error toggling Vapi session:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            });
+            console.error('Error toggling Vapi session:', error.message);
+            throw error;
         }
     };
 
