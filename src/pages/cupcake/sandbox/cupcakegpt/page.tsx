@@ -16,6 +16,8 @@ export const metadata = {
 };
 
 const API = 'https://automate.hales.ai/webhook';
+const KEY = import.meta.env.VITE_CUPCAKEGPT_KEY as string;
+const auth = { 'X-Cupcake-Key': KEY };
 const ICON = '/cupcakegpt-icon.png';
 
 type FeedItem = { type: string; icon: string; title: string; body: string; date: string; time: string; ts: number };
@@ -101,7 +103,7 @@ const FeedView: React.FC = () => {
   const [items, setItems] = useState<FeedItem[] | null>(null);
   const [err, setErr] = useState(false);
   useEffect(() => {
-    fetch(`${API}/cupcake-feed`)
+    fetch(`${API}/cupcake-feed`, { headers: auth })
       .then((r) => r.json())
       .then((d) => setItems(d.items || []))
       .catch(() => setErr(true));
@@ -155,7 +157,8 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
     setInput(''); setBusy(true);
     try {
       const r = await fetch(`${API}/cupcake-chat`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify({ message: t }),
       });
       const d = await r.json();
@@ -242,7 +245,8 @@ const SnapView: React.FC = () => {
     setBusy(true); setResult(null);
     try {
       const r = await fetch(`${API}/cupcake-food-photo`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify({ image: preview, note }),
       });
       setResult(await r.json());
@@ -307,7 +311,7 @@ const Stat: React.FC<{ label: string; value: any }> = ({ label, value }) => (
 const WeekView: React.FC = () => {
   const [items, setItems] = useState<FeedItem[] | null>(null);
   useEffect(() => {
-    fetch(`${API}/cupcake-feed`).then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => setItems([]));
+    fetch(`${API}/cupcake-feed`, { headers: auth }).then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => setItems([]));
   }, []);
   const food = (items || []).filter((i) => i.type === 'food');
   const kcal = food.reduce((s, f) => s + (parseInt(f.body) || 0), 0);
