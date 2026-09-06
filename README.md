@@ -1,68 +1,52 @@
 # Hales AI
 
-The company website for [Hales AI](https://hales.ai) — a one-person AI shop building telephony agents, workflow automation, and custom AI solutions.
+**Voice agents, workflow automation, and interactive interfaces.** Built by Matt Hales and the Hales AI team.
 
-**Live at**: [https://hales.ai](https://hales.ai)
+[Explore the live site](https://hales.ai) · [Meet HAL](https://hales.ai/lab/hal/index.html)
 
-## What's Here
+## The experience
 
-- **Main site**: Company landing page with 3D hero, service grid, integrations marquee, and embedded voice agent
-- **Cupcake Dashboard** (`/cupcake`): Password-protected control panel for Cupcake, a multi-channel AI assistant that runs across Telegram, phone, web, and CLI
-- **Sandbox** (`/cupcake/sandbox/*`): AI-generated pages deployed via automated pipeline — code gen → git → Docker → live in ~2 minutes
+**HAL / Signal Lab** is an interactive character with a glowing red lens, independent eye and reflection movement, and pointer tracking. Start a voice conversation from the page, or play with its visual pulse. Voice requires microphone permission; pointer tracking does not use a camera.
 
-## Tech Stack
+The main site presents Hales AI's services alongside interactive experiments and a public chat experience. Cupcake is a separate private assistant project; its credentials and personal data are not part of this public showcase.
 
-- **Framework**: React 18 + Vite + TypeScript
-- **Styling**: Tailwind CSS + Framer Motion
-- **Voice**: Vapi.ai embedded widget (tap-to-speak on landing page)
-- **3D**: Three.js animated hero background
-- **Hosting**: Docker container on DigitalOcean, nginx reverse proxy, Let's Encrypt SSL
-- **Deployment**: Webhook-triggered — `git pull` → `docker build --no-cache` → swap container
-- **Automation**: n8n workflow handles the full deploy pipeline with Telegram notifications
+## Built with
 
-## Architecture
+| Layer | Tools |
+| --- | --- |
+| Website | React 18, TypeScript, Vite |
+| Interface | Tailwind CSS, Framer Motion |
+| HAL experiment | Standalone HTML, JavaScript modules, Three.js |
+| Voice | Vapi Web SDK |
+| Hosting | Docker and a reverse proxy |
 
-```
-hales.ai (nginx + SSL)
-    → Docker container (port 3000)
-        → React SPA
-            ├── /             Landing page
-            ├── /cupcake      Dashboard (auth required)
-            ├── /cupcake/sandbox/*  Auto-generated pages
-            └── /cupcake-test Demo page
-```
+The HAL scene includes a poster fallback, responsive layout, capped rendering resolution, motion controls, and off-screen rendering pauses. Those choices help keep an expressive scene usable on smaller devices; performance still depends on the device and browser.
 
-## Development
+## Run locally
 
-```bash
+```sh
 git clone https://github.com/notsoround/hales-ai-website.git
 cd hales-ai-website
-npm install
+npm ci
 npm run dev
-# → http://localhost:5173
 ```
 
-Environment variables (optional, for voice widget):
-```
-VITE_VAPI_PUBLIC_KEY=
-VITE_VAPI_ASSISTANT_ID=
-```
+Open the address printed by Vite. The HAL experiment is at `/lab/hal/index.html`.
 
-## Deployment
-
-The production deploy is fully automated via n8n webhook:
-
-```bash
-# Trigger deploy
-curl -X POST https://automate.hales.ai/webhook/cupcake-deploy
-
-# Or manually on the droplet
-ssh root@134.199.239.171
-/var/www/deploy-hales-ai.sh
+```sh
+npm run build
+npm run preview
 ```
 
-The deploy script includes content verification gates — it checks for required UI markers and rejects deploys that would regress the design.
+Voice and backend integrations require their corresponding service configuration. A local page rendering successfully does not prove those integrations are connected. Never place private API keys or personal assistant credentials in browser bundles.
+
+## Project boundaries
+
+- This repository is the public website and its experiments, not the private Cupcake deployment.
+- Employer repositories, client records, health data, and financial records belong outside this public repository.
+- Public demos should use public information or synthetic examples.
+- Production deployment uses an operator-controlled process with content verification gates. A local build does not publish the site.
 
 ---
 
-Built and maintained by [Matt Hales](https://hales.ai)
+**[Hales AI](https://hales.ai)** — useful systems with a little personality.
