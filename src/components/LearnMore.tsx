@@ -39,11 +39,11 @@ const features = [
 const faqs = [
   {
     question: 'How does voice cloning work?',
-    answer: 'Our voice cloning technology uses advanced AI to create a digital replica of any voice with just a few minutes of sample audio. The process is secure, fast, and produces highly accurate results.',
+    answer: 'Voice projects can use licensed synthetic voices or a voice provided with the speaker’s permission. We scope the audio, quality expectations, and permitted uses before choosing an approach.',
   },
   {
     question: 'What security measures are in place?',
-    answer: 'We implement enterprise-grade encryption, secure data storage, and strict access controls. All voice data is processed in compliance with global privacy regulations.',
+    answer: 'Security requirements are defined for each project: which data is used, who can access it, how it is retained, and which actions need review. Specific legal or regulatory requirements need project-level assessment.',
   },
   {
     question: 'Can I customize the AI behavior?',
@@ -51,7 +51,7 @@ const faqs = [
   },
   {
     question: 'What types of integration are supported?',
-    answer: 'We support integration with major CRM systems, communication platforms, and business tools. Our API allows for custom integrations with any existing system.',
+    answer: 'We assess the APIs and permissions available in your existing systems. The integration plan depends on the specific CRM, communication platforms, and business tools involved.',
   },
 ];
 
@@ -64,7 +64,7 @@ const resources = [
   },
   {
     title: 'Voice Cloning Tutorial',
-    description: 'Learn how to create perfect voice replicas',
+    description: 'Explore voice configuration and personalization',
     icon: <Headphones className="w-6 h-6" />,
     video: 'https://www.youtube.com/embed/C_78DM1fY7o',
   },

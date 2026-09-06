@@ -16,12 +16,28 @@ export const metadata = {
 };
 
 const API = 'https://automate.hales.ai/webhook';
-const KEY = import.meta.env.VITE_CUPCAKEGPT_KEY as string;
-const auth = { 'X-Cupcake-Key': KEY };
+// A private key must never be compiled into the public website bundle.
+const TOKEN_STORAGE = 'cupcake-private-access';
+const authHeaders = () => ({ 'X-Cupcake-Key': sessionStorage.getItem(TOKEN_STORAGE) || '' });
+async function readJson(response: Response) {
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.json();
+}
 const ICON = '/cupcakegpt-icon.png';
 
 type FeedItem = { type: string; icon: string; title: string; body: string; date: string; time: string; ts: number };
 type ChatMsg = { role: 'user' | 'cupcake'; text: string };
+
+type SpeechInput = {
+  lang: string; interimResults: boolean;
+  onresult: (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+  onend: () => void; start: () => void; stop: () => void;
+};
+type SpeechWindow = Window & { SpeechRecognition?: new () => SpeechInput; webkitSpeechRecognition?: new () => SpeechInput };
+type FoodResult = {
+  Description?: string; description?: string; error?: boolean;
+  Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number;
+};
 
 const tabs = [
   { key: 'feed', label: 'Feed', Icon: Home },
@@ -34,6 +50,21 @@ type TabKey = (typeof tabs)[number]['key'];
 const CupcakeGPT: React.FC = () => {
   const [tab, setTab] = useState<TabKey>('feed');
   const [speak, setSpeak] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [keyInput, setKeyInput] = useState(() => sessionStorage.getItem(TOKEN_STORAGE) || '');
+  const [unlocking, setUnlocking] = useState(false);
+  const [accessError, setAccessError] = useState('');
+  const unlock = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!keyInput.trim() || unlocking) return;
+    setUnlocking(true); setAccessError('');
+    try {
+      const response = await fetch(`${API}/cupcake-feed`, { headers: { 'X-Cupcake-Key': keyInput.trim() }, signal: AbortSignal.timeout(20000) });
+      if (!response.ok) throw new Error('Access could not be verified. Check your key and try again.');
+      sessionStorage.setItem(TOKEN_STORAGE, keyInput.trim()); setUnlocked(true);
+    } catch { setAccessError('Access could not be verified. Check your key and connection, then try again.'); }
+    finally { setUnlocking(false); }
+  };
 
   // set PWA icon + title so "Add to Home Screen" uses the cupcake
   useEffect(() => {
@@ -49,6 +80,8 @@ const CupcakeGPT: React.FC = () => {
     meta.content = '#e11d48';
   }, []);
 
+  if (!unlocked) return <main className="min-h-screen bg-[#100a12] text-white flex items-center justify-center p-6"><form onSubmit={unlock} className="max-w-sm w-full space-y-5"><a href="/" className="text-pink-300">← Hales.ai</a><h1 className="text-3xl font-bold">Private Cupcake access</h1><p className="text-gray-300">Enter your personal access key to open your feed, chat, and food log. It stays in this browser tab for this session.</p><label className="block">Access key<input type="password" autoComplete="off" required value={keyInput} onChange={e=>setKeyInput(e.target.value)} className="mt-2 w-full p-3 rounded-lg bg-white/10 border border-white/20"/></label><button disabled={unlocking} className="w-full p-3 rounded-lg bg-pink-500 disabled:opacity-50">{unlocking?'Checking access…':'Unlock Cupcake'}</button>{accessError&&<p role="alert" className="text-red-300">{accessError}</p>}</form></main>;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1a0a12] via-[#0e0710] to-black text-white flex flex-col">
       {/* Top bar */}
@@ -59,6 +92,7 @@ const CupcakeGPT: React.FC = () => {
             <h1 className="font-bold text-lg leading-none bg-gradient-to-r from-pink-300 to-rose-400 bg-clip-text text-transparent">CupcakeGPT</h1>
             <p className="text-[11px] text-pink-200/50 leading-tight mt-0.5">your accountability demon</p>
           </div>
+          <button onClick={() => { sessionStorage.removeItem(TOKEN_STORAGE); setKeyInput(''); setUnlocked(false); }} className="text-sm text-pink-200">Lock</button>
           <button
             onClick={() => setSpeak((s) => !s)}
             className={`p-2 rounded-full transition ${speak ? 'bg-pink-500/30 text-pink-200' : 'bg-white/5 text-white/40'}`}
@@ -103,8 +137,8 @@ const FeedView: React.FC = () => {
   const [items, setItems] = useState<FeedItem[] | null>(null);
   const [err, setErr] = useState(false);
   useEffect(() => {
-    fetch(`${API}/cupcake-feed`, { headers: auth })
-      .then((r) => r.json())
+    fetch(`${API}/cupcake-feed`, { headers: authHeaders() })
+      .then(readJson)
       .then((d) => setItems(d.items || []))
       .catch(() => setErr(true));
   }, []);
@@ -139,7 +173,8 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const recRef = useRef<any>(null);
+  const recRef = useRef<SpeechInput | null>(null);
+  useEffect(() => () => { recRef.current?.stop(); window.speechSynthesis?.cancel(); }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, busy]);
 
@@ -158,10 +193,10 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
     try {
       const r = await fetch(`${API}/cupcake-chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...auth },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ message: t }),
       });
-      const d = await r.json();
+      const d = await readJson(r);
       const reply = d.reply || "Hmm, my brain glitched. Say that again?";
       setMsgs((m) => [...m, { role: 'cupcake', text: reply }]);
       say(reply);
@@ -171,12 +206,12 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
   };
 
   const toggleMic = () => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SR = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
     if (!SR) { alert('Voice input needs Chrome/Safari.'); return; }
     if (listening) { recRef.current?.stop(); return; }
     const rec = new SR();
     rec.lang = 'en-US'; rec.interimResults = false;
-    rec.onresult = (e: any) => setInput(e.results[0][0].transcript);
+    rec.onresult = (e) => setInput(e.results[0][0].transcript);
     rec.onend = () => setListening(false);
     rec.start(); recRef.current = rec; setListening(true);
   };
@@ -230,7 +265,7 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
 const SnapView: React.FC = () => {
   const [preview, setPreview] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<FoodResult | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -246,12 +281,12 @@ const SnapView: React.FC = () => {
     try {
       const r = await fetch(`${API}/cupcake-food-photo`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...auth },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ image: preview, note }),
       });
-      setResult(await r.json());
+      setResult(await readJson(r));
     } catch {
-      setResult({ Description: 'Upload failed', Calories: 0, error: true });
+      setResult({ Description: 'Upload failed. Check your access and connection, then try again.', error: true });
     } finally { setBusy(false); }
   };
 
@@ -300,7 +335,7 @@ const SnapView: React.FC = () => {
   );
 };
 
-const Stat: React.FC<{ label: string; value: any }> = ({ label, value }) => (
+const Stat: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <div className="bg-black/30 rounded-xl py-2">
     <div className="text-lg font-bold text-white">{value ?? '—'}</div>
     <div className="text-[10px] text-white/40">{label}</div>
@@ -310,14 +345,18 @@ const Stat: React.FC<{ label: string; value: any }> = ({ label, value }) => (
 // ---------- WEEK ----------
 const WeekView: React.FC = () => {
   const [items, setItems] = useState<FeedItem[] | null>(null);
+  const [error, setError] = useState(false);
   useEffect(() => {
-    fetch(`${API}/cupcake-feed`, { headers: auth }).then((r) => r.json()).then((d) => setItems(d.items || [])).catch(() => setItems([]));
+    fetch(`${API}/cupcake-feed`, { headers: authHeaders() }).then(readJson).then((d) => setItems(d.items || [])).catch(() => setError(true));
   }, []);
-  const food = (items || []).filter((i) => i.type === 'food');
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const weekItems = (items || []).filter((item) => Number.isFinite(item.ts) && item.ts >= cutoff);
+  const food = weekItems.filter((i) => i.type === 'food');
   const kcal = food.reduce((s, f) => s + (parseInt(f.body) || 0), 0);
-  const interventions = (items || []).filter((i) => i.type === 'intervention');
+  const interventions = weekItems.filter((i) => i.type === 'intervention');
   const wins = interventions.filter((i) => /agreed/.test(i.body)).length;
 
+  if (error) return <Empty text="Couldn't load this week's data. Lock and unlock Cupcake to check access, or try again later." />;
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
@@ -333,12 +372,12 @@ const WeekView: React.FC = () => {
         <p className="text-xs text-white/40 mt-1">Cupcake sends her your weekly report 45 min before.</p>
       </div>
 
-      <p className="text-xs text-white/30 text-center">More stats as the week fills up.</p>
+      <p className="text-xs text-white/30 text-center">Last 7 days within the recent feed. This may not include every entry.</p>
     </div>
   );
 };
 
-const Card: React.FC<{ label: string; value: any; big?: boolean; tint?: string }> = ({ label, value, tint }) => (
+const Card: React.FC<{ label: string; value: React.ReactNode; big?: boolean; tint?: string }> = ({ label, value, tint }) => (
   <div className={`bg-gradient-to-br ${tint} to-transparent border border-white/10 rounded-2xl p-4`}>
     <div className="text-2xl font-bold">{value}</div>
     <div className="text-[11px] text-white/50 mt-1">{label}</div>

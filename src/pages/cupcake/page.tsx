@@ -160,7 +160,7 @@ const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 };
 
 // --- Chat Message Component ---
-const ChatBubble: React.FC<{ message: Message; isLatest: boolean }> = ({ message, isLatest }) => {
+const ChatBubble: React.FC<{ message: Message; isLatest: boolean }> = ({ message }) => {
   const isUser = message.role === 'user';
   
   return (

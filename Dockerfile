@@ -8,21 +8,17 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy all files
 COPY . .
 
 # Vite build-time public vars (passed via --build-arg from the droplet .env,
 # since .env is intentionally excluded from the build context via .dockerignore)
-ARG VITE_CUPCAKE_PASSWORD
 ARG VITE_VAPI_API_KEY
 ARG VITE_VAPI_ASSISTANT_ID
-ARG VITE_CUPCAKEGPT_KEY
-ENV VITE_CUPCAKE_PASSWORD=$VITE_CUPCAKE_PASSWORD
 ENV VITE_VAPI_API_KEY=$VITE_VAPI_API_KEY
 ENV VITE_VAPI_ASSISTANT_ID=$VITE_VAPI_ASSISTANT_ID
-ENV VITE_CUPCAKEGPT_KEY=$VITE_CUPCAKEGPT_KEY
 
 # Build the app
 RUN npm run build

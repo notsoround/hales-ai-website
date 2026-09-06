@@ -14,22 +14,20 @@ interface ChatInterfaceProps {
   onClose: () => void;
 }
 
-const CHAT_WEBHOOK = 'https://automate.hales.ai/webhook/cupcake-web';
+const CHAT_WEBHOOK = 'https://automate.hales.ai/webhook/hales-public-chat';
 
 async function askHalesAI(message: string): Promise<string> {
   const res = await fetch(CHAT_WEBHOOK, {
     method: 'POST',
+    signal: AbortSignal.timeout(25000),
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      command: message,
-      context: 'Public chat widget on hales.ai — visitor question. Be helpful, concise, and professional about Hales AI services (AI telephony, voice cloning, workflow automation, smart scheduling, web development).',
-      source: 'website-chat',
-      timestamp: Date.now(),
-    }),
+    body: JSON.stringify({ message }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  return data.reply || data.result || data.results?.[0]?.result || "Thanks! We'll get back to you shortly.";
+  const reply = data.reply || data.result || data.results?.[0]?.result;
+  if (typeof reply !== 'string' || !reply.trim()) throw new Error('No reply returned');
+  return reply;
 }
 
 export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClose }: ChatInterfaceProps) {
@@ -52,6 +50,13 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isOpen, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,8 +89,8 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] max-w-md">
-      <div className="rounded-3xl border border-white/10 bg-[#0A0F1E]/95 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden flex flex-col max-h-[70vh]">
+    <div role="dialog" aria-label="Chat with Hales AI" className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] max-w-md">
+      <div className="rounded-3xl border border-white/10 bg-[#0A0F1E]/95 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden flex flex-col max-h-[70dvh]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-gradient-to-r from-primary/10 to-secondary/10">
           <div className="flex items-center gap-3">
@@ -94,8 +99,8 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
             </div>
             <div>
               <div className="text-sm font-bold text-white">Hales AI</div>
-              <div className="text-[11px] text-primary/80 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Online
+              <div className="text-xs text-primary/80 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> AI assistant
               </div>
             </div>
           </div>
@@ -105,7 +110,7 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-[240px]">
+        <div role="log" aria-live="polite" className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-[240px]">
           {messages.map((m, i) => (
             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
@@ -135,6 +140,8 @@ export function ChatInterface({ onMessageSent, onMessageReceived, isOpen, onClos
         <form onSubmit={handleSubmit} className="p-3 border-t border-white/10 flex gap-2">
           <input
             ref={inputRef}
+            aria-label="Your message"
+            maxLength={2000}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about AI phone agents, pricing…"

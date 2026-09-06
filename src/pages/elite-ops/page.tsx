@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BackButton from '../../components/BackButton';
-import { X, Shield, Zap, Target, Cpu } from 'lucide-react';
+import { X, Shield, Target, Cpu } from 'lucide-react';
 
 // Avatars
 const avatars = [

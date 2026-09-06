@@ -36,10 +36,11 @@ const ParticleField = () => {
     const dummy = useMemo(() => new THREE.Object3D(), []);
 
     useFrame((state) => {
-        if (!mesh.current) return;
+        const currentMesh = mesh.current;
+        if (!currentMesh) return;
 
         particles.forEach((particle, i) => {
-            let { time, factor, speed, x, y, z } = particle;
+            const { factor, speed, x, y, z } = particle;
 
             // Update time
             particle.time += speed;
@@ -70,13 +71,13 @@ const ParticleField = () => {
             dummy.scale.set(scale, scale, scale);
 
             dummy.updateMatrix();
-            mesh.current.setMatrixAt(i, dummy.matrix);
+            currentMesh.setMatrixAt(i, dummy.matrix);
         });
 
-        mesh.current.instanceMatrix.needsUpdate = true;
+        currentMesh.instanceMatrix.needsUpdate = true;
 
         // Very slow overall rotation
-        mesh.current.rotation.y += 0.0002;
+        currentMesh.rotation.y += 0.0002;
     });
 
     return (

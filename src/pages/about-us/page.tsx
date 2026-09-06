@@ -1,30 +1,7 @@
-import React from 'react';
-import './styles.css';
-import BackButton from '../../components/BackButton';
+import { ArrowLeft, ArrowUpRight } from 'lucide-react';
+import { HalesMark } from '../../components/experience/HalesExperience';
+import '../../components/experience/experience.css';
 
-const AboutUs = () => {
-  return (
-    <div className="about-us-container">
-      <BackButton />
-      
-      <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient">
-        About Us
-      </h1>
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-gradient-to-br from-[#0a1a2b]/50 to-[#0a0f16]/50 border border-[#00e6e6]/10 rounded-2xl p-8 backdrop-blur-sm">
-          <p className="text-lg mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-            Hales AI is at the forefront of AI innovation, specializing in advanced AI telephony, workflow automation, and digital cloning technology. Our mission is to transform businesses through cutting-edge artificial intelligence solutions.
-          </p>
-          <p className="text-lg mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-            Founded with a vision to make AI technology accessible and practical for businesses of all sizes, we combine state-of-the-art technology with intuitive design to create solutions that drive real business value.
-          </p>
-          <p className="text-lg bg-clip-text text-transparent bg-gradient-to-r from-[#00e6e6] via-[#00ccff] via-[#4d4dff] to-[#1a1aff] animate-gradient-slow">
-            Our team of experts brings together years of experience in AI development, voice technology, and business automation to deliver innovative solutions that help our clients stay ahead in today's rapidly evolving digital landscape.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default AboutUs;
+export default function AboutUs() {
+  return <main className="hx" style={{minHeight:'100vh'}}><section className="hx-section"><a href="/" className="hx-brand"><HalesMark/><span>hales.ai</span></a><a className="hx-text-button" href="/"><ArrowLeft size={18}/> Back to the work</a><div className="hx-studio" style={{paddingTop:60,marginTop:35}}><div><p className="hx-eyebrow">MATT HALES / BUILDER + OPERATOR</p><h1 style={{fontSize:'clamp(48px,6vw,86px)',marginTop:25}}>AI that has to<br/>work in the <em>field.</em></h1></div><div><p className="hx-large-copy">Matt Hales builds production AI systems for real operational problems, from enterprise fire-safety work to mining communities.</p><p>He is Director of AI at Pye-Barker Fire & Safety and founder of Hales.ai, an independent studio building enterprise tools, conversational agents, and connected workflows.</p><p>His selected work includes project intake, vendor intelligence, portfolio prioritization, customer-record review, and TagQuest, an AI-assisted fire-safety field tool.</p><p>Before that, years in artisanal mining communities in Kenya led to Farmers of Gold, which he co-founded, and the Global Community Miners Forum, which he co-chairs. Dr. Mining Manhattan connects that field experience to a WhatsApp-first AI mentor.</p><p>Hales.ai is a small firm. The focus is practical systems, a clear purpose, and evidence for what we say.</p><a href="/#field">Explore the field work and coverage <ArrowUpRight size={18}/></a><a href="mailto:matt@hales.ai" style={{marginTop:25}}>Get in touch <ArrowUpRight size={18}/></a></div></div></section></main>;
+}

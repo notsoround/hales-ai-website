@@ -7,61 +7,12 @@ interface VoiceButtonProps {
   onStop?: () => void;
   onMessage?: (message: string) => void;
   className?: string;
+  compact?: boolean;
 }
 
-export function VoiceButton({ onStart, onStop, onMessage, className = '' }: VoiceButtonProps) {
-  const STATES = {
-    INITIAL: 'initial',
-    HOVER: 'hover',
-    LOADING: 'loading',
-    TALKING: 'talking',
-    STOPPING: 'stopping',
-  };
-
-  const [buttonState, setButtonState] = useState(STATES.INITIAL);
+export function VoiceButton({ onStart, onStop, onMessage, className = '', compact = false }: VoiceButtonProps) {
   const [isHovering, setIsHovering] = useState(false);
-  const { volumeLevel, isSessionActive, conversation, toggleCall } = useVapi();
-
-  // State machine transitions
-  useEffect(() => {
-    switch (buttonState) {
-      case STATES.LOADING:
-        if (isSessionActive) setButtonState(STATES.TALKING);
-        break;
-      case STATES.STOPPING:
-        if (!isSessionActive) setButtonState(STATES.INITIAL);
-        break;
-      case STATES.TALKING:
-        if (!isSessionActive) setButtonState(STATES.INITIAL);
-        break;
-      case STATES.INITIAL:
-      case STATES.HOVER:
-        if (isSessionActive) setButtonState(STATES.TALKING);
-        break;
-    }
-  }, [isSessionActive, buttonState, STATES]);
-
-  // Hover state
-  useEffect(() => {
-    if (buttonState === STATES.INITIAL && isHovering) {
-      setButtonState(STATES.HOVER);
-    } else if (buttonState === STATES.HOVER && !isHovering) {
-      setButtonState(STATES.INITIAL);
-    }
-  }, [isHovering, buttonState, STATES]);
-
-  // Loading/stopping timeout guard
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>;
-    if (buttonState === STATES.LOADING || buttonState === STATES.STOPPING) {
-      timeoutId = setTimeout(() => {
-        setButtonState(isSessionActive ? STATES.TALKING : STATES.INITIAL);
-      }, 5000);
-    }
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [buttonState, isSessionActive, STATES]);
+  const { volumeLevel, isSessionActive, isConnecting, error, conversation, toggleCall } = useVapi();
 
   // Surface assistant messages
   useEffect(() => {
@@ -74,43 +25,23 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
   }, [conversation, onMessage]);
 
   const handleClick = useCallback(async () => {
-    try {
-      if (!isSessionActive) {
-        setButtonState(STATES.LOADING);
-        onStart?.();
-        await toggleCall().catch(() => {
-          setButtonState(STATES.INITIAL);
-          throw new Error('Failed to start call');
-        });
-      } else {
-        setButtonState(STATES.STOPPING);
-        onStop?.();
-        await toggleCall().catch(() => {
-          setButtonState(STATES.TALKING);
-          throw new Error('Failed to stop call');
-        });
-      }
-    } catch (error) {
-      console.error('Error handling voice button click:', error);
-    }
-  }, [isSessionActive, onStart, onStop, toggleCall]);
-
-  const isTalking = buttonState === STATES.TALKING;
-  const isBusy = buttonState === STATES.LOADING || buttonState === STATES.STOPPING;
-
-  const label = (() => {
-    switch (buttonState) {
-      case STATES.HOVER: return 'Tap to start a live call';
-      case STATES.LOADING: return 'Connecting…';
-      case STATES.TALKING: return 'Live — tap to end';
-      case STATES.STOPPING: return 'Ending call…';
-      default: return 'Talk to our AI';
-    }
-  })();
+    if (isSessionActive || isConnecting) onStop?.();
+    else onStart?.();
+    await toggleCall();
+  }, [isSessionActive, isConnecting, onStart, onStop, toggleCall]);
+  const isTalking = isSessionActive;
+  const isBusy = isConnecting && !isTalking;
+  const label = isTalking ? 'Live — tap to end' : isBusy ? 'Connecting — cancel' : isHovering ? 'Tap to start a live call' : 'Talk to our AI';
 
   // 7 waveform bars, center-weighted, driven by live volume
   const bars = [0.45, 0.7, 0.9, 1, 0.9, 0.7, 0.45];
   const vol = Math.min(volumeLevel ?? 0, 1);
+
+  if (compact) return <div className="hx-voice-control"><button type="button" onClick={handleClick} aria-pressed={isTalking} className="hx-compact-voice">
+    {isTalking ? <Square size={16}/> : <Mic size={18}/>}
+    <span>{label}</span>
+    <span className="hx-mini-wave" aria-hidden="true">{bars.map((weight, index) => <i key={index} style={{height: `${4 + (isTalking ? vol * 22 : 4) * weight}px`}}/>)}</span>
+  </button>{error && <p className="hx-voice-error" role="status">{error}</p>}</div>;
 
   return (
     <div className={`relative flex flex-col items-center ${className}`}>
@@ -141,7 +72,6 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
           onClick={handleClick}
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
-          disabled={isBusy}
           aria-label={label}
           className={`absolute inset-[3px] rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-xl border border-white/10 ${
             isTalking
@@ -177,6 +107,7 @@ export function VoiceButton({ onStart, onStop, onMessage, className = '' }: Voic
         )}
       </div>
 
+      {error && <p className="max-w-xs text-sm text-amber-200" role="status">{error}</p>}
       {/* Label */}
       <div className="mt-5 text-center select-none">
         <p className={`text-sm font-semibold tracking-wide transition-colors duration-300 ${isTalking ? 'text-primary' : 'text-white/90'}`}>

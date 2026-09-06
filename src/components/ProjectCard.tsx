@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
-import { Star, ExternalLink, FileText, Calendar, Download } from 'lucide-react';
+import { Star, FileText, Calendar, Download } from 'lucide-react';
 
 interface ProjectSpecs {
   technology?: string;
@@ -64,7 +64,7 @@ interface ProjectCardProps {
   index: number;
 }
 
-export function ProjectCard({ project, index }: ProjectCardProps) {
+export function ProjectCard({ project }: ProjectCardProps) {
   const [flipped, setFlipped] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showReferences, setShowReferences] = useState(false);
