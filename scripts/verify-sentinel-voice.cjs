@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const html=fs.readFileSync('public/lab/sentinel/index.html','utf8');
+const html=fs.readFileSync('public/lab/hal/index.html','utf8');
 const script=html.match(/<script type="module" id="sentinel-voice">([\s\S]*?)<\/script>/)[1];
 const unit=script.slice(script.indexOf('const voiceConfig='),script.indexOf('const voiceLink='));
 function setup({delayImport=false,resolveStart=false,rejectStop=false}={}){
@@ -92,5 +92,5 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  const page=fs.readFileSync('src/components/experience/HalesExperience.tsx','utf8');
  assert.match(page,/allow="microphone; autoplay"/);assert.doesNotMatch(page,/<VoiceButton/);
  assert.match(html,/voiceButton\.addEventListener\('click',talk\)/);
- console.log('PASS: 14 synthetic Sentinel voice lifecycle cases, voice-button binding, and single iframe owner. No network or microphone access.');
+ console.log('PASS: 14 synthetic HAL voice lifecycle cases, voice-button binding, and single iframe owner. No network or microphone access.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

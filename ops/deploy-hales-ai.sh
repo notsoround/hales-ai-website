@@ -56,8 +56,8 @@ smoke_check() {
     return 1
   fi
 
-  if ! curl -fsS http://127.0.0.1:3000/lab/sentinel/index.html | grep -Fq "hales:sentinel-ready"; then
-    echo "[SMOKE] Sentinel document missing"
+  if ! curl -fsS http://127.0.0.1:3000/lab/hal/index.html | grep -Fq "hales:sentinel-ready"; then
+    echo "[SMOKE] HAL document missing"
     return 1
   fi
 
@@ -75,13 +75,14 @@ if [[ "$ALLOW_CANONICAL_OVERRIDE" != "1" ]]; then
   echo "[CANONICAL-GATE] Running source-of-truth checks"
 
   assert_file_hash src/App.tsx a423957879a6bfbc78589e48b2054ac2c5e9a779e045600c3c196c1ebb7a7d1c
-  assert_file_hash src/components/experience/HalesExperience.tsx aa984a96f6d00b3698c4a86b9873216e3490748629c0b11b6db101423cbdb8ee
+  assert_file_hash src/components/experience/HalesExperience.tsx 729aeb758aae26748ae4bc50a5c1387435b7cef6c0a188ed44777b2218768ba3
   assert_file_hash src/components/experience/experience.css 207d701a8db76d28d2250f8b267f8d7c77f69cd5bdeb1f1a74d012374fe6e1a0
   assert_file_hash src/components/VoiceButton.tsx 6d293f5a5185bf0b686db5ae96b327d3a7a551002829953e8092627541b35487
   assert_file_hash src/hooks/use-vapi.ts c7e88040370f7925c6c9def79647fe1d61928dc48d82d0f8d9e9ee07ced9d070
   assert_file_hash src/components/ChatInterface.tsx 94a9624c8afce7fa13d49911bb867fb224522627ae9c6fa77d70a93f89e76f10
   assert_file_hash src/pages/cupcake/sandbox/cupcakegpt/page.tsx 0f5e975dc2f95a14a527441f48c60a82839523ddc75b3aa592fdcb9286ff1efe
-  assert_file_hash public/lab/sentinel/index.html b2aac183c21faaa3aeefc4de7c323860153f389635c729f8ac56246cd29be2b8
+  assert_file_hash public/lab/hal/index.html 0c8fed7b15bbd9fa71d20816b094716552dba952d6048159f5d53e3eea80163d
+  assert_file_hash public/lab/sentinel/index.html b335733a0b39fc8580ed0b330f4826325eee6bda946c00b83aa22c89c46d63a2
   assert_file_hash Dockerfile c8b7f03c6eab0f87e798154ca170fe4cc1233a3a4551ddba082895690e041f24
   assert_file_hash index.html cd9d981f2c6d51b20772451583e20ab5cb82db71a3e0213a01ca866c6449e973
   assert_file_hash public/favicon.svg 01bb4ff889b11ab699457c2bf39974900eda77d9405a2bd1291d27d983aaf421
@@ -89,8 +90,8 @@ if [[ "$ALLOW_CANONICAL_OVERRIDE" != "1" ]]; then
   assert_contains src/App.tsx "HalesExperience"
   assert_contains src/App.tsx "ChatInterface"
   assert_contains src/components/experience/HalesExperience.tsx "SentinelLab"
-  assert_contains public/lab/sentinel/index.html "TALK TO SENTINEL"
-  assert_contains public/lab/sentinel/index.html "hales:sentinel-ready"
+  assert_contains public/lab/hal/index.html "TALK TO HAL"
+  assert_contains public/lab/hal/index.html "hales:sentinel-ready"
   assert_contains src/components/ChatInterface.tsx "hales-public-chat"
   assert_not_contains src/pages/cupcake/sandbox/cupcakegpt/page.tsx "VITE_CUPCAKEGPT_KEY"
   assert_not_contains Dockerfile "VITE_CUPCAKEGPT_KEY"

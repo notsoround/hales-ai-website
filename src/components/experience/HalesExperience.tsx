@@ -39,7 +39,7 @@ export default function HalesExperience({ openChat }: { openChat: () => void }) 
         <article className="hx-work-card"><div className="hx-card-label"><span>ENTERPRISE AI</span><span>02</span></div><h3>Make the operation<br/>make sense.</h3><p>Selected work in project intake, portfolio prioritization, vendor intelligence, and customer-record review for a national fire-safety operator.</p><ul><li>Governed data, usable interfaces</li><li>Review before consequential changes</li><li>Systems designed for changing backends</li></ul><a href="#studio">Meet the builder <ArrowUpRight size={18}/></a><small>Selected experience · internal systems are private</small></article>
         <article className="hx-work-card"><div className="hx-card-label"><span>COMMUNITY AI</span><span>03</span></div><h3>Dr. Mining<br/>Manhattan.</h3><p>A WhatsApp-first AI mentor for mining communities. Built around a simple idea: useful knowledge should reach the people who need it.</p><a href="#field">See the field story <ArrowUpRight size={18}/></a><small>Global Community Miners Forum</small></article></div>
       </section>
-      <section id="voice" className="hx-section hx-voice"><div><p className="hx-eyebrow">02 / HEAR IT FOR YOURSELF</p><h2>Your next interface<br/>could be a <em>conversation.</em></h2><p>Phone agents, web chat, multilingual experiences, and the workflows behind them. Start with a conversation, then connect the useful next step.</p><button className="hx-text-button" onClick={openChat}>Prefer typing? Open chat <ArrowUpRight size={18}/></button></div><div className="hx-voice-console"><span className="hx-eyebrow">HALES AI / VOICE DEMO</span><a href="#lab" className="hx-button">Meet Sentinel <ArrowDown size={18}/></a><p>A character with a voice.<br/>Meet it in the Signal Lab below.</p></div></section>
+      <section id="voice" className="hx-section hx-voice"><div><p className="hx-eyebrow">02 / HEAR IT FOR YOURSELF</p><h2>Your next interface<br/>could be a <em>conversation.</em></h2><p>Phone agents, web chat, multilingual experiences, and the workflows behind them. Start with a conversation, then connect the useful next step.</p><button className="hx-text-button" onClick={openChat}>Prefer typing? Open chat <ArrowUpRight size={18}/></button></div><div className="hx-voice-console"><span className="hx-eyebrow">HALES AI / VOICE DEMO</span><a href="#lab" className="hx-button">Meet HAL <ArrowDown size={18}/></a><p>A character with a voice.<br/>Meet it in the Signal Lab below.</p></div></section>
       <section id="field" className="hx-section hx-field"><div className="hx-section-heading"><p className="hx-eyebrow">03 / FROM THE FIELD</p><h2>Before the AI.<br/><span>There were people.</span></h2><p>Years in artisanal mining communities shaped the work: listen first, understand the constraints, build something people can actually use.</p></div><div className="hx-field-body"><div className="hx-field-story"><span className="hx-field-coordinate">LOLGORIAN, KENYA / A CONTINUING STORY</span><h3>Technology should<br/>cross the last mile.</h3><p>Matt co-founded Farmers of Gold and co-chairs the Global Community Miners Forum. Dr. Mining Manhattan brings that field experience into a familiar interface: WhatsApp.</p><div className="hx-actions"><a href="https://gcmf.site" target="_blank" rel="noreferrer">Explore GCMF <ArrowUpRight size={16}/></a><a href="https://farmersofgold.com" target="_blank" rel="noreferrer">Farmers of Gold <ArrowUpRight size={16}/></a></div></div><div className="hx-media"><p className="hx-eyebrow">WATCH THE COVERAGE</p>{[{outlet:'NTV Kenya',title:'AI meets artisanal mining',date:'JAN 2024',url:'https://www.youtube.com/watch?v=1_8AlX4Flpw'},{outlet:'KBC Channel 1',title:'The Dr. Mining Manhattan story',date:'JAN 2024',url:'https://www.youtube.com/watch?v=2oPZEzFOaHs'},{outlet:'SABC News',title:'A conversation from the field',date:'DEC 2023',url:'https://www.youtube.com/watch?v=_LQUa3jdUhU'},{outlet:'Newzroom Afrika',title:'Mining communities in focus',date:'JAN 2025',url:'https://www.youtube.com/watch?v=Y0L4XTOFuto'}].map(m=><a key={m.outlet} href={m.url} target="_blank" rel="noreferrer"><div><span>{m.outlet} <small>{m.date}</small></span><h4>{m.title}</h4></div><ArrowUpRight size={22}/></a>)}<small>Linked broadcast coverage · descriptions are editorial summaries</small></div></div></section>
       <section id="studio" className="hx-section hx-studio"><div><p className="hx-eyebrow">04 / THE STUDIO</p><h2>Small team.<br/>Deep in the work.</h2></div><div><p className="hx-large-copy">Hales.ai is an independent AI studio founded by Matt Hales. We turn complicated operations into tools people can use.</p><p>Matt is Director of AI at Pye-Barker Fire & Safety, founder of Hales.ai, and a builder with roots in film and mining communities. His work connects enterprise systems, conversational agents, and life outside the boardroom.</p><p>We scope the actual problem, build alongside the people using it, and keep permissions and human handoffs in the design.</p><a href="https://www.linkedin.com/in/matt-hales-06578552/" target="_blank" rel="noreferrer">Meet Matt on LinkedIn <ArrowUpRight size={18}/></a></div></section>
       <SentinelLab/>
@@ -55,22 +55,83 @@ function SentinelLab() {
   const [sceneHeight, setSceneHeight] = useState<number | undefined>();
   useEffect(() => {
     const post = (value: object) => iframe.current?.contentWindow?.postMessage(value, window.location.origin);
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const pointer = { clientX: 0, clientY: 0, active: false };
+    let pointerFrame = 0;
+    const canTrack = () => visible.current && !document.hidden && !motionPreference.matches;
+    const cancelPointerFrame = () => {
+      if (pointerFrame) window.cancelAnimationFrame(pointerFrame);
+      pointerFrame = 0;
+    };
+    const clearPointer = () => {
+      pointer.active = false;
+      cancelPointerFrame();
+      post({ type: 'hales:pointer', x: 0, y: 0, active: false });
+    };
+    const queuePointer = () => {
+      if (pointerFrame || !canTrack() || !pointer.active) return;
+      pointerFrame = window.requestAnimationFrame(() => {
+        pointerFrame = 0;
+        if (!canTrack() || !pointer.active) return;
+        post({
+          type: 'hales:pointer',
+          x: Math.max(-1, Math.min(1, pointer.clientX / Math.max(1, window.innerWidth) * 2 - 1)),
+          y: Math.max(-1, Math.min(1, 1 - pointer.clientY / Math.max(1, window.innerHeight) * 2)),
+          active: true,
+        });
+      });
+    };
+    const movePointer = (event: PointerEvent) => {
+      if (!event.isPrimary || !canTrack()) return;
+      pointer.clientX = event.clientX;
+      pointer.clientY = event.clientY;
+      pointer.active = true;
+      queuePointer();
+    };
+    const endTouch = (event: PointerEvent) => { if (event.isPrimary && event.pointerType === 'touch') clearPointer(); };
+    const syncVisibility = () => {
+      post({ type: 'hales:visibility', visible: visible.current && !document.hidden });
+      if (canTrack() && pointer.active) queuePointer();
+      else clearPointer();
+    };
     const observer = new IntersectionObserver(entries => {
       visible.current = entries[0].isIntersecting;
-      post({ type: 'hales:visibility', visible: visible.current });
+      syncVisibility();
     }, { threshold: 0.05 });
     if (host.current) observer.observe(host.current);
     const ready = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframe.current?.contentWindow) return;
       if (event.data?.type === 'hales:scene-size' && Number.isFinite(event.data.height)) { setSceneHeight(Math.max(400, Math.min(1600, event.data.height))); return; }
       if (event.data?.type !== 'hales:sentinel-ready') return;
-      post({ type: 'hales:visibility', visible: visible.current });
+      syncVisibility();
     };
     window.addEventListener('message', ready);
-    return () => { observer.disconnect(); window.removeEventListener('message', ready); };
+    window.addEventListener('pointermove', movePointer, { passive: true });
+    window.addEventListener('pointerdown', movePointer, { passive: true });
+    window.addEventListener('pointerup', endTouch, { passive: true });
+    window.addEventListener('pointercancel', clearPointer, { passive: true });
+    window.addEventListener('blur', clearPointer);
+    window.addEventListener('resize', queuePointer);
+    document.documentElement.addEventListener('pointerleave', clearPointer, { passive: true });
+    document.addEventListener('visibilitychange', syncVisibility);
+    motionPreference.addEventListener('change', syncVisibility);
+    return () => {
+      observer.disconnect();
+      cancelPointerFrame();
+      window.removeEventListener('message', ready);
+      window.removeEventListener('pointermove', movePointer);
+      window.removeEventListener('pointerdown', movePointer);
+      window.removeEventListener('pointerup', endTouch);
+      window.removeEventListener('pointercancel', clearPointer);
+      window.removeEventListener('blur', clearPointer);
+      window.removeEventListener('resize', queuePointer);
+      document.documentElement.removeEventListener('pointerleave', clearPointer);
+      document.removeEventListener('visibilitychange', syncVisibility);
+      motionPreference.removeEventListener('change', syncVisibility);
+    };
   }, []);
-  return <section ref={host} id="lab" className="hx-sentinel" aria-label="Sentinel interactive signal lab">
-    <iframe ref={iframe} src="/lab/sentinel/index.html" style={sceneHeight ? {height: sceneHeight, maxHeight: 'none'} : undefined} title="Sentinel: a red-eyed AI guide. Press Talk to Sentinel for a voice conversation." allow="microphone; autoplay" loading="lazy" sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer"/>
-    <div className="hx-sentinel-bar"><div><span className="hx-eyebrow">GIVE THE CHARACTER A VOICE.</span><p>Click Talk to Sentinel above. Its red eye follows you and reacts to the conversation.</p></div><a href="/lab/sentinel/index.html" target="_blank" rel="noreferrer">Open experiment <ArrowUpRight size={16}/></a></div>
+  return <section ref={host} id="lab" className="hx-sentinel" aria-label="HAL interactive signal lab">
+    <iframe ref={iframe} src="/lab/hal/index.html" style={sceneHeight ? {height: sceneHeight, maxHeight: 'none'} : undefined} title="HAL: a red-eyed AI guide. Press Talk to HAL for a voice conversation." allow="microphone; autoplay" loading="lazy" sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer"/>
+    <div className="hx-sentinel-bar"><div><span className="hx-eyebrow">GIVE THE CHARACTER A VOICE.</span><p>Click Talk to HAL above. Its red eye follows you and reacts to the conversation.</p></div><a href="/lab/hal/index.html" target="_blank" rel="noreferrer">Open experiment <ArrowUpRight size={16}/></a></div>
   </section>;
 }
