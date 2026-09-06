@@ -75,13 +75,13 @@ if [[ "$ALLOW_CANONICAL_OVERRIDE" != "1" ]]; then
   echo "[CANONICAL-GATE] Running source-of-truth checks"
 
   assert_file_hash src/App.tsx a423957879a6bfbc78589e48b2054ac2c5e9a779e045600c3c196c1ebb7a7d1c
-  assert_file_hash src/components/experience/HalesExperience.tsx 5d1c718c22c8a4b5d3d3490a962d88ec02b2eaf6e2c9924bfc756953585021eb
+  assert_file_hash src/components/experience/HalesExperience.tsx cf3b736da34344ea63a5fdb94f0de59ab1b0316b7c0046aca8f7f8689c348ee4
   assert_file_hash src/components/experience/experience.css 207d701a8db76d28d2250f8b267f8d7c77f69cd5bdeb1f1a74d012374fe6e1a0
   assert_file_hash src/components/VoiceButton.tsx 6d293f5a5185bf0b686db5ae96b327d3a7a551002829953e8092627541b35487
   assert_file_hash src/hooks/use-vapi.ts 18b552d8c3b11fe59ff57372678f0d340777a1f2ea534950d772a27be85463b9
   assert_file_hash src/components/ChatInterface.tsx 94a9624c8afce7fa13d49911bb867fb224522627ae9c6fa77d70a93f89e76f10
   assert_file_hash src/pages/cupcake/sandbox/cupcakegpt/page.tsx 0f5e975dc2f95a14a527441f48c60a82839523ddc75b3aa592fdcb9286ff1efe
-  assert_file_hash public/lab/sentinel/index.html 6403ee2cfafda6e8686538972e32d797a50439c7ce543538919b1d1393a9e745
+  assert_file_hash public/lab/sentinel/index.html 9c397bc12bfb5556e97c36e5f8acf27fae0d60a0426b975127fed12402856f8d
   assert_file_hash Dockerfile 196d14a07b920fb4d909db4c6fb8ac3ae1483fde34fca4919915cecc7ca06715
   assert_file_hash index.html cd9d981f2c6d51b20772451583e20ab5cb82db71a3e0213a01ca866c6449e973
   assert_file_hash public/favicon.svg 01bb4ff889b11ab699457c2bf39974900eda77d9405a2bd1291d27d983aaf421
@@ -89,7 +89,7 @@ if [[ "$ALLOW_CANONICAL_OVERRIDE" != "1" ]]; then
   assert_contains src/App.tsx "HalesExperience"
   assert_contains src/App.tsx "ChatInterface"
   assert_contains src/components/experience/HalesExperience.tsx "SentinelLab"
-  assert_contains src/components/experience/HalesExperience.tsx "VoiceButton compact"
+  assert_contains public/lab/sentinel/index.html "TALK TO SENTINEL"
   assert_contains public/lab/sentinel/index.html "hales:sentinel-ready"
   assert_contains src/components/ChatInterface.tsx "hales-public-chat"
   assert_not_contains src/pages/cupcake/sandbox/cupcakegpt/page.tsx "VITE_CUPCAKEGPT_KEY"

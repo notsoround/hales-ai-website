@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowDown, AudioLines, Globe2, Workflow, Menu, X } from 'lucide-react';
-import { VoiceButton } from '../VoiceButton';
 import './experience.css';
 
 const worlds = [
@@ -53,7 +52,6 @@ function SentinelLab() {
   const iframe = useRef<HTMLIFrameElement>(null);
   const host = useRef<HTMLElement>(null);
   const visible = useRef(false);
-  const voice = useRef({ active: false, level: 0 });
   useEffect(() => {
     const post = (value: object) => iframe.current?.contentWindow?.postMessage(value, window.location.origin);
     const observer = new IntersectionObserver(entries => {
@@ -61,23 +59,15 @@ function SentinelLab() {
       post({ type: 'hales:visibility', visible: visible.current });
     }, { threshold: 0.05 });
     if (host.current) observer.observe(host.current);
-    const audio = (event: Event) => {
-      const data = (event as CustomEvent<{ active: boolean; level: number }>).detail;
-      if (!data || !Number.isFinite(data.level)) return;
-      voice.current = { active: data.active === true, level: Math.max(0, Math.min(1, data.level)) };
-      if (visible.current) post({ type: 'hales:voice-state', ...voice.current });
-    };
     const ready = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframe.current?.contentWindow || event.data?.type !== 'hales:sentinel-ready') return;
       post({ type: 'hales:visibility', visible: visible.current });
-      post({ type: 'hales:voice-state', ...voice.current });
     };
-    window.addEventListener('hales:voice-level', audio);
     window.addEventListener('message', ready);
-    return () => { observer.disconnect(); window.removeEventListener('hales:voice-level', audio); window.removeEventListener('message', ready); };
+    return () => { observer.disconnect(); window.removeEventListener('message', ready); };
   }, []);
   return <section ref={host} id="lab" className="hx-sentinel" aria-label="Sentinel interactive signal lab">
-    <iframe ref={iframe} src="/lab/sentinel/index.html" title="Sentinel: an interactive mechanical eye. Press Pulse to send a signal." loading="lazy" sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer"/>
-    <div className="hx-sentinel-bar"><div><span className="hx-eyebrow">GIVE THE CHARACTER A VOICE.</span><p>Its eye reacts to the live audio. Starts only when you choose.</p></div><VoiceButton compact/><a href="/lab/sentinel/index.html" target="_blank" rel="noreferrer">Open experiment <ArrowUpRight size={16}/></a></div>
+    <iframe ref={iframe} src="/lab/sentinel/index.html" title="Sentinel: a red-eyed AI guide. Press Talk to Sentinel for a voice conversation." allow="microphone; autoplay" loading="lazy" sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer"/>
+    <div className="hx-sentinel-bar"><div><span className="hx-eyebrow">GIVE THE CHARACTER A VOICE.</span><p>Click Talk to Sentinel above. Its red eye follows you and reacts to the conversation.</p></div><a href="/lab/sentinel/index.html" target="_blank" rel="noreferrer">Open experiment <ArrowUpRight size={16}/></a></div>
   </section>;
 }

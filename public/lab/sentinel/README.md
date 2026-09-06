@@ -1,12 +1,14 @@
 # Sentinel
 
-1. Open `index.html` directly, or visit `/lab/sentinel/index.html` on the website.
-2. The complete moment is one HTML file; the pinned Three.js CDN needs an internet connection.
-3. Sentinel is a mechanical eye, built from faceted armor, a recessed lens, and a narrow luminous aperture.
-4. Cool commercial lighting, a hot amber edge, and a black fogged space give the small silhouette weight.
-5. It drifts slowly and follows the pointer; press Pulse for a short opening, recoil, and expanding shockwave.
-6. The button works with Enter or Space; touch gestures continue to scroll the page normally.
-7. Motion pauses off-screen, in hidden tabs, or manually; reduced-motion preferences start it paused.
-8. The inline SVG portrait remains visible if the CDN or WebGL fails; no model files, fonts, or trackers are loaded.
-9. In Hales.ai, Vapi assistant audio levels animate the aperture and armor; this is amplitude response, not phoneme lip-sync, and no call starts automatically.
-10. To replace the character, change the `sentinel` group's meshes while retaining the eye/shutter animation hooks; if frame rate dips, cut particles and pixel ratio first, then lens clearcoat and segment counts. Phone frame rate has not been measured.
+1. Open `/lab/sentinel/index.html` through the local preview or the website; the 3D portrait can also open as a file.
+2. The entire experience is one HTML file; Three.js and the lazily loaded Vapi SDK use pinned CDN versions.
+3. The HAL-style panel has a silver lens surround, glowing red eye, blue nameplate, and perforated speaker grille.
+4. Pointer tracking, slow idle movement, and a separate pulse effect give the physical object a response.
+5. Click the character or Talk to Sentinel to start voice; use End Call to stop. Clicking empty space does not start a call.
+6. Sid V2 provides a deep, measured voice, with a concise, dry-humored Hales.ai guide persona supplied for this conversation.
+7. Voice works in both standalone and embedded modes; the iframe allows microphone/audio and owns exactly one connection.
+8. Voice needs HTTPS or localhost and microphone permission. No camera is used; the pointer drives the tracking effect.
+9. Rendering pauses off-screen, in hidden tabs, or manually; reduced-motion users start paused, and the still portrait preserves voice access if 3D fails.
+10. Replace the `sentinel` group's meshes to swap the object; cut particles and pixel ratio first if FPS dips. Phone FPS and a real voice call remain unmeasured in this review.
+
+Voice catalogue: https://docs.vapi.ai/providers/voice/vapi-voices
