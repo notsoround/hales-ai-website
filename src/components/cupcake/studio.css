@@ -3,3 +3,7 @@
 @media(max-width:600px){.cc-shell{padding-top:10px}.cc-studio h2{font-size:30px;margin:10px 0 14px}.cc-studio .cc-muted{margin:12px 0}.cc-label{margin:16px 0 12px}.cc-recorder{padding:12px}.cc-wave{height:42px}.cc-timer{font-size:32px;margin:0}.cc-record-button{width:66px;height:66px;margin:8px}.cc-portrait{min-height:350px}}
 
 .cc-auto{display:flex;align-items:center;gap:10px;font-size:13px;color:#d8bfd0;margin:12px 0}.cc-auto input{width:18px;height:18px;accent-color:#ffa3c5;flex-shrink:0}
+
+.cc-input-status{font-size:12px;color:#d7bbc9;margin-top:12px}.cc-level{height:8px;border-radius:8px;background:#ffffff13;margin:8px auto;max-width:250px;overflow:hidden}.cc-level i{display:block;height:100%;background:#ffafd0;transition:width .12s}.cc-input-status p{font-size:12px}.cc-detail>.cc-text-button:first-child{position:sticky;top:-22px;background:#1a141e;width:100%;z-index:2;padding:10px 0}
+
+.is-recording .cc-wave i{animation:none;transition:height .12s}

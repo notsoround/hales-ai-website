@@ -80,7 +80,7 @@ if [[ "$ALLOW_CANONICAL_OVERRIDE" != "1" ]]; then
   assert_file_hash src/components/VoiceButton.tsx 6d293f5a5185bf0b686db5ae96b327d3a7a551002829953e8092627541b35487
   assert_file_hash src/hooks/use-vapi.ts c7e88040370f7925c6c9def79647fe1d61928dc48d82d0f8d9e9ee07ced9d070
   assert_file_hash src/components/ChatInterface.tsx 94a9624c8afce7fa13d49911bb867fb224522627ae9c6fa77d70a93f89e76f10
-  assert_file_hash src/pages/cupcake/sandbox/cupcakegpt/page.tsx 2c5404cc5c65775d0a28d6d605f77cdb2b22be4308a4c1d9ac1dcc9f2cc38f93
+  assert_file_hash src/pages/cupcake/sandbox/cupcakegpt/page.tsx d1162e4d4e7850ea1dd106152cf61882912037e08730d0860d6bbb4562e33bee
   assert_file_hash public/lab/hal/index.html 0c8fed7b15bbd9fa71d20816b094716552dba952d6048159f5d53e3eea80163d
   assert_file_hash public/lab/sentinel/index.html b335733a0b39fc8580ed0b330f4826325eee6bda946c00b83aa22c89c46d63a2
   assert_file_hash Dockerfile c8b7f03c6eab0f87e798154ca170fe4cc1233a3a4551ddba082895690e041f24
