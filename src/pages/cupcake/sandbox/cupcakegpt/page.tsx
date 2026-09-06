@@ -2,11 +2,12 @@
 // Chat + food-photo calorie tracking + live feed + week view.
 // Talks to n8n webhooks on automate.hales.ai (CORS-enabled).
 
+import CupcakeStudio from '../../../../components/cupcake/CupcakeStudio';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 // framer-motion intentionally not used: tab switches must render instantly and
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
-  Home, MessageCircle, Camera, CalendarDays, Send, Mic, Volume2, VolumeX, Loader2,
+  Home, MessageCircle, Camera, CalendarDays, Send, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole,
 } from 'lucide-react';
 
 export const metadata = {
@@ -23,7 +24,7 @@ async function readJson(response: Response) {
   if (!response.ok) throw new Error(`Request failed (${response.status})`);
   return response.json();
 }
-const ICON = '/cupcakegpt-icon.png';
+const ICON = '/cupcake-avatar.jpg';
 
 type FeedItem = { type: string; icon: string; title: string; body: string; date: string; time: string; ts: number };
 type ChatMsg = { role: 'user' | 'cupcake'; text: string };
@@ -40,96 +41,39 @@ type FoodResult = {
 };
 
 const tabs = [
-  { key: 'feed', label: 'Feed', Icon: Home },
-  { key: 'chat', label: 'Chat', Icon: MessageCircle },
-  { key: 'snap', label: 'Snap', Icon: Camera },
-  { key: 'week', label: 'Week', Icon: CalendarDays },
+  {key:'feed',label:'Today',Icon:Home}, {key:'talk',label:'Talk',Icon:Headphones},
+  {key:'record',label:'Record',Icon:Mic}, {key:'library',label:'Library',Icon:Library},
+  {key:'chat',label:'Chat',Icon:MessageCircle},
 ] as const;
-type TabKey = (typeof tabs)[number]['key'];
-
+type TabKey = (typeof tabs)[number]['key'] | 'snap' | 'week';
+type InstallPrompt = Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 const CupcakeGPT: React.FC = () => {
-  const [tab, setTab] = useState<TabKey>('feed');
-  const [speak, setSpeak] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
-  const [keyInput, setKeyInput] = useState(() => sessionStorage.getItem(TOKEN_STORAGE) || '');
-  const [unlocking, setUnlocking] = useState(false);
-  const [accessError, setAccessError] = useState('');
-  const unlock = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!keyInput.trim() || unlocking) return;
-    setUnlocking(true); setAccessError('');
-    try {
-      const response = await fetch(`${API}/cupcake-feed`, { headers: { 'X-Cupcake-Key': keyInput.trim() }, signal: AbortSignal.timeout(20000) });
-      if (!response.ok) throw new Error('Access could not be verified. Check your key and try again.');
-      sessionStorage.setItem(TOKEN_STORAGE, keyInput.trim()); setUnlocked(true);
-    } catch { setAccessError('Access could not be verified. Check your key and connection, then try again.'); }
-    finally { setUnlocking(false); }
-  };
-
-  // set PWA icon + title so "Add to Home Screen" uses the cupcake
-  useEffect(() => {
-    document.title = 'CupcakeGPT';
-    const set = (rel: string) => {
-      let l = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
-      if (!l) { l = document.createElement('link'); l.rel = rel; document.head.appendChild(l); }
-      l.href = ICON;
-    };
-    set('apple-touch-icon'); set('icon');
-    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
-    meta.content = '#e11d48';
-  }, []);
-
-  if (!unlocked) return <main className="min-h-screen bg-[#100a12] text-white flex items-center justify-center p-6"><form onSubmit={unlock} className="max-w-sm w-full space-y-5"><a href="/" className="text-pink-300">← Hales.ai</a><h1 className="text-3xl font-bold">Private Cupcake access</h1><p className="text-gray-300">Enter your personal access key to open your feed, chat, and food log. It stays in this browser tab for this session.</p><label className="block">Access key<input type="password" autoComplete="off" required value={keyInput} onChange={e=>setKeyInput(e.target.value)} className="mt-2 w-full p-3 rounded-lg bg-white/10 border border-white/20"/></label><button disabled={unlocking} className="w-full p-3 rounded-lg bg-pink-500 disabled:opacity-50">{unlocking?'Checking access…':'Unlock Cupcake'}</button>{accessError&&<p role="alert" className="text-red-300">{accessError}</p>}</form></main>;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a0a12] via-[#0e0710] to-black text-white flex flex-col">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 backdrop-blur-xl bg-black/40 border-b border-pink-500/20">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <img src={ICON} alt="CupcakeGPT" className="w-10 h-10 rounded-xl shadow-lg shadow-pink-500/30" />
-          <div className="flex-1">
-            <h1 className="font-bold text-lg leading-none bg-gradient-to-r from-pink-300 to-rose-400 bg-clip-text text-transparent">CupcakeGPT</h1>
-            <p className="text-[11px] text-pink-200/50 leading-tight mt-0.5">your accountability demon</p>
-          </div>
-          <button onClick={() => { sessionStorage.removeItem(TOKEN_STORAGE); setKeyInput(''); setUnlocked(false); }} className="text-sm text-pink-200">Lock</button>
-          <button
-            onClick={() => setSpeak((s) => !s)}
-            className={`p-2 rounded-full transition ${speak ? 'bg-pink-500/30 text-pink-200' : 'bg-white/5 text-white/40'}`}
-            aria-label="Toggle voice"
-          >
-            {speak ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </button>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pb-28 pt-4">
-        <div key={tab}>
-          {tab === 'feed' && <FeedView />}
-          {tab === 'chat' && <ChatView speak={speak} />}
-          {tab === 'snap' && <SnapView />}
-          {tab === 'week' && <WeekView />}
-        </div>
-      </main>
-
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 inset-x-0 z-20 backdrop-blur-xl bg-black/60 border-t border-pink-500/20">
-        <div className="max-w-md mx-auto grid grid-cols-4">
-          {tabs.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`flex flex-col items-center gap-1 py-3 transition ${tab === key ? 'text-pink-400' : 'text-white/40'}`}
-            >
-              <Icon size={22} strokeWidth={tab === key ? 2.5 : 2} />
-              <span className="text-[10px] font-medium">{label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
-    </div>
-  );
+  const [tab,setTab]=useState<TabKey>(()=>new URLSearchParams(location.search).has('shared')?'record':'feed');
+  const [speak,setSpeak]=useState(false);const [unlocked,setUnlocked]=useState(false);
+  const [keyInput,setKeyInput]=useState(()=>sessionStorage.getItem(TOKEN_STORAGE)||'');
+  const [unlocking,setUnlocking]=useState(false);const [accessError,setAccessError]=useState('');
+  const [mediaBusy,setMediaBusy]=useState(false);const [install,setInstall]=useState<InstallPrompt|null>(null);
+  const unlock=async(e:React.FormEvent)=>{e.preventDefault();if(!keyInput.trim()||unlocking)return;setUnlocking(true);setAccessError('');try{const r=await fetch(`${API}/cupcake-feed`,{headers:{'X-Cupcake-Key':keyInput.trim()},signal:AbortSignal.timeout(20000),cache:'no-store'});if(!r.ok)throw Error();sessionStorage.setItem(TOKEN_STORAGE,keyInput.trim());setUnlocked(true);}catch{setAccessError('Check your personal access key and connection, then try again.');}finally{setUnlocking(false);}};
+  useEffect(()=>{
+    document.title='Cupcake — Your private companion';
+    const links:HTMLLinkElement[]=[];
+    for(const [rel,href] of [['manifest','/cupcake.webmanifest'],['apple-touch-icon','/cupcake-avatar.jpg']]){const l=document.createElement('link');l.rel=rel;l.href=href;document.head.appendChild(l);links.push(l);}
+    if('serviceWorker'in navigator)void navigator.serviceWorker.register('/cupcake-sw.js',{scope:'/cupcake'}).catch(()=>{});
+    const before=(e:Event)=>{e.preventDefault();setInstall(e as InstallPrompt);};window.addEventListener('beforeinstallprompt',before);
+    return()=>{links.forEach(l=>l.remove());window.removeEventListener('beforeinstallprompt',before);};
+  },[]);
+  if(!unlocked)return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Personal access key<input type="password" autoComplete="off" required value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Your key stays in this tab for the session. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
+  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><button className="cc-secondary cc-lock" disabled={mediaBusy} onClick={()=>{sessionStorage.removeItem(TOKEN_STORAGE);setKeyInput('');setUnlocked(false);}}>Lock</button></header>
+    <main className="cc-shell">
+      {install&&<div className="cc-install"><button className="cc-text-button" onClick={()=>{void install.prompt().then(()=>install.userChoice).then(()=>setInstall(null));}}>Install Cupcake on this device ↗</button></div>}
+      {!install&&<p className="cc-muted" style={{fontSize:12}}>To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}
+      {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Audio or upload active · open controls</button>}
+      {tab==='feed'&&<><div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Remember this</button></div></div><img src={ICON} alt="Cupcake, your companion"/></div><div className="cc-action-row"><button className="cc-secondary" onClick={()=>setTab('snap')}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><CalendarDays size={18}/>This week</button></div><h3 style={{fontSize:20,marginBottom:16}}>Your latest signals</h3><FeedView/></>}
+      <div hidden={!['talk','record','library'].includes(tab)}><CupcakeStudio mode={tab==='talk'?'talk':tab==='library'?'library':'record'} onBusy={setMediaBusy}/></div>
+      {tab==='chat'&&<><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><ChatView speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></>}
+      {tab==='snap'&&<SnapView/>}{tab==='week'&&<WeekView/>}
+    </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
+  </div>;
 };
 
 // ---------- FEED ----------
@@ -165,7 +109,7 @@ const FeedView: React.FC = () => {
 };
 
 // ---------- CHAT ----------
-const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
+const ChatView: React.FC<{ speak: boolean; mediaBusy: boolean }> = ({ speak, mediaBusy }) => {
   const [msgs, setMsgs] = useState<ChatMsg[]>([
     { role: 'cupcake', text: "Hey Matt. What are we conquering — or confessing? 🧁" },
   ]);
@@ -194,7 +138,7 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
       const r = await fetch(`${API}/cupcake-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ message: t }),
+        body: JSON.stringify({ message: t, history: msgs.slice(-20).map(m=>({role:m.role==='cupcake'?'assistant':'user',content:m.text})) }),
       });
       const d = await readJson(r);
       const reply = d.reply || "Hmm, my brain glitched. Say that again?";
@@ -206,6 +150,7 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
   };
 
   const toggleMic = () => {
+    if(mediaBusy)return;
     const SR = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
     if (!SR) { alert('Voice input needs Chrome/Safari.'); return; }
     if (listening) { recRef.current?.stop(); return; }
@@ -240,7 +185,7 @@ const ChatView: React.FC<{ speak: boolean }> = ({ speak }) => {
       </div>
 
       <div className="flex items-center gap-2 pt-3">
-        <button onClick={toggleMic}
+        <button disabled={mediaBusy} onClick={toggleMic}
           className={`p-3 rounded-full transition ${listening ? 'bg-pink-500 text-white animate-pulse' : 'bg-white/10 text-pink-200'}`}
           aria-label="Voice input">
           <Mic size={18} />
