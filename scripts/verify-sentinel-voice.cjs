@@ -76,8 +76,21 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   const ending=s.link.toggle();assert.equal(s.link.phase,'closing');await s.link.toggle();assert.equal(s.link.phase,'closing');
   finishStop();await ending;assert.equal(s.link.phase,'idle');
  }
+ {
+  const s=setup(),old=s.link.toggle();await tick();const oldApi=s.api,finishOld=s.completeStart;
+  await s.link.toggle();oldApi.stop=()=>Promise.reject(new Error('Late cleanup failed'));
+  finishOld({});await old;await tick();assert.equal(s.link.phase,'disconnect-error');assert.match(s.states.at(-1)[1],/close this tab/);
+  oldApi.stop=()=>Promise.resolve();await s.link.toggle();assert.equal(s.link.phase,'idle');
+ }
+ {
+  const s=setup(),old=s.link.toggle();await tick();const oldApi=s.api,finishOld=s.completeStart;
+  await s.link.toggle();const fresh=s.link.toggle();await tick();const newApi=s.api,finishNew=s.completeStart;
+  newApi.emit('call-start');oldApi.stop=()=>Promise.reject(new Error('Late cleanup failed'));
+  finishOld({});await old;await tick();assert.equal(s.link.phase,'connected');assert.equal(newApi.stops,0);assert.match(s.states.at(-1)[1],/close this tab/);
+  finishNew({});await fresh;oldApi.stop=()=>Promise.resolve();await s.link.toggle();assert.equal(s.link.phase,'idle');assert.ok(newApi.stops);
+ }
  const page=fs.readFileSync('src/components/experience/HalesExperience.tsx','utf8');
  assert.match(page,/allow="microphone; autoplay"/);assert.doesNotMatch(page,/<VoiceButton/);
  assert.match(html,/voiceButton\.addEventListener\('click',talk\)/);
- console.log('PASS: 12 synthetic Sentinel voice lifecycle cases, voice-button binding, and single iframe owner. No network or microphone access.');
+ console.log('PASS: 14 synthetic Sentinel voice lifecycle cases, voice-button binding, and single iframe owner. No network or microphone access.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
