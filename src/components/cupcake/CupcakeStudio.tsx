@@ -48,9 +48,9 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
       c.on('track-started', e => { if (e?.track.kind !== 'audio' || e.participant?.local) return; const id = e.track.id; const audio = new Audio(); audio.autoplay = true; audio.srcObject = new MediaStream([e.track]); players.current.set(id, audio); void audio.play().catch(() => setError('Tap Resume audio to hear Cupcake.')); });
       c.on('track-stopped', e => { if (e?.track) { const p = players.current.get(e.track.id); if(p) { p.pause(); p.srcObject = null; players.current.delete(e.track.id); } } });
       c.on('app-message', e => { let d=e?.data; if(typeof d==='string'){try{d=JSON.parse(d);}catch{return;}} if (!d || typeof d !== 'object') return; if(d.type === 'speech-update') setSpeaking(d.status === 'started' && d.role === 'assistant'); if(d.type === 'transcript' && d.transcriptType === 'final' && typeof d.transcript === 'string') setLines(a => [...a.slice(-99), {role:d.role === 'assistant'?'Cupcake':'You', text:d.transcript}]); });
-      c.on('left-meeting', () => { if(call.current === c) void endVoice(); }); c.on('error', () => { setError('The voice connection ended. You can reconnect.'); void endVoice(); });
+      c.on('left-meeting', () => { if(call.current === c) void endVoice(); }); c.on('error', () => { if(call.current!==c||generation!==voiceGeneration.current)return; setError('The voice connection ended. You can reconnect.'); void endVoice(); });
       await c.join({url:d.webCallUrl}); if (generation !== voiceGeneration.current) { await c.destroy(); return; } setVoice('live'); setMuted(false);
-    } catch(e) { setError((e as Error).message); await endVoice(); }
+    } catch(e) { if(generation!==voiceGeneration.current)return; setError((e as Error).message); await endVoice(); }
   }
   async function startRecording(meeting: boolean) {
     if(recording || voice !== 'idle' || busy) return; setError(''); finishing.current = false;
