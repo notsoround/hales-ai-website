@@ -48,7 +48,7 @@ const tabs = [
 type TabKey = (typeof tabs)[number]['key'] | 'snap' | 'week';
 type InstallPrompt = Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 const CupcakeGPT: React.FC = () => {
-  const [tab,setTab]=useState<TabKey>(()=>{const q=new URLSearchParams(location.search);return q.get('tab')==='library'?'library':q.has('shared')?'record':'feed';});
+  const [tab,setTab]=useState<TabKey>(()=>{const q=new URLSearchParams(location.search);return (q.get('tab')==='library'||q.has('recording')||q.has('document')||q.has('analysis'))?'library':q.has('shared')?'record':'feed';});
   const [speak,setSpeak]=useState(false);const [unlocked,setUnlocked]=useState(false);
   const [keyInput,setKeyInput]=useState(()=>sessionStorage.getItem(TOKEN_STORAGE)||'');
   const [unlocking,setUnlocking]=useState(false);const [accessError,setAccessError]=useState('');
@@ -67,10 +67,10 @@ const CupcakeGPT: React.FC = () => {
     <main className="cc-shell">
       {install&&<div className="cc-install"><button className="cc-text-button" onClick={()=>{void install.prompt().then(()=>install.userChoice).then(()=>setInstall(null));}}>Install Cupcake on this device ↗</button></div>}
       {!install&&<p className="cc-muted" style={{fontSize:12}}>To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}
-      {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Audio or upload active · open controls</button>}
+      {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Cupcake is working · open controls</button>}
       {tab==='feed'&&<><div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Remember this</button></div></div><img src={ICON} alt="Cupcake, your companion"/></div><div className="cc-action-row"><button className="cc-secondary" onClick={()=>setTab('snap')}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><CalendarDays size={18}/>This week</button></div><h3 style={{fontSize:20,marginBottom:16}}>Your latest signals</h3><FeedView/></>}
       <div hidden={!['talk','record','library'].includes(tab)}><CupcakeStudio mode={tab==='talk'?'talk':tab==='library'?'library':'record'} onBusy={setMediaBusy}/></div>
-      {tab==='chat'&&<><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><ChatView speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></>}
+      {tab==='chat'&&<><div className="cc-heading-row"><div><span className="cc-eyebrow">QUICK CHAT</span><p className="cc-muted">Everyday conversation with your context. Use Library for deeper strategy and saved analyses.</p></div><button className="cc-text-button" onClick={()=>setTab('library')}>Open strategist ↗</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><ChatView speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></>}
       {tab==='snap'&&<SnapView/>}{tab==='week'&&<WeekView/>}
     </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
   </div>;
