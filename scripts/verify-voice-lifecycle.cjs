@@ -5,15 +5,15 @@ const ts = require('typescript');
 const source = ts.transpileModule(fs.readFileSync('src/hooks/use-vapi.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText;
-function setup() {
+function setup({ rejectStop = false, delayStop = false } = {}) {
   const effects = [], states = [], events = [], timers = new Map();
-  let api, finish, timerId = 0;
+  let api, finish, finishStop, timerId = 0;
   class FakeVapi {
-    constructor() { api = this; this.listeners = {}; this.stops = 0; }
+    constructor() { api = this; this.listeners = {}; this.stops = 0; this.starts = 0; this.rejectStop = rejectStop; }
     on(name, handler) { this.listeners[name] = handler; }
     emit(name, value) { this.listeners[name]?.(value); }
-    start() { return new Promise(resolve => { finish = resolve; }); }
-    stop() { this.stops++; }
+    start() { this.starts++; return new Promise(resolve => { finish = resolve; }); }
+    stop() { this.stops++; return this.rejectStop ? Promise.reject(new Error('synthetic stop failure')) : delayStop ? new Promise(resolve => { finishStop = resolve; }) : Promise.resolve(); }
   }
   const react = {
     useState: initial => { const index = states.length; states.push(initial); return [initial, value => { states[index] = typeof value === 'function' ? value(states[index]) : value; }]; },
@@ -26,8 +26,9 @@ function setup() {
   });
   const hook = exports.default();
   const cleanup = effects[0]();
-  return { hook, api, states, events, timers, cleanup, finish: result => finish(result) };
+  return { hook, api, states, events, timers, cleanup, finish: result => finish(result), finishStop: () => finishStop() };
 }
+const tick = () => new Promise(resolve => setImmediate(resolve));
 (async () => {
   {
     const s = setup(), connection = s.hook.toggleCall();
@@ -62,5 +63,42 @@ function setup() {
     assert.match(s.states[3], /taking too long/); s.finish({}); await connection;
     assert.equal(s.states[1], false); assert.ok(s.api.stops >= 2);
   }
-  console.log('PASS: six synthetic voice lifecycle cases; no network or microphone access.');
+  {
+    const s = setup(), connection = s.hook.toggleCall();
+    s.api.emit('call-start'); s.finish({}); await connection;
+    for (const type of ['audio-processing-setup-error', 'audio-processor-recovery-error']) s.api.emit('error', { type });
+    assert.equal(s.states[1], true); assert.equal(s.states[3], ''); assert.equal(s.api.stops, 0);
+    s.api.emit('error', { type: 'audio-processing-error' }); await tick();
+    assert.equal(s.states[1], false); assert.ok(s.api.stops); assert.match(s.states[3], /could not connect/);
+  }
+  {
+    const s = setup({ delayStop: true }), connection = s.hook.toggleCall();
+    s.api.emit('call-start'); s.finish({}); await connection;
+    let finished = false;
+    const stopping = s.hook.toggleCall().then(() => { finished = true; });
+    const repeatedClick = s.hook.toggleCall(); await tick();
+    assert.equal(finished, false); assert.equal(s.api.starts, 1); assert.equal(s.api.stops, 1);
+    s.finishStop(); await Promise.all([stopping, repeatedClick]); assert.equal(finished, true);
+  }
+  {
+    const s = setup({ rejectStop: true }), connection = s.hook.toggleCall();
+    s.api.emit('call-start'); s.finish({}); await connection;
+    await s.hook.toggleCall();
+    assert.match(s.states[3], /retry ending the call/); assert.match(s.states[3], /close this tab/);
+    s.api.rejectStop = false; await s.hook.toggleCall();
+    assert.equal(s.api.starts, 1); assert.equal(s.api.stops, 2);
+  }
+  {
+    const s = setup({ rejectStop: true }), connection = s.hook.toggleCall();
+    s.api.emit('call-start'); s.api.emit('error', { type: 'daily-error' });
+    s.finish({}); await connection; await tick();
+    assert.match(s.states[3], /close this tab/); assert.equal(s.states[1], false);
+  }
+  {
+    const s = setup({ rejectStop: true }), connection = s.hook.toggleCall();
+    s.cleanup(); const before = JSON.stringify(s.states);
+    s.api.emit('call-start'); s.finish({}); await connection; await tick();
+    assert.equal(JSON.stringify(s.states), before); assert.ok(s.api.stops >= 3);
+  }
+  console.log('PASS: eleven synthetic voice lifecycle cases, including async stop, rejected stop, cleanup, and exact nonfatal errors; no network or microphone access.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -48,10 +48,18 @@ PUBLIC FACTS: Hales.ai is Matt Hales's independent AI studio, built with a small
 function createVoiceLink({loadVapi,onState,onLevel}){
  let instance=null,pending=null,generation=0,disposed=false,phase='idle',timer=0;
  const state=(next,message='')=>{phase=next;if(!disposed)onState(next,message);};
- const stop=(message='')=>{generation++;clearTimeout(timer);pending=null;const previous=instance;instance=null;previous?.stop();onLevel(false,0);state('idle',message);};
+ const release=async current=>{try{await current?.stop();return true;}catch{return false;}};
+ const stop=async(message='')=>{
+  const run=++generation;clearTimeout(timer);pending=null;const previous=instance;onLevel(false,0);
+  state(previous?'closing':'idle',message);
+  const closed=await release(previous);if(disposed||run!==generation)return;
+  if(closed){instance=null;state('idle',message);}
+  else{state('disconnect-error','Your browser could not confirm the call ended. Retry ending the call, or close this tab to disconnect.');}
+ };
  const toggle=()=>{
   if(disposed)return Promise.resolve();
-  if(phase==='connected'||phase==='connecting'||pending){stop();return Promise.resolve();}
+  if(phase==='closing')return Promise.resolve();
+  if(phase==='connected'||phase==='connecting'||phase==='disconnect-error'||pending)return stop();
   const run=++generation;
   const valid=()=>!disposed&&run===generation;
   state('connecting');
@@ -61,24 +69,24 @@ function createVoiceLink({loadVapi,onState,onLevel}){
    try{
     const Vapi=await loadVapi();if(!valid())return;
     const current=new Vapi(voiceConfig.publicKey);instance=current;
-    current.on('call-start',()=>{if(!valid()){current.stop();return;}clearTimeout(timer);state('connected');onLevel(true,0);});
-    current.on('call-end',()=>{if(!valid())return;generation++;clearTimeout(timer);onLevel(false,0);state('idle');});
+    current.on('call-start',()=>{if(!valid()){void release(current);return;}clearTimeout(timer);state('connected');onLevel(true,0);});
+    current.on('call-end',()=>{if(!valid())return;generation++;clearTimeout(timer);instance=null;pending=null;onLevel(false,0);state('idle');});
     current.on('volume-level',level=>{if(valid()&&phase==='connected')onLevel(true,Number.isFinite(level)?Math.max(0,Math.min(1,level)):0);});
-    current.on('error',()=>{if(valid())stop('Voice could not connect. Check microphone permission and your connection, then try again.');});
+    current.on('error',error=>{if(['audio-processing-setup-error','audio-processor-recovery-error'].includes(error?.type))return;if(valid())void stop('Voice could not connect. Check microphone permission and your connection, then try again.');});
     const result=await current.start(voiceConfig.assistantId,voiceConfig.overrides);
-    if(!valid()){current.stop();return;}
+    if(!valid()){void release(current);return;}
     if(!result)throw new Error('Connection unavailable');
-   }catch{if(valid())stop('Voice could not connect. Check microphone permission and your connection, then try again.');}
+   }catch{if(valid())await stop('Voice could not connect. Check microphone permission and your connection, then try again.');}
    finally{if(!valid()||phase!=='connecting')clearTimeout(timeout);if(pending===attempt)pending=null;}
   })();
   return attempt.promise;
  };
- return{toggle,dispose(){disposed=true;generation++;clearTimeout(timer);instance?.stop();onLevel(false,0);},get phase(){return phase;}};
+ return{toggle,dispose(){disposed=true;generation++;clearTimeout(timer);void release(instance);onLevel(false,0);},get phase(){return phase;}};
 }
 const voiceLink=createVoiceLink({
- loadVapi:async()=>{const {default:Vapi}=await import('https://esm.sh/@vapi-ai/web@2.2.2?bundle&target=es2022');return Vapi;},
+ loadVapi:async()=>{const {default:Vapi}=await import('https://esm.sh/@vapi-ai/web@2.7.0?bundle&target=es2022');return Vapi;},
  onState:(phase,message)=>{
-  voiceLabel.textContent=phase==='connected'?'END CALL':phase==='connecting'?'CONNECTING · CANCEL':phase==='closing'?'DISCONNECTING…':'TALK TO SENTINEL';
+  voiceLabel.textContent=phase==='connected'?'END CALL':phase==='connecting'?'CONNECTING · CANCEL':phase==='closing'?'DISCONNECTING…':phase==='disconnect-error'?'RETRY END CALL':'TALK TO SENTINEL';
   voiceButton.disabled=phase==='closing';voiceButton.setAttribute('aria-pressed',String(phase==='connected'));
   document.body.classList.toggle('voice-connected',phase==='connected');
   if(message!==null)voiceMessage.textContent=message||(phase==='connected'?'Voice connected. You can speak naturally.':phase==='connecting'?'Allow microphone access when your browser asks.':'');

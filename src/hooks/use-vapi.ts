@@ -14,12 +14,12 @@ type VapiEvents = {
     'call-end': () => void;
     'volume-level': (volume: number) => void;
     message: (message: VoiceMessage) => void;
-    error: () => void;
+    error: (error: unknown) => void;
 };
 type VapiCtor = new (publicKey: string) => {
     on: <K extends keyof VapiEvents>(event: K, handler: VapiEvents[K]) => void;
     start: (assistantId: string) => Promise<unknown>;
-    stop: () => void;
+    stop: () => Promise<void>;
 };
 
 function resolveVapiCtor(mod: unknown): VapiCtor {
@@ -55,6 +55,27 @@ const useVapi = () => {
     const active = useRef(false);
     const pending = useRef(false);
     const cancelled = useRef(false);
+    const stopFailed = useRef(false);
+    const stopping = useRef(new WeakMap<InstanceType<VapiCtor>, Promise<void>>());
+
+    const stopInstance = useCallback((instance: InstanceType<VapiCtor>) => {
+        const operation = (async () => {
+            try {
+                await instance.stop();
+                if (mounted.current && vapiRef.current === instance) stopFailed.current = false;
+            } catch {
+                if (mounted.current && vapiRef.current === instance) {
+                    stopFailed.current = true;
+                    setError('Voice could not fully stop. Press the voice button again to retry ending the call, or close this tab to release the microphone.');
+                }
+            }
+        })();
+        stopping.current.set(instance, operation);
+        void operation.then(() => {
+            if (stopping.current.get(instance) === operation) stopping.current.delete(instance);
+        });
+        return operation;
+    }, []);
 
     useEffect(() => {
         mounted.current = true;
@@ -68,7 +89,7 @@ const useVapi = () => {
             announceVoice(false);
         };
         instance.on('call-start', () => {
-            if (!current() || cancelled.current) { instance.stop(); return; }
+            if (!current() || cancelled.current) { void stopInstance(instance); return; }
             active.current = true;
             setIsSessionActive(true);
             setIsConnecting(false);
@@ -92,34 +113,38 @@ const useVapi = () => {
                 setConversation(prev => [...prev.slice(-39), { role: message.role ?? 'assistant', text: message.transcript! }]);
             }
         });
-        instance.on('error', () => {
+        instance.on('error', (event: unknown) => {
             if (!current() || cancelled.current) return;
+            if (event && typeof event === 'object' && 'type' in event &&
+                (event.type === 'audio-processing-setup-error' || event.type === 'audio-processor-recovery-error')) return;
             cancelled.current = true;
-            instance.stop();
             reset();
             setError('Voice could not connect. Check microphone permission and your connection, then try again.');
+            void stopInstance(instance);
         });
         return () => {
             mounted.current = false;
             cancelled.current = true;
             vapiRef.current = null;
-            instance.stop();
+            void stopInstance(instance);
             announceVoice(false);
         };
-    }, []);
+    }, [stopInstance]);
 
     const toggleCall = useCallback(async () => {
         const instance = vapiRef.current;
         if (!instance) return;
         const current = () => mounted.current && vapiRef.current === instance;
-        if (active.current || pending.current) {
+        const closing = stopping.current.get(instance);
+        if (closing) { await closing; return; }
+        if (active.current || pending.current || stopFailed.current) {
             cancelled.current = true;
-            instance.stop();
             active.current = false;
             setIsSessionActive(false);
             setVolumeLevel(0);
             setConversation([]);
             announceVoice(false);
+            await stopInstance(instance);
             return;
         }
         pending.current = true;
@@ -129,30 +154,30 @@ const useVapi = () => {
         const timer = window.setTimeout(() => {
             if (!current() || active.current || cancelled.current) return;
             cancelled.current = true;
-            instance.stop();
             setError('The voice connection is taking too long. You can keep exploring or use text chat.');
             announceVoice(false);
+            void stopInstance(instance);
         }, 25000);
         try {
             const result = await instance.start(assistantId);
-            if (!current() || cancelled.current) { instance.stop(); return; }
+            if (!current() || cancelled.current) { await stopInstance(instance); return; }
             if (!result) throw new Error('Voice connection unavailable');
         } catch {
             if (current() && !cancelled.current) {
                 cancelled.current = true;
-                instance.stop();
                 active.current = false;
                 setIsSessionActive(false);
                 setVolumeLevel(0);
                 announceVoice(false);
                 setError('Voice could not connect. Check microphone permission and your connection, then try again.');
+                await stopInstance(instance);
             }
         } finally {
             window.clearTimeout(timer);
             pending.current = false;
             if (current()) setIsConnecting(false);
         }
-    }, []);
+    }, [stopInstance]);
 
     return { volumeLevel, isSessionActive, isConnecting, error, conversation, toggleCall };
 };
