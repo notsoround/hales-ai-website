@@ -13,13 +13,6 @@ RUN npm ci
 # Copy all files
 COPY . .
 
-# Vite build-time public vars (passed via --build-arg from the droplet .env,
-# since .env is intentionally excluded from the build context via .dockerignore)
-ARG VITE_VAPI_API_KEY
-ARG VITE_VAPI_ASSISTANT_ID
-ENV VITE_VAPI_API_KEY=$VITE_VAPI_API_KEY
-ENV VITE_VAPI_ASSISTANT_ID=$VITE_VAPI_ASSISTANT_ID
-
 # Build the app
 RUN npm run build
 

@@ -75,14 +75,14 @@ if [[ "$ALLOW_CANONICAL_OVERRIDE" != "1" ]]; then
   echo "[CANONICAL-GATE] Running source-of-truth checks"
 
   assert_file_hash src/App.tsx a423957879a6bfbc78589e48b2054ac2c5e9a779e045600c3c196c1ebb7a7d1c
-  assert_file_hash src/components/experience/HalesExperience.tsx cf3b736da34344ea63a5fdb94f0de59ab1b0316b7c0046aca8f7f8689c348ee4
+  assert_file_hash src/components/experience/HalesExperience.tsx aa984a96f6d00b3698c4a86b9873216e3490748629c0b11b6db101423cbdb8ee
   assert_file_hash src/components/experience/experience.css 207d701a8db76d28d2250f8b267f8d7c77f69cd5bdeb1f1a74d012374fe6e1a0
   assert_file_hash src/components/VoiceButton.tsx 6d293f5a5185bf0b686db5ae96b327d3a7a551002829953e8092627541b35487
   assert_file_hash src/hooks/use-vapi.ts 18b552d8c3b11fe59ff57372678f0d340777a1f2ea534950d772a27be85463b9
   assert_file_hash src/components/ChatInterface.tsx 94a9624c8afce7fa13d49911bb867fb224522627ae9c6fa77d70a93f89e76f10
   assert_file_hash src/pages/cupcake/sandbox/cupcakegpt/page.tsx 0f5e975dc2f95a14a527441f48c60a82839523ddc75b3aa592fdcb9286ff1efe
-  assert_file_hash public/lab/sentinel/index.html 9c397bc12bfb5556e97c36e5f8acf27fae0d60a0426b975127fed12402856f8d
-  assert_file_hash Dockerfile 196d14a07b920fb4d909db4c6fb8ac3ae1483fde34fca4919915cecc7ca06715
+  assert_file_hash public/lab/sentinel/index.html 082ca90eb12c9a4697debde3759dccdc7a32db17b979f15b9d14f209a08ce6e4
+  assert_file_hash Dockerfile c8b7f03c6eab0f87e798154ca170fe4cc1233a3a4551ddba082895690e041f24
   assert_file_hash index.html cd9d981f2c6d51b20772451583e20ab5cb82db71a3e0213a01ca866c6449e973
   assert_file_hash public/favicon.svg 01bb4ff889b11ab699457c2bf39974900eda77d9405a2bd1291d27d983aaf421
 
@@ -108,13 +108,10 @@ if docker image inspect "$APP_NAME" >/dev/null 2>&1; then
   echo "[ROLLBACK] Backup image tagged: $PREV_IMAGE_TAG"
 fi
 
-set -a; . "$REPO_DIR/.env"; set +a
-docker build --no-cache --build-arg VITE_VAPI_API_KEY="${VITE_VAPI_API_KEY:-}" --build-arg VITE_VAPI_ASSISTANT_ID="${VITE_VAPI_ASSISTANT_ID:-}" -t "$CANDIDATE_TAG" .
+docker build --no-cache -t "$CANDIDATE_TAG" .
 docker stop "$APP_NAME" || true
 docker rm "$APP_NAME" || true
-docker run -d -p 3000:3000 --restart always --name "$APP_NAME" "$CANDIDATE_TAG"
-
-if ! smoke_check; then
+if ! docker run -d -p 3000:3000 --restart always --name "$APP_NAME" "$CANDIDATE_TAG" || ! smoke_check; then
   echo "[ROLLBACK] Smoke check failed, attempting rollback"
   docker stop "$APP_NAME" || true
   docker rm "$APP_NAME" || true
