@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import './voice-controls.css';
 import { Mic, RefreshCw, Square } from 'lucide-react';
 import { hasAudibleSignal, microphoneConstraints, microphoneMessage } from './voiceInput';
 
