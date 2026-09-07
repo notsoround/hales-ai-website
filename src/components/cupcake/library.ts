@@ -15,7 +15,7 @@ export const accessHeaders = () => ({ 'X-Cupcake-Key': sessionStorage.getItem('c
 export async function libraryRequest<T>(body: Record<string, unknown>): Promise<T> {
   const response = await fetch('https://automate.hales.ai/cupcake-library', {
     method: 'POST', headers: { ...accessHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    signal: AbortSignal.timeout(body.action === 'ask' || body.action === 'triage' ? 300000 : 60000), cache: 'no-store',
+    signal: AbortSignal.timeout(['ask', 'triage', 'closeout_generate', 'receipt_extract','receipt_retry'].includes(String(body.action)) ? 300000 : 60000), cache: 'no-store',
   });
   const data = await response.json().catch(() => null);
   if (!response.ok || !data || data.ok === false) throw new Error(response.status === 401 || response.status === 403
