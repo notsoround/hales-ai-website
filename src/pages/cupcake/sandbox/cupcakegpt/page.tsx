@@ -9,6 +9,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Home, MessageCircle, Camera, CalendarDays, Send, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole,
 } from 'lucide-react';
+import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
+import { libraryRequest } from '../../../../components/cupcake/library';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -26,7 +28,16 @@ async function readJson(response: Response) {
 }
 const ICON = '/cupcake-avatar.jpg';
 
-type FeedItem = { type: string; icon: string; title: string; body: string; date: string; time: string; ts: number };
+type FeedResponse = { items?: Array<FeedItem & { id?: string; calories?: number | null; amount?: number | null; currency?: string | null; details?: Record<string, unknown> }>; totals?: { calories?: number; spendUsd?: number; foodCount?: number; transactionCount?: number }; daily?: Array<{ date: string; calories?: number; spendUsd?: number }>; coverage?: { start: string; end: string; timezone?: string; complete?: boolean; returnedCount?: number; totalCount?: number; spendSource?: string; notes?: string[] } };
+async function loadDashboardStats(range: DashboardRange): Promise<DashboardStats> {
+  const response = await fetch(`${API}/cupcake-feed?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`, { headers: authHeaders(), cache: 'no-store' });
+  const data = await readJson(response) as FeedResponse;
+  const entries: DashboardEntry[] = (data.items || []).map((item, index) => ({ id: item.id || `${item.type}-${item.ts || index}`, type: item.type, date: item.date, time: item.time, title: item.title, body: item.body, amount: item.amount ?? null, calories: item.calories ?? null, details: item.details, icon: item.icon }));
+  const coverageNote = data.coverage ? `${data.coverage.complete === false ? 'Partial coverage. ' : ''}${(data.coverage.notes || []).join(' ')}`.trim() : '';
+  return { range: { start: range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: data.totals?.calories || 0, spend: data.totals?.spendUsd || 0, currency: '$' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
+}
+
+type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; details?: { mealId?: string | null; [key: string]: unknown } };
 type ChatMsg = { role: 'user' | 'cupcake'; text: string };
 
 type SpeechInput = {
@@ -35,10 +46,23 @@ type SpeechInput = {
   onend: () => void; start: () => void; stop: () => void;
 };
 type SpeechWindow = Window & { SpeechRecognition?: new () => SpeechInput; webkitSpeechRecognition?: new () => SpeechInput };
-type FoodResult = {
-  Description?: string; description?: string; error?: boolean;
-  Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number;
-};
+type FoodResult = { meal?: FoodMeal; duplicate?: boolean; error?: boolean; Description?: string; description?: string; Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number };
+
+async function prepareFoodImage(file: File) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPEG, PNG, or WebP image.');
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image(); image.src = objectUrl; await image.decode();
+    const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext('2d'); if (!context) throw new Error('This browser could not prepare the image.');
+    context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    let quality = .86; let dataUrl = canvas.toDataURL('image/jpeg', quality);
+    while (quality > .42 && (dataUrl.length > 1_700_000 || Math.ceil((dataUrl.length - dataUrl.indexOf(',') - 1) * .75) > 1_274_000)) { quality -= .08; dataUrl = canvas.toDataURL('image/jpeg', quality); }
+    if (dataUrl.length > 1_700_000 || Math.ceil((dataUrl.length - dataUrl.indexOf(',') - 1) * .75) > 1_274_000) throw new Error('This image is still too large. Crop the food photo and try again.');
+    return dataUrl;
+  } finally { URL.revokeObjectURL(objectUrl); }
+}
 
 const tabs = [
   {key:'feed',label:'Today',Icon:Home}, {key:'talk',label:'Talk',Icon:Headphones},
@@ -80,6 +104,8 @@ const CupcakeGPT: React.FC = () => {
 const FeedView: React.FC = () => {
   const [items, setItems] = useState<FeedItem[] | null>(null);
   const [err, setErr] = useState(false);
+  const [selected, setSelected] = useState<DashboardEntry | null>(null);
+  const loadMeal = useCallback(async (mealId: string) => (await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId })).meal, []);
   useEffect(() => {
     fetch(`${API}/cupcake-feed`, { headers: authHeaders() })
       .then(readJson)
@@ -87,13 +113,16 @@ const FeedView: React.FC = () => {
       .catch(() => setErr(true));
   }, []);
   if (err) return <Empty text="Couldn't reach the feed. Try again in a sec." />;
+  if (selected) return <SignalDetail entry={selected} onBack={() => setSelected(null)} loadMeal={loadMeal} />;
   if (!items) return <Spinner />;
   if (!items.length) return <Empty text="Nothing yet. Go live your life — Cupcake is watching." />;
   return (
     <div className="space-y-2.5">
       {items.map((it, i) => (
-        <div
+        <button
           key={i}
+          onClick={() => setSelected({ id: it.id || `${it.type}-${it.ts || i}`, type: it.type, date: it.date, time: it.time, title: it.title, body: it.body, calories: it.calories, amount: it.amount, details: it.details, icon: it.icon })}
+          aria-label={`Open ${it.title}`}
           className="flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"
         >
           <div className="text-2xl leading-none mt-0.5">{it.icon}</div>
@@ -102,7 +131,7 @@ const FeedView: React.FC = () => {
             <p className="text-xs text-white/60">{it.body}</p>
           </div>
           <div className="text-[10px] text-white/30 whitespace-nowrap mt-1">{it.time?.replace(/:\d\d\s/, ' ')}</div>
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -212,33 +241,36 @@ const SnapView: React.FC = () => {
   const [note, setNote] = useState('');
   const [result, setResult] = useState<FoodResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [portionNote, setPortionNote] = useState('');
+  const [error, setError] = useState('');
+  const [recentMeals, setRecentMeals] = useState<FoodMeal[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null); const cameraRef = useRef<HTMLInputElement>(null);
+
+  const loadRecentMeals = useCallback(async () => { try { const data = await libraryRequest<{ meals: FoodMeal[] }>({ action: 'food_list', limit: 20 }); setRecentMeals(data.meals || []); } catch (e) { setError(e instanceof Error ? e.message : 'Recent food photos are unavailable.'); } }, []);
+  useEffect(() => { void loadRecentMeals(); }, [loadRecentMeals]);
 
   const onFile = (f: File) => {
-    const reader = new FileReader();
-    reader.onload = () => { setPreview(reader.result as string); setResult(null); };
-    reader.readAsDataURL(f);
+    if (busy) return;
+    setError(''); setBusy(true);
+    void prepareFoodImage(f).then(image => { setPreview(image); setResult(null); }).catch(e => setError(e instanceof Error ? e.message : 'Could not prepare that image.')).finally(() => setBusy(false));
   };
 
   const analyze = async () => {
     if (!preview || busy) return;
-    setBusy(true); setResult(null);
-    try {
-      const r = await fetch(`${API}/cupcake-food-photo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ image: preview, note }),
-      });
-      setResult(await readJson(r));
-    } catch {
-      setResult({ Description: 'Upload failed. Check your access and connection, then try again.', error: true });
-    } finally { setBusy(false); }
+    setBusy(true); setResult(null); setError('');
+    try { setResult(await libraryRequest<FoodResult>({ action: 'food_analyze', image: preview, note })); void loadRecentMeals(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Food analysis failed. The original image remains on this device.'); }
+    finally { setBusy(false); }
   };
+
+  const retry = async () => { const mealId = result?.meal?.id; if (!mealId || busy) return; setBusy(true); setError(''); try { setResult(await libraryRequest<FoodResult>({ action: 'food_retry', mealId })); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Retry failed.'); } finally { setBusy(false); } };
+  const refine = async () => { const mealId = result?.meal?.id; if (!mealId || !portionNote.trim() || busy) return; setBusy(true); setError(''); try { setResult(await libraryRequest<FoodResult>({ action: 'food_refine', mealId, note: portionNote.trim(), consumedPortions: { note: portionNote.trim() } })); setPortionNote(''); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Could not update the portion estimate.'); } finally { setBusy(false); } };
+  const openMeal = async (mealId: string) => { if (busy) return; setBusy(true); setError(''); try { const data = await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId }); setResult({ meal: data.meal }); setPreview(null); setPortionNote(''); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load that saved meal.'); } finally { setBusy(false); } };
 
   return (
     <div className="space-y-4">
       <div
-        onClick={() => fileRef.current?.click()}
+        onClick={() => { if (!busy) cameraRef.current?.click(); }}
         className="relative aspect-square rounded-3xl border-2 border-dashed border-pink-500/30 bg-white/[0.03] overflow-hidden flex items-center justify-center cursor-pointer"
       >
         {preview ? (
@@ -251,8 +283,10 @@ const SnapView: React.FC = () => {
           </div>
         )}
       </div>
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
-        onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+      <div className="cc-snap-actions"><button type="button" className="cc-secondary" disabled={busy} onClick={() => cameraRef.current?.click()}><Camera size={17} />Take photo</button><button type="button" className="cc-secondary" disabled={busy} onClick={() => fileRef.current?.click()}>Choose existing photo</button></div>
+      <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
+      {error && <p className="text-sm text-rose-200" role="alert">{error}</p>}
 
       {preview && (
         <>
@@ -260,22 +294,28 @@ const SnapView: React.FC = () => {
             className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm outline-none focus:border-pink-400/50 placeholder:text-white/30" />
           <button onClick={analyze} disabled={busy}
             className="w-full py-3.5 rounded-full font-semibold bg-gradient-to-r from-pink-500 to-rose-600 flex items-center justify-center gap-2 disabled:opacity-50">
-            {busy ? <><Loader2 className="animate-spin" size={18} /> Analyzing…</> : 'Analyze & Log'}
+            {busy ? <><Loader2 className="animate-spin" size={18} /> Preparing…</> : 'Analyze food'}
           </button>
         </>
       )}
 
       {result && (
         <div className="bg-white/[0.05] border border-pink-500/20 rounded-2xl p-4">
-          <p className="font-semibold text-pink-200">{result.Description || result.description || 'Logged'}</p>
+          <p className="font-semibold text-pink-200">{result.meal?.description || result.Description || result.description || 'Food photo'}</p>
           <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-            <Stat label="Calories" value={result.Calories ?? result.calories} />
-            <Stat label="Sugar (g)" value={result.Sugar ?? result.sugar_g} />
-            <Stat label="Protein (g)" value={result.Protein ?? result.protein_g} />
+            <Stat label="Calories" value={result.meal?.total?.calories ?? result.Calories ?? result.calories} />
+            <Stat label="Sugar (g)" value={result.meal?.total?.sugar_g ?? result.Sugar ?? result.sugar_g} />
+            <Stat label="Protein (g)" value={result.meal?.total?.protein_g ?? result.Protein ?? result.protein_g} />
           </div>
-          {!result.error && <p className="text-xs text-emerald-300/70 mt-3">✓ Saved to your food log</p>}
+          {result.meal?.lookupWarnings?.map(warning => <p className="text-xs text-amber-200 mt-3" key={warning}>Variant warning: {warning}</p>)}
+          {result.meal?.needsClarification && <><p className="text-xs text-amber-200 mt-3">Review needed: {result.meal.clarification || 'Some portions were unclear.'}</p><input value={portionNote} onChange={e => setPortionNote(e.target.value)} placeholder="Tell Cupcake the portion or variant…" className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm mt-3" /><button className="cc-secondary mt-3" disabled={busy || !portionNote.trim()} onClick={() => void refine()}>Update portion estimate</button></>}
+          {result.meal?.status === 'analysis_failed' && <button className="cc-secondary mt-3" disabled={busy} onClick={() => void retry()}>Retry analysis</button>}
+          {!!result.meal?.items?.length && <div className="cc-snap-items"><strong>Saved item estimates</strong>{result.meal.items.map(item => <div key={item.id}><span>{item.name}{item.quantity && item.quantity !== 1 ? ` × ${item.quantity}` : ''}</span><small>{item.nutrition?.calories ?? '—'} kcal · {item.provenance || 'estimate'}{item.variantWarning ? ` · ${item.variantWarning}` : ''}{item.calculation ? ` · ${item.calculation}` : ''}{item.sourceCitations?.map(source => /^https?:\/\//.test(source.url) ? <a key={source.url} href={source.url} target="_blank" rel="noreferrer"> · {source.title}</a> : null)}</small></div>)}</div>}
+          {(result.meal?.totalIsPartial || (result.meal?.total && Object.values(result.meal.total).some(value => value == null))) && <p className="text-xs text-amber-200 mt-3">Partial estimate: some items or nutrients could not be estimated. Unknown values are left blank.</p>}
+          {!result.error && <p className="text-xs text-emerald-300/70 mt-3">{result.meal?.sheetLoggedAt ? '✓ Logged to your food log' : '✓ Saved privately · food log row not confirmed'}{result.duplicate ? ' · already saved' : ''}</p>}
         </div>
       )}
+      <section className="cc-snap-recent"><div className="cc-heading-row"><h3>Recent food photos</h3><button className="cc-text-button" disabled={busy} onClick={() => void loadRecentMeals()}>Refresh</button></div>{recentMeals.length ? recentMeals.map(meal => <button type="button" className="cc-snap-recent-item" key={meal.id} disabled={busy} onClick={() => void openMeal(meal.id)}><span><strong>{meal.description || 'Food photo'}</strong><small>{meal.createdAt ? new Date(meal.createdAt).toLocaleString() : 'Saved meal'} · {meal.sheetLoggedAt ? 'Logged' : meal.status === 'analysis_failed' ? 'Retry needed' : meal.needsClarification ? 'Review needed' : 'Ready'}</small></span><span>{meal.total?.calories ?? '—'} kcal</span></button>) : <p className="text-sm text-white/40">No saved food photos yet.</p>}</section>
     </div>
   );
 };
@@ -289,45 +329,9 @@ const Stat: React.FC<{ label: string; value: React.ReactNode }> = ({ label, valu
 
 // ---------- WEEK ----------
 const WeekView: React.FC = () => {
-  const [items, setItems] = useState<FeedItem[] | null>(null);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    fetch(`${API}/cupcake-feed`, { headers: authHeaders() }).then(readJson).then((d) => setItems(d.items || [])).catch(() => setError(true));
-  }, []);
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const weekItems = (items || []).filter((item) => Number.isFinite(item.ts) && item.ts >= cutoff);
-  const food = weekItems.filter((i) => i.type === 'food');
-  const kcal = food.reduce((s, f) => s + (parseInt(f.body) || 0), 0);
-  const interventions = weekItems.filter((i) => i.type === 'intervention');
-  const wins = interventions.filter((i) => /agreed/.test(i.body)).length;
-
-  if (error) return <Empty text="Couldn't load this week's data. Lock and unlock Cupcake to check access, or try again later." />;
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <Card big label="Est. calories logged" value={items ? kcal : '…'} tint="from-pink-500/20" />
-        <Card big label="Interventions" value={items ? interventions.length : '…'} tint="from-rose-500/20" />
-        <Card big label="Times you caved" value={items ? interventions.filter((i) => /bought anyway/.test(i.body)).length : '…'} tint="from-red-500/20" />
-        <Card big label="Times you won" value={items ? wins : '…'} tint="from-emerald-500/20" />
-      </div>
-
-      <div className="bg-gradient-to-br from-pink-500/10 to-transparent border border-pink-500/20 rounded-2xl p-4">
-        <div className="flex items-center gap-2 mb-1"><CalendarDays size={16} className="text-pink-300" /><p className="font-semibold text-sm">Next check-in</p></div>
-        <p className="text-sm text-white/80">Robyn — Wednesday 2:00 PM (Utah)</p>
-        <p className="text-xs text-white/40 mt-1">Cupcake sends her your weekly report 45 min before.</p>
-      </div>
-
-      <p className="text-xs text-white/30 text-center">Last 7 days within the recent feed. This may not include every entry.</p>
-    </div>
-  );
+  const loadMeal = useCallback(async (mealId: string) => (await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId })).meal, []);
+  return <FeedDashboard loadStats={loadDashboardStats} loadMeal={loadMeal} />;
 };
-
-const Card: React.FC<{ label: string; value: React.ReactNode; big?: boolean; tint?: string }> = ({ label, value, tint }) => (
-  <div className={`bg-gradient-to-br ${tint} to-transparent border border-white/10 rounded-2xl p-4`}>
-    <div className="text-2xl font-bold">{value}</div>
-    <div className="text-[11px] text-white/50 mt-1">{label}</div>
-  </div>
-);
 
 // ---------- shared ----------
 const Spinner = () => <div className="flex justify-center py-16"><Loader2 className="animate-spin text-pink-400" size={28} /></div>;

@@ -1,0 +1,12 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Check, Loader2, RefreshCw } from 'lucide-react';
+import { libraryRequest, type Analysis } from './library';
+type Job={id:string;message:string;status:'queued'|'running'|'succeeded'|'failed'|'interrupted';mode:string;createdAt:string;analysisId?:string;error?:string};
+export default function StrategyRequests({active,onAnswer}:{active:boolean;onAnswer:(answer:Analysis)=>void}){
+ const [jobs,setJobs]=useState<Job[]>([]),[error,setError]=useState(''),[opening,setOpening]=useState('');
+ const refresh=useCallback(async()=>{try{const d=await libraryRequest<{jobs:Job[]}>({action:'ask_jobs'});setJobs(d.jobs||[]);setError('')}catch(e){setError((e as Error).message)}},[]);
+ useEffect(()=>{if(!active)return;void refresh();const timer=setInterval(()=>void refresh(),5000);const update=()=>void refresh();window.addEventListener('cupcake-strategy-started',update);return()=>{clearInterval(timer);window.removeEventListener('cupcake-strategy-started',update)}},[active,refresh]);
+ async function open(job:Job){if(!job.analysisId||opening)return;setOpening(job.id);try{const d=await libraryRequest<{analysis:Analysis|null}>({action:'analysis_get',id:job.analysisId});if(!d.analysis)throw Error('Saved answer is unavailable. Try Saved thinking.');onAnswer(d.analysis)}catch(e){setError((e as Error).message)}finally{setOpening('')}}
+ if(!jobs.length&&!error)return null;
+ return <section className="cc-card" aria-label="Answer requests"><div className="cc-heading-row"><h3>Your answer requests</h3><button className="cc-text-button" onClick={()=>void refresh()}><RefreshCw size={16}/>Refresh status</button></div><p className="cc-muted">You can leave this page. Finished answers remain here and in Saved thinking.</p>{error&&<p role="alert">{error}</p>}{jobs.slice(0,8).map(job=><article className="cc-card" key={job.id}><strong>{job.message}</strong><p role="status" className="cc-muted">{job.status==='succeeded'?<><Check size={16}/>Answer saved</>:job.status==='running'||job.status==='queued'?<><Loader2 size={16} className="cc-spin"/>Reading and thinking — longer questions can take several minutes.</>:job.error||'This answer was interrupted. Check Saved thinking before retrying.'}</p>{job.analysisId&&<button className="cc-primary" disabled={!!opening} onClick={()=>void open(job)}>{opening===job.id?'Opening…':'Open answer'}</button>}</article>)}</section>
+}
