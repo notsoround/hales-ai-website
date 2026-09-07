@@ -22,11 +22,13 @@ export default function ConversationPanel({ record, onClose, onAsk, onRetry, onO
   async function openOrganization(){setOrganizing(true);setOrganizeLoading(true);setOrganizeError('');try{const d=await libraryRequest<{document:Conversation}>({action:'fetch',id:record.id});setProject(d.document.project||'');setTopics((d.document.tags||[]).join(', '));}catch(e){setOrganizeError((e as Error).message);}finally{setOrganizeLoading(false);}}
   async function saveOrganization(){if(organizeLoading||organizeError)return;setOrganizeLoading(true);const tags=topics.split(',').map(t=>t.trim()).filter(Boolean);try{await libraryRequest({action:'tag',id:record.id,project:project.trim(),tags});onOrganized?.(project.trim(),tags);setOrganizing(false);}catch(e){setOrganizeError((e as Error).message);}finally{setOrganizeLoading(false);}}
   const ready = record.status === 'ready';
+  const isRecording = record.kind === 'recording' || !!record.transcript;
+  const sourceType = isRecording ? 'Recording' : record.kind === 'note' ? 'Imported note' : 'Imported conversation';
   const latestModel = [...(record.chat || [])].reverse().find(m => m.role !== 'user' && m.model)?.model || record.chatModel;
   async function submit() { const message = question.trim(); if (!message || asking || !ready) return; try { await onAsk(message); setQuestion(''); } catch { /* Keep the draft question for retry. */ } }
   return <div className="cc-detail" role="dialog" aria-modal="false" aria-label="Conversation details">
     <button className="cc-text-button" onClick={onClose}><ArrowLeft size={17} />Back to library</button>
-    <div className="cc-analysis-meta"><span>{record.sourceApp || (record.kind === 'recording' || record.transcript ? 'Recording' : 'Imported conversation')}</span><time>{new Date(record.createdAt).toLocaleString()}</time></div>
+    <div className="cc-analysis-meta"><span>{record.sourceApp ? `${record.sourceApp} · ${sourceType}` : sourceType}</span><time>{new Date(record.createdAt).toLocaleString()}</time></div>
     <h2>{record.title}</h2>
     <div className="cc-heading-row"><span className="cc-muted cc-small">{record.project||'Unfiled'}{record.tags?.length?` · ${record.tags.join(' · ')}`:''}</span><button className="cc-text-button" onClick={()=>void openOrganization()}>Organize</button></div>
     {organizing&&<div className="cc-card"><label className="cc-label">Project<input value={project} onChange={e=>setProject(e.target.value)} disabled={organizeLoading} maxLength={120} placeholder="Choose a useful project or area"/></label><label className="cc-label">Topics, separated by commas<input value={topics} onChange={e=>setTopics(e.target.value)} disabled={organizeLoading} maxLength={400} placeholder="strategy, follow-up, product"/></label>{organizeError&&<p role="alert">{organizeError}</p>}<div className="cc-action-row"><button className="cc-primary" disabled={organizeLoading||!!organizeError} onClick={()=>void saveOrganization()}>{organizeLoading?'Loading…':'Save organization'}</button><button className="cc-text-button" onClick={()=>setOrganizing(false)}>Cancel</button></div></div>}
@@ -42,9 +44,10 @@ export default function ConversationPanel({ record, onClose, onAsk, onRetry, onO
       {!ready && <p className="cc-muted">Questions become available after transcription finishes.</p>}
       <form className="cc-ask" onSubmit={e => { e.preventDefault(); void submit(); }}><textarea aria-label="Question about this conversation" value={question} onChange={e => setQuestion(e.target.value)} maxLength={4000} rows={3} disabled={asking} placeholder="Challenge my plan. What am I missing, and what would you do next?" /><button className="cc-primary" disabled={asking || !question.trim() || !ready} aria-label="Ask Cupcake">{asking ? <Loader2 className="cc-spin" size={18} /> : <Send size={18} />}</button></form>
     </section>
-    <h3>Summary</h3><p className="cc-answer-text">{record.summary || 'No summary saved.'}</p>{!!record.keyPoints?.length && <ul>{record.keyPoints.map((p, i) => <li key={i}>{p}</li>)}</ul>}
-    <h3>Commitments to review</h3>{record.commitments?.length ? record.commitments.map((c, i) => <div className="cc-card" key={i}><strong>{c.text}</strong><p>{c.owner || 'Owner unclear'} · {c.dueDate || 'No date stated'}</p>{c.evidence && <blockquote>{c.evidence}</blockquote>}</div>) : <p className="cc-muted">{ready ? 'No explicit commitments identified.' : 'Commitments will appear after processing.'}</p>}
-    <details><summary>Read full {record.transcript ? 'transcript' : 'source conversation'}</summary><pre>{record.transcript || record.text || 'Not available yet.'}</pre></details>
+    {isRecording ? <><h3>Summary</h3><p className="cc-answer-text">{record.summary || 'No summary saved.'}</p>{!!record.keyPoints?.length && <ul>{record.keyPoints.map((p, i) => <li key={i}>{p}</li>)}</ul>}
+      <h3>Commitments to review</h3>{record.commitments?.length ? record.commitments.map((c, i) => <div className="cc-card" key={i}><strong>{c.text}</strong><p>{c.owner || 'Owner unclear'} · {c.dueDate || 'No date stated'}</p>{c.evidence && <blockquote>{c.evidence}</blockquote>}</div>) : <p className="cc-muted">{ready ? 'No explicit commitments identified.' : 'Commitments will appear after processing.'}</p>}
+      <details><summary>Read full transcript</summary><pre>{record.transcript || 'Not available yet.'}</pre></details>
+    </> : <><h3>{sourceType}</h3><p className="cc-answer-text">{record.text || 'Imported content is not available yet.'}</p></>}
     <p className="cc-muted cc-small">Source text and AI conclusions remain separate. No actions are taken from these notes.</p>
   </div>;
 }

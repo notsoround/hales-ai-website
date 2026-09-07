@@ -14,6 +14,13 @@ async function request(path: string, init: RequestInit = {}) {
   if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Your private access expired. Lock and unlock Cupcake to reconnect.' : response.status === 413 ? 'This upload part is too large. Keep your original and try again.' : `Cupcake could not complete that request (${response.status}). Your local recording is still available.`);
   let data;try{data=await response.json();}catch{throw new Error('The recording service returned an incomplete response. Your audio is safe on this device; please try again.');} if (data.ok === false) throw new Error(data.error || 'Please try again.'); return data;
 }
+function mediaError(error: unknown) {
+  const e = error as {name?:string;message?:string};
+  if(e?.name==='NotAllowedError'||/permission denied|permission dismissed/i.test(e?.message||'')) return 'Microphone access is blocked. In your browser’s site settings for hales.ai, allow Microphone, then try again. On Mac, also check System Settings → Privacy & Security → Microphone for your browser. Importing recordings still works.';
+  if(e?.name==='NotFoundError') return 'No microphone was found. Connect or select a microphone, then try again.';
+  if(e?.name==='NotReadableError') return 'Your microphone could not start. Check the selected input and close another app using it, then try again.';
+  return e?.message || 'Voice could not start. Please try again.';
+}
 const extension = (mime:string) => mime.includes('mp4')?'m4a':mime.includes('mpeg')?'mp3':mime.includes('wav')?'wav':mime.includes('ogg')?'ogg':'webm';
 const clock = (s: number) => `${Math.floor(s / 60).toString().padStart(2,'0')}:${Math.floor(s % 60).toString().padStart(2,'0')}`;
 function download(blob: Blob, name: string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1500); }
@@ -21,6 +28,7 @@ function download(blob: Blob, name: string) { const url = URL.createObjectURL(bl
 export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void }) {
   const [error, setError] = useState(''); const [voice, setVoice] = useState<'idle'|'connecting'|'live'>('idle'); const [muted, setMuted] = useState(false);
   const [lines, setLines] = useState<{ role: string; text: string }[]>([]); const [speaking, setSpeaking] = useState(false);
+  const voiceMic = useRef<MediaStream | null>(null);
   const call = useRef<DailyCall | null>(null); const remoteId=useRef<string|null>(null); const voiceGeneration = useRef(0); const players = useRef(new Map<string, HTMLAudioElement>());
   const [autoAnalyze,setAutoAnalyze]=useState(true);
   const [level,setLevel]=useState(0);const [heardAudio,setHeardAudio]=useState(false);const [inputName,setInputName]=useState('Microphone');const meterFrame=useRef(0);const [preview,setPreview]=useState<{id:string;url:string}|null>(null);
@@ -39,7 +47,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
     }
     if(mounted.current)setError('Voice disconnected locally. Server session cleanup could not be confirmed.');
   },[]);
-  const endVoice = useCallback(async () => { voiceGeneration.current++; const c = call.current; call.current = null; const id=remoteId.current;remoteId.current=null; for (const p of players.current.values()) { p.pause(); p.srcObject = null; } players.current.clear(); if (c) { await c.leave().catch(() => {}); await c.destroy().catch(() => {}); } if (mounted.current) { setVoice('idle'); setSpeaking(false); } if(id)void endRemote(id); }, [endRemote]);
+  const endVoice = useCallback(async () => { voiceGeneration.current++; const c = call.current; call.current = null; const id=remoteId.current;remoteId.current=null; for (const p of players.current.values()) { p.pause(); p.srcObject = null; } players.current.clear(); voiceMic.current?.getTracks().forEach(t=>t.stop()); voiceMic.current=null; if (c) { await c.leave().catch(() => {}); await c.destroy().catch(() => {}); } if (mounted.current) { setVoice('idle'); setSpeaking(false); } if(id)void endRemote(id); }, [endRemote]);
   useEffect(() => { mounted.current=true; void refreshDrafts(); return () => { mounted.current = false; if (recorder.current?.state === 'recording') recorder.current.stop(); cleanupTracks(); void endVoice(); }; }, [refreshDrafts, cleanupTracks, endVoice]);
   useEffect(() => { onBusy(recording || voice !== 'idle' || busy || libraryBusy || asking); }, [recording, voice, busy, libraryBusy, asking, onBusy]);
   useEffect(() => { if (!recording) return; const tick = setInterval(() => { const elapsed = (Date.now()-started.current)/1000; setSeconds(elapsed);  }, 250); const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); }; window.addEventListener('beforeunload', warn); return () => { clearInterval(tick); window.removeEventListener('beforeunload', warn); }; }, [recording]);
@@ -48,15 +56,19 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   async function startVoice() {
     if (voice !== 'idle' || recording || busy) return; setError('');setPreview(null); setVoice('connecting'); setLines([]); const generation = ++voiceGeneration.current;
     try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Voice needs microphone access in a supported browser over HTTPS.');
+      const mic = await navigator.mediaDevices.getUserMedia({audio:true});
+      if (generation !== voiceGeneration.current || !mounted.current) { mic.getTracks().forEach(t=>t.stop()); return; }
+      voiceMic.current=mic;
       const d = await request('cupcake-voice-session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
       if (generation !== voiceGeneration.current || !mounted.current) {if(d.callId)void endRemote(d.callId);return;} remoteId.current=d.callId;
-      const c = Daily.createCallObject({ audioSource: true, videoSource: false, startVideoOff: true }); call.current = c;
-      c.on('track-started', e => { if(call.current!==c||generation!==voiceGeneration.current)return; if (e?.track.kind !== 'audio' || e.participant?.local) return; const id = e.track.id; const audio = new Audio(); audio.autoplay = true; audio.srcObject = new MediaStream([e.track]); players.current.set(id, audio); void audio.play().catch(() => setError('Tap Resume audio to hear Cupcake.')); });
+      const c = Daily.createCallObject({ audioSource: mic.getAudioTracks()[0], videoSource: false, startVideoOff: true }); call.current = c;
+      c.on('track-started', e => { if(call.current!==c||generation!==voiceGeneration.current)return; if (e?.track.kind !== 'audio' || e.participant?.local) return; const id = e.track.id; const audio = new Audio(); audio.autoplay = true; audio.srcObject = new MediaStream([e.track]); players.current.set(id, audio); void audio.play().then(() => {if(call.current===c&&generation===voiceGeneration.current)c.sendAppMessage('playable');}).catch(() => setError('Tap Resume audio to hear Cupcake.')); });
       c.on('track-stopped', e => { if (e?.track) { const p = players.current.get(e.track.id); if(p) { p.pause(); p.srcObject = null; players.current.delete(e.track.id); } } });
       c.on('app-message', e => { if(call.current!==c||generation!==voiceGeneration.current)return; let d=e?.data; if(typeof d==='string'){try{d=JSON.parse(d);}catch{return;}} if (!d || typeof d !== 'object') return; if(d.type === 'speech-update') setSpeaking(d.status === 'started' && d.role === 'assistant'); if(d.type === 'transcript' && d.transcriptType === 'final' && typeof d.transcript === 'string') setLines(a => [...a.slice(-99), {role:d.role === 'assistant'?'Cupcake':'You', text:d.transcript}]); });
       c.on('left-meeting', () => { if(call.current === c) void endVoice(); }); c.on('error', () => { if(call.current!==c||generation!==voiceGeneration.current)return; setError('The voice connection ended. You can reconnect.'); void endVoice(); });
-      await c.join({url:d.webCallUrl}); if (generation !== voiceGeneration.current) { await c.destroy(); return; } setVoice('live'); setMuted(false);
-    } catch(e) { if(generation!==voiceGeneration.current)return; setError((e as Error).message); await endVoice(); }
+      await c.join({url:d.webCallUrl}); if (generation !== voiceGeneration.current || call.current!==c) { await c.destroy().catch(()=>{}); return; } setVoice('live'); setMuted(false);
+    } catch(e) { if(generation!==voiceGeneration.current)return; setError(mediaError(e)); await endVoice(); }
   }
   async function startRecording(meeting: boolean) {
     if(recording || voice !== 'idle' || busy) return; setBusy(true);setPreview(null); setError(''); finishing.current = false;
@@ -81,7 +93,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
       r.onstop = () => { if(finishing.current)return; finishing.current=true; cleanupTracks(); setRecording(false); void writes.then(() => putDraft({...draft,complete:true})).then(refreshDrafts).then(()=>{if(autoAnalyze&&!captureFailed&&mounted.current)void upload({...draft,complete:true});}).catch(() => {setError('Some audio could not be saved. Check the recoverable draft.');void refreshDrafts();}); };
       r.onerror = () => { captureFailed=true; setError('Recording was interrupted. Recover the saved audio below.'); if(r.state !== 'inactive')r.stop(); else {cleanupTracks();setRecording(false);} };
       started.current=Date.now(); setSeconds(0); r.start(3000); setRecording(true);
-    } catch(e) {cleanupTracks();setError((e as Error).message);}finally{setBusy(false);}
+    } catch(e) {cleanupTracks();setError(mediaError(e));}finally{setBusy(false);}
   }
   async function importAudio(file?: File) { if(!file)return; if(file.size>1000000000){setError('This upload exceeds the current 1 GB storage limit. Keep the original and split it into files before importing.');return;} const d: Draft={id:crypto.randomUUID(),title:file.name.replace(/\.[^.]+$/,''),startedAt:Date.now(),mime:file.type||'audio/mp4',complete:true,blob:file};try{await putDraft(d);await refreshDrafts();}catch{setError('Could not save the imported file on this device.');} }
   async function upload(draft: Draft) {
@@ -116,7 +128,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
       <div className={`cc-portrait ${speaking?'is-speaking':''}`}><img src="/cupcake-avatar.jpg" alt="Cupcake"/><span className="cc-portrait-shade"/><div><span className="cc-eyebrow">YOUR PRIVATE COMPANION</span><h2>I'm listening,<br/>Matt.</h2><p>A real conversation. A little attitude.</p></div></div>
       <div className="cc-action-row"><button className="cc-primary" onClick={()=>voice==='idle'?void startVoice():void endVoice()} disabled={recording||busy}>{voice==='idle'?<Headphones size={20}/>:<Square size={18}/>} {voice==='idle'?'Talk to Cupcake':voice==='connecting'?'Cancel connection':'End conversation'}</button>{voice==='live'&&<button className="cc-secondary" onClick={()=>{call.current?.setLocalAudio(muted);setMuted(!muted);}}>{muted?'Unmute':'Mute'}</button>}</div>
       <p className="cc-muted">Private voice session · microphone on only after you start · live back-and-forth voice. She can search your private library and use a recent context snapshot. This conversation cannot take actions.</p>
-      {voice==='live'&&<button className="cc-text-button" onClick={()=>players.current.forEach(p=>void p.play().catch(()=>{}))}>Resume audio</button>}
+      {voice==='live'&&<button className="cc-text-button" onClick={()=>players.current.forEach(p=>void p.play().then(()=>call.current?.sendAppMessage('playable')).catch(()=>setError('Audio is still blocked. Allow sound for hales.ai, then tap Resume audio.')))}>Resume audio</button>}
       <div className="cc-transcript" aria-live="polite">{lines.map((l,i)=><p key={i}><strong>{l.role}</strong>{l.text}</p>)}</div>
     </div>
     <div hidden={mode!=='record'}>
