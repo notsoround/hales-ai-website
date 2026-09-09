@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import './dashboard.css';
 import './meal-detail.css';
-import { entriesForDay, entriesForType, metricScales, rangeLabel } from './dashboardModel';
+import { entriesForDay, entriesForType, interventionGroups, metricScales, rangeLabel } from './dashboardModel';
 
 export type DashboardRange = { preset: 'day' | 'week' | 'month' | 'custom'; start: string; end: string; timezone: 'America/Chicago' };
 export type DashboardEntry = { id: string; type: string; date: string; time?: string; title: string; body?: string; amount?: number | null; calories?: number | null; parentId?: string | null; source?: string; icon?: string; details?: { mealId?: string | null; [key: string]: unknown } };
@@ -55,6 +55,13 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal }: { loadStats?:
         <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Food entries', entries: entriesForType(stats.entries, 'food') })}><strong>{Math.round(stats.totals.calories).toLocaleString()}</strong><span>Est. calories logged · View food</span></button>
         <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Transactions', entries: entriesForType(stats.entries, 'transaction') })}><strong>{moneyPrefix}{stats.totals.spend.toFixed(2)}</strong><span>{stats.range.spendSource === 'Plaid posted outflows' ? 'Posted spend' : 'Logged spend'} · View transactions</span></button>
       </div>
+      {(() => { const outcomes = interventionGroups(stats.entries); return <div className="cc-dashboard-cards cc-outcome-cards" aria-label="Recorded intervention outcomes">
+        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Times you won', entries: outcomes.wins })}><strong>{outcomes.wins.length}</strong><span>Times you won · recorded stops</span></button>
+        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Times you caved', entries: outcomes.losses })}><strong>{outcomes.losses.length}</strong><span>Times you caved · bought anyway</span></button>
+        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Interventions', entries: outcomes.interventions })}><strong>{outcomes.interventions.length}</strong><span>Interventions · all recorded calls</span></button>
+        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Unscored interventions', entries: outcomes.unscored })}><strong>{outcomes.unscored.length}</strong><span>Unscored · needs review</span></button>
+        <p className="cc-muted cc-small cc-outcome-note">Wins and losses are recorded outcomes from intervention data, not independent verification.</p>
+      </div>; })()}
       <div className="cc-dashboard-chart cc-card">
         <div className="cc-heading-row"><h3>{rangeLabel(preset)}</h3><span className="cc-muted cc-small">{stats.range.start} → {stats.range.end}</span></div>
         <div className="cc-chart-scales"><span>Calories · max {Math.round(scales.calorieMax).toLocaleString()} kcal</span><span>Spend · max {moneyPrefix}{scales.spendMax.toFixed(2)}</span></div>
