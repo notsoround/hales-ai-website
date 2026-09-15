@@ -46,15 +46,13 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal }: { loadStats?:
   const scales = metricScales(stats?.series || []);
   const moneyPrefix = stats?.totals.currency && !['USD','$'].includes(stats.totals.currency) ? `${stats.totals.currency} ` : '$';
   return <section className="cc-dashboard" aria-label="Cupcake dashboard">
-    <div className="cc-heading-row"><div><span className="cc-eyebrow">YOUR DASHBOARD</span><h2>Signals with<br /><em>some perspective.</em></h2></div><button className="cc-secondary" aria-label="Refresh dashboard" onClick={() => void refresh()} disabled={loading}><RefreshCw className={loading ? 'cc-spin' : ''} size={18} /></button></div>
+    <div className="cc-heading-row"><div><span className="cc-eyebrow">YOUR DASHBOARD</span><h2>Wins, losses &amp;<br /><em>the bigger picture.</em></h2></div><button className="cc-secondary" aria-label="Refresh dashboard" onClick={() => void refresh()} disabled={loading}><RefreshCw className={loading ? 'cc-spin' : ''} size={18} /></button></div>
     <div className="cc-dashboard-range" role="tablist" aria-label="Dashboard range">{(['day', 'week', 'month', 'custom'] as const).map(option => <button key={option} role="tab" aria-selected={preset === option} onClick={() => setPreset(option)}>{rangeLabel(option)}</button>)}</div>
     {preset === 'custom' && <div className="cc-dashboard-dates"><label>From<input type="date" value={customStart} max={end} onChange={event => setCustomStart(event.target.value)} /></label><label>Through<input type="date" value={end} onChange={event => setEnd(event.target.value)} /></label></div>}
     {error && <p className="cc-error" role="alert">{error}</p>}
     {loading && !stats ? <p className="cc-thinking"><Loader2 className="cc-spin" size={17} />Loading your signals…</p> : stats && <>
-      <div className="cc-dashboard-cards">
-        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Food entries', entries: entriesForType(stats.entries, 'food') })}><strong>{Math.round(stats.totals.calories).toLocaleString()}</strong><span>Est. calories logged · View food</span></button>
-        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Transactions', entries: entriesForType(stats.entries, 'transaction') })}><strong>{moneyPrefix}{stats.totals.spend.toFixed(2)}</strong><span>{stats.range.spendSource === 'Plaid posted outflows' ? 'Posted spend' : 'Logged spend'} · View transactions</span></button>
-      </div>
+      <h3>Your wins &amp; losses</h3>
+      <p className="cc-muted cc-small">Tap a total to see its entries. Choose Last 30 days or Custom to find older outcomes.</p>
       {(() => { const outcomes = interventionGroups(stats.entries); return <div className="cc-dashboard-cards cc-outcome-cards" aria-label="Recorded intervention outcomes">
         <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Times you won', entries: outcomes.wins })}><strong>{outcomes.wins.length}</strong><span>Times you won · recorded stops</span></button>
         <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Times you caved', entries: outcomes.losses })}><strong>{outcomes.losses.length}</strong><span>Times you caved · bought anyway</span></button>
@@ -62,6 +60,10 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal }: { loadStats?:
         <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Unscored interventions', entries: outcomes.unscored })}><strong>{outcomes.unscored.length}</strong><span>Unscored · needs review</span></button>
         <p className="cc-muted cc-small cc-outcome-note">Wins and losses are recorded outcomes from intervention data, not independent verification.</p>
       </div>; })()}
+      <div className="cc-dashboard-cards">
+        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Food entries', entries: entriesForType(stats.entries, 'food') })}><strong>{Math.round(stats.totals.calories).toLocaleString()}</strong><span>Est. calories logged · View food</span></button>
+        <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Transactions', entries: entriesForType(stats.entries, 'transaction') })}><strong>{moneyPrefix}{stats.totals.spend.toFixed(2)}</strong><span>{stats.range.spendSource === 'Plaid posted outflows' ? 'Posted spend' : 'Logged spend'} · View transactions</span></button>
+      </div>
       <div className="cc-dashboard-chart cc-card">
         <div className="cc-heading-row"><h3>{rangeLabel(preset)}</h3><span className="cc-muted cc-small">{stats.range.start} → {stats.range.end}</span></div>
         <div className="cc-chart-scales"><span>Calories · max {Math.round(scales.calorieMax).toLocaleString()} kcal</span><span>Spend · max {moneyPrefix}{scales.spendMax.toFixed(2)}</span></div>
