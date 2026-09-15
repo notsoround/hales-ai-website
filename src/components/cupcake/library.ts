@@ -1,3 +1,5 @@
+import { confirmedLibraryRequest } from './libraryApproval';
+
 export type Source = { id?: string; documentId?: string; title?: string; text?: string; url?: string; startSeconds?: number | null; sourceApp?: string };
 export type Exchange = { role: string; text?: string; content?: string; model?: string; createdAt?: string; sources?: Source[] };
 export type Analysis = { id?: string; message?: string; question?: string; reply?: string; model?: string; createdAt?: string; sources?: Source[] };
@@ -13,15 +15,18 @@ export type Project = { id: string; name: string; description?: string; status?:
 export type ImportCandidate = { title: string; text: string; sourceApp: string };
 export const accessHeaders = () => ({ 'X-Cupcake-Key': sessionStorage.getItem('cupcake-private-access') || '' });
 export async function libraryRequest<T>(body: Record<string, unknown>): Promise<T> {
+  const send = async (payload: Record<string, unknown>): Promise<Record<string, unknown>> => {
   const response = await fetch('https://automate.hales.ai/cupcake-library', {
-    method: 'POST', headers: { ...accessHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    method: 'POST', headers: { ...accessHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     signal: AbortSignal.timeout(['ask', 'triage', 'closeout_generate', 'receipt_extract','receipt_retry', 'food_analyze', 'food_retry', 'food_refine'].includes(String(body.action)) ? 300000 : 60000), cache: 'no-store',
   });
   const data = await response.json().catch(() => null);
   if (!response.ok || !data || data.ok === false) throw new Error(response.status === 401 || response.status === 403
     ? 'Your private access expired. Lock and unlock Cupcake to reconnect.'
     : data?.error || 'Cupcake could not complete that request. Your original is unchanged. Try again.');
-  return data as T;
+  return data;
+  };
+  return await confirmedLibraryRequest(body, send, description => window.confirm(`Cupcake needs your confirmation:\n\n${description}\n\nApprove this action?`)) as T;
 }
 export function safeFilename(title: string) { return (Array.from(title).filter(c => c.charCodeAt(0) >= 32).join('').replace(/[<>:"/\\|?*]/g, ' ').trim().slice(0, 100) || 'Cupcake conversation'); }
 export function saveFile(text: string, filename: string, mime = 'text/markdown;charset=utf-8') {
