@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import './voice-controls.css';
 import { Mic, RefreshCw, Square } from 'lucide-react';
-import { hasAudibleSignal, microphoneConstraints, microphoneMessage } from './voiceInput';
+import { acquireMicrophone, hasAudibleSignal, microphoneConstraints, microphoneMessage } from './voiceInput';
 
 type Device = { deviceId: string; label: string };
 export default function VoiceInputCheck({ deviceId, onDevice, onTesting, disabled = false }: { deviceId: string; onDevice: (id: string) => void; onTesting?: (active:boolean) => void; disabled?: boolean }) {
@@ -15,14 +15,14 @@ export default function VoiceInputCheck({ deviceId, onDevice, onTesting, disable
     if(!mounted.current)return;setDevices(found); if (deviceId && !found.some(x => x.deviceId === deviceId)) onDevice('');
   }
   async function test() {
-    if (testing) { stop.current(); return; } const token=++generation.current;setTesting(true);onTesting?.(true); setLevel(0); setStatus('Listening locally… say a few words. Nothing is sent.');
+    if (testing) { stop.current(); return; } const token=++generation.current;setTesting(true);onTesting?.(true); setLevel(0); setStatus('Waiting for microphone permission and startup… Nothing is sent.');
     let stream: MediaStream | null = null; let audio: AudioContext | null = null; let frame = 0; let timer = 0; let heard = false;
     const cleanup=()=>{cancelAnimationFrame(frame);clearTimeout(timer);stream?.getTracks().forEach(t=>t.stop());void audio?.close();};
     const finish = (message?: string) => { cleanup();if(token!==generation.current||!mounted.current)return;generation.current++;setTesting(false);onTesting?.(false);setStatus(message || (heard ? 'Audio detected. This input is ready.' : 'Permission is allowed, but no audio was detected. Check the selected input and the Mac input level.')); };
     stop.current = () => {if(token!==generation.current)return;generation.current++;cleanup();if(mounted.current){setTesting(false);onTesting?.(false);setStatus('Microphone test stopped.');}};
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot test a microphone here. Use a current browser over HTTPS.');
-      stream = await navigator.mediaDevices.getUserMedia(microphoneConstraints(deviceId)); if(token!==generation.current||!mounted.current){stream.getTracks().forEach(t=>t.stop());return;} await refresh();
+      stream = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(deviceId)); if(token!==generation.current||!mounted.current){stream.getTracks().forEach(t=>t.stop());return;} void refresh().catch(()=>{});setStatus('Listening locally… say a few words. Nothing is sent.');
       const track = stream.getAudioTracks()[0]; if (track?.getSettings().deviceId && !deviceId) onDevice(track.getSettings().deviceId || '');
       audio = new AudioContext(); await audio.resume();if(token!==generation.current||!mounted.current){cleanup();return;} const analyser = audio.createAnalyser(); analyser.fftSize = 512; audio.createMediaStreamSource(stream).connect(analyser); const samples = new Uint8Array(analyser.fftSize);
       const measure = () => { analyser.getByteTimeDomainData(samples); const result = hasAudibleSignal(samples); heard ||= result.heard; setLevel(Math.min(1, result.rms * 8)); frame = requestAnimationFrame(measure); }; frame = requestAnimationFrame(measure); timer = window.setTimeout(() => finish(), 5000);

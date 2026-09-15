@@ -1,10 +1,18 @@
 export type MicFailure = { name?: string; message?: string };
 
 export function microphoneMessage(error: MicFailure) {
+  if (error?.name === 'MicrophoneTimeoutError') return 'Microphone permission or startup did not finish. Check the browser permission prompt and Mac microphone access, then try again.';
   if (error?.name === 'NotAllowedError' || /permission denied|permission dismissed/i.test(error?.message || '')) return 'Microphone is blocked. Allow it for hales.ai in this browser. On Mac, also open System Settings → Privacy & Security → Microphone and allow this browser.';
   if (error?.name === 'NotFoundError' || error?.name === 'OverconstrainedError') return 'That microphone is unavailable. Connect it or choose another input.';
   if (error?.name === 'NotReadableError' || error?.name === 'AbortError') return 'The microphone is allowed but could not start. Close another app using it, reconnect it, or choose another input.';
   return error?.message || 'The microphone could not start.';
+}
+
+export async function acquireMicrophone(getUserMedia:(constraints:MediaStreamConstraints)=>Promise<MediaStream>,constraints:MediaStreamConstraints,timeoutMs=12000) {
+  let expired=false;let timer:ReturnType<typeof setTimeout>|undefined;
+  const pending=getUserMedia(constraints).then(stream=>{if(expired){stream.getTracks().forEach(track=>track.stop());return new Promise<MediaStream>(()=>{});}return stream;});
+  try{return await Promise.race([pending,new Promise<MediaStream>((_,reject)=>{timer=setTimeout(()=>{expired=true;const error=new Error('Microphone acquisition timed out');error.name='MicrophoneTimeoutError';reject(error);},timeoutMs);})]);}
+  finally{if(timer)clearTimeout(timer);}
 }
 
 export function microphoneConstraints(deviceId?: string): MediaStreamConstraints {

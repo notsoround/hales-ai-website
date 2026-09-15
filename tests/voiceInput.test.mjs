@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { hasAudibleSignal, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from '../src/components/cupcake/voiceInput.ts';
+import { acquireMicrophone, hasAudibleSignal, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from '../src/components/cupcake/voiceInput.ts';
 import { archiveTalk, continuationContext, drainVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator } from '../src/components/cupcake/voiceHistory.ts';
 
 const memory = new Map();
@@ -8,9 +8,14 @@ Object.defineProperty(globalThis, 'localStorage', { value: { getItem:key=>memory
 assert.deepEqual(microphoneConstraints('synthetic-device'), {audio:{deviceId:{exact:'synthetic-device'},echoCancellation:true,noiseSuppression:true}});
 assert.match(microphoneMessage({name:'NotAllowedError'}), /System Settings/);
 assert.match(microphoneMessage({name:'NotReadableError'}), /allowed but could not start/);
+assert.match(microphoneMessage({name:'MicrophoneTimeoutError'}), /did not finish/);
 assert.equal(hasAudibleSignal(new Uint8Array(32).fill(128)).heard, false);
 const audible=new Uint8Array(32).fill(128);audible[0]=180;assert.equal(hasAudibleSignal(audible).heard,true);
 saveInputDevice('synthetic-device');assert.equal(readInputDevice(),'synthetic-device');
+let releaseMic;let lateStopped=false;const delayed=new Promise(resolve=>{releaseMic=resolve});
+await assert.rejects(acquireMicrophone(()=>delayed,{},5),e=>e.name==='MicrophoneTimeoutError');
+releaseMic({getTracks:()=>[{stop:()=>{lateStopped=true}}]});await new Promise(resolve=>setTimeout(resolve,0));assert.equal(lateStopped,true);
+const readyStream={getTracks:()=>[]};assert.equal(await acquireMicrophone(()=>Promise.resolve(readyStream),{},50),readyStream);
 
 const talk={id:'synthetic',title:'Synthetic Talk',startedAt:'2026-09-07T00:00:00Z',endedAt:'2026-09-07T00:01:00Z',lines:Array.from({length:45},(_,i)=>({role:i%2?'Cupcake':'You',text:`line ${i}`}))};
 saveTalk(talk);assert.equal(readTalks()[0].lines.length,45);
