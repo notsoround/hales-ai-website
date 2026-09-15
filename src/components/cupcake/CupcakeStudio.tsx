@@ -6,7 +6,7 @@ import ConversationPanel from './ConversationPanel';
 import LibraryWorkspace from './LibraryWorkspace';
 import VoiceInputCheck from './VoiceInputCheck';
 import TalkHistory from './TalkHistory';
-import { archiveTalk, continuationContext, readTalks, saveTalk, type SavedTalk, type TalkLine } from './voiceHistory';
+import { archiveTalk, continuationContext, drainVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator, type SavedTalk, type TalkLine } from './voiceHistory';
 import { microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import { libraryRequest, uploadLabel, type Conversation as Recording } from './library';
 import { RecordingRequestError, uploadRecording, type UploadProgress } from './recordingUpload';
@@ -29,7 +29,7 @@ function download(blob: Blob, name: string) { const url = URL.createObjectURL(bl
 
 export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void }) {
   const [error, setError] = useState(''); const [notice,setNotice]=useState(''); const [failedUploadId,setFailedUploadId]=useState<string|null>(null); const importing=useRef(false); const [voice, setVoice] = useState<'idle'|'connecting'|'live'>('idle'); const [muted, setMuted] = useState(false);
-  const [lines, setLines] = useState<TalkLine[]>([]); const linesRef=useRef<TalkLine[]>([]); const [speaking, setSpeaking] = useState(false);
+  const [lines, setLines] = useState<TalkLine[]>([]); const linesRef=useRef<TalkLine[]>([]); const lineDrain=useRef(new TalkLineDrain()); const endingVoice=useRef(new VoiceEndingCoordinator()); const stoppingVoice=useRef(false); const [speaking, setSpeaking] = useState(false);
   const [inputDevice,setInputDevice]=useState(readInputDevice);
   const [micTesting,setMicTesting]=useState(false);
   const [talks,setTalks]=useState<SavedTalk[]>(()=>readTalks());const [openedTalk,setOpenedTalk]=useState<SavedTalk|null>(null);const talkStarted=useRef('');const talkLocalId=useRef('');
@@ -52,8 +52,34 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
     }
     if(mounted.current)setError('Voice disconnected locally. Server session cleanup could not be confirmed.');
   },[]);
-  const syncTalk=useCallback(async(talk:SavedTalk)=>{try{const d=await libraryRequest<{document:{id:string}}>({action:'import',kind:'conversation',sourceApp:'Cupcake voice',title:talk.title,text:talk.lines.map(x=>`${x.role}:\n${x.text}`).join('\n\n')});const saved={...talk,documentId:d.document.id};if(mounted.current){setTalks(saveTalk(saved));setOpenedTalk(current=>current?.id===saved.id?saved:current);}}catch{if(mounted.current)setError('Conversation is still saved on this device only. Use “Save to private library” to retry.');}},[]);
-  const endVoice = useCallback(async () => { voiceGeneration.current++; const c = call.current; call.current = null; const id=remoteId.current;remoteId.current=null; const captured=linesRef.current;const localId=talkLocalId.current;talkLocalId.current='';for (const p of players.current.values()) { p.pause(); p.srcObject = null; } players.current.clear(); voiceMic.current?.getTracks().forEach(t=>t.stop()); voiceMic.current=null; if (c) { await c.leave().catch(() => {}); await c.destroy().catch(() => {}); } if(localId&&captured.length){const first=captured.find(x=>x.role==='You')?.text||captured[0].text;const talk:SavedTalk={id:localId,title:first.slice(0,80)||'Talk with Cupcake',startedAt:talkStarted.current||new Date().toISOString(),endedAt:new Date().toISOString(),lines:captured};setTalks(saveTalk(talk));void syncTalk(talk);} if (mounted.current) { setVoice('idle'); setSpeaking(false); } if(id)void endRemote(id); }, [endRemote,syncTalk]);
+  const syncTalk=useCallback(async(talk:SavedTalk,devicePersisted=true)=>{try{const d=await libraryRequest<{document:{id:string}}>({action:'import',kind:'conversation',sourceApp:'Cupcake voice',title:talk.title,text:talk.lines.map(x=>`${x.role}:\n${x.text}`).join('\n\n')});const saved={...talk,documentId:d.document.id};if(mounted.current){setTalks(saveTalk(saved));setOpenedTalk(current=>current?.id===saved.id?saved:current);}}catch{if(mounted.current)setError(devicePersisted?'Conversation is saved on this device, but not in the private library. Use “Save to private library” to retry.':'Conversation is kept in this open page, but could not be saved on this device or in the private library. Copy it before closing this page.');}},[]);
+  const endVoice = useCallback(() => {
+    stoppingVoice.current=true;
+    return endingVoice.current.begin(async()=>{
+      const c=call.current, id=remoteId.current, localId=talkLocalId.current;
+      talkLocalId.current='';
+      try {
+        voiceMic.current?.getTracks().forEach(t=>t.stop());voiceMic.current=null;
+        for(const player of players.current.values()){player.pause();player.srcObject=null;}
+        players.current.clear();
+        const captured=await drainVoiceTransport(c,lineDrain.current);
+        linesRef.current=captured;
+        if(localId&&captured.length){
+          const first=captured.find(x=>x.role==='You')?.text||captured[0].text;
+          const talk:SavedTalk={id:localId,title:first.slice(0,80)||'Talk with Cupcake',startedAt:talkStarted.current||new Date().toISOString(),endedAt:new Date().toISOString(),lines:captured};
+          const stored=persistTalk(talk);
+          if(mounted.current){setTalks(stored.talks);void syncTalk(talk,stored.persisted);}
+        }
+      } catch {
+        if(mounted.current)setError('Voice ended, but saving the conversation could not be confirmed. Copy the visible conversation before leaving this page.');
+      } finally {
+        lineDrain.current.close();call.current=null;remoteId.current=null;voiceGeneration.current++;
+        if(mounted.current){setVoice('idle');setSpeaking(false);}
+        if(id)void endRemote(id);
+        stoppingVoice.current=false;
+      }
+    });
+  },[endRemote,syncTalk]);
   useEffect(() => { mounted.current=true; void refreshDrafts(); return () => { mounted.current = false; if (recorder.current?.state === 'recording') recorder.current.stop(); cleanupTracks(); void endVoice(); }; }, [refreshDrafts, cleanupTracks, endVoice]);
   useEffect(() => { onBusy(recording || voice !== 'idle' || busy || libraryBusy || asking || micTesting); }, [recording, voice, busy, libraryBusy, asking, micTesting, onBusy]);
   useEffect(() => { if (!recording) return; const tick = setInterval(() => { const elapsed = (Date.now()-started.current)/1000; setSeconds(elapsed);  }, 250); const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); }; window.addEventListener('beforeunload', warn); return () => { clearInterval(tick); window.removeEventListener('beforeunload', warn); }; }, [recording]);
@@ -61,7 +87,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   useEffect(()=>{const id=new URLSearchParams(location.search).get('recording');if(!id||!/^[a-f0-9]{32}$/.test(id))return;void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(d.recording)).catch(e=>setError(e.message));},[]);
   useEffect(() => { if(!selected || ['ready','failed'].includes(selected.status))return;const id=selected.id;const timer=setInterval(()=>{void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(current=>current?.id===id?d.recording:current)).catch(()=>{});},5000);return()=>clearInterval(timer);},[selected]);
   async function startVoice(previous?:SavedTalk) {
-    if (voice !== 'idle' || recording || busy || micTesting) return; setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;
+    if (voice !== 'idle' || recording || busy || micTesting) return; stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Voice needs microphone access in a supported browser over HTTPS.');
       const mic = await navigator.mediaDevices.getUserMedia(microphoneConstraints(inputDevice));
@@ -71,9 +97,9 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
       const d = await request('cupcake-voice-session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
       if (generation !== voiceGeneration.current || !mounted.current) {if(d.callId)void endRemote(d.callId);return;} remoteId.current=d.callId;
       const c = Daily.createCallObject({ audioSource: mic.getAudioTracks()[0], videoSource: false, startVideoOff: true }); call.current = c;
-      c.on('track-started', e => { if(call.current!==c||generation!==voiceGeneration.current)return; if (e?.track.kind !== 'audio' || e.participant?.local) return; const id = e.track.id; const audio = new Audio(); audio.autoplay = true; audio.srcObject = new MediaStream([e.track]); players.current.set(id, audio); void audio.play().then(() => {if(call.current===c&&generation===voiceGeneration.current)c.sendAppMessage('playable');}).catch(() => setError('Tap Resume audio to hear Cupcake.')); });
+      c.on('track-started', e => { if(stoppingVoice.current||call.current!==c||generation!==voiceGeneration.current)return; if (e?.track.kind !== 'audio' || e.participant?.local) return; const id = e.track.id; const audio = new Audio(); audio.autoplay = true; audio.srcObject = new MediaStream([e.track]); players.current.set(id, audio); void audio.play().then(() => {if(!stoppingVoice.current&&call.current===c&&generation===voiceGeneration.current)c.sendAppMessage('playable');}).catch(() => setError('Tap Resume audio to hear Cupcake.')); });
       c.on('track-stopped', e => { if (e?.track) { const p = players.current.get(e.track.id); if(p) { p.pause(); p.srcObject = null; players.current.delete(e.track.id); } } });
-      c.on('app-message', e => { if(call.current!==c||generation!==voiceGeneration.current)return; let d=e?.data; if(typeof d==='string'){try{d=JSON.parse(d);}catch{return;}} if (!d || typeof d !== 'object') return; if(d.type === 'speech-update') setSpeaking(d.status === 'started' && d.role === 'assistant'); if(d.type === 'transcript' && d.transcriptType === 'final' && typeof d.transcript === 'string'){const line:TalkLine={role:d.role === 'assistant'?'Cupcake':'You',text:d.transcript};setLines(a=>{const next=[...a.slice(-99),line];linesRef.current=next;return next;});} });
+      c.on('app-message', e => { if(call.current!==c||generation!==voiceGeneration.current)return; let d=e?.data; if(typeof d==='string'){try{d=JSON.parse(d);}catch{return;}} if (!d || typeof d !== 'object') return; if(!stoppingVoice.current&&d.type === 'speech-update') setSpeaking(d.status === 'started' && d.role === 'assistant'); if(d.type === 'transcript' && d.transcriptType === 'final' && typeof d.transcript === 'string'){const line:TalkLine={role:d.role === 'assistant'?'Cupcake':'You',text:d.transcript};if(lineDrain.current.append(line,d.id||d.messageId||d.transcriptId)){const next=lineDrain.current.snapshot();linesRef.current=next;setLines(next);}} });
       c.on('left-meeting', () => { if(call.current === c) void endVoice(); }); c.on('error', () => { if(call.current!==c||generation!==voiceGeneration.current)return; setError('The voice connection ended. You can reconnect.'); void endVoice(); });
       await c.join({url:d.webCallUrl}); if (generation !== voiceGeneration.current || call.current!==c) { await c.destroy().catch(()=>{}); return; } setVoice('live'); setMuted(false);
     } catch(e) { if(generation!==voiceGeneration.current)return; setError(mediaError(e)); await endVoice(); }
