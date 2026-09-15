@@ -23,7 +23,7 @@ export default function ConversationPanel({ record, onClose, onAsk, onRetry, onO
   async function openOrganization(){setOrganizing(true);setOrganizeLoading(true);setOrganizeError('');try{const d=await libraryRequest<{document:Conversation}>({action:'fetch',id:record.id});setProject(d.document.project||'');setTopics((d.document.tags||[]).join(', '));}catch(e){setOrganizeError((e as Error).message);}finally{setOrganizeLoading(false);}}
   async function saveOrganization(){if(organizeLoading||organizeError)return;setOrganizeLoading(true);const tags=topics.split(',').map(t=>t.trim()).filter(Boolean);try{await libraryRequest({action:'tag',id:record.id,project:project.trim(),tags});onOrganized?.(project.trim(),tags);setOrganizing(false);}catch(e){setOrganizeError((e as Error).message);}finally{setOrganizeLoading(false);}}
   const ready = record.status === 'ready';
-  const isRecording = record.kind === 'recording' || !!record.transcript;
+  const isRecording = record.kind === 'recording' || /^(?:rec_)?[a-f0-9]{32}$/.test(record.id) || !!record.transcript;
   const sourceType = isRecording ? 'Recording' : record.kind === 'note' ? 'Imported note' : 'Imported conversation';
   const latestModel = [...(record.chat || [])].reverse().find(m => m.role !== 'user' && m.model)?.model || record.chatModel;
   async function submit() { const message = question.trim(); if (!message || asking || !ready) return; try { await onAsk(message); setQuestion(''); } catch { /* Keep the draft question for retry. */ } }

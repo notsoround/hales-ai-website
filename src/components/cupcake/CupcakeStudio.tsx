@@ -9,14 +9,15 @@ import TalkHistory from './TalkHistory';
 import { archiveTalk, continuationContext, readTalks, saveTalk, type SavedTalk, type TalkLine } from './voiceHistory';
 import { microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import { libraryRequest, uploadLabel, type Conversation as Recording } from './library';
+import { RecordingRequestError, uploadRecording, type UploadProgress } from './recordingUpload';
 import './studio.css';
 
 const API = 'https://automate.hales.ai/webhook';
 const headers = () => ({ 'X-Cupcake-Key': sessionStorage.getItem('cupcake-private-access') || '' });
 async function request(path: string, init: RequestInit = {}) {
   const response = await fetch(`${API}/${path}`, { ...init, headers: { ...headers(), ...init.headers }, signal: init.signal || AbortSignal.timeout(180000), cache: 'no-store' });
-  if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Your private access expired. Lock and unlock Cupcake to reconnect.' : response.status === 413 ? 'This upload part is too large. Keep your original and try again.' : `Cupcake could not complete that request (${response.status}). Your local recording is still available.`);
-  let data;try{data=await response.json();}catch{throw new Error('The recording service returned an incomplete response. Your audio is safe on this device; please try again.');} if (data.ok === false) throw new Error(data.error || 'Please try again.'); return data;
+  if (!response.ok) throw new RecordingRequestError(response.status === 401 || response.status === 403 ? 'Your private access expired. Lock and unlock Cupcake to reconnect.' : response.status === 413 ? 'This upload part is too large. Keep your original and try again.' : `Cupcake could not complete that request (${response.status}). Your local recording is still available.`, response.status);
+  let data;try{data=await response.json();}catch{throw new RecordingRequestError('The recording service returned an incomplete response. Your audio is safe on this device; please try again.', 502);} if (data.ok === false) throw new Error(data.error || 'Please try again.'); return data;
 }
 function mediaError(error: unknown) {
   const e = error as {name?:string;message?:string};
@@ -27,7 +28,7 @@ const clock = (s: number) => `${Math.floor(s / 60).toString().padStart(2,'0')}:$
 function download(blob: Blob, name: string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1500); }
 
 export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void }) {
-  const [error, setError] = useState(''); const [voice, setVoice] = useState<'idle'|'connecting'|'live'>('idle'); const [muted, setMuted] = useState(false);
+  const [error, setError] = useState(''); const [notice,setNotice]=useState(''); const [failedUploadId,setFailedUploadId]=useState<string|null>(null); const importing=useRef(false); const [voice, setVoice] = useState<'idle'|'connecting'|'live'>('idle'); const [muted, setMuted] = useState(false);
   const [lines, setLines] = useState<TalkLine[]>([]); const linesRef=useRef<TalkLine[]>([]); const [speaking, setSpeaking] = useState(false);
   const [inputDevice,setInputDevice]=useState(readInputDevice);
   const [micTesting,setMicTesting]=useState(false);
@@ -40,7 +41,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   const [recording, setRecording] = useState(false); const [seconds, setSeconds] = useState(0); const [title, setTitle] = useState(''); const [local, setLocal] = useState<Draft[]>([]);
   const [busy, setBusy] = useState(false); const [selected, setSelected] = useState<Recording | null>(null);
   const [asking,setAsking]=useState(false); const [questionError,setQuestionError]=useState(''); const [libraryBusy,setLibraryBusy]=useState(false);
-  const [uploadProgress,setUploadProgress]=useState<{id:string;received:number;total:number;phase:'uploading'|'finishing'}|null>(null);const uploading=useRef(false);
+  const [uploadProgress,setUploadProgress]=useState<UploadProgress|null>(null);const uploading=useRef(false);
   const recorder = useRef<MediaRecorder | null>(null); const streams = useRef<MediaStream[]>([]); const context = useRef<AudioContext | null>(null); const started = useRef(0); const finishing = useRef(false); const mounted = useRef(true);
   const refreshDrafts = useCallback(() => drafts().then(setLocal).catch(() => setError('Device storage is unavailable. Check browser storage permissions before recording.')), []);
   const cleanupTracks = useCallback(() => { cancelAnimationFrame(meterFrame.current); streams.current.forEach(s => s.getTracks().forEach(t => t.stop())); streams.current = []; void context.current?.close(); context.current = null; }, []);
@@ -56,6 +57,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   useEffect(() => { mounted.current=true; void refreshDrafts(); return () => { mounted.current = false; if (recorder.current?.state === 'recording') recorder.current.stop(); cleanupTracks(); void endVoice(); }; }, [refreshDrafts, cleanupTracks, endVoice]);
   useEffect(() => { onBusy(recording || voice !== 'idle' || busy || libraryBusy || asking || micTesting); }, [recording, voice, busy, libraryBusy, asking, micTesting, onBusy]);
   useEffect(() => { if (!recording) return; const tick = setInterval(() => { const elapsed = (Date.now()-started.current)/1000; setSeconds(elapsed);  }, 250); const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); }; window.addEventListener('beforeunload', warn); return () => { clearInterval(tick); window.removeEventListener('beforeunload', warn); }; }, [recording]);
+  useEffect(()=>{if(!busy)return;const warn=(e:BeforeUnloadEvent)=>{if(uploading.current||importing.current)e.preventDefault();};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[busy]);
   useEffect(()=>{const id=new URLSearchParams(location.search).get('recording');if(!id||!/^[a-f0-9]{32}$/.test(id))return;void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(d.recording)).catch(e=>setError(e.message));},[]);
   useEffect(() => { if(!selected || ['ready','failed'].includes(selected.status))return;const id=selected.id;const timer=setInterval(()=>{void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(current=>current?.id===id?d.recording:current)).catch(()=>{});},5000);return()=>clearInterval(timer);},[selected]);
   async function startVoice(previous?:SavedTalk) {
@@ -101,21 +103,30 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
       started.current=Date.now(); setSeconds(0); r.start(3000); setRecording(true);
     } catch(e) {cleanupTracks();setError(mediaError(e));}finally{setBusy(false);}
   }
-  async function importAudio(file?: File) { if(!file)return; if(file.size>1000000000){setError('This upload exceeds the current 1 GB storage limit. Keep the original and split it into files before importing.');return;} const d: Draft={id:crypto.randomUUID(),title:file.name.replace(/\.[^.]+$/,''),startedAt:Date.now(),mime:file.type||'audio/mp4',complete:true,blob:file};try{await putDraft(d);await refreshDrafts();}catch{setError('Could not save the imported file on this device.');} }
-  async function upload(draft: Draft) {
-    if(busy || recording || voice!=='idle'||uploading.current)return;uploading.current=true;setBusy(true);setError('');
+  async function importAudio(file?: File) {
+    if(!file || importing.current || uploading.current || busy || recording || voice!=='idle')return;
+    if(!file.size){setError('This file is empty. Choose the original recording.');return;}
+    if(file.size>1000000000){setError('This upload exceeds the current 1 GB storage limit. Keep the original and split it into files before importing.');return;}
+    importing.current=true;setBusy(true);setError('');setNotice('Saving the selected recording on this device…');
+    const d: Draft={id:crypto.randomUUID(),title:file.name.replace(/\.[^.]+$/,''),startedAt:Date.now(),mime:file.type||'audio/mp4',complete:true,blob:file};
+    try {
+      await putDraft(d);await refreshDrafts();
+      if(autoAnalyze){setNotice('Local copy saved. Starting the upload…');await upload(d,true);}
+      else setNotice('Saved on this device only. Tap Transcribe & summarize below when you want to upload it.');
+    }catch{setNotice('');setError('Could not save the imported file on this device. Keep the original in your recording app, free some browser storage, and choose it again.');}
+    finally{importing.current=false;setBusy(false);}
+  }
+  async function upload(draft: Draft, fromImport=false) {
+    if((busy&&!fromImport) || recording || voice!=='idle'||uploading.current)return;
+    uploading.current=true;setBusy(true);setError('');setFailedUploadId(null);
     try {
       if(draft.recordingId){setSelected((await request(`cupcake-recording-detail?id=${encodeURIComponent(draft.recordingId)}`)).recording);return;}
-      const blob=await draftBlob(draft);if(!blob.size)throw new Error('This draft contains no audio.');setUploadProgress({id:draft.id,received:0,total:blob.size,phase:'uploading'});
-      const started=await request('cupcake-recording-start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:draft.title,uploadId:draft.id,mimeType:blob.type,totalBytes:blob.size,filename:`recording.${extension(blob.type)}`})});
-      const id=started.recording?.id||started.id; if(started.recording&&started.recording.status!=='uploading'){setSelected(started.recording);await putDraft({...draft,recordingId:id});await refreshDrafts();return;} if(!id)throw new Error('Upload could not be initialized.');
-      const size=8*1024*1024,parts=Math.ceil(blob.size/size);
-      for(let index=0;index<parts;index++){const f=new FormData();f.append('audio',blob.slice(index*size,Math.min(blob.size,(index+1)*size)),`part-${index}`);f.append('id',id);f.append('index',String(index));await request('cupcake-recording-part',{method:'POST',body:f});setUploadProgress({id:draft.id,received:Math.min(blob.size,(index+1)*size),total:blob.size,phase:'uploading'});}
-      setUploadProgress({id:draft.id,received:blob.size,total:blob.size,phase:'finishing'});
-      const d=await request('cupcake-recording-finish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,parts})});
-      setSelected(d.recording);
-      await putDraft({...draft,complete:true,recordingId:id});await refreshDrafts();
-    }catch(e){setError((e as Error).message);}finally{uploading.current=false;setUploadProgress(null);setBusy(false);}
+      const blob=await draftBlob(draft);
+      const record=await uploadRecording({draft,blob,request,onProgress:setUploadProgress});
+      setSelected(record);await putDraft({...draft,complete:true,recordingId:record.id});await refreshDrafts();
+      setNotice(record.status==='ready'?'Transcript ready. Open the recording to read it.':record.status==='failed'?'The upload arrived, but processing needs attention. Open its status below.':'Upload confirmed. Cupcake is preparing your transcript; you can reopen its status from the library.');
+    }catch(e){setNotice('');setFailedUploadId(draft.id);setError(`${(e as Error).message} Your original stays under On this device. Tap Resume upload to continue.`);}
+    finally{uploading.current=false;setUploadProgress(null);setBusy(false);}
   }
   async function openRecord(id:string){setBusy(true);setError('');try{setSelected((await request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`)).recording);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   async function retry(){if(!selected||busy)return;setBusy(true);try{setSelected((await request('cupcake-recording-retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selected.id})})).recording);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
@@ -129,6 +140,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   }
   return <section className="cc-studio">
     {error&&<div role="alert" className="cc-error">{error}<button onClick={()=>setError('')} aria-label="Dismiss error">×</button></div>}
+    {notice&&<div role="status" className="cc-notice">{notice}</div>}
     {(recording||voice!=='idle')&&<div className="cc-live-bar"><span className="cc-dot"/>{recording?`Recording · ${clock(seconds)}`:voice==='connecting'?'Connecting to Cupcake…':'Voice conversation active'}<button onClick={()=>recording?recorder.current?.stop():void endVoice()}>Stop</button></div>}
     <div hidden={mode!=='talk'}>
       <div className={`cc-portrait ${speaking?'is-speaking':''}`}><img src="/cupcake-avatar.jpg" alt="Cupcake"/><span className="cc-portrait-shade"/><div><span className="cc-eyebrow">YOUR PRIVATE COMPANION</span><h2>I'm listening,<br/>Matt.</h2><p>A real conversation. A little attitude.</p></div></div>
@@ -143,12 +155,12 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
       <span className="cc-eyebrow">RECORD & REMEMBER</span><h2>Catch the conversation.<br/><em>Keep what matters.</em></h2>
       <p className="cc-muted">Record a voice note or conversation, or import a Samsung recording. Cupcake turns it into a transcript, summary, and commitments you can review.</p>
       <label className="cc-label">Recording title<input maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="A thought, a meeting, a promise…" disabled={recording}/></label>
-      <label className="cc-auto"><input type="checkbox" checked={autoAnalyze} disabled={recording||busy} onChange={e=>setAutoAnalyze(e.target.checked)}/>Transcribe automatically when I stop</label>
+      <label className="cc-auto"><input type="checkbox" checked={autoAnalyze} disabled={recording||busy} onChange={e=>setAutoAnalyze(e.target.checked)}/>Automatically transcribe recordings and files I choose</label>
       <div className={`cc-recorder ${recording?'is-recording':''}`}><div className="cc-wave" aria-hidden="true">{Array.from({length:27},(_,i)=><i key={i} style={{height:`${recording?3+level*(12+((i*17)%49)):12+((i*17)%49)}px`}}/>)}</div><div className="cc-timer">{clock(seconds)}</div><button className="cc-record-button" onClick={()=>recording?recorder.current?.stop():void startRecording(false)} disabled={voice!=='idle'||busy||micTesting} aria-label={recording?'Stop recording':'Start microphone recording'}>{recording?<Square fill="currentColor"/>:<Mic size={28}/>}</button><p>{recording?'Recording · tap to stop':'Tap to record'}</p>{recording&&<div className="cc-input-status"><span>{inputName}</span><div className="cc-level" role="meter" aria-label="Audio input level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level*100)}><i style={{width:`${Math.max(1,level*100)}%`}}/></div><p role="status">{heardAudio?'Audio detected':seconds>2?'No audio detected yet. Speak and check your microphone.':'Listening for audio…'}</p></div>}</div>
       <div className="cc-action-row"><button className="cc-secondary" onClick={()=>void startRecording(true)} disabled={recording||voice!=='idle'||busy||micTesting}><Monitor size={18}/>Meeting tab + mic</button><label className="cc-secondary cc-file"><Upload size={18}/>Import audio<input type="file" accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.mp4" disabled={recording||voice!=='idle'||busy} onChange={e=>{void importAudio(e.target.files?.[0]);e.target.value='';}}/></label></div>
       <p className="cc-muted">No fixed recording-duration cap. Current upload storage limit: 1 GB per file. Keep this app open while recording; use Samsung Recorder for long background recordings. Meeting audio requires a desktop browser and its sharing picker; phone-call capture is not supported here.</p>
-      <div className="cc-privacy"><LockKeyhole size={18}/><span>With automatic transcription on, stopping uploads your recording to your private server and configured AI provider. Imports wait until you choose Transcribe. Your original stays on this device.</span></div>
-      {!!local.length&&<h3>On this device</h3>}{local.map(d=><article className="cc-card" key={d.id}><strong>{d.title}</strong>{uploadProgress?.id===d.id&&<div className="cc-upload-progress" role="status"><progress max={uploadProgress.total} value={uploadProgress.received}/><span>{uploadLabel(uploadProgress.received,uploadProgress.total)}</span><small>{uploadProgress.phase==='finishing'?'All parts received. Preparing the transcript job…':'Server-confirmed bytes · keep this page open'}</small></div>}<p className="cc-muted">{d.recordingId?'Uploaded · original still on this device':d.complete?'Ready to transcribe':'Interrupted recording · recover saved audio'}</p><div className="cc-action-row"><button className="cc-primary" disabled={busy||recording||voice!=='idle'} onClick={()=>void upload(d)}>{uploadProgress?.id===d.id?(uploadProgress.phase==='finishing'?'Finishing upload…':'Uploading this recording…'):d.recordingId?'Open transcript status':'Transcribe & summarize'}</button><button className="cc-secondary" disabled={recording||voice!=='idle'} onClick={()=>void draftBlob(d).then(b=>setPreview({id:d.id,url:URL.createObjectURL(b)}))}>Listen to original</button><button className="cc-secondary" onClick={()=>void draftBlob(d).then(b=>download(b,`${d.title}.${extension(d.mime)}`))} aria-label="Download original audio"><Download size={18}/></button><button className="cc-text-button" disabled={busy||recording} onClick={()=>{if(confirm('Delete this local audio draft?'))void deleteDraft(d.id).then(refreshDrafts);}}>Discard</button></div>{preview?.id===d.id&&<audio controls src={preview.url} aria-label="Original recording playback" style={{width:'100%'}}/>}</article>)}
+      <div className="cc-privacy"><LockKeyhole size={18}/><span>With automatic transcription on, stopping a recording or choosing an audio file uploads it to your private server and configured AI provider. Turn it off to save locally first. Only the file you choose is imported; your other recordings stay untouched.</span></div>
+      {!!local.length&&<h3>On this device</h3>}{local.map(d=><article className="cc-card" key={d.id}><strong>{d.title}</strong>{uploadProgress?.id===d.id&&<div className="cc-upload-progress" role="status"><progress max={uploadProgress.total} value={uploadProgress.received}/><span>{uploadLabel(uploadProgress.received,uploadProgress.total)}</span><small>{uploadProgress.retryAttempt?`Connection interrupted · retrying (${uploadProgress.retryAttempt}/2)…`:uploadProgress.phase==='finishing'?'All parts received. Preparing the transcript job…':'Server-confirmed bytes · keep this page open'}</small></div>}<p className="cc-muted">{d.recordingId?'Uploaded · original still on this device':d.complete?'Ready to transcribe':'Interrupted recording · recover saved audio'}</p><div className="cc-action-row"><button className="cc-primary" disabled={busy||recording||voice!=='idle'} onClick={()=>void upload(d)}>{uploadProgress?.id===d.id?(uploadProgress.phase==='finishing'?'Finishing upload…':'Uploading this recording…'):d.recordingId?'Open transcript status':failedUploadId===d.id?'Resume upload':'Transcribe & summarize'}</button><button className="cc-secondary" disabled={recording||voice!=='idle'} onClick={()=>void draftBlob(d).then(b=>setPreview({id:d.id,url:URL.createObjectURL(b)}))}>Listen to original</button><button className="cc-secondary" onClick={()=>void draftBlob(d).then(b=>download(b,`${d.title}.${extension(d.mime)}`))} aria-label="Download original audio"><Download size={18}/></button><button className="cc-text-button" disabled={busy||recording} onClick={()=>{if(confirm('Delete this local audio draft?'))void deleteDraft(d.id).then(refreshDrafts);}}>Discard</button></div>{preview?.id===d.id&&<audio controls src={preview.url} aria-label="Original recording playback" style={{width:'100%'}}/>}</article>)}
     </div>
     <div hidden={mode!=='library'}><LibraryWorkspace active={mode==='library'} onOpenRecording={id=>void openRecord(id)} onWork={setLibraryBusy}/></div>
     {selected&&<ConversationPanel key={selected.id} record={selected} onClose={()=>{setSelected(null);setQuestionError('');}} onAsk={ask} onRetry={()=>void retry()} asking={asking} questionError={questionError} retrying={busy} onOrganized={(project,tags)=>setSelected(current=>current?{...current,project,tags}:current)}/>}
