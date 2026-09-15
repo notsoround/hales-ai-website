@@ -1,5 +1,5 @@
 export type DashboardMetricDay = { date: string; calories: number; spend: number };
-export type DatedEntry = { date: string; type: string };
+export type DatedEntry = { date: string; type: string; currency?: string | null };
 export type DashboardOutcome = 'win' | 'loss' | 'unscored';
 type OutcomeEntry = DatedEntry & { details?: { outcome?: unknown; boughtAnyway?: unknown } };
 
@@ -9,6 +9,18 @@ export function entriesForDay<T extends DatedEntry>(entries: T[], date: string):
 
 export function entriesForType<T extends DatedEntry>(entries: T[], type: 'food' | 'transaction'): T[] {
   return entries.filter(entry => entry.type === type);
+}
+
+/** Keep the spend drilldown on the same currency population as its total. */
+export function transactionEntriesForCurrency<T extends DatedEntry>(entries: T[], currency?: string): T[] {
+  const target = currency === '$' ? 'USD' : currency?.trim().toUpperCase();
+  const transactions = entriesForType(entries, 'transaction');
+  return target ? transactions.filter(entry => entry.currency?.trim().toUpperCase() === target) : transactions;
+}
+
+export function transactionAmount(amount: number, currency?: string | null): string {
+  const code = currency?.trim().toUpperCase();
+  return `${code && /^[A-Z]{3}$/.test(code) ? code : 'Currency unknown'} ${amount.toFixed(2)}`;
 }
 
 /** Interventions are kept separate from meals/spend so outcome cards never inflate totals. */

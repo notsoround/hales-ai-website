@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { entriesForDay, entriesForType, interventionGroups, interventionOutcome, metricScales, rangeLabel } from '../src/components/cupcake/dashboardModel.ts';
+import { entriesForDay, entriesForType, interventionGroups, interventionOutcome, metricScales, rangeLabel, transactionAmount, transactionEntriesForCurrency } from '../src/components/cupcake/dashboardModel.ts';
 
 const entries = [
   { id: 'meal-a', date: '2026-09-07', type: 'food' },
@@ -39,5 +39,17 @@ assert.deepEqual(groups.wins.map(entry => entry.id), ['won', 'put-back']);
 assert.deepEqual(groups.losses.map(entry => entry.id), ['lost']);
 assert.deepEqual(groups.unscored.map(entry => entry.id), ['disagreed', 'unknown']);
 assert.deepEqual(groups.interventions.map(entry => entry.id), ['won', 'lost', 'put-back', 'disagreed', 'unknown']);
+
+const currencies = [
+  { id: 'usd', date: '2026-09-07', type: 'transaction', currency: 'USD' },
+  { id: 'eur', date: '2026-09-07', type: 'transaction', currency: 'EUR' },
+  { id: 'unknown', date: '2026-09-07', type: 'transaction', currency: null },
+  { id: 'food', date: '2026-09-07', type: 'food', currency: 'USD' },
+];
+assert.deepEqual(transactionEntriesForCurrency(currencies, 'USD').map(entry => entry.id), ['usd'], 'USD total drills into USD transactions only');
+assert.deepEqual(transactionEntriesForCurrency(currencies, '$').map(entry => entry.id), ['usd'], 'legacy dollar total means USD');
+assert.deepEqual(transactionEntriesForCurrency(currencies).map(entry => entry.id), ['usd', 'eur', 'unknown'], 'an unspecified total preserves the fallback transaction list');
+assert.equal(transactionAmount(12.5, 'eur'), 'EUR 12.50', 'transaction detail includes its actual currency');
+assert.equal(transactionAmount(12.5, null), 'Currency unknown 12.50', 'unknown currency is never displayed as dollars');
 
 console.log('dashboard model tests passed');

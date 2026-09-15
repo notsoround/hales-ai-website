@@ -32,12 +32,12 @@ type FeedResponse = { items?: Array<FeedItem & { id?: string; calories?: number 
 async function loadDashboardStats(range: DashboardRange): Promise<DashboardStats> {
   const response = await fetch(`${API}/cupcake-feed?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`, { headers: authHeaders(), cache: 'no-store' });
   const data = await readJson(response) as FeedResponse;
-  const entries: DashboardEntry[] = (data.items || []).map((item, index) => ({ id: item.id || `${item.type}-${item.ts || index}`, type: item.type, date: item.date, time: item.time, title: item.title, body: item.body, amount: item.amount ?? null, calories: item.calories ?? null, details: item.details, icon: item.icon }));
+  const entries: DashboardEntry[] = (data.items || []).map((item, index) => ({ id: item.id || `${item.type}-${item.ts || index}`, type: item.type, date: item.date, time: item.time, title: item.title, body: item.body, amount: item.amount ?? null, currency: item.currency ?? null, calories: item.calories ?? null, details: item.details, icon: item.icon }));
   const coverageNote = data.coverage ? `${data.coverage.complete === false ? 'Partial coverage. ' : ''}${(data.coverage.notes || []).join(' ')}`.trim() : '';
-  return { range: { start: range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: data.totals?.calories || 0, spend: data.totals?.spendUsd || 0, currency: '$' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
+  return { range: { start: range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: data.totals?.calories || 0, spend: data.totals?.spendUsd || 0, currency: 'USD' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
 }
 
-type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; details?: { mealId?: string | null; [key: string]: unknown } };
+type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
 type ChatMsg = { role: 'user' | 'cupcake'; text: string };
 
 type SpeechInput = {
@@ -121,7 +121,7 @@ const FeedView: React.FC = () => {
       {items.map((it, i) => (
         <button
           key={i}
-          onClick={() => setSelected({ id: it.id || `${it.type}-${it.ts || i}`, type: it.type, date: it.date, time: it.time, title: it.title, body: it.body, calories: it.calories, amount: it.amount, details: it.details, icon: it.icon })}
+          onClick={() => setSelected({ id: it.id || `${it.type}-${it.ts || i}`, type: it.type, date: it.date, time: it.time, title: it.title, body: it.body, calories: it.calories, amount: it.amount, currency: it.currency, details: it.details, icon: it.icon })}
           aria-label={`Open ${it.title}`}
           className="flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"
         >
