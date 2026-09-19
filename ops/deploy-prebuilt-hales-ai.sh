@@ -64,7 +64,10 @@ cat > "$WORK/release.json" <<EOF
 {"releaseCommit":"$RELEASE_COMMIT","pageSha256":"$PAGE_SHA256","distManifestSha256":"$DIST_SHA","nginxImage":"$NGINX_IMAGE"}
 EOF
 ARTIFACT="$WORK/hales-prebuilt-$RELEASE_COMMIT.tgz"
-(cd "$WORK" && COPYFILE_DISABLE=1 tar -czf "$ARTIFACT" dist dist.sha256 release.json nginx.conf Dockerfile.prebuilt)
+TAR_NO_XATTR=()
+TAR_HELP=$(tar --help 2>&1 || true)
+[[ "$TAR_HELP" == *"--no-xattrs"* ]] && TAR_NO_XATTR=(--no-xattrs)
+(cd "$WORK" && COPYFILE_DISABLE=1 tar "${TAR_NO_XATTR[@]}" -czf "$ARTIFACT" dist dist.sha256 release.json nginx.conf Dockerfile.prebuilt)
 ARTIFACT_SHA=$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')
 echo "validated local release=$RELEASE_COMMIT dist_manifest=$DIST_SHA artifact=$ARTIFACT_SHA"
 [[ "$APPLY" == 1 ]] || { echo "dry-run complete; add --apply to transfer and deploy"; exit 0; }
@@ -87,13 +90,25 @@ PY
 trap cleanup EXIT
 exec 9>/var/lock/hales-ai-prebuilt-deploy.lock
 flock -n 9 || { echo "another website deployment is active"; exit 1; }
+fetch_ready() {
+  local url=$1 output=$2 attempt
+  rm -f "$output"
+  for attempt in 1 2 3 4 5 6 7 8; do
+    if curl -fsS --connect-timeout 3 --max-time 12 "$url" -o "$output"; then
+      return 0
+    fi
+    rm -f "$output"
+    sleep 2
+  done
+  return 1
+}
 docker inspect "$CNAME" >/dev/null 2>&1 && { echo "candidate name collision"; exit 1; }
 MEM_KB=$(awk '/MemAvailable:/{print $2}' /proc/meminfo); DISK_KB=$(df -Pk /var/lib/docker | awk 'NR==2{print $4}')
 (( MEM_KB >= 524288 && DISK_KB >= 1048576 )) || { echo "insufficient server headroom"; exit 1; }
 # The running site is the rollback image. Prove it healthy before disturbing it.
 docker inspect "$APP" >/dev/null
-curl -fsS --connect-timeout 5 --max-time 20 --max-time 10 http://127.0.0.1:3000/ -o "$WORK/rollback-index.html"
-curl -fsS --connect-timeout 5 --max-time 20 --max-time 10 http://127.0.0.1:3000/lab/hal/index.html -o "$WORK/rollback-hal.html"
+fetch_ready http://127.0.0.1:3000/ "$WORK/rollback-index.html"
+fetch_ready http://127.0.0.1:3000/lab/hal/index.html "$WORK/rollback-hal.html"
 grep -Fq hales:sentinel-ready "$WORK/rollback-hal.html"
 [[ "$(sha256sum "$ARTIFACT" | awk '{print $1}')" == "$ARTIFACT_SHA" ]]
 tar -xzf "$ARTIFACT" -C "$WORK" --no-same-owner
@@ -107,23 +122,28 @@ docker image inspect "$NGINX_IMAGE" >/dev/null
 OWN_CANDIDATE=1
 DOCKER_BUILDKIT=0 docker build --pull=false --network=none --memory=128m --memory-swap=128m --cpu-period=100000 --cpu-quota=50000 --build-arg "NGINX_IMAGE=$NGINX_IMAGE" -f "$WORK/Dockerfile.prebuilt" -t "$CANDIDATE" "$WORK"
 docker run -d --name "$CNAME" --memory=128m --cpus=.5 -p 127.0.0.1:3001:3000 "$CANDIDATE" >/dev/null
-for _ in 1 2 3 4 5 6; do curl -fsS --connect-timeout 5 --max-time 20 http://127.0.0.1:3001/ -o "$WORK/candidate-index.html" && break; sleep 2; done
-curl -fsS --connect-timeout 5 --max-time 20 http://127.0.0.1:3001/lab/hal/index.html -o "$WORK/candidate-hal.html"
+fetch_ready http://127.0.0.1:3001/ "$WORK/candidate-index.html"
+fetch_ready http://127.0.0.1:3001/lab/hal/index.html "$WORK/candidate-hal.html"
 grep -Fq hales:sentinel-ready "$WORK/candidate-hal.html"
-curl -fsS --connect-timeout 5 --max-time 20 http://127.0.0.1:3001/cupcake -o "$WORK/candidate-cupcake.html"
+fetch_ready http://127.0.0.1:3001/cupcake "$WORK/candidate-cupcake.html"
 docker rm -f "$CNAME" >/dev/null
 OWN_CANDIDATE=0
 PREV=$(docker inspect "$APP" --format '{{.Image}}')
 ROLLBACK="${APP}:rollback-$(date -u +%Y%m%dT%H%M%SZ)"; docker tag "$PREV" "$ROLLBACK"
 docker rm -f "$APP" >/dev/null
 if ! docker run -d --name "$APP" --restart always -p 3000:3000 "$CANDIDATE" >/dev/null \
- || ! curl -fsS --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 2 http://127.0.0.1:3000/lab/hal/index.html -o "$WORK/live-hal.html" \
+ || ! fetch_ready http://127.0.0.1:3000/ "$WORK/live-index.html" \
+ || ! fetch_ready http://127.0.0.1:3000/lab/hal/index.html "$WORK/live-hal.html" \
  || ! grep -Fq hales:sentinel-ready "$WORK/live-hal.html" \
- || ! curl -fsS --connect-timeout 5 --max-time 20 --retry 3 https://hales.ai/cupcake -o "$WORK/live-cupcake.html"; then
+ || ! fetch_ready https://hales.ai/cupcake "$WORK/live-cupcake.html"; then
   docker rm -f "$APP" >/dev/null 2>&1 || true
   docker run -d --name "$APP" --restart always -p 3000:3000 "$ROLLBACK" >/dev/null
-  curl -fsS --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 2 http://127.0.0.1:3000/lab/hal/index.html -o "$WORK/restored-hal.html"
-  grep -Fq hales:sentinel-ready "$WORK/restored-hal.html" || echo "CRITICAL: rollback container did not pass HAL smoke"
+  if ! fetch_ready http://127.0.0.1:3000/ "$WORK/restored-index.html" \
+   || ! fetch_ready http://127.0.0.1:3000/lab/hal/index.html "$WORK/restored-hal.html" \
+   || ! grep -Fq hales:sentinel-ready "$WORK/restored-hal.html" \
+   || ! fetch_ready https://hales.ai/cupcake "$WORK/restored-cupcake.html"; then
+    echo "CRITICAL: rollback container did not pass smoke checks"
+  fi
   exit 1
 fi
 docker tag "$CANDIDATE" "$APP"
