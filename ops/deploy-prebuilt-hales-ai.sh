@@ -64,10 +64,11 @@ cat > "$WORK/release.json" <<EOF
 {"releaseCommit":"$RELEASE_COMMIT","pageSha256":"$PAGE_SHA256","distManifestSha256":"$DIST_SHA","nginxImage":"$NGINX_IMAGE"}
 EOF
 ARTIFACT="$WORK/hales-prebuilt-$RELEASE_COMMIT.tgz"
-TAR_NO_XATTR=()
-TAR_HELP=$(tar --help 2>&1 || true)
-[[ "$TAR_HELP" == *"--no-xattrs"* ]] && TAR_NO_XATTR=(--no-xattrs)
-(cd "$WORK" && COPYFILE_DISABLE=1 tar "${TAR_NO_XATTR[@]}" -czf "$ARTIFACT" dist dist.sha256 release.json nginx.conf Dockerfile.prebuilt)
+if tar --no-xattrs --version >/dev/null 2>&1; then
+  (cd "$WORK" && COPYFILE_DISABLE=1 tar --no-xattrs -czf "$ARTIFACT" dist dist.sha256 release.json nginx.conf Dockerfile.prebuilt)
+else
+  (cd "$WORK" && COPYFILE_DISABLE=1 tar -czf "$ARTIFACT" dist dist.sha256 release.json nginx.conf Dockerfile.prebuilt)
+fi
 ARTIFACT_SHA=$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')
 echo "validated local release=$RELEASE_COMMIT dist_manifest=$DIST_SHA artifact=$ARTIFACT_SHA"
 [[ "$APPLY" == 1 ]] || { echo "dry-run complete; add --apply to transfer and deploy"; exit 0; }
