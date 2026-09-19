@@ -8,11 +8,17 @@ export function microphoneMessage(error: MicFailure) {
   return error?.message || 'The microphone could not start.';
 }
 
-export async function acquireMicrophone(getUserMedia:(constraints:MediaStreamConstraints)=>Promise<MediaStream>,constraints:MediaStreamConstraints,timeoutMs=12000) {
-  let expired=false;let timer:ReturnType<typeof setTimeout>|undefined;
-  const pending=getUserMedia(constraints).then(stream=>{if(expired){stream.getTracks().forEach(track=>track.stop());return new Promise<MediaStream>(()=>{});}return stream;});
-  try{return await Promise.race([pending,new Promise<MediaStream>((_,reject)=>{timer=setTimeout(()=>{expired=true;const error=new Error('Microphone acquisition timed out');error.name='MicrophoneTimeoutError';reject(error);},timeoutMs);})]);}
-  finally{if(timer)clearTimeout(timer);}
+export async function acquireMicrophone(getUserMedia:(constraints:MediaStreamConstraints)=>Promise<MediaStream>,constraints:MediaStreamConstraints,timeoutMs=12000,signal?:AbortSignal) {
+  const cancelled=()=>{const error=new Error('Audio startup cancelled');error.name='MicrophoneCancelledError';return error;};
+  if(signal?.aborted)throw cancelled();
+  let abandoned=false;let timer:ReturnType<typeof setTimeout>|undefined;let rejectCancellation:(reason:Error)=>void=()=>{};
+  const cancellation=new Promise<MediaStream>((_,reject)=>{rejectCancellation=reject;});
+  const abort=()=>{abandoned=true;rejectCancellation(cancelled());};
+  signal?.addEventListener('abort',abort,{once:true});
+  try {
+    const pending=getUserMedia(constraints).then(stream=>{if(abandoned||signal?.aborted){stream.getTracks().forEach(track=>track.stop());throw cancelled();}return stream;});
+    return await Promise.race([pending,cancellation,new Promise<MediaStream>((_,reject)=>{timer=setTimeout(()=>{abandoned=true;const error=new Error('Microphone acquisition timed out');error.name='MicrophoneTimeoutError';reject(error);},timeoutMs);})]);
+  } finally {if(timer)clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }
 
 export function microphoneConstraints(deviceId?: string): MediaStreamConstraints {

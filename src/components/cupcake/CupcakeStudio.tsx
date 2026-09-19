@@ -7,7 +7,7 @@ import LibraryWorkspace from './LibraryWorkspace';
 import VoiceInputCheck from './VoiceInputCheck';
 import TalkHistory from './TalkHistory';
 import { archiveTalk, continuationContext, drainVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator, type SavedTalk, type TalkLine } from './voiceHistory';
-import { microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
+import { acquireMicrophone, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import { libraryRequest, uploadLabel, type Conversation as Recording } from './library';
 import { RecordingRequestError, uploadRecording, type UploadProgress } from './recordingUpload';
 import './studio.css';
@@ -27,13 +27,14 @@ const extension = (mime:string) => mime.includes('mp4')?'m4a':mime.includes('mpe
 const clock = (s: number) => `${Math.floor(s / 60).toString().padStart(2,'0')}:${Math.floor(s % 60).toString().padStart(2,'0')}`;
 function download(blob: Blob, name: string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1500); }
 
-export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void }) {
+export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void; active?: boolean }) {
   const [error, setError] = useState(''); const [notice,setNotice]=useState(''); const [failedUploadId,setFailedUploadId]=useState<string|null>(null); const importing=useRef(false); const [voice, setVoice] = useState<'idle'|'connecting'|'live'>('idle'); const [muted, setMuted] = useState(false);
   const [lines, setLines] = useState<TalkLine[]>([]); const linesRef=useRef<TalkLine[]>([]); const lineDrain=useRef(new TalkLineDrain()); const endingVoice=useRef(new VoiceEndingCoordinator()); const stoppingVoice=useRef(false); const [speaking, setSpeaking] = useState(false);
   const [inputDevice,setInputDevice]=useState(readInputDevice);
   const [micTesting,setMicTesting]=useState(false);
   const [talks,setTalks]=useState<SavedTalk[]>(()=>readTalks());const [openedTalk,setOpenedTalk]=useState<SavedTalk|null>(null);const talkStarted=useRef('');const talkLocalId=useRef('');
-  const voiceMic = useRef<MediaStream | null>(null);
+  const voiceMic = useRef<MediaStream | null>(null);const voiceAcquisition=useRef<AbortController|null>(null);
+  const captureAcquisition=useRef<AbortController|null>(null);const captureGeneration=useRef(0);const [captureStarting,setCaptureStarting]=useState<'microphone'|'meeting'|null>(null);
   const call = useRef<DailyCall | null>(null); const remoteId=useRef<string|null>(null); const voiceGeneration = useRef(0); const players = useRef(new Map<string, HTMLAudioElement>());
   const [autoAnalyze,setAutoAnalyze]=useState(true);
   const [level,setLevel]=useState(0);const [heardAudio,setHeardAudio]=useState(false);const [inputName,setInputName]=useState('Microphone');const meterFrame=useRef(0);const [preview,setPreview]=useState<{id:string;url:string}|null>(null);
@@ -45,6 +46,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   const recorder = useRef<MediaRecorder | null>(null); const streams = useRef<MediaStream[]>([]); const context = useRef<AudioContext | null>(null); const started = useRef(0); const finishing = useRef(false); const mounted = useRef(true);
   const refreshDrafts = useCallback(() => drafts().then(setLocal).catch(() => setError('Device storage is unavailable. Check browser storage permissions before recording.')), []);
   const cleanupTracks = useCallback(() => { cancelAnimationFrame(meterFrame.current); streams.current.forEach(s => s.getTracks().forEach(t => t.stop())); streams.current = []; void context.current?.close(); context.current = null; }, []);
+  const cancelRecordingStart=useCallback(()=>{if(!captureAcquisition.current)return;captureGeneration.current++;captureAcquisition.current.abort();captureAcquisition.current=null;cleanupTracks();if(mounted.current){setCaptureStarting(null);setBusy(false);setNotice('Recording startup cancelled. No recording was started.');}},[cleanupTracks]);
   const endRemote = useCallback(async(id:string) => {
     for(const delay of [0,1500,3500,8000]) {
       if(delay)await new Promise(r=>setTimeout(r,delay));
@@ -54,7 +56,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   },[]);
   const syncTalk=useCallback(async(talk:SavedTalk,devicePersisted=true)=>{try{const d=await libraryRequest<{document:{id:string}}>({action:'import',kind:'conversation',sourceApp:'Cupcake voice',title:talk.title,text:talk.lines.map(x=>`${x.role}:\n${x.text}`).join('\n\n')});const saved={...talk,documentId:d.document.id};if(mounted.current){setTalks(saveTalk(saved));setOpenedTalk(current=>current?.id===saved.id?saved:current);}}catch{if(mounted.current)setError(devicePersisted?'Conversation is saved on this device, but not in the private library. Use “Save to private library” to retry.':'Conversation is kept in this open page, but could not be saved on this device or in the private library. Copy it before closing this page.');}},[]);
   const endVoice = useCallback(() => {
-    stoppingVoice.current=true;
+    stoppingVoice.current=true;voiceAcquisition.current?.abort();voiceAcquisition.current=null;
     return endingVoice.current.begin(async()=>{
       const c=call.current, id=remoteId.current, localId=talkLocalId.current;
       talkLocalId.current='';
@@ -80,54 +82,60 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
       }
     });
   },[endRemote,syncTalk]);
-  useEffect(() => { mounted.current=true; void refreshDrafts(); return () => { mounted.current = false; if (recorder.current?.state === 'recording') recorder.current.stop(); cleanupTracks(); void endVoice(); }; }, [refreshDrafts, cleanupTracks, endVoice]);
+  useEffect(() => { mounted.current=true; void refreshDrafts(); return () => { mounted.current = false; cancelRecordingStart(); if (recorder.current?.state === 'recording') recorder.current.stop(); cleanupTracks(); void endVoice(); }; }, [refreshDrafts, cleanupTracks, endVoice, cancelRecordingStart]);
+  useEffect(()=>{if((!active||mode!=='record')&&captureAcquisition.current)cancelRecordingStart();if((!active||mode!=='talk')&&voice==='connecting')void endVoice();},[active,mode,voice,cancelRecordingStart,endVoice]);
   useEffect(() => { onBusy(recording || voice !== 'idle' || busy || libraryBusy || asking || micTesting); }, [recording, voice, busy, libraryBusy, asking, micTesting, onBusy]);
   useEffect(() => { if (!recording) return; const tick = setInterval(() => { const elapsed = (Date.now()-started.current)/1000; setSeconds(elapsed);  }, 250); const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); }; window.addEventListener('beforeunload', warn); return () => { clearInterval(tick); window.removeEventListener('beforeunload', warn); }; }, [recording]);
   useEffect(()=>{if(!busy)return;const warn=(e:BeforeUnloadEvent)=>{if(uploading.current||importing.current)e.preventDefault();};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[busy]);
   useEffect(()=>{const id=new URLSearchParams(location.search).get('recording');if(!id||!/^[a-f0-9]{32}$/.test(id))return;void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(d.recording)).catch(e=>setError(e.message));},[]);
   useEffect(() => { if(!selected || ['ready','failed'].includes(selected.status))return;const id=selected.id;const timer=setInterval(()=>{void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(current=>current?.id===id?d.recording:current)).catch(()=>{});},5000);return()=>clearInterval(timer);},[selected]);
   async function startVoice(previous?:SavedTalk) {
-    if (voice !== 'idle' || recording || busy || micTesting) return; stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;
+    if (voice !== 'idle' || recording || busy || micTesting || voiceAcquisition.current) return; stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;
+    const acquisition=new AbortController();voiceAcquisition.current=acquisition;
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Voice needs microphone access in a supported browser over HTTPS.');
-      const mic = await navigator.mediaDevices.getUserMedia(microphoneConstraints(inputDevice));
-      if (generation !== voiceGeneration.current || !mounted.current) { mic.getTracks().forEach(t=>t.stop()); return; }
+      const mic = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(inputDevice),12000,acquisition.signal);
+      if (stoppingVoice.current || generation !== voiceGeneration.current || !mounted.current) { mic.getTracks().forEach(t=>t.stop()); return; }
       voiceMic.current=mic;
       const body=previous?{context:continuationContext(previous)}:{};
       const d = await request('cupcake-voice-session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-      if (generation !== voiceGeneration.current || !mounted.current) {if(d.callId)void endRemote(d.callId);return;} remoteId.current=d.callId;
+      if (stoppingVoice.current || generation !== voiceGeneration.current || !mounted.current) {if(d.callId)void endRemote(d.callId);return;} remoteId.current=d.callId;
       const c = Daily.createCallObject({ audioSource: mic.getAudioTracks()[0], videoSource: false, startVideoOff: true }); call.current = c;
       c.on('track-started', e => { if(stoppingVoice.current||call.current!==c||generation!==voiceGeneration.current)return; if (e?.track.kind !== 'audio' || e.participant?.local) return; const id = e.track.id; const audio = new Audio(); audio.autoplay = true; audio.srcObject = new MediaStream([e.track]); players.current.set(id, audio); void audio.play().then(() => {if(!stoppingVoice.current&&call.current===c&&generation===voiceGeneration.current)c.sendAppMessage('playable');}).catch(() => {if(!stoppingVoice.current&&call.current===c&&generation===voiceGeneration.current)setError('Tap Resume audio to hear Cupcake.');}); });
       c.on('track-stopped', e => { if (e?.track) { const p = players.current.get(e.track.id); if(p) { p.pause(); p.srcObject = null; players.current.delete(e.track.id); } } });
       c.on('app-message', e => { if(call.current!==c||generation!==voiceGeneration.current)return; let d=e?.data; if(typeof d==='string'){try{d=JSON.parse(d);}catch{return;}} if (!d || typeof d !== 'object') return; if(!stoppingVoice.current&&d.type === 'speech-update') setSpeaking(d.status === 'started' && d.role === 'assistant'); if(d.type === 'transcript' && d.transcriptType === 'final' && typeof d.transcript === 'string'){const line:TalkLine={role:d.role === 'assistant'?'Cupcake':'You',text:d.transcript};if(lineDrain.current.append(line,d.id||d.messageId||d.transcriptId)){const next=lineDrain.current.snapshot();linesRef.current=next;setLines(next);}} });
       c.on('left-meeting', () => { if(call.current === c) void endVoice(); }); c.on('error', () => { if(call.current!==c||generation!==voiceGeneration.current)return; setError('The voice connection ended. You can reconnect.'); void endVoice(); });
-      await c.join({url:d.webCallUrl}); if (generation !== voiceGeneration.current || call.current!==c) { await c.destroy().catch(()=>{}); return; } setVoice('live'); setMuted(false);
-    } catch(e) { if(generation!==voiceGeneration.current)return; setError(mediaError(e)); await endVoice(); }
+      await c.join({url:d.webCallUrl}); if (stoppingVoice.current || generation !== voiceGeneration.current || call.current!==c) { await c.destroy().catch(()=>{}); return; } setVoice('live'); setMuted(false);
+    } catch(e) { if(stoppingVoice.current||generation!==voiceGeneration.current||!mounted.current)return; setError(mediaError(e)); await endVoice(); }finally{if(voiceAcquisition.current===acquisition)voiceAcquisition.current=null;}
   }
   async function startRecording(meeting: boolean) {
-    if(recording || voice !== 'idle' || busy || micTesting) return; setBusy(true);setPreview(null); setError(''); finishing.current = false;
+    if(recording || voice !== 'idle' || busy || micTesting || captureAcquisition.current) return; const acquisition=new AbortController();captureAcquisition.current=acquisition;const generation=++captureGeneration.current;setCaptureStarting(meeting?'meeting':'microphone');setBusy(true);setPreview(null);setNotice(''); setError(''); finishing.current = false;
     try {
       if(!window.MediaRecorder || !navigator.mediaDevices) throw new Error('Recording needs a supported browser over HTTPS. You can still import an audio file.');
       const id = crypto.randomUUID(); const types = ['audio/webm;codecs=opus','audio/mp4','audio/webm']; const mime = types.find(t => MediaRecorder.isTypeSupported(t)); if(!mime) throw new Error('This browser cannot record a supported audio format. Please import a recording.');
       let input: MediaStream;
       if(meeting) {
         if(!navigator.mediaDevices.getDisplayMedia) throw new Error('Meeting-tab recording is unavailable here. Use a desktop browser or import audio.');
-        const screen = await navigator.mediaDevices.getDisplayMedia({video:true,audio:true}); streams.current.push(screen);
+        let screen:MediaStream;try{screen=await acquireMicrophone(c=>navigator.mediaDevices.getDisplayMedia(c),{video:true,audio:true},60000,acquisition.signal);}catch(e){if((e as Error).name==='MicrophoneTimeoutError')throw new Error('Meeting sharing did not finish. Choose a browser tab, enable Share tab audio, and try again.');throw e;}
+        if(generation!==captureGeneration.current||!mounted.current){screen.getTracks().forEach(t=>t.stop());return;}streams.current.push(screen);
         if(!screen.getAudioTracks().length) throw new Error('No meeting audio was shared. Select a browser tab and turn on Share tab audio.');
-        const mic = await navigator.mediaDevices.getUserMedia(microphoneConstraints(inputDevice)); streams.current.push(mic);
+        const mic = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(inputDevice),12000,acquisition.signal);
+        if(generation!==captureGeneration.current||!mounted.current){mic.getTracks().forEach(t=>t.stop());return;}streams.current.push(mic);
         const ac = new AudioContext(); context.current = ac; const destination = ac.createMediaStreamDestination(); ac.createMediaStreamSource(new MediaStream(screen.getAudioTracks())).connect(destination); ac.createMediaStreamSource(mic).connect(destination); input = destination.stream; streams.current.push(input);
         screen.getVideoTracks().forEach(t => t.addEventListener('ended', () => { if(recorder.current?.state === 'recording') recorder.current.stop(); }));
-      } else { input = await navigator.mediaDevices.getUserMedia(microphoneConstraints(inputDevice)); streams.current.push(input); }
-      if(!mounted.current){cleanupTracks();return;}
+      } else { input = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(inputDevice),12000,acquisition.signal);if(generation!==captureGeneration.current||!mounted.current){input.getTracks().forEach(t=>t.stop());return;}streams.current.push(input); }
+      if(generation!==captureGeneration.current||!mounted.current){cleanupTracks();return;}
       setHeardAudio(false);setLevel(0);setInputName(meeting?'Shared tab + microphone':input.getAudioTracks()[0]?.label||'Microphone');
-      try{const ac=context.current||new AudioContext();context.current=ac;await ac.resume();const analyser=ac.createAnalyser();analyser.fftSize=512;ac.createMediaStreamSource(input).connect(analyser);const samples=new Uint8Array(analyser.fftSize);let last=0;const measure=(now:number)=>{if(now-last>120){analyser.getByteTimeDomainData(samples);const rms=Math.sqrt(samples.reduce((n,x)=>n+((x-128)/128)**2,0)/samples.length);setLevel(Math.min(1,rms*8));if(rms>.003)setHeardAudio(true);last=now;}meterFrame.current=requestAnimationFrame(measure);};meterFrame.current=requestAnimationFrame(measure);}catch{setInputName('Microphone · level meter unavailable');}
+      try{const ac=context.current||new AudioContext();context.current=ac;await ac.resume();if(generation!==captureGeneration.current||!mounted.current)return;const analyser=ac.createAnalyser();analyser.fftSize=512;ac.createMediaStreamSource(input).connect(analyser);const samples=new Uint8Array(analyser.fftSize);let last=0;const measure=(now:number)=>{if(now-last>120){analyser.getByteTimeDomainData(samples);const rms=Math.sqrt(samples.reduce((n,x)=>n+((x-128)/128)**2,0)/samples.length);setLevel(Math.min(1,rms*8));if(rms>.003)setHeardAudio(true);last=now;}meterFrame.current=requestAnimationFrame(measure);};meterFrame.current=requestAnimationFrame(measure);}catch{setInputName('Microphone · level meter unavailable');}
+      if(generation!==captureGeneration.current||!mounted.current)return;
       const draft: Draft = {id,title:title.trim() || (meeting?'Meeting':'Voice note'),startedAt:Date.now(),mime,complete:false}; await putDraft(draft);
+      if(generation!==captureGeneration.current||!mounted.current){try{await deleteDraft(id);if(mounted.current)await refreshDrafts();}catch{if(mounted.current)setError('Recording startup was cancelled, but its empty draft could not be removed. Discard it under On this device.');}return;}
       const r = new MediaRecorder(input,{mimeType:mime,audioBitsPerSecond:64000}); recorder.current=r; let index=0; let captureFailed=false; let writes=Promise.resolve();
       r.ondataavailable = e => { if(!e.data.size) return; const n=index++; writes=writes.then(() => putChunk(id,n,e.data)); void writes.catch(() => {captureFailed=true;setError('Device storage is full. Recording stopped. Recover the saved portion below.'); if(r.state==='recording') r.stop();});  };
       r.onstop = () => { if(finishing.current)return; finishing.current=true; cleanupTracks(); setRecording(false); void writes.then(() => putDraft({...draft,complete:true})).then(refreshDrafts).then(()=>{if(autoAnalyze&&!captureFailed&&mounted.current)void upload({...draft,complete:true});}).catch(() => {setError('Some audio could not be saved. Check the recoverable draft.');void refreshDrafts();}); };
       r.onerror = () => { captureFailed=true; setError('Recording was interrupted. Recover the saved audio below.'); if(r.state !== 'inactive')r.stop(); else {cleanupTracks();setRecording(false);} };
       started.current=Date.now(); setSeconds(0); r.start(3000); setRecording(true);
-    } catch(e) {cleanupTracks();setError(mediaError(e));}finally{setBusy(false);}
+    } catch(e) {if(generation===captureGeneration.current){cleanupTracks();if(mounted.current)setError(mediaError(e));}}finally{if(captureAcquisition.current===acquisition){captureAcquisition.current=null;if(mounted.current){setCaptureStarting(null);setBusy(false);}}}
   }
   async function importAudio(file?: File) {
     if(!file || importing.current || uploading.current || busy || recording || voice!=='idle')return;
@@ -167,6 +175,7 @@ export default function CupcakeStudio({ mode, onBusy }: { mode: 'talk' | 'record
   return <section className="cc-studio">
     {error&&<div role="alert" className="cc-error">{error}<button onClick={()=>setError('')} aria-label="Dismiss error">×</button></div>}
     {notice&&<div role="status" className="cc-notice">{notice}</div>}
+    {captureStarting&&<div className="cc-live-bar" role="status"><span>{captureStarting==='meeting'?'Waiting for meeting sharing and microphone…':'Waiting for microphone permission and startup…'}</span><button onClick={cancelRecordingStart}>Cancel startup</button></div>}
     {(recording||voice!=='idle')&&<div className="cc-live-bar"><span className="cc-dot"/>{recording?`Recording · ${clock(seconds)}`:voice==='connecting'?'Connecting to Cupcake…':'Voice conversation active'}<button onClick={()=>recording?recorder.current?.stop():void endVoice()}>Stop</button></div>}
     <div hidden={mode!=='talk'}>
       <div className={`cc-portrait ${speaking?'is-speaking':''}`}><img src="/cupcake-avatar.jpg" alt="Cupcake"/><span className="cc-portrait-shade"/><div><span className="cc-eyebrow">YOUR PRIVATE COMPANION</span><h2>I'm listening,<br/>Matt.</h2><p>A real conversation. A little attitude.</p></div></div>

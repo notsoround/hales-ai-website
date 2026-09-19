@@ -32,8 +32,8 @@ export default function ReceiptWorkspace({active=true,onWork}:Props){
   useEffect(()=>{if(active)void refresh()},[active,refresh]);
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview)},[preview]);
 
-  async function choose(file?:File){if(!file||busy)return;work(true);setError('');setCandidates([]);setChoice('');setStatus('Preparing image…');
-    try{const ready=await imageData(file);setPreview(old=>{if(old)URL.revokeObjectURL(old);return ready.preview});setStatus('Reading merchant, date, and totals…');
+  async function choose(file?:File){if(!file||busy)return;work(true);setError('');setSelected(null);setPreview('');setCandidates([]);setChoice('');setStatus('Preparing image…');
+    try{const ready=await imageData(file);setPreview(ready.preview);setStatus('Reading merchant, date, and totals…');
       const data=await libraryRequest<{receipt:Receipt;duplicate:boolean}>({action:'receipt_extract',image:ready.url,filename:file.name});setSelected(data.receipt);setStatus(data.duplicate?'This receipt was already saved.':'Receipt saved privately.');await refresh();
     }catch(e){const message=(e as Error).message;setError(message);setStatus(/Receipt saved as receipt_[a-f0-9]{32}/.test(message)?'The original is saved privately. Retry from Saved receipts below.':'Check Saved receipts below before trying again.');await refresh()}finally{work(false)}}
   async function retry(receipt=selected){if(!receipt||busy)return;work(true);setError('');setStatus('Reading the saved original again…');
@@ -65,6 +65,6 @@ export default function ReceiptWorkspace({active=true,onWork}:Props){
       {candidates.map(item=><label key={item.transactionId} className="cc-library-item" style={{cursor:item.pending||busy?'not-allowed':'pointer',opacity:item.pending?.6:1}}><span><input disabled={item.pending||busy} type="radio" name="receipt-match" checked={choice===item.transactionId} onChange={()=>setChoice(item.transactionId)} /> <strong>{item.merchant||'Merchant unavailable'}</strong><small>{item.date||'Date unavailable'}{item.pending?' · pending — available after it settles':''} · similarity score {item.score}/100</small></span><span>{money(item.amount,item.currency)}</span></label>)}
       <button className="cc-primary" disabled={!choice||busy} onClick={()=>void confirm()}>Confirm selected match</button>
     </fieldset>}
-    <h3>Saved receipts</h3>{!receipts.length?<p className="cc-muted">No receipts saved yet.</p>:receipts.map(receipt=><button disabled={busy} className="cc-library-item" key={receipt.id} onClick={()=>{setSelected(receipt);setCandidates([]);setChoice('');setStatus('')}}><span><strong>{receipt.merchant||'Merchant uncertain'}</strong><small>{receipt.date||new Date(receipt.createdAt).toLocaleDateString()} · {receipt.status==='matched'?'Matched':receipt.status==='extraction_failed'?'Needs extraction retry':'Ready to match'}</small></span><span>{money(receipt.total,receipt.currency)}</span></button>)}
+    <h3>Saved receipts</h3>{!receipts.length?<p className="cc-muted">No receipts saved yet.</p>:receipts.map(receipt=><button disabled={busy} className="cc-library-item" key={receipt.id} onClick={()=>{setSelected(receipt);setPreview('');setCandidates([]);setChoice('');setStatus('');setError('')}}><span><strong>{receipt.merchant||'Merchant uncertain'}</strong><small>{receipt.date||new Date(receipt.createdAt).toLocaleDateString()} · {receipt.status==='matched'?'Matched':receipt.status==='extraction_failed'?'Needs extraction retry':'Ready to match'}</small></span><span>{money(receipt.total,receipt.currency)}</span></button>)}
   </section>
 }

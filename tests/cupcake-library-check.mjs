@@ -2,9 +2,10 @@ import ts from 'typescript';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { confirmedLibraryRequest } from '../src/components/cupcake/libraryApproval.ts';
 const code = readFileSync('src/components/cupcake/library.ts', 'utf8');
 const exports = {};
-const scope = { exports, Date, Blob, URL, setTimeout, JSON };
+const scope = { exports, Date, Blob, URL, setTimeout, JSON, require: name => { if (name === './libraryApproval') return { confirmedLibraryRequest }; throw new Error(`Unexpected test dependency: ${name}`); } };
 vm.createContext(scope);
 vm.runInContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, scope);
 const r = {

@@ -32,13 +32,13 @@ function fallbackStats(items: Array<Record<string, unknown>>, range: DashboardRa
 export function FeedDashboard({ loadStats, feedLoader, loadMeal }: { loadStats?: DashboardLoader; feedLoader?: () => Promise<{ items: Array<Record<string, unknown>> }>; loadMeal?: (mealId: string) => Promise<FoodMeal> }) {
   const today = chicagoToday();
   const [preset, setPreset] = useState<DashboardRange['preset']>('week');
-  const [end, setEnd] = useState(today); const [customStart, setCustomStart] = useState(shift(today, -6));
+  const [customEnd, setCustomEnd] = useState(today); const [customStart, setCustomStart] = useState(shift(today, -6));
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [selected, setSelected] = useState<DashboardEntry | null>(null);
   const [selectedList, setSelectedList] = useState<{ title: string; entries: DashboardEntry[] } | null>(null);
   const [visibleCount, setVisibleCount] = useState(20);
   const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const requestVersion=useRef(0);
-  const range = useMemo<DashboardRange>(() => ({ preset, start: preset === 'custom' ? customStart : startFor(preset, end), end, timezone: chicago }), [preset, end, customStart]);
+  const range = useMemo<DashboardRange>(() => ({ preset, start: preset === 'custom' ? customStart : startFor(preset, today), end: preset === 'custom' ? customEnd : today, timezone: chicago }), [preset, today, customEnd, customStart]);
   const refresh = useCallback(async () => { const version=++requestVersion.current; setLoading(true); setStats(null); setError(''); try { const result = loadStats ? await loadStats(range) : fallbackStats((await (feedLoader ? feedLoader() : Promise.resolve({ items: [] }))).items, range); if(version===requestVersion.current)setStats(result); } catch (e) { if(version===requestVersion.current)setError(e instanceof Error ? e.message : 'Could not load dashboard data.'); } finally { if(version===requestVersion.current)setLoading(false); } }, [feedLoader, loadStats, range]);
   useEffect(() => { setVisibleCount(20); setSelected(null); setSelectedList(null); void refresh(); }, [refresh]);
   if (selected) return <SignalDetail entry={selected} onBack={() => setSelected(null)} loadMeal={loadMeal} />;
@@ -48,7 +48,7 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal }: { loadStats?:
   return <section className="cc-dashboard" aria-label="Cupcake dashboard">
     <div className="cc-heading-row"><div><span className="cc-eyebrow">YOUR DASHBOARD</span><h2>Wins, losses &amp;<br /><em>the bigger picture.</em></h2></div><button className="cc-secondary" aria-label="Refresh dashboard" onClick={() => void refresh()} disabled={loading}><RefreshCw className={loading ? 'cc-spin' : ''} size={18} /></button></div>
     <div className="cc-dashboard-range" role="tablist" aria-label="Dashboard range">{(['day', 'week', 'month', 'custom'] as const).map(option => <button key={option} role="tab" aria-selected={preset === option} onClick={() => setPreset(option)}>{rangeLabel(option)}</button>)}</div>
-    {preset === 'custom' && <div className="cc-dashboard-dates"><label>From<input type="date" value={customStart} max={end} onChange={event => setCustomStart(event.target.value)} /></label><label>Through<input type="date" value={end} onChange={event => setEnd(event.target.value)} /></label></div>}
+    {preset === 'custom' && <div className="cc-dashboard-dates"><label>From<input type="date" value={customStart} max={customEnd} onChange={event => setCustomStart(event.target.value)} /></label><label>Through<input type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)} /></label></div>}
     {error && <p className="cc-error" role="alert">{error}</p>}
     {loading && !stats ? <p className="cc-thinking"><Loader2 className="cc-spin" size={17} />Loading your signals…</p> : stats && <>
       <h3>Your wins &amp; losses</h3>
