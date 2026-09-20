@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { entriesForDay, entriesForType, interventionGroups, interventionOutcome, metricScales, rangeLabel, transactionAmount, transactionEntriesForCurrency } from '../src/components/cupcake/dashboardModel.ts';
+import { entriesForDay, entriesForType, interventionGroups, interventionOutcome, metricScales, rangeLabel, talkSeedFromIntervention, transactionAmount, transactionEntriesForCurrency } from '../src/components/cupcake/dashboardModel.ts';
 
 const entries = [
   { id: 'meal-a', date: '2026-09-07', type: 'food' },
@@ -37,8 +37,25 @@ assert.equal(interventionOutcome({ date: '2026-09-07', type: 'intervention', det
 const groups = interventionGroups(interventions);
 assert.deepEqual(groups.wins.map(entry => entry.id), ['won', 'put-back']);
 assert.deepEqual(groups.losses.map(entry => entry.id), ['lost']);
-assert.deepEqual(groups.unscored.map(entry => entry.id), ['disagreed', 'unknown']);
+assert.deepEqual(groups.unscored.map(entry => entry.id), ['disagreed']);
+assert.deepEqual(groups.missed.map(entry => entry.id), ['unknown']);
+assert.equal(interventionOutcome(interventions[4]), 'missed', 'no-answer is a missed call, not a silent zero');
 assert.deepEqual(groups.interventions.map(entry => entry.id), ['won', 'lost', 'put-back', 'disagreed', 'unknown']);
+
+const seed = talkSeedFromIntervention({
+  id: 'iv-salada',
+  date: '2026-08-19',
+  time: '14:03',
+  title: 'Intervention: Salada',
+  body: 'No answer. Sketchy stop.',
+  details: { merchant: 'Salada', outcome: 'no_answer', missed: true, summary: 'Looked like a drive-through stop.' },
+});
+assert.match(seed.title, /Missed call/);
+assert.equal(seed.lines[0].role, 'Cupcake');
+assert.match(seed.lines[0].text, /Salada/);
+assert.match(seed.lines[0].text, /14:03/);
+assert.doesNotMatch(seed.lines[0].text, /system/i);
+assert.ok(seed.lines[0].text.length <= 2000);
 
 const currencies = [
   { id: 'usd', date: '2026-09-07', type: 'transaction', currency: 'USD' },

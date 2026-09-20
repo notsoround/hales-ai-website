@@ -11,6 +11,7 @@ import {
   Home, MessageCircle, Camera, Trophy, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole,
 } from 'lucide-react';
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
+import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/cupcake/dashboardModel';
 import { libraryRequest } from '../../../../components/cupcake/library';
 
 export const metadata = {
@@ -27,15 +28,31 @@ async function readJson(response: Response) {
   if (!response.ok) throw new Error(`Request failed (${response.status})`);
   return response.json();
 }
+async function updateIntervention(entry: DashboardEntry, note: string, boughtAnyway: boolean | null) {
+  const details = entry.details || {};
+  const response = await fetch(`${API}/cupcake-intervention-update`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: entry.id,
+      note,
+      boughtAnyway,
+      merchant: details.merchant || String(entry.title || '').replace(/^Intervention:\s*/, ''),
+      sheetDate: details.sheetDate || entry.date,
+      sheetTime: details.sheetTime || entry.time || '',
+    }),
+  });
+  await readJson(response);
+}
 const ICON = '/cupcake-avatar.jpg';
 
-type FeedResponse = { items?: Array<FeedItem & { id?: string; calories?: number | null; amount?: number | null; currency?: string | null; details?: Record<string, unknown> }>; totals?: { calories?: number; spendUsd?: number; foodCount?: number; transactionCount?: number }; daily?: Array<{ date: string; calories?: number; spendUsd?: number }>; coverage?: { start: string; end: string; timezone?: string; complete?: boolean; returnedCount?: number; totalCount?: number; spendSource?: string; notes?: string[] } };
+type FeedResponse = { items?: Array<FeedItem & { id?: string; calories?: number | null; amount?: number | null; currency?: string | null; details?: Record<string, unknown> }>; totals?: { calories?: number; spendUsd?: number; foodCount?: number; transactionCount?: number; weightLb?: number | null; weightDate?: string }; daily?: Array<{ date: string; calories?: number; spendUsd?: number }>; coverage?: { start: string; end: string; timezone?: string; complete?: boolean; returnedCount?: number; totalCount?: number; spendSource?: string; notes?: string[] } };
 async function loadDashboardStats(range: DashboardRange): Promise<DashboardStats> {
   const response = await fetch(`${API}/cupcake-feed?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`, { headers: authHeaders(), cache: 'no-store' });
   const data = await readJson(response) as FeedResponse;
   const entries: DashboardEntry[] = (data.items || []).map((item, index) => ({ id: item.id || `${item.type}-${item.ts || index}`, type: item.type, date: item.date, time: item.time, title: item.title, body: item.body, amount: item.amount ?? null, currency: item.currency ?? null, calories: item.calories ?? null, details: item.details, icon: item.icon }));
   const coverageNote = data.coverage ? `${data.coverage.complete === false ? 'Partial coverage. ' : ''}${(data.coverage.notes || []).join(' ')}`.trim() : '';
-  return { range: { start: range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: data.totals?.calories || 0, spend: data.totals?.spendUsd || 0, currency: 'USD' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
+  return { range: { start: range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: data.totals?.calories || 0, spend: data.totals?.spendUsd || 0, currency: 'USD', weightLb: data.totals?.weightLb ?? null, weightDate: data.totals?.weightDate || '' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
 }
 
 type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
@@ -70,6 +87,7 @@ const CupcakeGPT: React.FC = () => {
   const [keyInput,setKeyInput]=useState(()=>sessionStorage.getItem(TOKEN_STORAGE)||'');
   const [unlocking,setUnlocking]=useState(false);const [accessError,setAccessError]=useState('');
   const [mediaBusy,setMediaBusy]=useState(false);const [install,setInstall]=useState<InstallPrompt|null>(null);
+  const openTalkAbout=(entry:DashboardEntry)=>{sessionStorage.setItem(TALK_SEED_KEY,JSON.stringify(talkSeedFromIntervention(entry)));setTab('talk');};
   const unlock=async(e:React.FormEvent)=>{e.preventDefault();if(!keyInput.trim()||unlocking)return;setUnlocking(true);setAccessError('');try{const r=await fetch(`${API}/cupcake-feed`,{headers:{'X-Cupcake-Key':keyInput.trim()},signal:AbortSignal.timeout(20000),cache:'no-store'});if(!r.ok)throw Error();sessionStorage.setItem(TOKEN_STORAGE,keyInput.trim());setUnlocked(true);}catch{setAccessError('Check your Cupcake password and connection, then try again.');}finally{setUnlocking(false);}};
   useEffect(()=>{
     document.title='Cupcake — Your private companion';
@@ -85,16 +103,16 @@ const CupcakeGPT: React.FC = () => {
       {install&&<div className="cc-install"><button className="cc-text-button" onClick={()=>{void install.prompt().then(()=>install.userChoice).then(()=>setInstall(null));}}>Install Cupcake on this device ↗</button></div>}
       {!install&&<p className="cc-muted" style={{fontSize:12}}>To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}
       {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Cupcake is working · open controls</button>}
-      {tab==='feed'&&<><div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Remember this</button></div></div><img src={ICON} alt="Cupcake, your companion"/></div><div className="cc-action-row"><button className="cc-secondary" onClick={()=>setTab('snap')}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div><h3 style={{fontSize:20,marginBottom:16}}>Your latest signals</h3><FeedView/></>}
+      {tab==='feed'&&<><div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Remember this</button></div></div><img src={ICON} alt="Cupcake, your companion"/></div><div className="cc-action-row"><button className="cc-secondary" onClick={()=>setTab('snap')}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div><h3 style={{fontSize:20,marginBottom:16}}>Your latest signals</h3><FeedView onTalkAbout={openTalkAbout}/></>}
       <div hidden={!['talk','record','library'].includes(tab)}><CupcakeStudio active={['talk','record','library'].includes(tab)} mode={tab==='talk'?'talk':tab==='library'?'library':'record'} onBusy={setMediaBusy}/></div>
       <div hidden={tab!=='chat'}><div className="cc-heading-row"><div><span className="cc-eyebrow">QUICK CHAT</span><p className="cc-muted">Everyday conversation with your context. Use Library for deeper strategy and saved analyses.</p></div><button className="cc-text-button" onClick={()=>setTab('library')}>Open strategist ↗</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><ChatView active={tab==='chat'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></div>
-      {tab==='snap'&&<SnapView/>}{tab==='week'&&<><button className="cc-text-button" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><WeekView/></>}
+      {tab==='snap'&&<SnapView/>}{tab==='week'&&<><button className="cc-text-button" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><WeekView onTalkAbout={openTalkAbout}/></>}
     </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
   </div>;
 };
 
 // ---------- FEED ----------
-const FeedView: React.FC = () => {
+const FeedView: React.FC<{ onTalkAbout?: (entry: DashboardEntry) => void }> = ({ onTalkAbout }) => {
   const [items, setItems] = useState<FeedItem[] | null>(null);
   const [err, setErr] = useState(false);
   const [selected, setSelected] = useState<DashboardEntry | null>(null);
@@ -106,7 +124,7 @@ const FeedView: React.FC = () => {
       .catch(() => setErr(true));
   }, []);
   if (err) return <Empty text="Couldn't reach the feed. Try again in a sec." />;
-  if (selected) return <SignalDetail entry={selected} onBack={() => setSelected(null)} loadMeal={loadMeal} />;
+  if (selected) return <SignalDetail entry={selected} onBack={() => setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={() => setSelected(null)} onTalkAbout={onTalkAbout} />;
   if (!items) return <Spinner />;
   if (!items.length) return <Empty text="Nothing yet. Go live your life — Cupcake is watching." />;
   return (
@@ -226,9 +244,9 @@ const Stat: React.FC<{ label: string; value: React.ReactNode }> = ({ label, valu
 );
 
 // ---------- WEEK ----------
-const WeekView: React.FC = () => {
+const WeekView: React.FC<{ onTalkAbout?: (entry: DashboardEntry) => void }> = ({ onTalkAbout }) => {
   const loadMeal = useCallback(async (mealId: string) => (await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId })).meal, []);
-  return <FeedDashboard loadStats={loadDashboardStats} loadMeal={loadMeal} />;
+  return <FeedDashboard loadStats={loadDashboardStats} loadMeal={loadMeal} updateIntervention={updateIntervention} onTalkAbout={onTalkAbout} />;
 };
 
 // ---------- shared ----------

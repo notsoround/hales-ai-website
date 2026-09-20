@@ -8,6 +8,7 @@ import LibraryWorkspace from './LibraryWorkspace';
 import VoiceInputCheck from './VoiceInputCheck';
 import TalkHistory from './TalkHistory';
 import { continuationContext, closeVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator, type SavedTalk, type TalkLine } from './voiceHistory';
+import { TALK_SEED_KEY } from './dashboardModel';
 import { acquireMicrophone, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import { libraryRequest, uploadLabel, type Conversation as Recording } from './library';
 import { RecordingRequestError, uploadRecording, type UploadProgress } from './recordingUpload';
@@ -45,6 +46,7 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
   const [checkpointStatus,setCheckpointStatus]=useState('');
   const [historyStatus,setHistoryStatus]=useState('');const remoteTalkIds=useRef(new Set<string>());const openingTalk=useRef(0);const historyRefresh=useRef<Promise<void>|null>(null);
   const [talks,setTalks]=useState<SavedTalk[]>(()=>readTalks());const [openedTalk,setOpenedTalk]=useState<SavedTalk|null>(null);const talkStarted=useRef('');const talkLocalId=useRef('');
+  const [callSeed,setCallSeed]=useState<SavedTalk|null>(null);
   const voiceMic = useRef<MediaStream | null>(null);const voiceAcquisition=useRef<AbortController|null>(null);
   const captureAcquisition=useRef<AbortController|null>(null);const captureGeneration=useRef(0);const [captureStarting,setCaptureStarting]=useState<'microphone'|'meeting'|null>(null);
   const call = useRef<DailyCall | null>(null); const remoteId=useRef<string|null>(null); const voiceGeneration = useRef(0); const players = useRef(new Map<string, HTMLAudioElement>());
@@ -149,10 +151,11 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
   useEffect(() => { onBusy(recording || voice !== 'idle' || busy || libraryBusy || asking || micTesting); }, [recording, voice, busy, libraryBusy, asking, micTesting, onBusy]);
   useEffect(() => { if (!recording) return; const tick = setInterval(() => { const elapsed = (Date.now()-started.current)/1000; setSeconds(elapsed);  }, 250); const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); }; window.addEventListener('beforeunload', warn); return () => { clearInterval(tick); window.removeEventListener('beforeunload', warn); }; }, [recording]);
   useEffect(()=>{if(!busy)return;const warn=(e:BeforeUnloadEvent)=>{if(uploading.current||importing.current)e.preventDefault();};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[busy]);
+  useEffect(()=>{if(!active||mode!=='talk')return;try{const raw=sessionStorage.getItem(TALK_SEED_KEY);if(!raw)return;const seed=JSON.parse(raw) as SavedTalk;if(!seed?.id||!Array.isArray(seed.lines)||!seed.lines.length)return;setCallSeed(seed);setOpenedTalk(seed);setNotice('This Talk will include why Cupcake called. Tap Talk to Cupcake about this call when you are ready — the microphone stays off until then.');}catch{/* A bad seed must not start a call. */}},[active,mode]);
   useEffect(()=>{const id=new URLSearchParams(location.search).get('recording');if(!id||!/^[a-f0-9]{32}$/.test(id))return;void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(d.recording)).catch(e=>setError(e.message));},[]);
   useEffect(() => { if(!selected || ['ready','failed'].includes(selected.status))return;const id=selected.id;const timer=setInterval(()=>{void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(current=>current?.id===id?d.recording:current)).catch(()=>{});},5000);return()=>clearInterval(timer);},[selected]);
   async function startVoice(previous?:SavedTalk) {
-    if (voice !== 'idle' || recording || busy || micTesting || voiceAcquisition.current) return; stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;const checkpointId=talkLocalId.current;
+    if (voice !== 'idle' || recording || busy || micTesting || voiceAcquisition.current) return; const contextTalk=previous||callSeed||undefined; try{sessionStorage.removeItem(TALK_SEED_KEY);}catch{/* Context still lives in memory for this start. */} setCallSeed(null); stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;const checkpointId=talkLocalId.current;
     const capture:TalkCapture={id:checkpointId,startedAt:talkStarted.current,drain:lineDrain.current,closing:false};talkCapture.current=capture;
     const acquisition=new AbortController();voiceAcquisition.current=acquisition;
     try {
@@ -161,7 +164,7 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
       const mic = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(inputDevice),12000,acquisition.signal);
       if (stoppingVoice.current || generation !== voiceGeneration.current || !mounted.current) { mic.getTracks().forEach(t=>t.stop()); return; }
       voiceMic.current=mic;
-      const body=previous?{context:continuationContext(previous)}:{};
+      const body=contextTalk?{context:continuationContext(contextTalk)}:{};
       const d = await request('cupcake-voice-session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
       if (stoppingVoice.current || generation !== voiceGeneration.current || !mounted.current) {if(d.callId)void endRemote(d.callId);return;} remoteId.current=d.callId;
       const c = Daily.createCallObject({ audioSource: mic.getAudioTracks()[0], videoSource: false, startVideoOff: true }); call.current = c;
@@ -255,7 +258,7 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
     <div hidden={mode!=='talk'}>
       <div className={`cc-portrait ${speaking?'is-speaking':''}`}><img src="/cupcake-avatar.jpg" alt="Cupcake"/><span className="cc-portrait-shade"/><div><span className="cc-eyebrow">YOUR PRIVATE COMPANION</span><h2>I'm listening,<br/>Matt.</h2><p>A real conversation. A little attitude.</p></div></div>
       <VoiceInputCheck deviceId={inputDevice} disabled={voice!=='idle'||recording||busy} onTesting={setMicTesting} onDevice={id=>{setInputDevice(id);saveInputDevice(id);}}/>
-      <div className="cc-action-row"><button className="cc-primary" onClick={()=>voice==='idle'?void startVoice():void endVoice()} disabled={recording||busy||micTesting}>{voice==='idle'?<Headphones size={20}/>:<Square size={18}/>} {voice==='idle'?'Talk to Cupcake':voice==='connecting'?'Cancel connection':'End conversation'}</button>{voice==='live'&&<button className="cc-secondary" onClick={()=>{call.current?.setLocalAudio(muted);setMuted(!muted);}}>{muted?'Unmute':'Mute'}</button>}</div>
+      <div className="cc-action-row"><button className="cc-primary" onClick={()=>voice==='idle'?void startVoice(callSeed||undefined):void endVoice()} disabled={recording||busy||micTesting}>{voice==='idle'?<Headphones size={20}/>:<Square size={18}/>} {voice==='idle'?(callSeed?'Talk to Cupcake about this call':'Talk to Cupcake'):voice==='connecting'?'Cancel connection':'End conversation'}</button>{voice==='live'&&<button className="cc-secondary" onClick={()=>{call.current?.setLocalAudio(muted);setMuted(!muted);}}>{muted?'Unmute':'Mute'}</button>}</div>
       <a className="cc-text-button" href="/cupcake?tab=library&view=messages">Browse saved Telegram and WhatsApp messages →</a>
       <p className="cc-muted">Private voice session · microphone on only after you start · live back-and-forth voice. She can search your private library and use a recent context snapshot. This conversation cannot take actions.</p>
       {voice==='live'&&<button className="cc-text-button" onClick={()=>players.current.forEach(p=>void p.play().then(()=>call.current?.sendAppMessage('playable')).catch(()=>setError('Audio is still blocked. Allow sound for hales.ai, then tap Resume audio.')))}>Resume audio</button>}
