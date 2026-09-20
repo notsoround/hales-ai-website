@@ -5,6 +5,7 @@ export type Exchange = { role: string; text?: string; content?: string; model?: 
 export type Analysis = { id?: string; message?: string; question?: string; reply?: string; model?: string; createdAt?: string; sources?: Source[] };
 export type Conversation = {
   id: string; title: string; createdAt: string; updatedAt?: string; status: string; kind?: string; sourceApp?: string;
+  excerpt?: string; speakerRole?: string; provenance?: { sourceSystem?: string; attribution?: { speakerRole?: string }; occurredAt?: string };
   error?: string; durationSeconds?: number; progress?: { completed: number; total: number }; phase?: string;
   receivedBytes?: number; totalBytes?: number; expectedBytes?: number; transcript?: string; text?: string; summary?: string;
   analysisModel?: string; summaryModel?: string; transcriptionModel?: string; chatModel?: string; models?: Record<string, string>;
