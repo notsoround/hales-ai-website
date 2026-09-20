@@ -63,9 +63,13 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
 }
 
 const requests=[];
-const app=surface('LibraryWorkspace.tsx',{active:true,onOpenRecording(){},onWork(){}},{api:async body=>{requests.push(body);if(body.action==='list')return body.sourceFilter==='channel-messages'?{documents:[{id:'doc_synthetic',title:'Synthetic',createdAt:'2026-09-20T00:00:00Z',status:'ready',speakerRole:'assistant',sourceApp:'Cupcake Telegram conversation',excerpt:'Synthetic excerpt'}],browseTotal:510}:{documents:[],projects:[],browseTotal:0,libraryTotal:510,hasMore:false};throw Error('Unexpected request');}});
+const app=surface('LibraryWorkspace.tsx',{active:true,onOpenRecording(){},onWork(){}},{api:async body=>{requests.push(body);if(body.action==='list')return body.sourceFilter==='channel-messages'?{documents:[{id:'doc_synthetic',title:'Synthetic',createdAt:'2026-09-20T00:00:00Z',status:'ready',speakerRole:'assistant',sourceApp:'Cupcake Telegram conversation',excerpt:'Synthetic excerpt'}],browseTotal:510,nextCursor:'synthetic-next'}:{documents:[],projects:[],browseTotal:0,libraryTotal:510,hasMore:false};throw Error('Unexpected request');}});
 await app.settle();assert.equal(requests[0].sourceFilter,'artifacts');
 button(app.tree,'Channel messages').props.onClick();await app.settle();
 assert.equal(requests.at(-1).sourceFilter,'channel-messages');assert.match(text(app.tree),/1 shown of 510 channel messages/);assert.match(text(app.tree),/Cupcake · AI/);assert.match(text(app.tree),/Continue the conversation in Telegram or WhatsApp/);
-one(app.tree,item=>item.type==='button'&&item.props['aria-label']==='Refresh channel messages').props.onClick();await app.settle();assert.equal(requests.filter(x=>x.sourceFilter==='channel-messages').length,2);
+button(app.tree,'Load more messages').props.onClick();button(app.tree,'Load more messages').props.onClick();await app.settle();assert.equal(requests.filter(x=>x.cursor).length,1);assert.match(text(app.tree),/1 shown of 510/);
+one(app.tree,item=>item.type==='button'&&item.props['aria-label']==='Refresh channel messages').props.onClick();await app.settle();assert.equal(requests.filter(x=>x.sourceFilter==='channel-messages').length,3);
 app.unmount();console.log('Channel message view and refresh passed');
+let resolveOld;const raceRequests=[];
+const race=surface('LibraryWorkspace.tsx',{active:true,onOpenRecording(){},onWork(){}},{api:async body=>{raceRequests.push(body);if(body.sourceFilter==='channel-messages')return new Promise(resolve=>{resolveOld=resolve});return {documents:[],projects:[],browseTotal:0,libraryTotal:0,hasMore:false};}});
+await race.settle();button(race.tree,'Channel messages').props.onClick();await race.settle();button(race.tree,'All context').props.onClick();await race.settle();resolveOld({documents:[{id:'late',title:'STALE RESULT',createdAt:'2026-09-20',status:'ready'}],browseTotal:1,nextCursor:null});await race.settle();assert.doesNotMatch(text(race.tree),/STALE RESULT/);race.unmount();console.log('Late channel response ignored after view change');

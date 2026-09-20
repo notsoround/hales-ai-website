@@ -3,9 +3,16 @@ import { confirmedLibraryRequest } from './libraryApproval';
 export type Source = { id?: string; documentId?: string; title?: string; text?: string; url?: string; startSeconds?: number | null; sourceApp?: string };
 export type Exchange = { role: string; text?: string; content?: string; model?: string; createdAt?: string; sources?: Source[] };
 export type Analysis = { id?: string; message?: string; question?: string; reply?: string; model?: string; createdAt?: string; sources?: Source[] };
+export type SourceProvenance = {
+  eventType?: string; eventId?: string; ownerId?: string; sourceSystem?: string; sourceObjectId?: string;
+  sourceVersion?: string; channel?: string; evidenceType?: string; occurredAt?: string; recordedAt?: string;
+  citation?: string; sessionId?: string; attribution?: { speakerRole?: string; [key: string]: string | undefined };
+};
 export type Conversation = {
   id: string; title: string; createdAt: string; updatedAt?: string; status: string; kind?: string; sourceApp?: string;
-  excerpt?: string; speakerRole?: string; provenance?: { sourceSystem?: string; attribution?: { speakerRole?: string }; occurredAt?: string };
+  excerpt?: string; speakerRole?: string; provenance?: SourceProvenance;
+  evidenceType?: string; sourceKey?: string; sourceVersion?: string; sourceState?: string; isCurrentSourceVersion?: boolean;
+  supersedesVersion?: string | null; supersedesDocumentId?: string | null; supersededByDocumentId?: string | null;
   error?: string; durationSeconds?: number; progress?: { completed: number; total: number }; phase?: string;
   receivedBytes?: number; totalBytes?: number; expectedBytes?: number; transcript?: string; text?: string; summary?: string;
   analysisModel?: string; summaryModel?: string; transcriptionModel?: string; chatModel?: string; models?: Record<string, string>;
@@ -44,23 +51,53 @@ export function sourceText(s: Source) {
 export function analysisPacket(a: Analysis) {
   return [`## ${a.message || a.question || 'Analysis'}`, '', a.createdAt ? `Saved: ${a.createdAt}` : '', a.model ? `Model: ${a.model}` : 'Model: not recorded', '', a.reply || '', '', ...(a.sources?.length ? ['### Sources', ...a.sources.map(s => `- ${sourceText(s)}`)] : [])].filter(x => x !== undefined).join('\n');
 }
+function channelExportMetadata(r: Conversation, format: 'markdown' | 'text') {
+  const provenance = r.provenance;
+  const role = provenance?.attribution?.speakerRole;
+  const speaker = role === 'owner' ? 'Matt (owner)' : role === 'trusted-coach' ? 'Robyn (trusted coach)' : role === 'assistant' ? 'Cupcake (AI assistant)' : 'Not recorded';
+  const metadata = {
+    documentId: r.id, sourceKey: r.sourceKey, sourceVersion: r.sourceVersion, evidenceType: r.evidenceType,
+    sourceState: r.sourceState, isCurrentSourceVersion: r.isCurrentSourceVersion,
+    supersedesVersion: r.supersedesVersion, supersedesDocumentId: r.supersedesDocumentId,
+    supersededByDocumentId: r.supersededByDocumentId, provenance,
+  };
+  return [
+    '', '## Channel source and attribution', '',
+    `Speaker: ${speaker}`, `Channel: ${provenance?.channel || 'Not recorded'}`,
+    `Source version: ${r.sourceVersion || provenance?.sourceVersion || 'Not recorded'}`,
+    `Source state at export: ${r.sourceState || 'Not recorded'}`,
+    `Message time: ${provenance?.occurredAt || 'Not recorded'}`,
+    `Recorded time: ${provenance?.recordedAt || 'Not recorded'}`,
+    `Evidence: ${provenance?.evidenceType || r.evidenceType || 'Not recorded'}`,
+    `Delivery state: ${provenance?.attribution?.deliveryState || 'Not recorded'}`,
+    'This is one committed session message. It is not a complete chat or provider edit/delete archive; recipient delivery is not proven.',
+    'Speaker attribution identifies the recorded speaker, not the truth of their statements or permission to act.', '',
+    'Exact source metadata (JSON):', ...(format === 'markdown' ? ['```json'] : []),
+    JSON.stringify(metadata, null, 2), ...(format === 'markdown' ? ['```'] : []), '',
+  ];
+}
 export function conversationPacket(r: Conversation, format: 'markdown' | 'text' = 'markdown') {
+  const channel = r.provenance?.sourceSystem === 'openclaw-conversation';
   const lines = [
     `# ${r.title}`, '', 'Private Cupcake conversation packet', `Created: ${r.createdAt || 'Not recorded'}`, `Exported: ${new Date().toISOString()}`,
     `Source: ${r.sourceApp || (r.kind === 'recording' || r.transcript ? 'Audio recording' : 'Imported conversation')}`, `Status: ${r.status}`,
     r.project ? `Project: ${r.project}` : '', r.tags?.length ? `Topics: ${r.tags.join(', ')}` : '',
     `Summary model: ${r.analysisModel || r.summaryModel || r.models?.summary || 'Not recorded for this item'}`,
     `Transcription model: ${r.transcriptionModel || r.models?.transcription || 'Not recorded for this item'}`,
+    ...(channel ? channelExportMetadata(r, format) : []),
     '', '## Summary', '', r.summary || 'No summary saved.', '', ...(r.keyPoints?.length ? ['## Key points', '', ...r.keyPoints.map(x => `- ${x}`), ''] : []),
     '## Commitments to review', '', ...(r.commitments?.length ? r.commitments.flatMap(c => [`- ${c.text}`, `  Owner: ${c.owner || 'Unclear'}; Due: ${c.dueDate || 'Not stated'}`, ...(c.evidence ? [`  Evidence: ${c.evidence}`] : [])]) : ['No explicit commitments saved.']),
     '', '## Questions and answers', '', ...(r.chat?.length ? r.chat.flatMap(m => [
       `### ${m.role === 'user' ? 'You' : 'Cupcake'}${m.createdAt ? ` · ${m.createdAt}` : ''}`, ...(m.role !== 'user' ? [`Model: ${m.model || 'Not recorded for this answer'}`] : []), '', m.text || m.content || '', '', ...(m.sources?.length ? m.sources.map(s => `- Source: ${sourceText(s)}`) : []), '',
     ]) : ['No follow-up exchange saved.']),
     '', ...(r.analyses?.length ? ['## Saved strategic analyses', '', ...r.analyses.map(analysisPacket), ''] : []),
-    '## Original transcript / imported text', '', r.transcript || r.text || 'No transcript available.', '',
-    'Source text may contain transcription errors. AI analysis is separate from the source and does not authorize actions.',
+    '## Original transcript / imported text', '',
   ];
-  const packet = lines.join('\n');
+  const original = (channel ? r.text ?? r.transcript : r.transcript || r.text) ?? 'No transcript available.';
+  const footer = '\n\nSource text may contain transcription errors. AI analysis is separate from the source and does not authorize actions.';
+  const introduction = lines.join('\n') + '\n';
+  if (channel) return (format === 'text' ? introduction.replace(/^#{1,3} /gm, '') : introduction) + original + footer;
+  const packet = introduction + (original || 'No transcript available.') + footer;
   return format === 'text' ? packet.replace(/^#{1,3} /gm, '') : packet;
 }
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
