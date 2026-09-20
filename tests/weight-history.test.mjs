@@ -18,3 +18,7 @@ const props={entries:[entry('a','measurement','2026-09-19T19:00:00Z',202),entry(
 const walk=e=>!e||typeof e!=='object'?[]:Array.isArray(e)?e.flatMap(walk):[e,...walk(e.props?.children)];
 let tree=exports.WeightHistory(props);const button=walk(tree).find(e=>e.type==='button'&&e.props['aria-pressed']===false&&walk(e.props.children).some(c=>c.type==='strong'&&c.props.children.includes('202.0')));assert.ok(button);button.props.onClick();tree=exports.WeightHistory(props);assert.equal(state,'a');assert.ok(walk(tree).some(e=>e.type==='button'&&e.props['aria-pressed']===true&&walk(e.props.children).some(c=>c.type==='strong'&&c.props.children.includes('202.0'))));
 });
+test('canonical history uses half-open Chicago bounds across daylight saving and all-time omits bounds',()=>{
+ const exports={};vm.runInNewContext(ts.transpileModule(readFileSync('src/components/cupcake/weightApi.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,require:()=>({libraryRequest(){}}),Date,Intl});
+ const bounds=exports.weightBounds({preset:'day',start:'2026-03-08',end:'2026-03-08'});assert.equal(bounds.start,'2026-03-08T06:00:00.000Z');assert.equal(bounds.end,'2026-03-09T05:00:00.000Z');assert.equal(Object.keys(exports.weightBounds({preset:'all'})).length,0);
+});

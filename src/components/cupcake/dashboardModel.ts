@@ -64,8 +64,8 @@ export function metricScales(series: DashboardMetricDay[]) {
   };
 }
 
-export function rangeLabel(preset: 'day' | 'week' | 'month' | 'custom') {
-  return preset === 'day' ? 'Day' : preset === 'week' ? 'Last 7 days' : preset === 'month' ? 'Last 30 days' : 'Custom';
+export function rangeLabel(preset: 'day' | 'week' | 'month' | 'custom' | 'all') {
+  return preset === 'all' ? 'All time' : preset === 'day' ? 'Day' : preset === 'week' ? 'Last 7 days' : preset === 'month' ? 'Last 30 days' : 'Custom';
 }
 
 export const TALK_SEED_KEY = 'cupcake-talk-seed-v1';
