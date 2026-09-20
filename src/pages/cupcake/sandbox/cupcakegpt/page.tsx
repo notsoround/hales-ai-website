@@ -1,3 +1,4 @@
+import {QuickChat} from '../../../../components/cupcake/QuickChat';
 // CupcakeGPT — Matt's AI accountability app
 // Chat + food-photo calorie tracking + live feed + week view.
 // Talks to n8n webhooks on automate.hales.ai (CORS-enabled).
@@ -7,7 +8,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 // framer-motion intentionally not used: tab switches must render instantly and
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
-  Home, MessageCircle, Camera, Trophy, ArrowLeft, Send, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole,
+  Home, MessageCircle, Camera, Trophy, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole,
 } from 'lucide-react';
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
 import { libraryRequest } from '../../../../components/cupcake/library';
@@ -38,14 +39,6 @@ async function loadDashboardStats(range: DashboardRange): Promise<DashboardStats
 }
 
 type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
-type ChatMsg = { role: 'user' | 'cupcake'; text: string };
-
-type SpeechInput = {
-  lang: string; interimResults: boolean;
-  onresult: (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
-  onend: () => void; start: () => void; stop: () => void;
-};
-type SpeechWindow = Window & { SpeechRecognition?: new () => SpeechInput; webkitSpeechRecognition?: new () => SpeechInput };
 type FoodResult = { meal?: FoodMeal; duplicate?: boolean; error?: boolean; Description?: string; description?: string; Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number };
 
 async function prepareFoodImage(file: File) {
@@ -72,7 +65,7 @@ const tabs = [
 type TabKey = (typeof tabs)[number]['key'] | 'snap' | 'week';
 type InstallPrompt = Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 const CupcakeGPT: React.FC = () => {
-  const [tab,setTab]=useState<TabKey>(()=>{const q=new URLSearchParams(location.search);return (q.get('tab')==='library'||q.has('recording')||q.has('document')||q.has('analysis'))?'library':q.has('shared')?'record':q.get('tab')==='week'?'week':'feed';});
+  const [tab,setTab]=useState<TabKey>(()=>{const q=new URLSearchParams(location.search);return (q.get('tab')==='library'||q.has('recording')||q.has('document')||q.has('analysis'))?'library':q.has('shared')?'record':q.get('tab')==='week'?'week':q.get('tab')==='chat'||q.has('thread')?'chat':'feed';});
   const [speak,setSpeak]=useState(false);const [unlocked,setUnlocked]=useState(false);
   const [keyInput,setKeyInput]=useState(()=>sessionStorage.getItem(TOKEN_STORAGE)||'');
   const [unlocking,setUnlocking]=useState(false);const [accessError,setAccessError]=useState('');
@@ -94,7 +87,7 @@ const CupcakeGPT: React.FC = () => {
       {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Cupcake is working · open controls</button>}
       {tab==='feed'&&<><div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Remember this</button></div></div><img src={ICON} alt="Cupcake, your companion"/></div><div className="cc-action-row"><button className="cc-secondary" onClick={()=>setTab('snap')}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div><h3 style={{fontSize:20,marginBottom:16}}>Your latest signals</h3><FeedView/></>}
       <div hidden={!['talk','record','library'].includes(tab)}><CupcakeStudio active={['talk','record','library'].includes(tab)} mode={tab==='talk'?'talk':tab==='library'?'library':'record'} onBusy={setMediaBusy}/></div>
-      {tab==='chat'&&<><div className="cc-heading-row"><div><span className="cc-eyebrow">QUICK CHAT</span><p className="cc-muted">Everyday conversation with your context. Use Library for deeper strategy and saved analyses.</p></div><button className="cc-text-button" onClick={()=>setTab('library')}>Open strategist ↗</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><ChatView speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></>}
+      <div hidden={tab!=='chat'}><div className="cc-heading-row"><div><span className="cc-eyebrow">QUICK CHAT</span><p className="cc-muted">Everyday conversation with your context. Use Library for deeper strategy and saved analyses.</p></div><button className="cc-text-button" onClick={()=>setTab('library')}>Open strategist ↗</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><ChatView active={tab==='chat'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></div>
       {tab==='snap'&&<SnapView/>}{tab==='week'&&<><button className="cc-text-button" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><WeekView/></>}
     </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
   </div>;
@@ -138,102 +131,7 @@ const FeedView: React.FC = () => {
 };
 
 // ---------- CHAT ----------
-const ChatView: React.FC<{ speak: boolean; mediaBusy: boolean }> = ({ speak, mediaBusy }) => {
-  const [msgs, setMsgs] = useState<ChatMsg[]>([
-    { role: 'cupcake', text: "Hey Matt. What are we conquering — or confessing? 🧁" },
-  ]);
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
-  const recRef = useRef<SpeechInput | null>(null);
-  useEffect(() => () => { recRef.current?.stop(); window.speechSynthesis?.cancel(); }, []);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, busy]);
-
-  const say = useCallback((text: string) => {
-    if (!speak || typeof window === 'undefined' || !window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.05; u.pitch = 1.15;
-    window.speechSynthesis.speak(u);
-  }, [speak]);
-
-  const send = async (text: string) => {
-    const t = text.trim();
-    if (!t || busy) return;
-    setMsgs((m) => [...m, { role: 'user', text: t }]);
-    setInput(''); setBusy(true);
-    try {
-      const r = await fetch(`${API}/cupcake-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ message: t, history: msgs.slice(-20).map(m=>({role:m.role==='cupcake'?'assistant':'user',content:m.text})) }),
-      });
-      const d = await readJson(r);
-      const reply = d.reply || "Hmm, my brain glitched. Say that again?";
-      setMsgs((m) => [...m, { role: 'cupcake', text: reply }]);
-      say(reply);
-    } catch {
-      setMsgs((m) => [...m, { role: 'cupcake', text: "Can't reach the kitchen right now. Try again." }]);
-    } finally { setBusy(false); }
-  };
-
-  const toggleMic = () => {
-    if(mediaBusy)return;
-    const SR = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
-    if (!SR) { alert('Voice input needs Chrome/Safari.'); return; }
-    if (listening) { recRef.current?.stop(); return; }
-    const rec = new SR();
-    rec.lang = 'en-US'; rec.interimResults = false;
-    rec.onresult = (e) => setInput(e.results[0][0].transcript);
-    rec.onend = () => setListening(false);
-    rec.start(); recRef.current = rec; setListening(true);
-  };
-
-  return (
-    <div className="flex flex-col h-[calc(100vh-11rem)]">
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-        {msgs.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-snug ${
-              m.role === 'user'
-                ? 'bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-br-sm'
-                : 'bg-white/[0.07] border border-white/5 text-white/90 rounded-bl-sm'}`}>
-              {m.text}
-            </div>
-          </div>
-        ))}
-        {busy && (
-          <div className="flex justify-start">
-            <div className="bg-white/[0.07] border border-white/5 px-4 py-3 rounded-2xl rounded-bl-sm">
-              <Loader2 className="animate-spin text-pink-300" size={16} />
-            </div>
-          </div>
-        )}
-        <div ref={endRef} />
-      </div>
-
-      <div className="flex items-center gap-2 pt-3">
-        <button disabled={mediaBusy} onClick={toggleMic}
-          className={`p-3 rounded-full transition ${listening ? 'bg-pink-500 text-white animate-pulse' : 'bg-white/10 text-pink-200'}`}
-          aria-label="Voice input">
-          <Mic size={18} />
-        </button>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send(input)}
-          placeholder="Talk to Cupcake…"
-          className="flex-1 bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm outline-none focus:border-pink-400/50 placeholder:text-white/30"
-        />
-        <button onClick={() => send(input)} disabled={busy || !input.trim()}
-          className="p-3 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 disabled:opacity-40 transition" aria-label="Send">
-          <Send size={18} />
-        </button>
-      </div>
-    </div>
-  );
-};
+const ChatView = QuickChat;
 
 // ---------- SNAP (food photo) ----------
 const SnapView: React.FC = () => {
