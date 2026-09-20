@@ -1,3 +1,4 @@
+import {TalkCheckpointRecovery, remoteTalkSummary, talkDeviceStorage, type RemoteTalk, type RemoteTalkSession} from './talkCheckpoints';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Daily, { type DailyCall } from '@daily-co/daily-js';
 import { Mic, Square, Upload, Headphones, Download, Monitor, LockKeyhole } from 'lucide-react';
@@ -6,7 +7,7 @@ import ConversationPanel from './ConversationPanel';
 import LibraryWorkspace from './LibraryWorkspace';
 import VoiceInputCheck from './VoiceInputCheck';
 import TalkHistory from './TalkHistory';
-import { archiveTalk, continuationContext, drainVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator, type SavedTalk, type TalkLine } from './voiceHistory';
+import { continuationContext, closeVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator, type SavedTalk, type TalkLine } from './voiceHistory';
 import { acquireMicrophone, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import { libraryRequest, uploadLabel, type Conversation as Recording } from './library';
 import { RecordingRequestError, uploadRecording, type UploadProgress } from './recordingUpload';
@@ -26,12 +27,23 @@ function mediaError(error: unknown) {
 const extension = (mime:string) => mime.includes('mp4')?'m4a':mime.includes('mpeg')?'mp3':mime.includes('wav')?'wav':mime.includes('ogg')?'ogg':'webm';
 const clock = (s: number) => `${Math.floor(s / 60).toString().padStart(2,'0')}:${Math.floor(s % 60).toString().padStart(2,'0')}`;
 function download(blob: Blob, name: string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1500); }
+function mergeTalks(incoming:SavedTalk[],current:SavedTalk[],recovery:TalkCheckpointRecovery){
+ const rows=new Map(current.map(t=>[t.id,t]));
+ for(const talk of incoming)rows.set(talk.id,{...talk,archived:recovery.isArchived(talk.id,rows.get(talk.id)?.archived??talk.archived??false)});
+ return [...rows.values()].map(t=>({...t,archived:recovery.isArchived(t.id,t.archived)})).sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt));
+}
+type TalkCapture={id:string;startedAt:string;drain:TalkLineDrain;closing:boolean};
 
 export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void; active?: boolean }) {
   const [error, setError] = useState(''); const [notice,setNotice]=useState(''); const [failedUploadId,setFailedUploadId]=useState<string|null>(null); const importing=useRef(false); const [voice, setVoice] = useState<'idle'|'connecting'|'live'>('idle'); const [muted, setMuted] = useState(false);
   const [lines, setLines] = useState<TalkLine[]>([]); const linesRef=useRef<TalkLine[]>([]); const lineDrain=useRef(new TalkLineDrain()); const endingVoice=useRef(new VoiceEndingCoordinator()); const stoppingVoice=useRef(false); const [speaking, setSpeaking] = useState(false);
+  const talkCapture=useRef<TalkCapture|null>(null);
   const [inputDevice,setInputDevice]=useState(readInputDevice);
   const [micTesting,setMicTesting]=useState(false);
+  const checkpointRecovery=useRef<TalkCheckpointRecovery|null>(null);
+  if(!checkpointRecovery.current)checkpointRecovery.current=new TalkCheckpointRecovery(talkDeviceStorage(),p=>libraryRequest(p));
+  const [checkpointStatus,setCheckpointStatus]=useState('');
+  const [historyStatus,setHistoryStatus]=useState('');const remoteTalkIds=useRef(new Set<string>());const openingTalk=useRef(0);const historyRefresh=useRef<Promise<void>|null>(null);
   const [talks,setTalks]=useState<SavedTalk[]>(()=>readTalks());const [openedTalk,setOpenedTalk]=useState<SavedTalk|null>(null);const talkStarted=useRef('');const talkLocalId=useRef('');
   const voiceMic = useRef<MediaStream | null>(null);const voiceAcquisition=useRef<AbortController|null>(null);
   const captureAcquisition=useRef<AbortController|null>(null);const captureGeneration=useRef(0);const [captureStarting,setCaptureStarting]=useState<'microphone'|'meeting'|null>(null);
@@ -54,34 +66,84 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
     }
     if(mounted.current)setError('Voice disconnected locally. Server session cleanup could not be confirmed.');
   },[]);
-  const syncTalk=useCallback(async(talk:SavedTalk,devicePersisted=true)=>{try{const d=await libraryRequest<{document:{id:string}}>({action:'import',kind:'conversation',sourceApp:'Cupcake voice',title:talk.title,text:talk.lines.map(x=>`${x.role}:\n${x.text}`).join('\n\n')});const saved={...talk,documentId:d.document.id};if(mounted.current){setTalks(saveTalk(saved));setOpenedTalk(current=>current?.id===saved.id?saved:current);}}catch{if(mounted.current)setError(devicePersisted?'Conversation is saved on this device, but not in the private library. Use “Save to private library” to retry.':'Conversation is kept in this open page, but could not be saved on this device or in the private library. Copy it before closing this page.');}},[]);
+  const flushTalk=useCallback(async(id:string)=>{
+    try{await checkpointRecovery.current!.flush(id);if(mounted.current){setTalks(current=>mergeTalks(checkpointRecovery.current!.talks(),current,checkpointRecovery.current!));setCheckpointStatus(['Received transcript lines saved to your private library.',checkpointRecovery.current!.warning()].filter(Boolean).join(' '));}}
+    catch(e){if(mounted.current)setCheckpointStatus(String(e instanceof Error?e.message:e))}
+  },[]);
+  const syncTalk=useCallback(async(talk:SavedTalk,devicePersisted=true)=>{
+    if(checkpointRecovery.current!.get(talk.id)){await flushTalk(talk.id);return;}
+    // Legacy records remain explicit saves; growing new sessions never use import.
+    try{const d=await libraryRequest<{document:{id:string}}>({action:'import',kind:'conversation',sourceApp:'Cupcake voice',title:talk.title,text:talk.lines.map(x=>`${x.role}:\n${x.text}`).join('\n\n')});const saved={...talk,documentId:d.document.id};if(mounted.current){setTalks(current=>mergeTalks(saveTalk(saved),current,checkpointRecovery.current!));setOpenedTalk(current=>current?.id===saved.id?saved:current);}}
+    catch{if(mounted.current)setError(devicePersisted?'Legacy conversation is on this device. Retry Save to private library.':'Copy this conversation before closing; device and library saving could not be confirmed.');}
+  },[flushTalk]);
+  const refreshTalkHistory=useCallback(()=>{
+    if(historyRefresh.current)return historyRefresh.current;
+    const work=(async()=>{try{
+      if(mounted.current)setHistoryStatus('Loading saved conversations…');
+      const data=await libraryRequest<{sessions:RemoteTalk[]}>({action:'talk_list'});
+      if(!mounted.current)return;
+      remoteTalkIds.current=new Set(data.sessions.map(t=>t.id));
+      setTalks(current=>mergeTalks(data.sessions.map(t=>({...remoteTalkSummary(t),lines:current.find(x=>x.id===t.id)?.lines||[]})),current,checkpointRecovery.current!));
+      setHistoryStatus('Saved conversations are up to date.');
+    }catch(e){if(mounted.current)setHistoryStatus(String(e instanceof Error?e.message:e))}})().finally(()=>{historyRefresh.current=null});
+    historyRefresh.current=work;return work;
+  },[]);
+  const openTalk=useCallback(async(talk:SavedTalk)=>{
+    const requestId=++openingTalk.current;
+    setOpenedTalk(talk.lines.length?talk:null);
+    if(!remoteTalkIds.current.has(talk.id)&&!checkpointRecovery.current!.get(talk.id)){setOpenedTalk(talk);return;}
+    setHistoryStatus('Loading saved transcript…');
+    try{
+      const data=await libraryRequest<{session:RemoteTalkSession;libraryStatus:string}>({action:'talk_get',sessionId:talk.id});
+      if(!mounted.current||requestId!==openingTalk.current)return;
+      const loaded=checkpointRecovery.current!.adoptRemote(data.session);
+      setTalks(current=>mergeTalks([loaded],current,checkpointRecovery.current!));setOpenedTalk(loaded);
+      setHistoryStatus(data.libraryStatus==='indexed'?'Saved transcript opened.':'Transcript opened; library indexing is pending.');
+      if(checkpointRecovery.current!.warning())setCheckpointStatus(checkpointRecovery.current!.warning());
+    }catch(e){if(mounted.current&&requestId===openingTalk.current)setHistoryStatus(String(e instanceof Error?e.message:e))}
+  },[]);
+  useEffect(()=>{
+    const recover=()=>{try{setTalks(current=>mergeTalks(checkpointRecovery.current!.talks(),current,checkpointRecovery.current!));for(const item of checkpointRecovery.current!.pending())void flushTalk(item.id);if(checkpointRecovery.current!.warning())setCheckpointStatus(checkpointRecovery.current!.warning());}catch(e){setCheckpointStatus(String(e))}};
+    recover();const timer=setInterval(recover,5000);return()=>clearInterval(timer);
+  },[flushTalk]);
+  useEffect(()=>{void refreshTalkHistory();const refresh=()=>{void refreshTalkHistory()};window.addEventListener('focus',refresh);return()=>window.removeEventListener('focus',refresh)},[refreshTalkHistory]);
   const endVoice = useCallback(() => {
     stoppingVoice.current=true;voiceAcquisition.current?.abort();voiceAcquisition.current=null;
     return endingVoice.current.begin(async()=>{
-      const c=call.current, id=remoteId.current, localId=talkLocalId.current;
+      const c=call.current, id=remoteId.current, capture=talkCapture.current;
       talkLocalId.current='';
+      if(capture)capture.closing=true;
+      const saveCaptured=(final:boolean)=>{
+        if(!capture)return;
+        const captured=final?capture.drain.close():capture.drain.snapshot();
+        if(talkCapture.current===capture)linesRef.current=captured;
+        if(!captured.length)return;
+        const first=captured.find(x=>x.role==='You')?.text||captured[0].text;
+        const talk:SavedTalk={id:capture.id,title:first.slice(0,80)||'Talk with Cupcake',startedAt:capture.startedAt,endedAt:new Date().toISOString(),lines:captured};
+        try{
+          checkpointRecovery.current!.capture(capture.id,captured,final);
+          const stored=persistTalk(talk);
+          void flushTalk(capture.id);
+          if(mounted.current)setTalks(current=>mergeTalks(stored.talks,current,checkpointRecovery.current!));
+        }catch(e){if(mounted.current)setCheckpointStatus(String(e instanceof Error?e.message:e));}
+      };
       try {
         voiceMic.current?.getTracks().forEach(t=>t.stop());voiceMic.current=null;
         for(const player of players.current.values()){player.pause();player.srcObject=null;}
         players.current.clear();
-        const captured=await drainVoiceTransport(c,lineDrain.current);
-        linesRef.current=captured;
-        if(localId&&captured.length){
-          const first=captured.find(x=>x.role==='You')?.text||captured[0].text;
-          const talk:SavedTalk={id:localId,title:first.slice(0,80)||'Talk with Cupcake',startedAt:talkStarted.current||new Date().toISOString(),endedAt:new Date().toISOString(),lines:captured};
-          const stored=persistTalk(talk);
-          if(mounted.current){setTalks(stored.talks);void syncTalk(talk,stored.persisted);}
-        }
+        const confirmed=await closeVoiceTransport(c,()=>saveCaptured(true));
+        if(!confirmed){saveCaptured(false);if(mounted.current)setError('Voice stopped locally; transport closure is not confirmed. Any further received transcript lines will continue saving without starting another call.');}
       } catch {
         if(mounted.current)setError('Voice ended, but saving the conversation could not be confirmed. Copy the visible conversation before leaving this page.');
       } finally {
-        lineDrain.current.close();call.current=null;remoteId.current=null;voiceGeneration.current++;
+        if(talkCapture.current===capture)talkCapture.current=null;
+        call.current=null;remoteId.current=null;voiceGeneration.current++;
         if(mounted.current){setVoice('idle');setSpeaking(false);}
         if(id)void endRemote(id);
         stoppingVoice.current=false;
       }
     });
-  },[endRemote,syncTalk]);
+  },[endRemote,flushTalk]);
   useEffect(() => { mounted.current=true; void refreshDrafts(); return () => { mounted.current = false; cancelRecordingStart(); if (recorder.current?.state === 'recording') recorder.current.stop(); cleanupTracks(); void endVoice(); }; }, [refreshDrafts, cleanupTracks, endVoice, cancelRecordingStart]);
   useEffect(()=>{if((!active||mode!=='record')&&captureAcquisition.current)cancelRecordingStart();if((!active||mode!=='talk')&&voice==='connecting')void endVoice();},[active,mode,voice,cancelRecordingStart,endVoice]);
   useEffect(() => { onBusy(recording || voice !== 'idle' || busy || libraryBusy || asking || micTesting); }, [recording, voice, busy, libraryBusy, asking, micTesting, onBusy]);
@@ -90,9 +152,11 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
   useEffect(()=>{const id=new URLSearchParams(location.search).get('recording');if(!id||!/^[a-f0-9]{32}$/.test(id))return;void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(d.recording)).catch(e=>setError(e.message));},[]);
   useEffect(() => { if(!selected || ['ready','failed'].includes(selected.status))return;const id=selected.id;const timer=setInterval(()=>{void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(current=>current?.id===id?d.recording:current)).catch(()=>{});},5000);return()=>clearInterval(timer);},[selected]);
   async function startVoice(previous?:SavedTalk) {
-    if (voice !== 'idle' || recording || busy || micTesting || voiceAcquisition.current) return; stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;
+    if (voice !== 'idle' || recording || busy || micTesting || voiceAcquisition.current) return; stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;const checkpointId=talkLocalId.current;
+    const capture:TalkCapture={id:checkpointId,startedAt:talkStarted.current,drain:lineDrain.current,closing:false};talkCapture.current=capture;
     const acquisition=new AbortController();voiceAcquisition.current=acquisition;
     try {
+      checkpointRecovery.current!.create(checkpointId,talkStarted.current);
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Voice needs microphone access in a supported browser over HTTPS.');
       const mic = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(inputDevice),12000,acquisition.signal);
       if (stoppingVoice.current || generation !== voiceGeneration.current || !mounted.current) { mic.getTracks().forEach(t=>t.stop()); return; }
@@ -103,7 +167,18 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
       const c = Daily.createCallObject({ audioSource: mic.getAudioTracks()[0], videoSource: false, startVideoOff: true }); call.current = c;
       c.on('track-started', e => { if(stoppingVoice.current||call.current!==c||generation!==voiceGeneration.current)return; if (e?.track.kind !== 'audio' || e.participant?.local) return; const id = e.track.id; const audio = new Audio(); audio.autoplay = true; audio.srcObject = new MediaStream([e.track]); players.current.set(id, audio); void audio.play().then(() => {if(!stoppingVoice.current&&call.current===c&&generation===voiceGeneration.current)c.sendAppMessage('playable');}).catch(() => {if(!stoppingVoice.current&&call.current===c&&generation===voiceGeneration.current)setError('Tap Resume audio to hear Cupcake.');}); });
       c.on('track-stopped', e => { if (e?.track) { const p = players.current.get(e.track.id); if(p) { p.pause(); p.srcObject = null; players.current.delete(e.track.id); } } });
-      c.on('app-message', e => { if(call.current!==c||generation!==voiceGeneration.current)return; let d=e?.data; if(typeof d==='string'){try{d=JSON.parse(d);}catch{return;}} if (!d || typeof d !== 'object') return; if(!stoppingVoice.current&&d.type === 'speech-update') setSpeaking(d.status === 'started' && d.role === 'assistant'); if(d.type === 'transcript' && d.transcriptType === 'final' && typeof d.transcript === 'string'){const line:TalkLine={role:d.role === 'assistant'?'Cupcake':'You',text:d.transcript};if(lineDrain.current.append(line,d.id||d.messageId||d.transcriptId)){const next=lineDrain.current.snapshot();linesRef.current=next;setLines(next);}} });
+      c.on('app-message', e => {let d=e?.data;if(typeof d==='string'){try{d=JSON.parse(d);}catch{return;}}if(!d||typeof d!=='object')return;
+        const current=call.current===c&&generation===voiceGeneration.current&&mounted.current;
+        if(current&&!stoppingVoice.current&&d.type==='speech-update')setSpeaking(d.status==='started'&&d.role==='assistant');
+        if(d.type==='transcript'&&d.transcriptType==='final'&&(d.role==='user'||d.role==='assistant')&&typeof d.transcript==='string'){
+          const line:TalkLine={role:d.role==='assistant'?'Cupcake':'You',text:d.transcript};
+          if(capture.drain.append(line,d.id||d.messageId||d.transcriptId)){
+            const next=capture.drain.snapshot();if(current){linesRef.current=next;setLines(next);}
+            try{checkpointRecovery.current!.capture(checkpointId,next);if(capture.closing)void flushTalk(checkpointId);if(mounted.current)setCheckpointStatus(checkpointRecovery.current!.warning()||'Final transcript saved on this device · syncing privately.');}
+            catch(error){if(mounted.current)setCheckpointStatus(String(error));}
+          }
+        }
+      });
       c.on('left-meeting', () => { if(call.current === c) void endVoice(); }); c.on('error', () => { if(call.current!==c||generation!==voiceGeneration.current)return; setError('The voice connection ended. You can reconnect.'); void endVoice(); });
       await c.join({url:d.webCallUrl}); if (stoppingVoice.current || generation !== voiceGeneration.current || call.current!==c) { await c.destroy().catch(()=>{}); return; } setVoice('live'); setMuted(false);
     } catch(e) { if(stoppingVoice.current||generation!==voiceGeneration.current||!mounted.current)return; setError(mediaError(e)); await endVoice(); }finally{if(voiceAcquisition.current===acquisition)voiceAcquisition.current=null;}
@@ -183,8 +258,11 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
       <div className="cc-action-row"><button className="cc-primary" onClick={()=>voice==='idle'?void startVoice():void endVoice()} disabled={recording||busy||micTesting}>{voice==='idle'?<Headphones size={20}/>:<Square size={18}/>} {voice==='idle'?'Talk to Cupcake':voice==='connecting'?'Cancel connection':'End conversation'}</button>{voice==='live'&&<button className="cc-secondary" onClick={()=>{call.current?.setLocalAudio(muted);setMuted(!muted);}}>{muted?'Unmute':'Mute'}</button>}</div>
       <p className="cc-muted">Private voice session · microphone on only after you start · live back-and-forth voice. She can search your private library and use a recent context snapshot. This conversation cannot take actions.</p>
       {voice==='live'&&<button className="cc-text-button" onClick={()=>players.current.forEach(p=>void p.play().then(()=>call.current?.sendAppMessage('playable')).catch(()=>setError('Audio is still blocked. Allow sound for hales.ai, then tap Resume audio.')))}>Resume audio</button>}
+      <p className="cc-muted cc-small" role="status">{checkpointStatus||'Final transcript lines are checkpointed while you talk. Reopening never starts a call.'}</p>
+      <button className="cc-text-button" onClick={()=>{try{for(const item of checkpointRecovery.current!.pending())void flushTalk(item.id)}catch(e){setCheckpointStatus(String(e))}}}>Retry transcript sync</button>
+      <button className="cc-text-button" onClick={()=>{try{download(new Blob([JSON.stringify(checkpointRecovery.current!.exportOriginals(),null,2)],{type:'application/json'}),'cupcake-talk-originals.json')}catch(e){setCheckpointStatus(String(e))}}}>Export received transcripts</button>
       <div className="cc-transcript" aria-live="polite">{lines.map((l,i)=><p key={i}><strong>{l.role}</strong>{l.text}</p>)}</div>
-      {voice==='idle'&&<TalkHistory talks={talks} selected={openedTalk} onOpen={setOpenedTalk} onClose={()=>setOpenedTalk(null)} onContinue={talk=>void startVoice(talk)} onSave={talk=>void syncTalk(talk)} onArchive={(talk,archived)=>{setTalks(archiveTalk(talk.id,archived));setOpenedTalk(null);}}/>}
+      {voice==='idle'&&<><button className="cc-text-button" onClick={()=>void refreshTalkHistory()}>Refresh saved conversations</button><p className="cc-muted cc-small" role="status">{historyStatus}</p><TalkHistory talks={talks} selected={openedTalk} onOpen={talk=>void openTalk(talk)} onClose={()=>{openingTalk.current++;setOpenedTalk(null)}} onContinue={talk=>void startVoice(talk)} onSave={talk=>void syncTalk(talk)} onArchive={(talk,archived)=>{checkpointRecovery.current!.setArchived(talk.id,archived);setTalks(current=>current.map(t=>t.id===talk.id?{...t,archived}:t));openingTalk.current++;setOpenedTalk(null);if(checkpointRecovery.current!.warning())setCheckpointStatus(checkpointRecovery.current!.warning());}}/></>}
     </div>
     <div hidden={mode!=='record'}>
       <span className="cc-eyebrow">RECORD & REMEMBER</span><h2>Catch the conversation.<br/><em>Keep what matters.</em></h2>

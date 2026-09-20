@@ -65,7 +65,7 @@ const tabs = [
 type TabKey = (typeof tabs)[number]['key'] | 'snap' | 'week';
 type InstallPrompt = Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 const CupcakeGPT: React.FC = () => {
-  const [tab,setTab]=useState<TabKey>(()=>{const q=new URLSearchParams(location.search);return (q.get('tab')==='library'||q.has('recording')||q.has('document')||q.has('analysis'))?'library':q.has('shared')?'record':q.get('tab')==='week'?'week':q.get('tab')==='chat'||q.has('thread')?'chat':'feed';});
+  const [tab,setTab]=useState<TabKey>(()=>{const q=new URLSearchParams(location.search);return (q.get('tab')==='library'||q.has('recording')||q.has('document')||q.has('analysis'))?'library':q.has('shared')?'record':q.get('tab')==='week'?'week':q.get('tab')==='chat'||q.has('thread')?'chat':q.get('tab')==='talk'?'talk':q.get('tab')==='record'?'record':q.get('tab')==='snap'?'snap':'feed';});
   const [speak,setSpeak]=useState(false);const [unlocked,setUnlocked]=useState(false);
   const [keyInput,setKeyInput]=useState(()=>sessionStorage.getItem(TOKEN_STORAGE)||'');
   const [unlocking,setUnlocking]=useState(false);const [accessError,setAccessError]=useState('');

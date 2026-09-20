@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { acquireMicrophone, microphoneConstraints, microphoneMessage } from '../src/components/cupcake/voiceInput.ts';
-import { drainVoiceTransport, TalkLineDrain, VoiceEndingCoordinator } from '../src/components/cupcake/voiceHistory.ts';
+import { closeVoiceTransport, drainVoiceTransport, TalkLineDrain, VoiceEndingCoordinator } from '../src/components/cupcake/voiceHistory.ts';
 
 const source = readFileSync('src/components/cupcake/CupcakeStudio.tsx', 'utf8');
 const ast = ts.createSourceFile('studio.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -30,10 +30,10 @@ function scenario({ deadline = 1000, meeting = false } = {}) {
     recording: false, busy: false, micTesting: false, voice: 'idle', mode: 'talk', active: true, inputDevice: '', title: '', autoAnalyze: false,
     captureAcquisition: ref(null), captureGeneration: ref(0), voiceAcquisition: ref(null), voiceGeneration: ref(0), mounted: ref(true),
     stoppingVoice: ref(false), endingVoice: ref(new VoiceEndingCoordinator()), voiceMic: ref(null), call: ref(null), remoteId: ref(null),
-    talkLocalId: ref(''), talkStarted: ref(''), lineDrain: ref(new TalkLineDrain()), linesRef: ref([]), players: ref(new Map()),
+    talkLocalId: ref(''), talkStarted: ref(''), talkCapture: ref(null), lineDrain: ref(new TalkLineDrain()), linesRef: ref([]), players: ref(new Map()),
     finishing: ref(false), context: ref(null), recorder: ref(null), streams: ref([]), started: ref(0), meterFrame: ref(0),
     useCallback: f => f, acquireMicrophone: (fn, constraints, _deadline, signal) => acquireMicrophone(fn, constraints, deadline, signal),
-    microphoneConstraints, mediaError: microphoneMessage, drainVoiceTransport, TalkLineDrain, VoiceEndingCoordinator, AbortController,
+    microphoneConstraints, mediaError: microphoneMessage, closeVoiceTransport, drainVoiceTransport, TalkLineDrain, VoiceEndingCoordinator, AbortController,
     crypto: { randomUUID: () => 'synthetic-id' }, Date,
     navigator: { mediaDevices: { getUserMedia: () => {events.push('permission-request');return mic.promise;}, getDisplayMedia: () => display.promise } },
     window: { MediaRecorder: true }, MediaRecorder: class { static isTypeSupported() { return true; } constructor() { events.push('recorder-created'); } },
@@ -42,6 +42,7 @@ function scenario({ deadline = 1000, meeting = false } = {}) {
     setCaptureStarting: value => events.push(['starting', value]), setError: value => events.push(['error', value]), setNotice: value => events.push(['notice', value]),
     setRecording: value => { scope.recording = value; }, setPreview: () => {}, setOpenedTalk: () => {}, setLines: () => {}, setSpeaking: () => {}, setMuted: () => {}, setTalks: () => {},
     cleanupTracks: () => { for (const s of scope.streams.current) s.getTracks().forEach(t => t.stop()); scope.streams.current = []; },
+    checkpointRecovery: ref({create:()=>{},capture:()=>{}}), flushTalk:async()=>{}, setCheckpointStatus:()=>{},
     refreshDrafts: async () => {}, endRemote: async () => {}, syncTalk: async () => {},
     putDraft: async () => events.push('draft-created'), setHeardAudio: () => {}, setLevel: () => {}, setInputName: () => {},
     AudioContext:class {async resume(){} close(){} createMediaStreamSource(){return{connect(){}}}createAnalyser(){return {fftSize:512,getByteTimeDomainData(){}}}},
