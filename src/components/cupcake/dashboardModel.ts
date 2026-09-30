@@ -1,7 +1,37 @@
 export type DashboardMetricDay = { date: string; calories: number; spend: number };
 export type DatedEntry = { date: string; type: string; currency?: string | null };
 export type DashboardOutcome = 'win' | 'loss' | 'missed' | 'unscored';
-type OutcomeEntry = DatedEntry & { details?: { outcome?: unknown; boughtAnyway?: unknown; missed?: unknown; ownerUpdated?: unknown } };
+type OutcomeEntry = DatedEntry & { details?: { outcome?: unknown; boughtAnyway?: unknown; missed?: unknown; ownerUpdated?: unknown; ownerPurchaseChoice?: unknown } };
+
+export type OutcomeCounts = { wins: number; losses: number; missed?: number; unscored: number };
+export function outcomeRate(counts: OutcomeCounts) {
+  const scored = counts.wins + counts.losses;
+  return { scored, excluded: (counts.missed || 0) + counts.unscored, percent: scored ? Math.round(counts.wins / scored * 100) : null };
+}
+
+/** Page overlap must not add the same saved record twice. Distinct IDs remain distinct. */
+export function mergeEntries<T extends { id: string }>(current: T[], next: T[]): T[] {
+  const seen = new Set<string>();
+  return [...current, ...next].filter(entry => { if (seen.has(entry.id)) return false; seen.add(entry.id); return true; });
+}
+
+export function validDashboardDates(start: string, end: string): boolean {
+  const valid = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(`${date}T12:00:00Z`)) && new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) === date;
+  return valid(start) && valid(end) && start <= end;
+}
+
+export type DashboardSelection = { title: string } & (
+  { kind: 'outcome'; group: 'wins' | 'losses' | 'missed' | 'unscored' | 'interventions' }
+  | { kind: 'food' }
+  | { kind: 'transaction'; currency?: string }
+  | { kind: 'day'; date: string }
+);
+export function dashboardSelectionEntries<T extends OutcomeEntry>(entries: T[], selection: DashboardSelection): T[] {
+  if (selection.kind === 'outcome') return interventionGroups(entries)[selection.group];
+  if (selection.kind === 'day') return entriesForDay(entries, selection.date);
+  if (selection.kind === 'transaction') return transactionEntriesForCurrency(entries, selection.currency);
+  return entriesForType(entries, 'food');
+}
 
 function missedCall(entry: OutcomeEntry): boolean {
   if (entry.details?.missed === true) return true;
@@ -36,6 +66,7 @@ export function interventionEntries<T extends OutcomeEntry>(entries: T[]): T[] {
 /** Classifies only recorded evidence. A bought-anyway flag takes precedence over the call outcome. */
 export function interventionOutcome(entry: OutcomeEntry): DashboardOutcome {
   if (entry.details?.boughtAnyway === true) return 'loss';
+  if (entry.details?.ownerPurchaseChoice === 'no' && entry.details?.boughtAnyway === false) return 'win';
   const outcome = String(entry.details?.outcome || '').trim().toLowerCase().replace(/[ -]/g, '_');
   if (['agreed_to_stop', 'agreed', 'put_back', 'stopped'].includes(outcome)) return 'win';
   if (missedCall(entry) && entry.details?.boughtAnyway !== false) return 'missed';

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { entriesForDay, entriesForType, interventionGroups, interventionOutcome, metricScales, rangeLabel, talkSeedFromIntervention, transactionAmount, transactionEntriesForCurrency } from '../src/components/cupcake/dashboardModel.ts';
+import { dashboardSelectionEntries, mergeEntries, outcomeRate, validDashboardDates, entriesForDay, entriesForType, interventionGroups, interventionOutcome, metricScales, rangeLabel, talkSeedFromIntervention, transactionAmount, transactionEntriesForCurrency } from '../src/components/cupcake/dashboardModel.ts';
 
 const entries = [
   { id: 'meal-a', date: '2026-09-07', type: 'food' },
@@ -70,3 +70,23 @@ assert.equal(transactionAmount(12.5, 'eur'), 'EUR 12.50', 'transaction detail in
 assert.equal(transactionAmount(12.5, null), 'Currency unknown 12.50', 'unknown currency is never displayed as dollars');
 
 console.log('dashboard model tests passed');
+
+assert.deepEqual(outcomeRate({ wins: 2, losses: 1, missed: 80, unscored: 10 }), { scored: 3, excluded: 90, percent: 67 }, 'missed and unscored never penalize the win rate');
+assert.deepEqual(outcomeRate({ wins: 0, losses: 0, unscored: 5 }), { scored: 0, excluded: 5, percent: null }, 'no scored outcomes is unavailable, not zero percent');
+assert.equal(outcomeRate({ wins: 0, losses: 4, unscored: 0 }).percent, 0, 'actual losses produce a real zero win rate');
+assert.equal(validDashboardDates('2026-03-08', '2026-03-09'), true, 'Chicago DST change does not invalidate calendar days');
+assert.equal(validDashboardDates('2026-02-29', '2026-03-01'), false, 'impossible dates are rejected');
+assert.equal(validDashboardDates('', '2026-09-20'), false);
+assert.equal(validDashboardDates('2026-09-20', '2026-09-19'), false);
+const paged = mergeEntries([currencies[0]], [currencies[0], currencies[1], currencies[1]]);
+assert.deepEqual(paged.map(e => e.id), ['usd', 'eur'], 'overlapping pages and duplicates within a page do not inflate records');
+assert.deepEqual(dashboardSelectionEntries(mergeEntries([entries[0]], [entries[1]]), { title: 'Food', kind: 'food' }).map(e => e.id), ['meal-a', 'meal-b'], 'food drilldowns derive from every loaded page');
+assert.deepEqual(dashboardSelectionEntries(interventions, { title: 'Wins', kind: 'outcome', group: 'wins' }).map(e => e.id), ['won', 'put-back']);
+assert.deepEqual(dashboardSelectionEntries(currencies, { title: 'USD', kind: 'transaction', currency: 'USD' }).map(e => e.id), ['usd']);
+
+assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', details: { outcome: 'no_answer', ownerUpdated: true, ownerPurchaseChoice: 'no', boughtAnyway: false } }), 'win', 'an explicit owner follow-up that they did not buy counts as a win');
+assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', details: { outcome: 'no_answer', ownerUpdated: true, ownerPurchaseChoice: 'no', boughtAnyway: true } }), 'loss', 'an owner purchase remains a loss regardless of missed call');
+assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', details: { outcome: 'hung_up', boughtAnyway: false } }), 'unscored', 'legacy false flags without an owner update never create a win');
+
+assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', details: { outcome: 'no_answer', ownerUpdated: true, boughtAnyway: false } }), 'unscored', 'a note-only update never promotes a legacy false flag to a win');
+assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', details: { outcome: 'no_answer', ownerPurchaseChoice: 'no', boughtAnyway: null } }), 'missed', 'a stale explicit marker without the matching purchase flag is not a win');

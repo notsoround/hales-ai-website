@@ -16,6 +16,7 @@ import {
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
 import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/cupcake/dashboardModel';
 import { libraryRequest } from '../../../../components/cupcake/library';
+import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -59,7 +60,7 @@ async function loadDashboardStats(range: DashboardRange, cursor?: string): Promi
 }
 
 type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
-type FoodResult = { meal?: FoodMeal; duplicate?: boolean; error?: boolean; Description?: string; description?: string; Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number };
+type FoodResult = { meal?: FoodMeal; duplicate?: boolean; error?: boolean; Description?: string; description?: string; Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number; Carbs?: number; carbs_g?: number };
 
 async function prepareFoodImage(file: File) {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPEG, PNG, or WebP image.');
@@ -181,43 +182,38 @@ const SnapView: React.FC = () => {
   const onFile = (f: File) => {
     if (busy) return;
     setError(''); setBusy(true);
-    setConfirmedConsumed(false); setConsumedAt('');
+    setConfirmedConsumed(false); setConsumedAt(''); setPortionNote('');
     void prepareFoodImage(f).then(image => { setPreview(image); setResult(null); }).catch(e => setError(e instanceof Error ? e.message : 'Could not prepare that image.')).finally(() => setBusy(false));
   };
 
   const analyze = async () => {
     if (!preview || busy) return;
-    setBusy(true); setResult(null); setError('');
+    setBusy(true); setResult(null); setError(''); setConfirmedConsumed(false); setPortionNote('');
     try { setResult(await libraryRequest<FoodResult>({ action: 'food_analyze', image: preview, note, estimateVisiblePortion: true, reviewOnly: true })); void loadRecentMeals(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Food analysis failed. The original image remains on this device.'); }
     finally { setBusy(false); }
   };
 
   const retry = async () => { const mealId = result?.meal?.id; if (!mealId || busy) return; setBusy(true); setError(''); try { setResult(await libraryRequest<FoodResult>({ action: 'food_retry', mealId })); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Retry failed.'); } finally { setBusy(false); } };
-  const refine = async () => { const mealId = result?.meal?.id; if (!mealId || !portionNote.trim() || busy) return; setBusy(true); setError(''); try { setResult(await libraryRequest<FoodResult>({ action: 'food_refine', mealId, note: portionNote.trim(), consumedPortions: { note: portionNote.trim() }, reviewOnly: true })); setPortionNote(''); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Could not update the portion estimate.'); } finally { setBusy(false); } };
+  const refine = async () => { const mealId = result?.meal?.id; if (!mealId || !portionNote.trim() || busy) return; setBusy(true); setError(''); setConfirmedConsumed(false); try { setResult(await libraryRequest<FoodResult>({ action: 'food_refine', mealId, note: portionNote.trim(), consumedPortions: { note: portionNote.trim() }, reviewOnly: true })); setPortionNote(''); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Could not update the portion estimate.'); } finally { setBusy(false); } };
   const openMeal = async (mealId: string) => { if (busy) return; setBusy(true); setError(''); try { const data = await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId }); setResult({ meal: data.meal }); setPreview(null); setPortionNote(''); setConfirmedConsumed(false); setConsumedAt(''); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load that saved meal.'); } finally { setBusy(false); } };
 
-  const estimateVisible = async () => {
-    const mealId = result?.meal?.id; if (!mealId || busy) return;
-    setBusy(true); setError('');
-    try { setResult(await libraryRequest<FoodResult>({ action: 'food_refine', mealId, estimateVisiblePortion: true, reviewOnly: true, note: portionNote.trim() || 'Estimate the visible plated portions and describe your assumptions.' })); setConfirmedConsumed(false); void loadRecentMeals(); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Could not estimate these portions.'); }
-    finally { setBusy(false); }
-  };
   const logMeal = async () => {
-    const meal = result?.meal; if (!meal || busy || !confirmedConsumed || (!consumedAt && !meal.pendingConsumedAt)) return;
+    const meal = result?.meal; if (!meal || busy || portionNote.trim() || !confirmedConsumed || (!consumedAt && !meal.pendingConsumedAt)) return;
     setBusy(true); setError('');
+    let attemptedAt = meal.pendingConsumedAt || '';
     try {
       const timestamp = Date.parse(meal.pendingConsumedAt || consumedAt);
       if (!Number.isFinite(timestamp) || timestamp > Date.now()) throw new Error('Choose a valid time when you ate this meal, no later than now.');
       const at = new Date(timestamp).toISOString();
+      attemptedAt = at;
       setResult(current => current?.meal ? { ...current, meal: { ...current.meal, pendingConsumedAt: at } } : current);
       setResult(await libraryRequest<FoodResult>({ action: 'food_log', mealId: meal.id, confirmConsumed: true, consumedAt: at }));
       void loadRecentMeals();
     }
     catch (e) {
       setError(e instanceof Error ? e.message : 'Your food log could not be confirmed. Retry the same meal; it will not be counted twice.');
-      try { const current = await libraryRequest<{meal: FoodMeal}>({ action: 'food_get', mealId: meal.id }); setResult({ meal: current.meal }); } catch { /* Keep the attempted time until the server can confirm it. */ }
+      try { const current = await libraryRequest<{meal: FoodMeal}>({ action: 'food_get', mealId: meal.id }); setResult({ meal: { ...current.meal, ...(!current.meal.sheetLoggedAt && attemptedAt ? { pendingConsumedAt: current.meal.pendingConsumedAt || attemptedAt } : {}) } }); } catch { /* Keep the attempted time until the server can confirm it. */ }
     }
     finally { setBusy(false); }
   };
@@ -234,7 +230,7 @@ const SnapView: React.FC = () => {
           <div className="text-center text-pink-200/50 px-6">
             <Camera size={40} className="mx-auto mb-3" />
             <p className="text-sm">Tap to snap or upload your meal</p>
-            <p className="text-xs mt-1 text-white/30">Cupcake estimates the calories & sugar</p>
+            <p className="text-xs mt-1 text-white/30">Cupcake estimates calories, carbs & sugar</p>
           </div>
         )}
       </div>
@@ -257,24 +253,25 @@ const SnapView: React.FC = () => {
       {result && (
         <div className="bg-white/[0.05] border border-pink-500/20 rounded-2xl p-4">
           <p className="font-semibold text-pink-200">{result.meal?.description || result.Description || result.description || 'Food photo'}</p>
-          <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+          <p className="text-xs text-white/60 mt-2">Estimated nutrition for the portions below.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-center">
             <Stat label="Calories" value={result.meal?.total?.calories ?? result.Calories ?? result.calories} />
+            <Stat label="Total carbs (g)" value={result.meal?.total?.carbs_g ?? result.Carbs ?? result.carbs_g} />
             <Stat label="Sugar (g)" value={result.meal?.total?.sugar_g ?? result.Sugar ?? result.sugar_g} />
             <Stat label="Protein (g)" value={result.meal?.total?.protein_g ?? result.Protein ?? result.protein_g} />
           </div>
           {result.meal?.calorieRange && <p className="text-xs text-pink-200 mt-3">Estimated range: {result.meal.calorieRange.low}–{result.meal.calorieRange.high} kcal. Photo estimates depend on portion size and ingredients.</p>}
           {result.meal?.lookupWarnings?.map(warning => <p className="text-xs text-amber-200 mt-3" key={warning}>Variant warning: {warning}</p>)}
-          {result.meal?.status === 'ready' && !result.meal.sheetLoggedAt && !result.meal.pendingConsumedAt && <>{result.meal.needsClarification && <p className="text-xs text-amber-200 mt-3">Review needed: {result.meal.clarification || 'Some portions were unclear.'}</p>}<input aria-label="Portion corrections" value={portionNote} onChange={e => setPortionNote(e.target.value)} placeholder="Tell Cupcake the portion or variant…" className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm mt-3" /><button className="cc-secondary mt-3" disabled={busy || !portionNote.trim()} onClick={() => void refine()}>Update portion estimate</button></>}
-          {result.meal && !result.meal.sheetLoggedAt && !result.meal.pendingConsumedAt && result.meal.status !== 'analysis_failed' && <button type="button" className="cc-secondary mt-3" disabled={busy} onClick={() => void estimateVisible()}>Estimate shown portions</button>}
+          {result.meal?.status === 'ready' && !result.meal.sheetLoggedAt && !result.meal.pendingConsumedAt && <>{result.meal.needsClarification && <p className="text-xs text-amber-200 mt-3">Review needed: {result.meal.clarification || 'Some portions were unclear.'}</p>}<p className="text-xs text-white/60 mt-3">The photo estimate already uses the visible portions. Correct an item, amount, or product below, then review the updated estimate.</p><input aria-label="Portion corrections" disabled={busy} value={portionNote} onChange={e => { setPortionNote(e.target.value); setConfirmedConsumed(false); }} placeholder="e.g. Half the rice; the drink is sugar-free…" className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm mt-3" /><button className="cc-secondary mt-3" disabled={busy || !portionNote.trim()} onClick={() => void refine()}>Apply correction & re-estimate</button></>}
           {result.meal?.status === 'analysis_failed' && <button className="cc-secondary mt-3" disabled={busy} onClick={() => void retry()}>Retry analysis</button>}
-          {!!result.meal?.items?.length && <div className="cc-snap-items"><strong>Saved item estimates</strong>{result.meal.items.map(item => <div key={item.id}><span>{item.name}{item.quantity != null ? ` · ${item.quantity} ${item.unit || 'portion(s)'}` : ''}</span><small>{item.nutrition?.calories ?? '—'} kcal · {item.provenance || 'estimate'}{item.variantWarning ? ` · ${item.variantWarning}` : ''}{item.calculation ? ` · ${item.calculation}` : ''}{item.portionAssumption ? ` · Assumes ${item.portionAssumption}` : ''}{item.sourceCitations?.map(source => /^https?:\/\//.test(source.url) ? <a key={source.url} href={source.url} target="_blank" rel="noreferrer"> · {source.title}</a> : null)}</small></div>)}</div>}
-          {(result.meal?.totalIsPartial || (result.meal?.total && Object.values(result.meal.total).some(value => value == null))) && <p className="text-xs text-amber-200 mt-3">Partial estimate: some items or nutrients could not be estimated. Unknown values are left blank.</p>}
+          {!!result.meal?.items?.length && <div className="cc-snap-items"><strong>Saved item estimates</strong>{result.meal.items.map(item => <div key={item.id}><span>{item.name}{item.quantity != null ? ` · ${item.quantity} ${item.unit || 'portion(s)'}` : ''}</span><small>{item.nutrition?.calories ?? '—'} kcal · {item.nutrition?.carbs_g ?? '—'} g total carbs · {item.nutrition?.sugar_g ?? '—'} g sugar · {item.provenance || 'estimate'}{item.variantWarning ? ` · ${item.variantWarning}` : ''}{item.calculation ? ` · ${item.calculation}` : ''}{item.portionAssumption ? ` · Assumes ${item.portionAssumption}` : ''}{item.sourceCitations?.map(source => /^https?:\/\//.test(source.url) ? <a key={source.url} href={source.url} target="_blank" rel="noreferrer"> · {source.title}</a> : null)}</small></div>)}</div>}
+          {(result.meal?.totalIsPartial || (result.meal?.total && Object.values(result.meal.total).some(value => value == null))) && <p className="text-xs text-amber-200 mt-3">Partial estimate: some items or nutrients could not be estimated. Unknown values show —.</p>}
           {result.meal?.sheetLoggedAt ? <p className="text-xs text-emerald-300 mt-3" role="status">✓ Added to your food log · included in calories for the day you ate it{result.duplicate ? ' · already counted once' : ''}</p> : result.meal && <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
             <p className="text-sm text-amber-100" role="status">{result.meal.status === 'analysis_failed' ? 'Photo saved. Analysis failed—retry to get an estimate.' : 'Photo saved privately. Not counted in your calorie totals yet.'}</p>
             {result.meal.total?.calories != null && !result.meal.needsClarification && !!result.meal.items?.length && result.meal.items.every(item => item.nutrition?.calories != null) && <>
-              {result.meal.pendingConsumedAt ? <p className="text-xs text-white/60">Retrying the same meal time: {new Date(result.meal.pendingConsumedAt).toLocaleString()}</p> : <label className="cc-label">When did you eat it? <input type="datetime-local" value={consumedAt} onChange={e => setConsumedAt(e.target.value)} className="w-full bg-black/30 border border-white/20 rounded-xl px-3 py-3" /></label>}
-              <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={confirmedConsumed} onChange={e => setConfirmedConsumed(e.target.checked)} />I ate these portions. Add this estimate to my calorie totals.</label>
-              <button type="button" className="cc-primary" disabled={busy || !confirmedConsumed || (!consumedAt && !result.meal.pendingConsumedAt)} onClick={() => void logMeal()}>{busy ? 'Saving…' : 'Add to food log'}</button>
+              {result.meal.pendingConsumedAt ? <p className="text-xs text-white/60">Retrying the same meal time: {new Date(result.meal.pendingConsumedAt).toLocaleString()}</p> : <MealTimeInput key={result.meal.id} value={consumedAt} disabled={busy} onChange={value => { setConsumedAt(value); setConfirmedConsumed(false); }} />}
+              <label className="cc-meal-consent"><input type="checkbox" disabled={busy || !!portionNote.trim()} checked={confirmedConsumed} onChange={e => setConfirmedConsumed(e.target.checked)} />I ate these portions. Add this estimate to my calorie totals.</label>{portionNote.trim() && <p className="text-xs text-amber-200">Apply your correction, or clear it, before confirming these portions.</p>}
+              <button type="button" className="cc-primary" disabled={busy || !!portionNote.trim() || !confirmedConsumed || (!consumedAt && !result.meal.pendingConsumedAt)} onClick={() => void logMeal()}>{busy ? 'Saving…' : 'Add to food log'}</button>
             </>}
           </div>}
 
@@ -304,4 +301,5 @@ const Empty: React.FC<{ text: string }> = ({ text }) => (
   <div className="text-center py-16 text-white/40 text-sm px-8">{text}</div>
 );
 
+export { SnapView };
 export default CupcakeGPT;
