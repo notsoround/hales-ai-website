@@ -16,7 +16,9 @@ import {
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
 import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/cupcake/dashboardModel';
 import { libraryRequest } from '../../../../components/cupcake/library';
+import { LibraryApprovalCancelled } from '../../../../components/cupcake/libraryApproval';
 import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
+import { AppUpdateNotice } from '../../../../components/cupcake/AppUpdateNotice';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -105,6 +107,7 @@ const CupcakeGPT: React.FC = () => {
   if(!unlocked)return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="off" required value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Your password stays in this tab for the session. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
   return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><button className="cc-secondary cc-lock" disabled={mediaBusy} onClick={()=>{sessionStorage.removeItem(TOKEN_STORAGE);setKeyInput('');setUnlocked(false);}}>Lock</button></header>
     <main className="cc-shell">
+      <AppUpdateNotice busy={mediaBusy} />
       {install&&<div className="cc-install"><button className="cc-text-button" onClick={()=>{void install.prompt().then(()=>install.userChoice).then(()=>setInstall(null));}}>Install Cupcake on this device ↗</button></div>}
       {!install&&<p className="cc-muted" style={{fontSize:12}}>To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}
       {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Cupcake is working · open controls</button>}
@@ -212,8 +215,13 @@ const SnapView: React.FC = () => {
       void loadRecentMeals();
     }
     catch (e) {
+      const retainedAt = e instanceof LibraryApprovalCancelled ? meal.pendingConsumedAt || '' : attemptedAt;
+      if (e instanceof LibraryApprovalCancelled && !meal.pendingConsumedAt) {
+        setConfirmedConsumed(false);
+        setResult(current => current?.meal ? { ...current, meal: { ...current.meal, pendingConsumedAt: undefined } } : current);
+      }
       setError(e instanceof Error ? e.message : 'Your food log could not be confirmed. Retry the same meal; it will not be counted twice.');
-      try { const current = await libraryRequest<{meal: FoodMeal}>({ action: 'food_get', mealId: meal.id }); setResult({ meal: { ...current.meal, ...(!current.meal.sheetLoggedAt && attemptedAt ? { pendingConsumedAt: current.meal.pendingConsumedAt || attemptedAt } : {}) } }); } catch { /* Keep the attempted time until the server can confirm it. */ }
+      try { const current = await libraryRequest<{meal: FoodMeal}>({ action: 'food_get', mealId: meal.id }); setResult({ meal: { ...current.meal, ...(!current.meal.sheetLoggedAt && retainedAt ? { pendingConsumedAt: current.meal.pendingConsumedAt || retainedAt } : {}) } }); } catch { /* Keep the attempted time until the server can confirm it. */ }
     }
     finally { setBusy(false); }
   };

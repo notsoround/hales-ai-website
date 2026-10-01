@@ -1,6 +1,11 @@
 type Envelope = Record<string, unknown>;
 type Transport = (body: Envelope) => Promise<Envelope>;
 
+/** No approve request was sent, even if cancelling the pending review failed. */
+export class LibraryApprovalCancelled extends Error {
+  constructor(message: string) { super(message); this.name = 'LibraryApprovalCancelled'; }
+}
+
 /** Complete the server's existing review/approve protocol before reporting success. */
 export async function confirmedLibraryRequest(body: Envelope, send: Transport, confirm: (description: string) => boolean | Promise<boolean>): Promise<Envelope> {
   const pending = await send(body);
@@ -11,8 +16,8 @@ export async function confirmedLibraryRequest(body: Envelope, send: Transport, c
   const id = pending.action_id;
   if (!await confirm(pending.description)) {
     try { await send({ action: 'cancel', action_id: id }); }
-    catch { throw new Error('Nothing was approved. The pending request could not be cancelled and will expire automatically.'); }
-    throw new Error('Cancelled. The requested action was not performed.');
+    catch { throw new LibraryApprovalCancelled('Nothing was approved. The pending request could not be cancelled and will expire automatically.'); }
+    throw new LibraryApprovalCancelled('Cancelled. The requested action was not performed.');
   }
   const approved = await send({ action: 'approve', action_id: id });
   if (approved.status !== 'completed' || approved.action_id !== id || approved.pending === true || !approved.result || typeof approved.result !== 'object') {

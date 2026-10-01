@@ -3,6 +3,7 @@ import { ChevronRight, Loader2, RefreshCw, Trophy } from 'lucide-react';
 import { libraryRequest } from './library';
 import type { DashboardRange } from './DashboardView';
 import { mergeEntries, outcomeRate } from './dashboardModel';
+import { PersonalOutcomeForm, type SavedPersonalOutcome } from './PersonalOutcomeForm';
 
 type PersonalOutcome = {
   id: string; date: string; title: string; outcome: 'win' | 'loss' | 'unscored'; note: string;
@@ -22,6 +23,7 @@ export function PersonalOutcomes({ range, refreshKey }: { range: DashboardRange;
   const [busy, setBusy] = useState(false);
   const [moreBusy, setMoreBusy] = useState(false);
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState<SavedPersonalOutcome | null>(null);
   const version = useRef(0);
   const moreVersion = useRef<number | null>(null);
   const request = useCallback((cursor?: string) => libraryRequest<OutcomePage>({
@@ -54,6 +56,8 @@ export function PersonalOutcomes({ range, refreshKey }: { range: DashboardRange;
   return <section className="cc-dashboard-section" aria-label="Personal wins and losses">
     <div className="cc-heading-row"><div><span className="cc-eyebrow">THE WINS YOU REPORT</span><h3><Trophy size={20} aria-hidden="true" /> Personal wins &amp; losses</h3></div><button className="cc-secondary" onClick={() => void refresh()} disabled={busy} aria-label="Refresh personal outcomes"><RefreshCw size={17} className={busy ? 'cc-spin' : ''} /></button></div>
     <p className="cc-muted cc-small">Outcomes you explicitly report, within the dates selected above. This personal score is separate from purchase intervention calls below.</p>
+    <PersonalOutcomeForm onSaved={entry => { setSaved(entry); setFilter(null); void refresh(); }} />
+    {saved && <p className="cc-notice" role="status">Saved your {saved.outcome === 'loss' ? 'setback' : 'win'} for {saved.date}: {saved.title}.{range.preset !== 'all' && (saved.date < range.start || saved.date > range.end) ? ' That date is outside the current view. Choose All time or change the dates above to see it.' : ' Saved in your personal outcomes.'}</p>}
     {busy && <p className="cc-thinking" role="status"><Loader2 size={16} className="cc-spin" />Loading your outcomes…</p>}
     {error && <p className="cc-error" role="alert">{error}</p>}
     {page && <>

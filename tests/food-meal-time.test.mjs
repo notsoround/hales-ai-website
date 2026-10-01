@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { localMealDate, parseMealTime } from '../src/components/cupcake/mealTime.ts';
+import { LibraryApprovalCancelled, confirmedLibraryRequest } from '../src/components/cupcake/libraryApproval.ts';
+const CalendarDateFields = () => null;
 
 process.env.TZ = 'America/Chicago';
 const fixedNow = '2026-09-29T05:05:00.000Z'; // 12:05 AM locally, after UTC midnight.
@@ -39,6 +41,7 @@ function surface(path, component, props, dependencies = {}) {
   const context = { exports: {}, Date: FixtureDate, Intl, URL, URLSearchParams, require(name) {
     if (name === 'react') return hooks;
     if (name === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: 'fragment' };
+    if (name === './CalendarDateFields') return { CalendarDateFields };
     if (name === './mealTime') return { localMealDate, parseMealTime: f => parseMealTime(f, now) };
     if (name in dependencies) return dependencies[name];
     return {};
@@ -48,38 +51,55 @@ function surface(path, component, props, dependencies = {}) {
   return { get tree() { return tree; }, async settle() { for (let i = 0; i < 20; i++) { if (dirty) { cursor = 0; effects = []; dirty = false; tree = context.exports.TestComponent(props); effects.forEach(fn => fn()); } await new Promise(resolve => setImmediate(resolve)); if (!dirty) return tree; } throw Error('Did not settle'); } };
 }
 
-// Real keyboard controls: no native date picker and no implicit default meal time.
+// Actual selection controls; the full date/time path needs no text keyboard.
 let selected = '';
 const picker = surface('src/components/cupcake/MealTimeInput.tsx', 'MealTimeInput', { value: '', onChange: value => { selected = value; } });
 await picker.settle();
 assert.equal(selected, '');
 button(picker.tree, 'Ate just now').props.onClick(); await picker.settle();
 assert.equal(selected, fixedNow);
-button(picker.tree, 'Choose date & time').props.onClick(); await picker.settle();
-assert.equal(selected, '', 'choosing a custom time requires entering a clock time');
-const field = key => one(picker.tree, node => node.type === 'input' && node.props.id.endsWith(`-${key}`));
-for (const [key, value] of [['month', '9'], ['day', '28'], ['year', '2026'], ['hour', '11'], ['minute', '59']]) { assert.equal(field(key).props.type, 'text'); assert.equal(field(key).props.inputMode, 'numeric'); change(field(key), value); await picker.settle(); }
-change(one(picker.tree, node => node.type === 'select'), 'PM'); await picker.settle();
+button(picker.tree, 'Yesterday').props.onClick(); await picker.settle();
+assert.equal(selected, '', 'a date shortcut alone does not claim a consumption time');
+const calendar = () => one(picker.tree, node => node.type === CalendarDateFields);
+assert.equal(calendar().props.value.day, '28');
+button(picker.tree, 'Today').props.onClick(); await picker.settle();
+assert.equal(calendar().props.value.day, '29');
+calendar().props.onChange({ month: '9', day: '28', year: '2026' }); await picker.settle();
+const field = key => one(picker.tree, node => node.type === 'select' && node.props.id.endsWith(`-${key}`));
+for (const [key, value] of [['hour', '11'], ['minute', '59'], ['period', 'PM']]) { change(field(key), value); await picker.settle(); }
 assert.equal(selected, '2026-09-29T04:59:00.000Z');
-change(field('day'), '30'); await picker.settle();
+assert.equal(all(picker.tree, node => node.type === 'input').length, 0);
+calendar().props.onChange({ month: '9', day: '30', year: '2026' }); await picker.settle();
 assert.equal(selected, '', 'a future time cannot enable logging');
 assert.match(text(picker.tree), /no later than now/);
 change(field('minute'), ''); await picker.settle();
-assert.equal(selected, '', 'clearing a required field clears the usable timestamp');
+assert.equal(selected, '', 'clearing a required choice clears the usable timestamp');
+let calendarValue;
+const dates = surface('src/components/cupcake/CalendarDateFields.tsx', 'CalendarDateFields', { value: { month: '1', day: '31', year: '2026' }, onChange: value => { calendarValue = value; } });
+await dates.settle();
+assert.equal(all(dates.tree, node => node.type === 'select').length, 3);
+change(one(dates.tree, node => node.type === 'select' && node.props.id.endsWith('-month')), '2');
+assert.equal(calendarValue.day, '28', 'switching to a shorter month chooses its last real day');
+for (const cancelFails of [false, true]) {
+  const approvalCalls = [];
+  await assert.rejects(confirmedLibraryRequest({ action: 'food_log' }, async body => { approvalCalls.push(body); if (body.action === 'cancel' && cancelFails) throw Error('Synthetic cancel transport failure'); return { pending: true, action: 'food_log', action_id: 'act_' + 'a'.repeat(24), description: 'Synthetic approval' }; }, () => false), LibraryApprovalCancelled);
+  assert.equal(approvalCalls.some(body => body.action === 'approve'), false, 'typed cancellation guarantees no approval was sent');
+}
 
 // Actual Snap actions against synthetic API responses; nothing goes to the network.
 const MealTimeInput = () => null;
 let meal = { id: 'synthetic_meal', status: 'ready', description: 'Synthetic rice bowl', total: { calories: 320, carbs_g: 48, sugar_g: 5, protein_g: 12 }, items: [{ id: 'synthetic_item', name: 'Synthetic rice', nutrition: { calories: 320, carbs_g: 48, sugar_g: 5 } }] };
-let failFirstLog = true;
+let logMode = 'cancel';
 const requests = [];
 const snap = surface('src/pages/cupcake/sandbox/cupcakegpt/page.tsx', 'SnapView', {}, {
   '../../../../components/cupcake/MealTimeInput': { MealTimeInput },
+  '../../../../components/cupcake/libraryApproval': { LibraryApprovalCancelled },
   '../../../../components/cupcake/library': { libraryRequest: async body => {
     requests.push(body);
     if (body.action === 'food_list') return { meals: [meal] };
     if (body.action === 'food_get') return { meal };
     if (body.action === 'food_refine') return { meal: { ...meal, description: 'Corrected synthetic rice bowl' } };
-    if (body.action === 'food_log') { if (failFirstLog) { failFirstLog = false; throw Error('Synthetic uncertain save'); } meal = { ...meal, sheetLoggedAt: fixedNow }; return { meal }; }
+    if (body.action === 'food_log') { if (logMode === 'cancel') { logMode = 'uncertain'; throw new LibraryApprovalCancelled('Synthetic cancelled approval'); } if (logMode === 'uncertain') { logMode = 'success'; throw Error('Synthetic uncertain save'); } meal = { ...meal, sheetLoggedAt: fixedNow }; return { meal }; }
     throw Error(`Unexpected request ${body.action}`);
   } },
 });
@@ -106,14 +126,23 @@ setTime('2026-09-29T04:59:00.000Z'); await snap.settle();
 assert.equal(consent().props.checked, false, 'changing time revokes confirmation');
 consent().props.onChange({ target: { checked: true } }); await snap.settle();
 button(snap.tree, 'Add to food log').props.onClick(); await snap.settle();
+assert.equal(all(snap.tree, node => node.type === MealTimeInput).length, 1, 'cancelling before approval restores editable meal time');
+assert.equal(consent().props.checked, false, 'cancelled save requires renewed confirmation');
+setTime('2026-09-29T04:58:00.000Z'); await snap.settle();
+consent().props.onChange({ target: { checked: true } }); await snap.settle();
+button(snap.tree, 'Add to food log').props.onClick(); await snap.settle();
 assert.match(text(snap.tree), /Retrying the same meal time/);
 assert.equal(all(snap.tree, node => node.type === MealTimeInput).length, 0, 'uncertain save locks the attempted meal time even if refresh omits pendingConsumedAt');
 assert.equal(all(snap.tree, node => node.props['aria-label'] === 'Portion corrections').length, 0, 'uncertain save locks portion edits');
+logMode = 'cancel';
+button(snap.tree, 'Add to food log').props.onClick(); await snap.settle();
+assert.equal(all(snap.tree, node => node.type === MealTimeInput).length, 0, 'cancelling a retry never erases the earlier real pending intent');
+logMode = 'success';
 button(snap.tree, 'Add to food log').props.onClick(); await snap.settle();
 const logs = requests.filter(r => r.action === 'food_log');
-assert.equal(logs.length, 2);
-assert.equal(logs[0].consumedAt, logs[1].consumedAt, 'retry preserves the original attempted timestamp');
+assert.equal(logs.length, 4);
+assert.equal(logs[1].consumedAt, logs[3].consumedAt, 'retry preserves the original attempted timestamp');
 assert.equal(logs[0].confirmConsumed, true);
 assert.match(text(snap.tree), /Added to your food log/);
 assert.equal(all(snap.tree, node => node.type === 'button' && text(node) === 'Add to food log').length, 0);
-console.log('PASS food: numeric mobile controls, local midnight/noon, missing/invalid/future/DST dates, explicit consent, correction and time resets, uncertain-save retry lock. All API data and actions were simulated.');
+console.log('PASS food: keyboard-free mobile date/time choices, cancelled-approval recovery, local midnight/noon, missing/invalid/future/DST dates, explicit consent, correction and time resets, uncertain-save retry lock. All API data and actions were simulated.');

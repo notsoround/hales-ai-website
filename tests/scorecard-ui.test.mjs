@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as personalOutcomeDraft from '../src/components/cupcake/personalOutcomeDraft.ts';
+import { LibraryApprovalCancelled } from '../src/components/cupcake/libraryApproval.ts';
+import * as appUpdate from '../src/components/cupcake/appUpdate.ts';
 import * as dashboardModel from '../src/components/cupcake/dashboardModel.ts';
 
 const fixedNow = '2026-09-20T02:30:00Z'; // Still September 19 in Chicago.
@@ -36,7 +39,7 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
   };
   const emptyComponent = () => null;
   const context = {
-    exports: {}, Date: FixtureDate, Intl, URL, URLSearchParams, setInterval, clearInterval,
+    exports: {}, Error, Date: FixtureDate, Intl, URL, URLSearchParams, setInterval, clearInterval,
     location: { search: '', href: 'https://fixture.invalid/cupcake' }, history: { replaceState() {} },
     require(name) {
       if (name === 'react') return hooks;
@@ -45,6 +48,11 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === './WeightHistoryConnected') return { WeightHistoryConnected: emptyComponent };
       if (name === './weightApi') return { loadWeightPage: async () => ({ latestMeasurement: null }) };
       if (name === './weightHistoryModel') return { weightTime: String };
+      if (name === './personalOutcomeDraft') return personalOutcomeDraft;
+      if (name === './libraryApproval') return { LibraryApprovalCancelled };
+      if (name === './CalendarDateFields') return { CalendarDateFields: emptyComponent };
+      if (name === './appUpdate') return appUpdate;
+      if (name === './PersonalOutcomeForm') return { PersonalOutcomeForm: emptyComponent };
       if (name === './PersonalOutcomes') return { PersonalOutcomes: emptyComponent };
       if (name === './dashboardModel') return dashboardModel;
       if (name === './library') return { libraryRequest: api };
@@ -57,7 +65,7 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
   vm.createContext(context);
   const source = readFileSync(`src/components/cupcake/${file}`, 'utf8');
   vm.runInContext(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, context);
-  const Component = context.exports.default || context.exports.FeedDashboard || context.exports.PersonalOutcomes;
+  const Component = context.exports.default || context.exports.FeedDashboard || context.exports.PersonalOutcomes || context.exports.PersonalOutcomeForm || context.exports.AppUpdateNotice;
   function render() { cursor = 0; pendingEffects = []; dirty = false; tree = Component(props); pendingEffects.forEach(effect => effect()); return tree; }
   return {
     context, render, get tree() { return tree; },
@@ -144,3 +152,108 @@ await personalPaging();
 await phoneTotalsAndDrilldown();
 await stalePageError();
 console.log('PASS scorecard UI: live drilldowns, page dedupe, no duplicate requests, independent personal refresh, category counts, valid dates and stale-page isolation. Synthetic fixtures only.');
+
+async function explicitPersonalEntries() {
+  const requests = [], saved = []; let nextId = 0; let failFirst = true; let malformedOnce = false;
+  const stored = new Map();
+  const storage = { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) };
+  const props = { onSaved: entry => saved.push(entry) };
+  const options = {
+    extra: { sessionStorage: storage, crypto: { randomUUID: () => `00000000-0000-4000-8000-${String(++nextId).padStart(12, '0')}` } },
+    api: async body => { requests.push(JSON.parse(JSON.stringify(body))); if (failFirst) { failFirst = false; throw Error('Synthetic lost save response'); } if (malformedOnce) { malformedOnce = false; return { entry: { id: 'wrong-receipt' } }; } return { entry: { ...body }, replayed: requests.length === 2, libraryIndexed: true }; },
+  };
+  let app = surface('PersonalOutcomeForm.tsx', props, options);
+  await app.settle();
+  button(app.tree, 'Add a win or setback').props.onClick(); await app.settle();
+  assert.match(text(app.tree), /Recorded for 2026-09-19/, 'outcome date uses Chicago, not UTC');
+  assert.equal(button(app.tree, 'Save my outcome').props.disabled, true);
+  button(app.tree, 'Win').props.onClick(); await app.settle();
+  change(labelInput(app.tree, 'What did you do?'), 'Synthetic planned walk'); await app.settle();
+  button(app.tree, 'Keep draft & close').props.onClick(); await app.settle();
+  button(app.tree, 'Add a win or setback').props.onClick(); await app.settle();
+  assert.equal(labelInput(app.tree, 'What did you do?').props.value, 'Synthetic planned walk');
+  const checkbox = () => one(app.tree, item => item.type === 'input' && item.props.type === 'checkbox');
+  const calendar = () => one(app.tree, item => item.props.label === 'Outcome date');
+  calendar().props.onChange({ year: '2026', month: '9', day: '20' }); await app.settle();
+  checkbox().props.onChange({ target: { checked: true } }); await app.settle();
+  const submit = () => one(app.tree, item => item.type === 'form').props.onSubmit({ preventDefault() {} });
+  submit(); await app.settle();
+  assert.equal(requests.length, 0, 'future outcome date is rejected before any write');
+  button(app.tree, 'Yesterday').props.onClick(); await app.settle();
+  assert.equal(checkbox().props.checked, false, 'date change requires fresh intent');
+  checkbox().props.onChange({ target: { checked: true } }); await app.settle();
+  submit(); submit(); await app.settle();
+  assert.equal(requests.length, 1, 'rapid submits share a single in-flight attempt');
+  assert.equal(one(app.tree, item => item.type === 'fieldset').props.disabled, true, 'uncertain write freezes the exact submitted content');
+  assert.equal(labelInput(app.tree, 'What did you do?').props.value, 'Synthetic planned walk');
+  app.unmount();
+  app = surface('PersonalOutcomeForm.tsx', props, options); await app.settle();
+  assert.equal(button(app.tree, 'Retry same entry').props.disabled, false, 'leaving the view or reloading restores the exact pending request');
+  assert.equal(labelInput(app.tree, 'What did you do?').props.value, 'Synthetic planned walk');
+  malformedOnce = true; submit(); await app.settle();
+  assert.equal(stored.size, 1, 'a mismatched receipt must not erase the pending identity');
+  assert.equal(saved.length, 0);
+  submit(); await app.settle();
+  assert.deepEqual(requests[0], requests[1], 'retry reuses the same UUID and exact body');
+  assert.equal(saved.length, 1);
+  assert.equal(stored.size, 0, 'only the acknowledged request is cleared from tab storage');
+  assert.equal(saved[0].date, '2026-09-18');
+  button(app.tree, 'Add a win or setback').props.onClick(); await app.settle();
+  assert.equal(labelInput(app.tree, 'What did you do?').props.value, '');
+  button(app.tree, 'Setback').props.onClick(); await app.settle();
+  change(labelInput(app.tree, 'What did you do?'), 'Synthetic skipped walk'); await app.settle();
+  checkbox().props.onChange({ target: { checked: true } }); await app.settle();
+  submit(); await app.settle();
+  assert.equal(requests.at(-1).outcome, 'loss', 'only an explicit setback is scored as a loss');
+  assert.notEqual(requests.at(-1).id, requests[0].id, 'a separate outcome receives a new identity');
+  app.unmount();
+  const denied = surface('PersonalOutcomeForm.tsx', props, { ...options, extra: { ...options.extra, sessionStorage: { ...storage, setItem: () => { throw Error('Synthetic quota failure'); } } } });
+  await denied.settle(); button(denied.tree, 'Add a win or setback').props.onClick(); await denied.settle();
+  button(denied.tree, 'Win').props.onClick(); await denied.settle();
+  change(labelInput(denied.tree, 'What did you do?'), 'Synthetic storage failure'); await denied.settle();
+  one(denied.tree, item => item.type === 'input' && item.props.type === 'checkbox').props.onChange({ target: { checked: true } }); await denied.settle();
+  const beforeDenied = requests.length;
+  one(denied.tree, item => item.type === 'form').props.onSubmit({ preventDefault() {} }); await denied.settle();
+  assert.equal(requests.length, beforeDenied, 'no server write if exact retry details cannot be kept');
+  assert.match(text(denied.tree), /nothing was submitted/); denied.unmount();
+  let refreshes = 0;
+  const totals = surface('PersonalOutcomes.tsx', { range: { preset: 'week', start: '2026-09-13', end: '2026-09-19' } }, { api: async () => { refreshes++; return { entries: [], counts: { wins: 0, losses: 0, unscored: 0, total: 0 }, nextCursor: null }; } });
+  await totals.settle();
+  one(totals.tree, item => typeof item.props.onSaved === 'function').props.onSaved({ id: 'synthetic-saved', date: '2026-08-01', outcome: 'win', title: 'Synthetic older win' }); await totals.settle();
+  assert.equal(refreshes, 2, 'successful explicit save refreshes personal totals');
+  assert.match(text(totals.tree), /outside the current view/);
+  assert.match(text(totals.tree), /Saved your win for 2026-08-01/);
+  totals.unmount();
+}
+async function updateNoticeDoesNotInterrupt() {
+  const base = 'https://fixture.invalid/cupcake';
+  assert.equal(appUpdate.releaseEntryFromHtml('<script type="module" src="/assets/index-new.js"></script>', base), '/assets/index-new.js');
+  assert.equal(appUpdate.releaseEntryFromHtml('<script type="module" src="https://elsewhere.invalid/assets/index-new.js"></script>', base), null);
+  assert.equal(appUpdate.releaseEntryFromHtml('<script type="module" src="/src/main.tsx"></script>', base), null);
+  assert.equal(appUpdate.releaseEntryFromHtml('<html>Proxy error</html>', base), null);
+  let requestCount = 0, reloads = 0, offline = false; const listeners = new Map();
+  const props = { busy: true };
+  const app = surface('AppUpdateNotice.tsx', props, { extra: {
+    AbortSignal,
+    document: { visibilityState: 'visible', querySelectorAll: () => [{ src: 'https://fixture.invalid/assets/index-old.js' }], addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) },
+    location: { href: base, reload: () => { reloads++; } },
+    fetch: async (url, options) => { requestCount++; assert.equal(url.origin, 'https://fixture.invalid'); assert.equal(url.pathname, '/index.html', 'version check bypasses service worker offline shell'); if (offline) throw Error('Synthetic offline'); assert.equal(options.credentials, 'omit'); return new Response('<script type="module" src="/assets/index-new.js"></script>', { headers: { 'Content-Type': 'text/html' } }); },
+  } });
+  await app.settle();
+  assert.match(text(app.tree), /new Cupcake version is available/);
+  assert.match(text(app.tree), /Finish your recording, call, or upload first/);
+  assert.equal(reloads, 0, 'detecting an update never reloads active work');
+  assert.equal(all(app.tree, item => item.type === 'button').length, 1, 'only a version-check button is offered, no reload action');
+  listeners.get('visibilitychange')(); await app.settle();
+  assert.equal(requestCount, 1, 'repeated visibility events are throttled');
+  button(app.tree, 'Check for app update').props.onClick(); await app.settle();
+  assert.equal(requestCount, 2, 'an explicit check is available');
+  offline = true; button(app.tree, 'Check for app update').props.onClick(); await app.settle();
+  assert.match(text(app.tree), /Could not check the app version/);
+  assert.doesNotMatch(text(app.tree), /using the current Cupcake version/);
+  assert.equal(reloads, 0);
+  app.unmount(); assert.equal(listeners.size, 0);
+}
+await explicitPersonalEntries();
+await updateNoticeDoesNotInterrupt();
+console.log('PASS explicit personal outcomes and app updates: no implicit write, Chicago date, draft close, future rejection, exact retry, duplicate-submit guard, setback mapping, range feedback; new-version notice never reloads active work. Synthetic only.');
