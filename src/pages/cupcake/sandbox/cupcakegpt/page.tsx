@@ -1,4 +1,4 @@
-import {loadWeightPage,type WeightRecord} from '../../../../components/cupcake/weightApi';
+import {loadWeightPage,weightProvenanceLabel,type WeightRecord} from '../../../../components/cupcake/weightApi';
 import {weightTime} from '../../../../components/cupcake/weightHistoryModel';
 import {QuickReset} from '../../../../components/cupcake/QuickReset';
 import {QuickChat} from '../../../../components/cupcake/QuickChat';
@@ -123,7 +123,7 @@ const CupcakeGPT: React.FC = () => {
 function TodayWeight({onOpen}:{onOpen:()=>void}) {
  const [reading,setReading]=useState<WeightRecord|null>(null),[error,setError]=useState(false),[loading,setLoading]=useState(true);
  useEffect(()=>{let live=true;void loadWeightPage().then(p=>{if(live)setReading(p.latestMeasurement);}).catch(()=>{if(live)setError(true);}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[]);
- return <button className="cc-dashboard-card" onClick={onOpen}><strong>{loading?'Loading weight…':error?'Weight unavailable':reading?`${reading.weightLb.toFixed(1)} lb`:'No individual weigh-in yet'}</strong><span>{reading?`${reading.basis==='owner_corrected'?'Corrected by you · scale record':'Measured'} ${weightTime(reading.measuredAt)} · View history`:error?'Open history to retry':'Averages stay separate from scale readings.'}</span></button>;
+ return <button className="cc-dashboard-card" onClick={onOpen}><strong>{loading?'Loading weight…':error?'Weight unavailable':reading?`${reading.weightLb.toFixed(1)} lb`:'No individual weigh-in yet'}</strong><span>{reading?`${weightProvenanceLabel(reading.basis,reading.source)} ${weightTime(reading.measuredAt)} · View history`:error?'Open history to retry':'Averages stay separate from scale readings.'}</span></button>;
 }
 
 // ---------- FEED ----------

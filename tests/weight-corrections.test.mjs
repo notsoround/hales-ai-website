@@ -35,7 +35,7 @@ test('excluded original remains available but cannot enter measurements or their
 });
 
 test('weight history labels owner correction and keeps exclusions in a closed disclosure',()=>{
- const mod=moduleAt('src/components/cupcake/WeightHistory.tsx',{'react':{useState:()=>['',()=>{}]},'react/jsx-runtime':jsx,'./weightHistoryModel':{weightMeasurements,weightTime}});
+ const mod=moduleAt('src/components/cupcake/WeightHistory.tsx',{'react':{useState:()=>['',()=>{}]},'react/jsx-runtime':jsx,'./weightHistoryModel':{weightMeasurements,weightTime},'./weightApi':api});
  let selected;
  const tree=mod.WeightHistory({...props,entries:[api.weightEntry(corrected)],excludedEntries:[api.weightEntry(excluded)],excludedTotal:1,onSelect:e=>{selected=e;}});
  assert.match(text(tree),/Corrected by you/);
@@ -63,4 +63,24 @@ test('old weight responses without correction metadata remain readable',()=>{
  const {basis,...legacy}=record('legacy');void basis;
  const entry=api.weightEntry(legacy);assert.equal(entry.details.weightBasis,'health_connect');assert.equal(entry.title,'Weight measurement');
  assert.equal(weightMeasurements([entry]).length,1);assert.doesNotMatch(entry.body,/corrected|excluded/);
+});
+
+test('manual weights remain plotted and are labeled as owner reports in detail and history',()=>{
+ const manual=record('manual',{basis:'owner_reported',source:'owner-reported-weight',note:'Synthetic owner note'});
+ const entry=api.weightEntry(manual);
+ assert.equal(entry.title,'Owner-reported weight');assert.match(entry.body,/reported by you/);
+ assert.match(entry.body,/entered manually, not synced from Health Connect/);assert.match(entry.body,/Synthetic owner note/);
+ assert.equal(weightMeasurements([entry]).length,1);
+ assert.equal(api.weightProvenanceLabel(manual.basis,manual.source),'Reported by you');
+ const mod=moduleAt('src/components/cupcake/WeightHistory.tsx',{'react':{useState:()=>['',()=>{}]},'react/jsx-runtime':jsx,'./weightHistoryModel':{weightMeasurements,weightTime},'./weightApi':api});
+ const tree=mod.WeightHistory({...props,entries:[entry]});
+ assert.match(text(tree),/Reported by you/);assert.doesNotMatch(text(tree),/Scale measurement|original scale reading/);
+});
+
+test('corrected manual weights preserve their original owner-reported provenance',()=>{
+ const manual=record('corrected-manual',{...corrected,source:'owner-reported-weight'});
+ const entry=api.weightEntry(manual);
+ assert.match(entry.body,/Original owner-reported weight/);assert.doesNotMatch(entry.body,/Original scale reading/);
+ assert.equal(api.weightProvenanceLabel(manual.basis,manual.source),'Corrected by you · owner-reported');
+ assert.equal(api.weightProvenanceLabel('health_connect','fixture.scale'),'Scale measurement');
 });
