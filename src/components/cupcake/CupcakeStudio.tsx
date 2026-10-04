@@ -7,7 +7,7 @@ import ConversationPanel from './ConversationPanel';
 import LibraryWorkspace from './LibraryWorkspace';
 import VoiceInputCheck from './VoiceInputCheck';
 import TalkHistory from './TalkHistory';
-import { continuationContext, closeVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator, type SavedTalk, type TalkLine } from './voiceHistory';
+import { startingContextFor, continuationContext, closeVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator, type SavedTalk, type TalkLine } from './voiceHistory';
 import { TALK_SEED_KEY } from './dashboardModel';
 import { acquireMicrophone, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import { libraryRequest, uploadLabel, type Conversation as Recording } from './library';
@@ -30,7 +30,7 @@ const clock = (s: number) => `${Math.floor(s / 60).toString().padStart(2,'0')}:$
 function download(blob: Blob, name: string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1500); }
 function mergeTalks(incoming:SavedTalk[],current:SavedTalk[],recovery:TalkCheckpointRecovery){
  const rows=new Map(current.map(t=>[t.id,t]));
- for(const talk of incoming)rows.set(talk.id,{...talk,archived:recovery.isArchived(talk.id,rows.get(talk.id)?.archived??talk.archived??false)});
+ for(const talk of incoming)rows.set(talk.id,{...talk,startingContext:talk.startingContext||rows.get(talk.id)?.startingContext,archived:recovery.isArchived(talk.id,rows.get(talk.id)?.archived??talk.archived??false)});
  return [...rows.values()].map(t=>({...t,archived:recovery.isArchived(t.id,t.archived)})).sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt));
 }
 type TalkCapture={id:string;startedAt:string;drain:TalkLineDrain;closing:boolean};
@@ -121,7 +121,7 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
         if(talkCapture.current===capture)linesRef.current=captured;
         if(!captured.length)return;
         const first=captured.find(x=>x.role==='You')?.text||captured[0].text;
-        const talk:SavedTalk={id:capture.id,title:first.slice(0,80)||'Talk with Cupcake',startedAt:capture.startedAt,endedAt:new Date().toISOString(),lines:captured};
+        const talk:SavedTalk={startingContext:checkpointRecovery.current!.get(capture.id)?.startingContext,id:capture.id,title:first.slice(0,80)||'Talk with Cupcake',startedAt:capture.startedAt,endedAt:new Date().toISOString(),lines:captured};
         try{
           checkpointRecovery.current!.capture(capture.id,captured,final);
           const stored=persistTalk(talk);
@@ -155,11 +155,11 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
   useEffect(()=>{const id=new URLSearchParams(location.search).get('recording');if(!id||!/^[a-f0-9]{32}$/.test(id))return;void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(d.recording)).catch(e=>setError(e.message));},[]);
   useEffect(() => { if(!selected || ['ready','failed'].includes(selected.status))return;const id=selected.id;const timer=setInterval(()=>{void request(`cupcake-recording-detail?id=${encodeURIComponent(id)}`).then(d=>setSelected(current=>current?.id===id?d.recording:current)).catch(()=>{});},5000);return()=>clearInterval(timer);},[selected]);
   async function startVoice(previous?:SavedTalk) {
-    if (voice !== 'idle' || recording || busy || micTesting || voiceAcquisition.current) return; const contextTalk=previous||callSeed||undefined; try{sessionStorage.removeItem(TALK_SEED_KEY);}catch{/* Context still lives in memory for this start. */} setCallSeed(null); stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;const checkpointId=talkLocalId.current;
+    if (voice !== 'idle' || recording || busy || micTesting || voiceAcquisition.current) return; const contextTalk=previous||callSeed||undefined; if(contextTalk){setCallSeed(contextTalk);try{sessionStorage.setItem(TALK_SEED_KEY,JSON.stringify(contextTalk));}catch{/* In-memory selection remains available. */}} stoppingVoice.current=false;setError('');setPreview(null); setOpenedTalk(null);setVoice('connecting'); lineDrain.current=new TalkLineDrain();linesRef.current=[];setLines([]);talkStarted.current=new Date().toISOString();talkLocalId.current=crypto.randomUUID(); const generation = ++voiceGeneration.current;const checkpointId=talkLocalId.current;
     const capture:TalkCapture={id:checkpointId,startedAt:talkStarted.current,drain:lineDrain.current,closing:false};talkCapture.current=capture;
     const acquisition=new AbortController();voiceAcquisition.current=acquisition;
     try {
-      checkpointRecovery.current!.create(checkpointId,talkStarted.current);
+      checkpointRecovery.current!.create(checkpointId,talkStarted.current,contextTalk?startingContextFor(contextTalk):undefined);
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Voice needs microphone access in a supported browser over HTTPS.');
       const mic = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(inputDevice),12000,acquisition.signal);
       if (stoppingVoice.current || generation !== voiceGeneration.current || !mounted.current) { mic.getTracks().forEach(t=>t.stop()); return; }
@@ -183,7 +183,7 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
         }
       });
       c.on('left-meeting', () => { if(call.current === c) void endVoice(); }); c.on('error', () => { if(call.current!==c||generation!==voiceGeneration.current)return; setError('The voice connection ended. You can reconnect.'); void endVoice(); });
-      await c.join({url:d.webCallUrl}); if (stoppingVoice.current || generation !== voiceGeneration.current || call.current!==c) { await c.destroy().catch(()=>{}); return; } setVoice('live'); setMuted(false);
+      await c.join({url:d.webCallUrl}); if (stoppingVoice.current || generation !== voiceGeneration.current || call.current!==c) { await c.destroy().catch(()=>{}); return; } try{sessionStorage.removeItem(TALK_SEED_KEY);}catch{/* Joined context is checkpointed. */}setCallSeed(null);setVoice('live'); setMuted(false);
     } catch(e) { if(stoppingVoice.current||generation!==voiceGeneration.current||!mounted.current)return; setError(mediaError(e)); await endVoice(); }finally{if(voiceAcquisition.current===acquisition)voiceAcquisition.current=null;}
   }
   async function startRecording(meeting: boolean) {

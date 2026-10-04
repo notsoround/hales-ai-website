@@ -1,11 +1,11 @@
-import type {SavedTalk, TalkLine} from './voiceHistory';
+import {sameStartingContext, validStartingContext, type StartingContext, type SavedTalk, type TalkLine} from './voiceHistory.ts';
 
-type Checkpoint = {action:'talk_checkpoint';sessionId:string;version:number;title:string;lines:(TalkLine&{transcriptType:'final'})[];final:boolean};
-type State = {id:string;title:string;startedAt:string;updatedAt:string;lines:TalkLine[];final:boolean;version:number;ackCount:number;ackFinal:boolean;pending?:Checkpoint;documentId?:string};
+type Checkpoint = {startingContext?:StartingContext;action:'talk_checkpoint';sessionId:string;version:number;title:string;lines:(TalkLine&{transcriptType:'final'})[];final:boolean};
+type State = {startingContext?:StartingContext;id:string;title:string;startedAt:string;updatedAt:string;lines:TalkLine[];final:boolean;version:number;ackCount:number;ackFinal:boolean;pending?:Checkpoint;documentId?:string};
 type StorageLike = Pick<Storage,'getItem'|'setItem'|'key'|'length'>;
-export type RemoteTalk = {id:string;title:string;createdAt:number;updatedAt:number;version:number;final:boolean;documentId:string};
+export type RemoteTalk = {startingContext?:StartingContext;id:string;title:string;createdAt:number;updatedAt:number;version:number;final:boolean;documentId:string};
 export type RemoteTalkSession = RemoteTalk & {lines:(TalkLine&{transcriptType:'final'})[]};
-type Response = {session:{id:string;version:number;documentId:string;lines?:RemoteTalkSession['lines'];final?:boolean};libraryStatus:string};
+type Response = {session:{id:string;version:number;documentId:string;lines?:RemoteTalkSession['lines'];final?:boolean;startingContext?:StartingContext};libraryStatus:string};
 const prefix='cupcake-talk-checkpoint-v1:';
 const archivePrefix='cupcake-talk-archive-v1:';
 const storageWarning='No durable device copy could be confirmed. Keep this page open until private-library sync succeeds, or export the received transcript.';
@@ -14,7 +14,7 @@ const validLines=(lines:unknown):lines is TalkLine[]=>Array.isArray(lines)&&line
 
 export function talkDeviceStorage():StorageLike|null {try{return window.localStorage}catch{return null}}
 export function remoteTalkSummary(t:RemoteTalk):SavedTalk {
- return {id:t.id,title:t.title,startedAt:new Date(t.createdAt*1000).toISOString(),endedAt:new Date(t.updatedAt*1000).toISOString(),lines:[],documentId:t.documentId};
+ return {startingContext:t.startingContext,id:t.id,title:t.title,startedAt:new Date(t.createdAt*1000).toISOString(),endedAt:new Date(t.updatedAt*1000).toISOString(),lines:[],documentId:t.documentId};
 }
 
 export class TalkCheckpointRecovery {
@@ -35,6 +35,8 @@ export class TalkCheckpointRecovery {
   try{
    const s=JSON.parse(raw) as State;
    if(s.id!==id||typeof s.title!=='string'||typeof s.startedAt!=='string'||typeof s.updatedAt!=='string'||!validLines(s.lines)||!Number.isInteger(s.version)||s.version<0||!Number.isInteger(s.ackCount)||s.ackCount<0||s.ackCount>s.lines.length||typeof s.final!=='boolean'||typeof s.ackFinal!=='boolean')throw Error();
+   if(s.startingContext&&!validStartingContext(s.startingContext))throw Error();
+   if(s.pending?.startingContext&&!sameStartingContext(s.pending.startingContext,s.startingContext))throw Error();
    if(s.pending&&(s.pending.action!=='talk_checkpoint'||s.pending.sessionId!==id||s.pending.version!==s.version+1||s.pending.title!==s.title||typeof s.pending.final!=='boolean'||!validLines(s.pending.lines)||!samePrefix(s.pending.lines,s.lines)||s.pending.lines.some(l=>l.transcriptType!=='final')))throw Error();
    this.memory.set(id,s);return s;
   }catch{this.malformed.add(id);this.warnings.set(prefix+id,'An unreadable saved Talk record was kept unchanged. Other transcripts can still sync; Export includes its raw original.');return}
@@ -44,10 +46,11 @@ export class TalkCheckpointRecovery {
   try{if(!this.storage)throw Error();this.storage.setItem(prefix+s.id,JSON.stringify(s));this.warnings.delete(prefix+s.id)}
   catch{this.warnings.set(prefix+s.id,storageWarning)}
  }
- create(id:string,startedAt:string){
-  if(this.get(id))return;
+ create(id:string,startedAt:string,startingContext?:StartingContext){
+  if(startingContext&&!validStartingContext(startingContext))throw Error('Invalid starting context');
+  const old=this.get(id);if(old){if(startingContext&&!sameStartingContext(old.startingContext,startingContext))throw Error('Starting context cannot change');return;}
   if(this.malformed.has(id))throw Error('This Talk record is unreadable; its original has been preserved.');
-  this.write({id,title:'Talk with Cupcake · '+new Date(startedAt).toLocaleString(),startedAt,updatedAt:startedAt,lines:[],final:false,version:0,ackCount:0,ackFinal:false});
+  this.write({...startingContext?{startingContext:structuredClone(startingContext)}:{},id,title:'Talk with Cupcake · '+new Date(startedAt).toLocaleString(),startedAt,updatedAt:startedAt,lines:[],final:false,version:0,ackCount:0,ackFinal:false});
  }
  capture(id:string,lines:TalkLine[],final=false){
   const s=this.get(id);if(!s)throw Error('Talk recovery session missing');
@@ -72,7 +75,7 @@ export class TalkCheckpointRecovery {
   try{if(!this.storage)throw Error();this.storage.setItem(archivePrefix+id,JSON.stringify(value));this.warnings.delete(archivePrefix+id)}
   catch{this.warnings.set(archivePrefix+id,'The archive preference is only in this page; device storage is unavailable.')}
  }
- talks():SavedTalk[]{return this.list().filter(s=>s.lines.length).map(s=>({id:s.id,title:s.title,startedAt:s.startedAt,endedAt:s.updatedAt,lines:s.lines,documentId:s.documentId,archived:this.isArchived(s.id)}))}
+ talks():SavedTalk[]{return this.list().filter(s=>s.lines.length).map(s=>({startingContext:s.startingContext,id:s.id,title:s.title,startedAt:s.startedAt,endedAt:s.updatedAt,lines:s.lines,documentId:s.documentId,archived:this.isArchived(s.id)}))}
  pending(){return this.list().filter(s=>s.lines.length&&(s.pending||s.lines.length!==s.ackCount||s.final!==s.ackFinal))}
  exportOriginals(){
   const records=this.list(),rawRecords:{key:string;value:string|null}[]=[];
@@ -81,25 +84,29 @@ export class TalkCheckpointRecovery {
  }
  adoptRemote(t:RemoteTalkSession):SavedTalk {
   if(!Array.isArray(t.lines)||!t.lines.every(l=>(l.role==='You'||l.role==='Cupcake')&&typeof l.text==='string'))throw Error('The saved Talk transcript was incomplete.');
+  if(t.startingContext&&!validStartingContext(t.startingContext))throw Error('Invalid saved starting context');
   const old=this.get(t.id),base=remoteTalkSummary(t);
+  if(old?.startingContext&&t.startingContext&&!sameStartingContext(old.startingContext,t.startingContext))throw Error('Starting context differs; originals preserved.');
   if(this.malformed.has(t.id))return {...base,lines:t.lines.map(l=>({role:l.role,text:l.text})),archived:this.isArchived(t.id)};
   if(old&&(old.pending||old.ackCount!==old.lines.length||old.ackFinal!==old.final)){
-   this.write({...old,documentId:t.documentId});
+   this.write({...old,startingContext:t.startingContext||old.startingContext,documentId:t.documentId});
   }else if(!old||t.version>=old.version){
    if(old&&!samePrefix(old.lines,t.lines))throw Error('The server transcript differs from the saved device original. Both copies were preserved.');
-   this.write({id:t.id,title:t.title,startedAt:base.startedAt,updatedAt:base.endedAt,lines:t.lines.map(l=>({role:l.role,text:l.text})),final:t.final,version:t.version,ackCount:t.lines.length,ackFinal:t.final,documentId:t.documentId});
+   this.write({startingContext:t.startingContext||old?.startingContext,id:t.id,title:t.title,startedAt:base.startedAt,updatedAt:base.endedAt,lines:t.lines.map(l=>({role:l.role,text:l.text})),final:t.final,version:t.version,ackCount:t.lines.length,ackFinal:t.final,documentId:t.documentId});
   }
   const s=this.get(t.id)!;
-  return {id:s.id,title:s.title,startedAt:s.startedAt,endedAt:s.updatedAt,lines:s.lines,documentId:s.documentId,archived:this.isArchived(s.id)};
+  return {startingContext:s.startingContext,id:s.id,title:s.title,startedAt:s.startedAt,endedAt:s.updatedAt,lines:s.lines,documentId:s.documentId,archived:this.isArchived(s.id)};
  }
  flush(id:string):Promise<void>{const existing=this.flights.get(id);if(existing)return existing;const job=this.run(id).finally(()=>this.flights.delete(id));this.flights.set(id,job);return job}
  private async run(id:string){
   for(;;){let s=this.get(id);if(!s||!s.lines.length)return;
-   if(!s.pending){if(s.ackCount===s.lines.length&&s.ackFinal===s.final)return;const pending:Checkpoint={action:'talk_checkpoint',sessionId:id,version:s.version+1,title:s.title,lines:s.lines.map(l=>({...l,transcriptType:'final'})),final:s.final};this.write({...s,pending});s=this.get(id)!}
+   if(!s.pending){if(s.ackCount===s.lines.length&&s.ackFinal===s.final)return;const pending:Checkpoint={...(s.startingContext?{startingContext:s.startingContext}:{}),action:'talk_checkpoint',sessionId:id,version:s.version+1,title:s.title,lines:s.lines.map(l=>({...l,transcriptType:'final'})),final:s.final};this.write({...s,pending});s=this.get(id)!}
    const p=s.pending!,result=await this.send(p);
    if(result.session.id!==id||result.session.version<p.version)throw Error('Talk checkpoint confirmation was incomplete; retry the saved revision.');
    if(result.libraryStatus!=='indexed')throw Error('Talk transcript reached private storage; library indexing is pending. Retry sync to repair it.');
    const latest=this.get(id)!;
+   if(!latest.startingContext&&result.session.startingContext&&!p.startingContext){if(!validStartingContext(result.session.startingContext))throw Error('Invalid saved starting context');latest.startingContext=result.session.startingContext;}
+   if((p.startingContext||result.session.startingContext)&&!sameStartingContext(result.session.startingContext,latest.startingContext))throw Error('Saved starting context differs; pending originals preserved.');
    if(result.session.version>p.version){
     const remote=result.session.lines;
     if(!remote||(!samePrefix(latest.lines,remote)&&!samePrefix(remote,latest.lines))||(result.session.final&&remote.length<latest.lines.length))throw Error('A newer server revision needs review. The received device transcript was preserved; export it before closing.');

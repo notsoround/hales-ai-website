@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import {TalkCheckpointRecovery} from '../src/components/cupcake/talkCheckpoints.ts';
-import {TalkLineDrain,VoiceEndingCoordinator,closeVoiceTransport,persistTalk} from '../src/components/cupcake/voiceHistory.ts';
+import {TalkLineDrain,VoiceEndingCoordinator,closeVoiceTransport,persistTalk,startingContextFor,continuationContext} from '../src/components/cupcake/voiceHistory.ts';
 
 const source=readFileSync(new URL('../src/components/cupcake/CupcakeStudio.tsx',import.meta.url),'utf8');
 const ast=ts.createSourceFile('studio.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),bodies=[];
@@ -20,9 +20,9 @@ function harness(){
  const map=new Map(),storage={get length(){return map.size},key:i=>[...map.keys()][i],getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v)};
  globalThis.localStorage=storage;
  const sent=[],transports=[],requests=[];let id=0;
- const recovery=new TalkCheckpointRecovery(storage,async p=>{sent.push(JSON.parse(JSON.stringify(p)));return {session:{id:p.sessionId,version:p.version,documentId:'doc_'+p.sessionId},libraryStatus:'indexed'}});
+ const recovery=new TalkCheckpointRecovery(storage,async p=>{sent.push(JSON.parse(JSON.stringify(p)));return {session:{id:p.sessionId,version:p.version,documentId:'doc_'+p.sessionId,...(p.startingContext?{startingContext:p.startingContext}:{})},libraryStatus:'indexed'}});
  const ref=current=>({current});
- const scope={useCallback:f=>f,recording:false,busy:false,micTesting:false,voice:'idle',stoppingVoice:ref(false),voiceAcquisition:ref(null),voiceGeneration:ref(0),mounted:ref(true),inputDevice:'',
+ const scope={callSeed:null,setCallSeed:v=>{scope.callSeed=v},TALK_SEED_KEY:'seed',sessionStorage:{getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)},startingContextFor,continuationContext,useCallback:f=>f,recording:false,busy:false,micTesting:false,voice:'idle',stoppingVoice:ref(false),voiceAcquisition:ref(null),voiceGeneration:ref(0),mounted:ref(true),inputDevice:'',
   lineDrain:ref(new TalkLineDrain()),talkCapture:ref(null),linesRef:ref([]),talkStarted:ref(''),talkLocalId:ref(''),checkpointRecovery:ref(recovery),endingVoice:ref(new VoiceEndingCoordinator()),voiceMic:ref(null),call:ref(null),remoteId:ref(null),players:ref(new Map()),
   setError:()=>{},setPreview:()=>{},setOpenedTalk:()=>{},setSpeaking:()=>{},setMuted:()=>{},setCheckpointStatus:()=>{},setTalks:()=>{},
   setVoice:v=>{scope.voice=v},setLines:lines=>{scope.visibleLines=lines},visibleLines:[],
@@ -57,4 +57,19 @@ test('rejected teardown stays nonfinal and still saves received lines',async()=>
  const ending=h.scope.endVoice();t.left.reject(Error('synthetic leave failure'));t.destroyed.resolve();await ending;
  t.emit('Received after rejected teardown','late');await h.recovery.flush(id);
  assert.equal(h.recovery.get(id).final,false);assert.equal(h.recovery.get(id).lines.length,2);assert.equal(h.requests.length,1);
+});
+
+test('actual startup keeps selected context after microphone denial and clears only after joined retry',async()=>{
+ const h=harness(),seed={id:'intervention-seed-owned',title:'Selected call',startedAt:'2026-10-03T00:00:00Z',endedAt:'2026-10-03T00:00:00Z',lines:[{role:'Cupcake',text:'Original reason'}]};
+ h.scope.acquireMicrophone=async()=>{throw Error('Denied')};await h.scope.startVoice(seed);
+ assert.equal(h.scope.callSeed,seed);assert.equal(JSON.parse(h.scope.sessionStorage.getItem('seed')).id,seed.id);assert.equal(h.requests.length,0);
+ h.scope.acquireMicrophone=async fn=>fn({});await h.scope.startVoice();
+ assert.equal(h.scope.callSeed,null);assert.equal(h.scope.sessionStorage.getItem('seed'),null);
+ const state=h.recovery.get(h.scope.talkLocalId.current);assert.equal(state.startingContext.lines[0].text,'Original reason');assert.deepEqual(state.lines,[]);
+});
+
+test('room creation rejection preserves explicit previous Talk selection for retry',async()=>{
+ const h=harness(),previous={id:'prior-talk',title:'Earlier Talk',startedAt:'2026-10-03T00:00:00Z',endedAt:'2026-10-03T00:00:00Z',lines:[{role:'You',text:'Continue this question'}]};
+ h.scope.request=async()=>{throw Error('Room unavailable')};await h.scope.startVoice(previous);
+ assert.equal(h.scope.callSeed,previous);assert.equal(JSON.parse(h.scope.sessionStorage.getItem('seed')).id,previous.id);assert.equal(h.transports.length,0);
 });
