@@ -2,6 +2,7 @@ import React, {useEffect,useRef,useState} from 'react';
 import {libraryRequest} from './library';
 import {type ChatReply,type ReceivedAnswer,receivedAnswers,forgetAnswer,rememberBegin,pendingBegin,forgetBegin,readChatStorage,writeChatStorage,recoveryEvent} from './quickChatRecovery';
 import './chat-layout.css';
+import {ReadAloudButton} from './ReadAloudButton';
 
 type Turn={id:string;text:string;status:string;response?:ChatReply;retryAfter:number;error?:string;alternatives?:{attemptId:string;response:ChatReply}[]};
 type Thread={id:string;title:string;turns:Turn[]};
@@ -14,7 +15,7 @@ const newThreadKey='cupcake-quick-chat-new-thread';
 const visibleError=(value:string)=>value.replace(/^Error: /,'');
 const updateThreadUrl=(id:string|null)=>{const url=new URL(location.href);for(const key of ['document','analysis','recording','shared'])url.searchParams.delete(key);url.searchParams.set('tab','chat');if(id)url.searchParams.set('thread',id);else url.searchParams.delete('thread');history.replaceState(history.state,'',url)};
 
-const Answer:React.FC<{response:ChatReply}>=({response})=><div className="mr-4 rounded-2xl bg-white/10 p-4 whitespace-pre-wrap break-words"><p>{response.reply}</p><p className="mt-2 text-xs text-white/50">AI response · {response.model} · interpretation, not verified fact</p>{(response.libraryUnavailable||response.recordsUnavailable)&&<p className="text-xs text-amber-300">Some private sources were unavailable for this answer.</p>}{response.sources?.map((s,i)=><p key={i} className="text-xs text-pink-200">Source: {s.url?.startsWith('https://')?<a href={s.url} target="_blank" rel="noreferrer">{s.title||'Library evidence'}</a>:s.title||'Library evidence'}</p>)}</div>;
+const Answer:React.FC<{response:ChatReply}>=({response})=><div className="mr-4 rounded-2xl bg-white/10 p-4 whitespace-pre-wrap break-words"><ReadAloudButton text={response.reply} label="Play answer"/><p>{response.reply}</p><p className="mt-2 text-xs text-white/50">AI response · {response.model} · interpretation, not verified fact</p>{(response.libraryUnavailable||response.recordsUnavailable)&&<p className="text-xs text-amber-300">Some private sources were unavailable for this answer.</p>}{response.sources?.map((s,i)=><p key={i} className="text-xs text-pink-200">Source: {s.url?.startsWith('https://')?<a href={s.url} target="_blank" rel="noreferrer">{s.title||'Library evidence'}</a>:s.title||'Library evidence'}</p>)}</div>;
 
 export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean}>=({speak,mediaBusy,active=true})=>{
   const [threads,setThreads]=useState<{id:string;title:string}[]>([]),[thread,setThread]=useState<Thread|null>(null);

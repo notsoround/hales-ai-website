@@ -52,3 +52,9 @@
 .cc-secondary{background:#221F28;color:#F4F1F5;border-color:#302C36}
 .cc-chat-composer{background:#111016f2;border-top:1px solid #302C36}
 .cc-welcome{display:block}
+.cc-decision-form{display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid #302C36;border-radius:16px;background:#16141c}
+.cc-decision-form .cc-label{margin:0}
+.cc-decision-form .cc-primary{justify-self:start}
+.cc-read-aloud{min-height:44px}
+.cc-snap-queue{display:grid;gap:8px;margin:8px 0 18px}
+.cc-snap-queue h3{margin:0}
