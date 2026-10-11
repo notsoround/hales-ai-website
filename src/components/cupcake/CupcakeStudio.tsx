@@ -11,11 +11,12 @@ import { startingContextFor, continuationContext, closeVoiceTransport, persistTa
 import { TALK_SEED_KEY } from './dashboardModel';
 import { acquireMicrophone, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import { libraryRequest, uploadLabel, type Conversation as Recording } from './library';
+import { privateAccessHeaders } from './privateAccess';
 import { RecordingRequestError, uploadRecording, type UploadProgress } from './recordingUpload';
 import './studio.css';
 
 const API = 'https://automate.hales.ai/webhook';
-const headers = () => ({ 'X-Cupcake-Key': sessionStorage.getItem('cupcake-private-access') || '' });
+const headers = privateAccessHeaders;
 async function request(path: string, init: RequestInit = {}) {
   const response = await fetch(`${API}/${path}`, { ...init, headers: { ...headers(), ...init.headers }, signal: init.signal || AbortSignal.timeout(180000), cache: 'no-store' });
   if (!response.ok) throw new RecordingRequestError(response.status === 401 || response.status === 403 ? 'Your private access expired. Lock and unlock Cupcake to reconnect.' : response.status === 413 ? 'This upload part is too large. Keep your original and try again.' : `Cupcake could not complete that request (${response.status}). Your local recording is still available.`, response.status);

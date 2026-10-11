@@ -19,6 +19,7 @@ import { libraryRequest } from '../../../../components/cupcake/library';
 import { LibraryApprovalCancelled } from '../../../../components/cupcake/libraryApproval';
 import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
 import { AppUpdateNotice } from '../../../../components/cupcake/AppUpdateNotice';
+import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPrivateAccess, privateAccessHeaders } from '../../../../components/cupcake/privateAccess';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -27,9 +28,7 @@ export const metadata = {
 };
 
 const API = 'https://automate.hales.ai/webhook';
-// A private key must never be compiled into the public website bundle.
-const TOKEN_STORAGE = 'cupcake-private-access';
-const authHeaders = () => ({ 'X-Cupcake-Key': sessionStorage.getItem(TOKEN_STORAGE) || '' });
+const authHeaders = privateAccessHeaders;
 async function readJson(response: Response) {
   if (!response.ok) throw new Error(`Request failed (${response.status})`);
   return response.json();
@@ -91,11 +90,40 @@ const CupcakeGPT: React.FC = () => {
   const [tab,setTab]=useState<TabKey>(()=>{const q=new URLSearchParams(location.search);return (q.get('tab')==='library'||q.has('recording')||q.has('document')||q.has('analysis'))?'library':q.has('shared')?'record':q.get('tab')==='week'?'week':q.get('tab')==='chat'||q.has('thread')?'chat':q.get('tab')==='talk'?'talk':q.get('tab')==='record'?'record':q.get('tab')==='snap'?'snap':'feed';});
   const [quickAction,setQuickAction]=useState<'tip'|'reset'|null>(null);
   const [speak,setSpeak]=useState(false);const [unlocked,setUnlocked]=useState(false);
-  const [keyInput,setKeyInput]=useState(()=>sessionStorage.getItem(TOKEN_STORAGE)||'');
+  const [keyInput,setKeyInput]=useState(readPrivateAccess);
   const [unlocking,setUnlocking]=useState(false);const [accessError,setAccessError]=useState('');
+  const [persistenceNotice,setPersistenceNotice]=useState('');
+  const accessAttempt=useRef(0);
+  const cancelAccessAttempt=useCallback(()=>{++accessAttempt.current;},[]);
   const [mediaBusy,setMediaBusy]=useState(false);const [install,setInstall]=useState<InstallPrompt|null>(null);
   const openTalkAbout=(entry:DashboardEntry)=>{sessionStorage.setItem(TALK_SEED_KEY,JSON.stringify(talkSeedFromIntervention(entry)));setTab('talk');};
-  const unlock=async(e:React.FormEvent)=>{e.preventDefault();if(!keyInput.trim()||unlocking)return;setUnlocking(true);setAccessError('');try{const r=await fetch(`${API}/cupcake-feed`,{headers:{'X-Cupcake-Key':keyInput.trim()},signal:AbortSignal.timeout(20000),cache:'no-store'});if(!r.ok)throw Error();sessionStorage.setItem(TOKEN_STORAGE,keyInput.trim());setUnlocked(true);}catch{setAccessError('Check your Cupcake password and connection, then try again.');}finally{setUnlocking(false);}};
+  const connect=useCallback(async(key:string,restoring=false)=>{
+    const attempt=++accessAttempt.current;
+    setUnlocking(true);setAccessError('');
+    try{
+      const r=await fetch(`${API}/cupcake-feed`,{headers:{'X-Cupcake-Key':key},signal:AbortSignal.timeout(20000),cache:'no-store'});
+      if(attempt!==accessAttempt.current)return;
+      if(r.status===401||r.status===403){clearPrivateAccess();setKeyInput('');setAccessError(restoring?'Your saved sign-in is no longer valid. Enter your Cupcake password.':'Check your Cupcake password, then try again.');return;}
+      if(!r.ok)throw Error();
+      setPersistenceNotice(savePrivateAccess(key)?'':'This browser could not save your sign-in. Cupcake is open for this session.');
+      setUnlocked(true);
+    }catch{
+      if(attempt===accessAttempt.current)setAccessError(restoring?"Couldn't connect. Your saved sign-in is still on this device. Try again.":'Check your Cupcake password and connection, then try again.');
+    }finally{if(attempt===accessAttempt.current)setUnlocking(false);}
+  },[]);
+  const unlock=(e:React.FormEvent)=>{e.preventDefault();if(keyInput.trim()&&!unlocking)void connect(keyInput.trim());};
+  const lock=useCallback(()=>{
+    cancelAccessAttempt();
+    const cleared=clearPrivateAccess();
+    setKeyInput('');setUnlocked(false);setUnlocking(false);setPersistenceNotice('');
+    setAccessError(cleared?'':'This browser could not remove your saved sign-in. Clear this site’s browser data to finish locking it.');
+  },[cancelAccessAttempt]);
+  useEffect(()=>{
+    const saved=readPrivateAccess();if(saved)void connect(saved,true);
+    const storageChanged=(event:StorageEvent)=>{if(event.storageArea===localStorage&&(event.key===PRIVATE_ACCESS_STORAGE||event.key===null)&&event.newValue===null)lock();};
+    window.addEventListener('storage',storageChanged);
+    return()=>{cancelAccessAttempt();window.removeEventListener('storage',storageChanged);};
+  },[connect,lock,cancelAccessAttempt]);
   useEffect(()=>{
     document.title='Cupcake — Your private companion';
     const links:HTMLLinkElement[]=[];
@@ -104,9 +132,10 @@ const CupcakeGPT: React.FC = () => {
     const before=(e:Event)=>{e.preventDefault();setInstall(e as InstallPrompt);};window.addEventListener('beforeinstallprompt',before);
     return()=>{links.forEach(l=>l.remove());window.removeEventListener('beforeinstallprompt',before);};
   },[]);
-  if(!unlocked)return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="off" required value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Your password stays in this tab for the session. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
-  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><button className="cc-secondary cc-lock" disabled={mediaBusy} onClick={()=>{sessionStorage.removeItem(TOKEN_STORAGE);setKeyInput('');setUnlocked(false);}}>Lock</button></header>
+  if(!unlocked)return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
+  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><button className="cc-secondary cc-lock" disabled={mediaBusy} onClick={lock}>Lock</button></header>
     <main className="cc-shell">
+      {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
       <AppUpdateNotice busy={mediaBusy} />
       {install&&<div className="cc-install"><button className="cc-text-button" onClick={()=>{void install.prompt().then(()=>install.userChoice).then(()=>setInstall(null));}}>Install Cupcake on this device ↗</button></div>}
       {!install&&<p className="cc-muted" style={{fontSize:12}}>To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}

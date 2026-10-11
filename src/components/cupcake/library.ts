@@ -1,4 +1,5 @@
 import { confirmedLibraryRequest } from './libraryApproval';
+import { privateAccessHeaders } from './privateAccess';
 
 export type Source = { id?: string; documentId?: string; title?: string; text?: string; url?: string; startSeconds?: number | null; sourceApp?: string };
 export type Exchange = { role: string; text?: string; content?: string; model?: string; createdAt?: string; sources?: Source[] };
@@ -21,7 +22,7 @@ export type Conversation = {
 };
 export type Project = { id: string; name: string; description?: string; status?: string; tags?: string[]; sourceUrl?: string; updatedAt?: string };
 export type ImportCandidate = { title: string; text: string; sourceApp: string };
-export const accessHeaders = () => ({ 'X-Cupcake-Key': sessionStorage.getItem('cupcake-private-access') || '' });
+export const accessHeaders = privateAccessHeaders;
 export async function libraryRequest<T>(body: Record<string, unknown>): Promise<T> {
   const send = async (payload: Record<string, unknown>): Promise<Record<string, unknown>> => {
   const response = await fetch('https://automate.hales.ai/cupcake-library', {
