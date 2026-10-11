@@ -11,10 +11,16 @@ const archivePrefix='cupcake-talk-archive-v1:';
 const storageWarning='No durable device copy could be confirmed. Keep this page open until private-library sync succeeds, or export the received transcript.';
 const samePrefix=(a:TalkLine[],b:TalkLine[])=>a.length<=b.length&&a.every((line,i)=>line.role===b[i]?.role&&line.text===b[i]?.text);
 const validLines=(lines:unknown):lines is TalkLine[]=>Array.isArray(lines)&&lines.every(l=>l&&(l.role==='You'||l.role==='Cupcake')&&typeof l.text==='string');
+const remoteTime=(seconds:unknown)=>{
+ if(typeof seconds!=='number'||!Number.isFinite(seconds))return '';
+ const date=new Date(seconds*1000);
+ if(!Number.isFinite(date.getTime()))return '';
+ try{return date.toISOString()}catch{return ''}
+};
 
 export function talkDeviceStorage():StorageLike|null {try{return window.localStorage}catch{return null}}
 export function remoteTalkSummary(t:RemoteTalk):SavedTalk {
- return {startingContext:t.startingContext,id:t.id,title:t.title,startedAt:new Date(t.createdAt*1000).toISOString(),endedAt:new Date(t.updatedAt*1000).toISOString(),lines:[],documentId:t.documentId};
+ return {startingContext:t.startingContext,id:t.id,title:t.title,startedAt:remoteTime(t.createdAt),endedAt:remoteTime(t.updatedAt),lines:[],documentId:t.documentId};
 }
 
 export class TalkCheckpointRecovery {

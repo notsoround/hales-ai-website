@@ -1,1 +1,17 @@
-.cc-outcome-form{margin:16px 0;padding:18px}.cc-outcome-form>h4{font-size:18px;margin:0 0 10px}.cc-outcome-form fieldset{border:0;min-width:0;padding:0;margin:0}.cc-outcome-form fieldset>label{margin:14px 0}.cc-outcome-form textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ffffff40;border-radius:10px;background:#211726;color:#fff;font:inherit;font-size:16px;resize:vertical}.cc-outcome-form .cc-meal-consent{flex-direction:row}.cc-outcome-form .cc-meal-consent input{width:22px;min-height:22px;height:22px;padding:0}.cc-outcome-form fieldset:disabled{opacity:.7}.cc-outcome-form .cc-primary{min-height:48px}
+.cc-outcome-launcher{position:static}
+.cc-outcome-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:#08060ccc}
+.cc-outcome-overlay .cc-outcome-form{margin:0;width:100%;max-height:92dvh;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;border-radius:18px 18px 0 0;background:#1b1520;color:#f5eef4;box-shadow:0 -16px 60px #00000088;padding:18px 18px 0}
+.cc-outcome-form>h4{font-size:18px;margin:0 0 10px}
+.cc-outcome-form fieldset{border:0;min-width:0;padding:0;margin:0}
+.cc-outcome-form fieldset>label{margin:14px 0}
+.cc-outcome-form textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ffffff40;border-radius:10px;background:#211726;color:#fff;font:inherit;font-size:16px;resize:vertical}
+.cc-outcome-form .cc-meal-consent{flex-direction:row}
+.cc-outcome-form .cc-meal-consent input{width:22px;min-height:22px;height:22px;padding:0}
+.cc-outcome-form fieldset:disabled{opacity:.7}
+.cc-outcome-form .cc-primary{min-height:48px}
+.cc-outcome-when{margin:10px 0 0;font-size:13px;color:#ead9e4}
+.cc-outcome-actions{position:sticky;bottom:0;z-index:1;margin-top:16px;padding:12px 0 max(12px,env(safe-area-inset-bottom));background:#1b1520}
+@media (min-width:720px){
+  .cc-outcome-overlay{align-items:center;padding:24px}
+  .cc-outcome-overlay .cc-outcome-form{width:min(560px,100%);max-height:min(85dvh,760px);border-radius:18px;box-shadow:0 24px 80px #000000aa}
+}

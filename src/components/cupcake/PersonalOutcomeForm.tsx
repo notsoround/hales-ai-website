@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CalendarDateFields, type CalendarDate } from './CalendarDateFields';
 import { libraryRequest } from './library';
 import { LibraryApprovalCancelled } from './libraryApproval';
@@ -15,6 +15,48 @@ function chicagoDate(offset = 0): CalendarDate {
   return { year: String(day.getUTCFullYear()), month: String(day.getUTCMonth() + 1), day: String(day.getUTCDate()) };
 }
 const isoDate = (date: CalendarDate) => `${date.year}-${date.month.padStart(2, '0')}-${date.day.padStart(2, '0')}`;
+const headingId = 'cc-record-outcome-heading';
+const focusableSelector = 'button, [href], input, select, textarea, [tabindex]';
+
+function focusableIn(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(focusableSelector)].filter(el => {
+    if (el.tabIndex < 0 || el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') return false;
+    if (el.closest('fieldset[disabled]')) return false;
+    return (el as HTMLInputElement).type !== 'hidden';
+  });
+}
+
+type TrapEvent = { key: string; shiftKey: boolean; preventDefault: () => void; stopPropagation: () => void };
+
+function trapDialogKey(event: TrapEvent, dialog: HTMLElement | null, blocked: boolean, dismiss: () => void) {
+  if (typeof document === 'undefined' || !dialog) return;
+  if (event.key === 'Escape') {
+    if (blocked) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dismiss();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const items = focusableIn(dialog);
+  if (!items.length) {
+    event.preventDefault();
+    dialog.focus();
+    return;
+  }
+  const first = items[0];
+  const last = items[items.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey) {
+    if (active === first || !dialog.contains(active)) {
+      event.preventDefault();
+      last.focus();
+    }
+  } else if (active === last || !dialog.contains(active)) {
+    event.preventDefault();
+    first.focus();
+  }
+}
 
 export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersonalOutcome) => void }) {
   const [recovery] = useState(() => {
@@ -31,6 +73,53 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
   const [error, setError] = useState(recovery.error);
   const [pending, setPending] = useState<OutcomeRequest | null>(recovery.pending);
   const submitting = useRef(false);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLFormElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const saveRef = useRef<HTMLButtonElement>(null);
+  const pendingRef = useRef(pending);
+  const busyRef = useRef(busy);
+  const returnFocus = useRef(false);
+  pendingRef.current = pending;
+  busyRef.current = busy;
+  const dismiss = () => {
+    if (busyRef.current || pendingRef.current) return;
+    returnFocus.current = true;
+    setOpen(false);
+  };
+  const dismissRef = useRef(dismiss);
+  dismissRef.current = dismiss;
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!open) {
+      if (!returnFocus.current) return;
+      returnFocus.current = false;
+      const launcher = launcherRef.current;
+      if (launcher) launcher.focus();
+      return;
+    }
+    const dialog = dialogRef.current;
+    const preferred = pendingRef.current ? saveRef.current : titleRef.current;
+    const initial = preferred && !preferred.disabled ? preferred : dialog;
+    if (initial) initial.focus();
+    const onKey = (event: KeyboardEvent) => trapDialogKey(event, dialogRef.current, !!(busyRef.current || pendingRef.current), () => dismissRef.current());
+    const onFocusIn = (event: FocusEvent) => {
+      const root = dialogRef.current;
+      if (!root) return;
+      if (event.target instanceof Node && root.contains(event.target)) return;
+      const items = focusableIn(root);
+      (items[0] ?? root).focus();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('focusin', onFocusIn);
+    const previousOverflow = document.body?.style.overflow ?? '';
+    if (document.body) document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('focusin', onFocusIn);
+      if (document.body) document.body.style.overflow = previousOverflow;
+    };
+  }, [open, dismissRef]);
   const save = async () => {
     if (submitting.current || recovery.error || (!pending && (!confirmed || !outcome || !title.trim()))) return;
     const day = isoDate(date);
@@ -44,7 +133,9 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
       const result = await libraryRequest<{ entry: SavedPersonalOutcome; replayed: boolean; libraryIndexed: boolean }>(request);
       if (result.entry?.id !== request.id || result.entry.date !== request.date || result.entry.outcome !== request.outcome) throw new Error('The saved result was not confirmed. Retry this same entry.');
       clearPendingOutcome(sessionStorage, request.id);
-      setPending(null); setTitle(''); setNote(''); setOutcome(''); setConfirmed(false); setDate(chicagoDate()); setOpen(false);
+      setPending(null); setTitle(''); setNote(''); setOutcome(''); setConfirmed(false); setDate(chicagoDate());
+      returnFocus.current = true;
+      setOpen(false);
       onSaved(result.entry);
     } catch (e) {
       if (e instanceof LibraryApprovalCancelled && !pending) {
@@ -58,19 +149,27 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
     }
     finally { submitting.current = false; setBusy(false); }
   };
-  if (!open) return <button type="button" className="cc-primary" onClick={() => setOpen(true)}>Add a win or setback</button>;
-  return <form className="cc-card cc-outcome-form cc-meal-time" onSubmit={e => { e.preventDefault(); void save(); }}>
-    <h4>What happened?</h4><p className="cc-muted cc-small">Record something you did and how you want to score it. A setback counts as one personal loss. Nothing is scored automatically.</p>
-    <fieldset disabled={busy || !!pending || !!recovery.error}><legend>Choose your outcome</legend><div className="cc-meal-time-choices"><button type="button" className="cc-secondary" aria-pressed={outcome === 'win'} onClick={() => { setOutcome('win'); setConfirmed(false); }}>Win</button><button type="button" className="cc-secondary" aria-pressed={outcome === 'loss'} onClick={() => { setOutcome('loss'); setConfirmed(false); }}>Setback</button></div>
-      <label>What did you do?<input value={title} maxLength={160} required placeholder="e.g. Went for the walk I planned" onChange={e => { setTitle(e.target.value); setConfirmed(false); }} /></label>
-      <label>Notes (optional)<textarea value={note} maxLength={2000} rows={3} placeholder="What helped, or what would you change next time?" onChange={e => { setNote(e.target.value); setConfirmed(false); }} /></label>
-      <div className="cc-meal-time-choices"><button type="button" className="cc-secondary" onClick={() => { setDate(chicagoDate()); setConfirmed(false); }}>Today</button><button type="button" className="cc-secondary" onClick={() => { setDate(chicagoDate(-1)); setConfirmed(false); }}>Yesterday</button></div>
-      <CalendarDateFields value={date} onChange={value => { setDate(value); setConfirmed(false); }} label="Outcome date" />
-      <p className="cc-meal-time-help">Recorded for {isoDate(date)} · Chicago calendar date.</p>
-      <label className="cc-meal-consent"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I want this counted as my reported {outcome === 'loss' ? 'setback' : outcome === 'win' ? 'win' : 'outcome'}.</label>
-    </fieldset>
-    {error && <p className="cc-error" role="alert">{error}</p>}
-    {pending && !busy && <p className="cc-muted cc-small">This save is unconfirmed. Retry the same entry so it cannot count twice. Its text and retry details stay in this browser tab if you change views or reload; keep the tab open until confirmed.</p>}
-    <div className="cc-meal-time-choices"><button className="cc-primary" disabled={busy || !!recovery.error || (!pending && (!confirmed || !outcome || !title.trim()))}>{busy ? 'Saving…' : pending ? 'Retry same entry' : 'Save my outcome'}</button>{!pending && <button type="button" className="cc-secondary" disabled={busy} onClick={() => setOpen(false)}>Keep draft & close</button>}</div>
-  </form>;
+  const recorded = isoDate(date);
+  const todayIso = isoDate(chicagoDate());
+  const when = recorded === todayIso ? 'Today' : recorded === isoDate(chicagoDate(-1)) ? 'Yesterday' : recorded;
+  return <>
+    <button type="button" className="cc-primary cc-outcome-launcher" ref={launcherRef} aria-hidden={open || undefined} tabIndex={open ? -1 : undefined} onClick={() => setOpen(true)}>Add a win or setback</button>
+    {open && <div className="cc-outcome-overlay" onMouseDown={event => { if (event.target === event.currentTarget) event.preventDefault(); }}>
+      <form role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1} ref={dialogRef} className="cc-card cc-outcome-form cc-meal-time" onKeyDown={event => trapDialogKey(event, dialogRef.current, !!(busy || pending), dismiss)} onSubmit={e => { e.preventDefault(); void save(); }}>
+        <h4 id={headingId}>Record an outcome</h4><p className="cc-muted cc-small">Record something you did and how you want to score it. A setback counts as one personal loss. Nothing is scored automatically.</p>
+        <fieldset disabled={busy || !!pending || !!recovery.error}><legend>Choose your outcome</legend><div className="cc-meal-time-choices"><button type="button" className="cc-secondary" aria-pressed={outcome === 'win'} onClick={() => { setOutcome('win'); setConfirmed(false); }}>Win</button><button type="button" className="cc-secondary" aria-pressed={outcome === 'loss'} onClick={() => { setOutcome('loss'); setConfirmed(false); }}>Setback</button></div>
+          <label>What did you do?<input ref={titleRef} value={title} maxLength={160} required placeholder="e.g. Went for the walk I planned" onChange={e => { setTitle(e.target.value); setConfirmed(false); }} /></label>
+          <label>Notes (optional)<textarea value={note} maxLength={2000} rows={3} placeholder="What helped, or what would you change next time?" onChange={e => { setNote(e.target.value); setConfirmed(false); }} /></label>
+          <div className="cc-meal-time-choices"><button type="button" className="cc-secondary" onClick={() => { setDate(chicagoDate()); setConfirmed(false); }}>Today</button><button type="button" className="cc-secondary" onClick={() => { setDate(chicagoDate(-1)); setConfirmed(false); }}>Yesterday</button></div>
+          <CalendarDateFields value={date} onChange={value => { setDate(value); setConfirmed(false); }} label="Outcome date" />
+          <p className="cc-outcome-when">Date: {when}</p>
+          <p className="cc-meal-time-help">Recorded for {isoDate(date)} · Chicago calendar date.</p>
+          <label className="cc-meal-consent"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I want this counted as my reported {outcome === 'loss' ? 'setback' : outcome === 'win' ? 'win' : 'outcome'}.</label>
+        </fieldset>
+        {error && <p className="cc-error" role="alert">{error}</p>}
+        {pending && !busy && <p className="cc-muted cc-small">This save is unconfirmed. Retry the same entry so it cannot count twice. Its text and retry details stay in this browser tab if you change views or reload; keep the tab open until confirmed.</p>}
+        <div className="cc-meal-time-choices cc-outcome-actions"><button ref={saveRef} className="cc-primary" disabled={busy || !!recovery.error || (!pending && (!confirmed || !outcome || !title.trim()))}>{busy ? 'Saving…' : pending ? 'Retry same entry' : 'Save my outcome'}</button>{!pending && <button type="button" className="cc-secondary" disabled={busy} onClick={dismiss}>Keep draft & close</button>}</div>
+      </form>
+    </div>}
+  </>;
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {TalkCheckpointRecovery} from '../src/components/cupcake/talkCheckpoints.ts';
+import {TalkCheckpointRecovery, remoteTalkSummary} from '../src/components/cupcake/talkCheckpoints.ts';
 import {TalkLineDrain,VoiceEndingCoordinator,closeVoiceTransport,persistTalk,readTalks,saveTalk,continuationContext,startingContextFor,validStartingContext} from '../src/components/cupcake/voiceHistory.ts';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
@@ -129,6 +129,15 @@ test('Python sorted context keys acknowledge and reopen semantically while real 
  assert.deepEqual(b.adoptRemote(remote).startingContext,sorted);
  b.create('sorted','2026-10-03',original);
  assert.throws(()=>b.adoptRemote({...remote,startingContext:{...sorted,lines:[{role:'assistant',text:'Changed'}]}}));
+});
+test('invalid remote createdAt does not throw and still returns id and title',()=>{
+ const summary=remoteTalkSummary({id:'kept',title:'Kept title',createdAt:Number.NaN,updatedAt:1000,version:2,final:true,documentId:'doc_kept'});
+ assert.equal(summary.id,'kept');assert.equal(summary.title,'Kept title');assert.equal(summary.documentId,'doc_kept');assert.deepEqual(summary.lines,[]);
+ assert.equal(summary.startedAt,'');assert.equal(summary.endedAt,new Date(1000*1000).toISOString());
+ const both=remoteTalkSummary({id:'both',title:'Both kept',createdAt:1e20,updatedAt:Number.POSITIVE_INFINITY,version:1,final:false,documentId:'doc_both'});
+ assert.equal(both.id,'both');assert.equal(both.title,'Both kept');assert.equal(both.startedAt,'');assert.equal(both.endedAt,'');
+ const text=remoteTalkSummary({id:'text',title:'Text kept',createdAt:'1000',updatedAt:null,version:1,final:false,documentId:'doc_text'});
+ assert.equal(text.id,'text');assert.equal(text.title,'Text kept');assert.equal(text.startedAt,'');assert.equal(text.endedAt,'');
 });
 test('legacy pending omission adopts server context without rewriting the revision retry',async()=>{
  const disk=storage(),ctx={title:'Reason',lines:[{role:'user',text:'Original selection'}]},remote={id:'legacyctx',title:'Talk',createdAt:1,updatedAt:2,version:1,final:false,documentId:'doc',lines:[{...line('First'),transcriptType:'final'}]};

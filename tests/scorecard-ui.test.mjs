@@ -136,7 +136,7 @@ async function phoneTotalsAndDrilldown() {
   const loss = { id: 'loss', type: 'intervention', date: '2026-09-19', title: 'Purchase', details: { boughtAnyway: true } };
   const app = surface('DashboardView.tsx', { loadStats: async (range, cursor) => ({ ...emptyStats(range), outcomes: { wins: 1, losses: 1, missed: 0, unscored: 0, interventions: 2 }, entries: cursor ? [win] : [loss], nextCursor: cursor ? null : 'next' }) });
   await app.settle();
-  assert.match(text(app.tree), /Phone intervention win rate50% recorded wins/);
+  assert.match(text(app.tree), /Purchase decision win rate50% recorded wins/);
   button(app.tree, '1Times you won · recorded stops').props.onClick(); await app.settle();
   assert.equal(app.tree.props.total, 1);
   assert.equal(app.tree.props.entries.length, 0, 'loaded page does not invent the not-yet-loaded win');

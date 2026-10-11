@@ -43,6 +43,10 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node, Fragment: 'fragment' };
       if (name === 'lucide-react') return new Proxy({}, { get: () => emptyComponent });
       if (name === './dashboardModel') return dashboardModel;
+      if (name === './WeightHistoryConnected') return { WeightHistoryConnected: emptyComponent };
+      if (name === './weightApi') return { loadWeightPage: async () => ({ latestMeasurement: null }), weightProvenanceLabel: () => '' };
+      if (name === './weightHistoryModel') return { weightTime: value => String(value ?? '') };
+      if (name === './PersonalOutcomes') return { PersonalOutcomes: emptyComponent };
       if (name === './library') return { libraryRequest: api };
       if (name.endsWith('.css')) return {};
       if (['./ConnectionCheck', './StrategyRequests', './PlanningWorkspace', './ReceiptWorkspace', './ConversationPanel'].includes(name)) return { default: emptyComponent, AnalysisCard: emptyComponent };

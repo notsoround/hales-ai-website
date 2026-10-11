@@ -37,7 +37,8 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
   const requestGeneration = useRef(0);
 
   const busy = loading || generating || savingDecision;
-  useEffect(() => { onWork?.(busy); }, [busy, onWork]);
+  const working = generating || savingDecision;
+  useEffect(() => { onWork?.(working); }, [working, onWork]);
 
   const refresh = useCallback(async (nextDate = date) => {
     const generation = ++requestGeneration.current;
@@ -109,8 +110,8 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
   }
 
   return <div className="cc-planning-workspace">
-    <div className="cc-heading-row"><div><span className="cc-eyebrow">TODAY REVIEW</span><h2>Close the loop.<br /><em>Choose what carries forward.</em></h2></div><button className="cc-secondary" aria-label="Refresh today review" disabled={busy} onClick={() => void refresh()}><RefreshCw className={loading ? 'cc-spin' : ''} size={18} /></button></div>
-    <p className="cc-muted">Select the conversations that belong to this day, review Cupcake&apos;s synthesis, then record decisions yourself.</p>
+    <div className="cc-heading-row"><div><span className="cc-eyebrow">TODAY REVIEW</span><h2>Review your day.</h2></div><button className="cc-secondary" aria-label="Refresh today review" disabled={busy} onClick={() => void refresh()}><RefreshCw className={loading ? 'cc-spin' : ''} size={18} /></button></div>
+    <p className="cc-muted">Select the sources for this day, review each closeout stage, and record the decisions you want to keep.</p>
     {error && <div role="alert" className="cc-error">{error}<button onClick={() => setError('')} aria-label="Dismiss planning error"><X size={16} /></button></div>}
     {notice && <div className="cc-notice" role="status"><Check size={18} />{notice}<button onClick={() => setNotice('')} aria-label="Dismiss confirmation"><X size={16} /></button></div>}
 
