@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { MealDialog } from './MealDialog';
 import type { FoodMeal } from './DashboardView';
 import { libraryRequest } from './library';
@@ -14,16 +14,13 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
   const [photo, setPhoto] = useState('');
   const [photoError, setPhotoError] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoRequested, setPhotoRequested] = useState(false);
   const [photoRetry, setPhotoRetry] = useState(0);
   const [retry, setRetry] = useState(0);
   const historical = meals.find(m => m.id === mealId && m.source === 'food_sheet');
   const legacy = historical && !historical.id.startsWith('meal_') ? historical : undefined;
-  const photoLink = useRef<HTMLAnchorElement>(null);
-  useEffect(()=>{if(photo)photoLink.current?.focus();},[photo]);
   useEffect(() => {
     let current = true;
-    setMeal(null); setError(''); setPhoto(''); setPhotoError(''); setPhotoRequested(false); setPhotoBusy(false);
+    setMeal(null); setError('');
     if (legacy) setMeal({ ...legacy, consumedAt: legacy.consumedAt || undefined, status: 'ready' });
     else if (mealId) void libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId })
       .then(data => { if (current) setMeal({...historical,...data.meal,consumedAt:data.meal.consumedAt||historical?.consumedAt||undefined}); })
@@ -31,7 +28,8 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
     return () => { current = false; };
   }, [mealId, retry, legacy, historical]);
   useEffect(() => {
-    if (!mealId || !photoRequested) return;
+    setPhoto(''); setPhotoError(''); setPhotoBusy(false);
+    if (!mealId || legacy) return;
     let current = true; let objectUrl = '';
     setPhotoBusy(true); setPhotoError('');
     void libraryRequest<{ photo: { dataUrl: string } }>({ action: 'food_photo', mealId })
@@ -44,7 +42,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
       }).catch(e => { if (current) setPhotoError(e instanceof Error ? e.message : 'Photo unavailable.'); })
       .finally(() => { if (current) setPhotoBusy(false); });
     return () => { current = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [mealId, photoRequested, photoRetry]);
+  }, [mealId, legacy, photoRetry]);
   const adjacent = mealNeighbors(meals, mealId || '');
   const currentMeal = meal?.id === mealId ? meal : null;
   return <MealDialog open={!!mealId} onClose={onClose} returnFocus={returnFocus}>
@@ -62,10 +60,10 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
       </div>
       {currentMeal.calorieRange && <p className="cc-muted">Estimated range: {currentMeal.calorieRange.low}–{currentMeal.calorieRange.high} kcal.</p>}
       {currentMeal.totalIsPartial && <p className="cc-error">Partial estimate: some nutrition is missing. This is not a complete meal total.</p>}
-      {legacy ? <p className="cc-muted cc-small">This older food-log entry has no linked original photo.</p> : !photoRequested && <button className="cc-secondary" onClick={() => setPhotoRequested(true)}><ImageIcon size={17}/>View saved original photo</button>}
+      {legacy && <p className="cc-muted cc-small">This older food-log entry has no linked original photo.</p>}
       {photoBusy && <p role="status">Opening private photo…</p>}
       {photoError && <div role="alert"><p className="cc-error">{photoError}</p><button className="cc-secondary" onClick={() => setPhotoRetry(n => n + 1)}>Retry photo</button></div>}
-      {photo && <figure className="cc-meal-photo"><a ref={photoLink} href={photo} target="_blank" rel="noreferrer"><img src={photo} alt={`Saved photo: ${currentMeal.description || 'meal'}`}/><span>Open full photo ↗</span></a></figure>}
+      {photo && <figure className="cc-meal-photo"><a href={photo} target="_blank" rel="noreferrer"><img src={photo} alt={`Saved photo: ${currentMeal.description || 'meal'}`}/><span>Open full photo ↗</span></a></figure>}
       <details className="cc-meal-estimate-details"><summary>Estimate details &amp; sources</summary>
         {[...(currentMeal.lookupWarnings || []), ...(currentMeal.warnings || [])].map(warning => <p className="cc-muted" key={warning}>{warning}</p>)}
         {currentMeal.items?.map(item => <div className="cc-meal-estimate-item" key={item.id}><strong>{item.name}</strong><p>{item.nutrition?.calories == null ? 'Calories unknown' : `${item.nutrition.calories} kcal`}{item.quantity != null ? ` · ${item.quantity} ${item.unit || 'portion(s)'}` : ''}</p><small>{item.provenance || 'Estimate provenance unavailable'}{item.calculation ? ` · ${item.calculation}` : ''}{item.portionAssumption ? ` · ${item.portionAssumption}` : ''}{item.variantWarning ? ` · ${item.variantWarning}` : ''}</small>{item.sourceCitations?.filter(source => /^https?:\/\//.test(source.url)).map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a>)}</div>)}
