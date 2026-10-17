@@ -23,7 +23,7 @@ export type Conversation = {
 export type Project = { id: string; name: string; description?: string; status?: string; tags?: string[]; sourceUrl?: string; updatedAt?: string };
 export type ImportCandidate = { title: string; text: string; sourceApp: string };
 export const accessHeaders = privateAccessHeaders;
-export async function libraryRequest<T>(body: Record<string, unknown>): Promise<T> {
+export async function libraryRequest<T>(body: Record<string, unknown>, options?: { foodGesture?: boolean }): Promise<T> {
   const send = async (payload: Record<string, unknown>): Promise<Record<string, unknown>> => {
   const response = await fetch('https://automate.hales.ai/cupcake-library', {
     method: 'POST', headers: { ...accessHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -35,7 +35,8 @@ export async function libraryRequest<T>(body: Record<string, unknown>): Promise<
     : data?.error || 'Cupcake could not complete that request. Your original is unchanged. Try again.');
   return data;
   };
-  return await confirmedLibraryRequest(body, send, description => window.confirm(`Cupcake needs your confirmation:\n\n${description}\n\nApprove this action?`)) as T;
+  const foodGesture = options?.foodGesture === true && ['food_analyze', 'food_retry', 'food_refine', 'food_log'].includes(String(body.action));
+  return await confirmedLibraryRequest(body, send, description => foodGesture || window.confirm(`Cupcake needs your confirmation:\n\n${description}\n\nApprove this action?`)) as T;
 }
 export function safeFilename(title: string) { return (Array.from(title).filter(c => c.charCodeAt(0) >= 32).join('').replace(/[<>:"/\\|?*]/g, ' ').trim().slice(0, 100) || 'Cupcake conversation'); }
 export function saveFile(text: string, filename: string, mime = 'text/markdown;charset=utf-8') {

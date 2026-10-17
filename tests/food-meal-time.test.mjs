@@ -104,9 +104,9 @@ const snap = surface('src/pages/cupcake/sandbox/cupcakegpt/page.tsx', 'SnapView'
   } },
 });
 await snap.settle();
-one(snap.tree, node => node.type === 'button' && node.props.className === 'cc-snap-recent-item').props.onClick(); await snap.settle();
+one(snap.tree, node => node.type === 'button' && node.props.className === 'cc-snap-recent-item').props.onClick({ currentTarget: { focus() {} } }); await snap.settle();
 assert.match(text(snap.tree), /48 g total carbs · 5 g sugar/);
-const consent = () => one(snap.tree, node => node.type === 'input' && node.props.type === 'checkbox');
+const consent = () => one(snap.tree, node => node.props['aria-label'] === 'Confirm consumed portions');
 const setTime = value => one(snap.tree, node => node.type === MealTimeInput).props.onChange(value);
 assert.equal(button(snap.tree, 'Add to food log').props.disabled, true);
 assert.equal(requests.filter(r => r.action === 'food_log').length, 0, 'opening a saved photo never logs it');

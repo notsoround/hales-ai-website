@@ -20,6 +20,11 @@ window.fetch = async (_url, init) => {
   let data: Record<string, unknown>;
   if (body.action === 'outcome_list') { const entries = outcomes.filter(entry => (!body.start || String(entry.date) >= body.start) && (!body.end || String(entry.date) <= body.end)); data = { entries, counts: { wins: entries.filter(entry => entry.outcome === 'win').length, losses: entries.filter(entry => entry.outcome === 'loss').length, unscored: 0, total: entries.length }, nextCursor: null }; }
   else if (body.action === 'outcome_record') { const prior = outcomes.find(entry => entry.id === body.id); if (prior && JSON.stringify(prior.source) !== JSON.stringify(body.source)) throw Error('Synthetic request identity conflict'); const entry = prior || { ...body, evidenceType: 'owner-reported-outcome', createdAt: new Date().toISOString() }; if (!prior) outcomes.push(entry); data = { entry, replayed: !!prior, libraryIndexed: true }; }
+  else if (body.action === 'food_analyze') {
+    if (body.autoLog === true && body.confirmConsumed !== true) throw Error('Missing consumption confirmation');
+    meal = { ...structuredClone(initial), photoTakenAt: String(body.consumedAt), autoLogRequested: body.autoLog === true, ...(body.autoLog === true ? { consumedAt: String(body.consumedAt), sheetLoggedAt: new Date().toISOString() } : {}) };
+    data = { meal };
+  }
   else if (body.action === 'food_list') data = { meals: [meal] };
   else if (body.action === 'food_get') data = { meal };
   else if (body.action === 'food_refine') { meal = { ...meal, description: 'Synthetic corrected rice bowl and unsweetened tea', total: { calories: 380, carbs_g: 53, sugar_g: 0, protein_g: 17 }, calorieRange: { low: 300, high: 460 }, items: [initial.items![0], { ...initial.items![1], name: 'Unsweetened tea', nutrition: { calories: 0, carbs_g: 0, sugar_g: 0, protein_g: 0 }, portionAssumption: 'Unsweetened, as corrected in this simulated test.' }] }; data = { meal }; }
@@ -28,7 +33,7 @@ window.fetch = async (_url, init) => {
     if (body.confirmConsumed !== true || !body.consumedAt || Date.parse(String(body.consumedAt)) > Date.now()) throw Error('Simulated log rejected: confirmation and a past time are required.');
     meal = { ...meal, consumedAt: String(body.consumedAt), sheetLoggedAt: new Date().toISOString() }; data = { meal };
   } else throw Error('External networking is disabled in this simulated preview.');
-  document.getElementById('synthetic-count')?.replaceChildren(`Simulated save requests: ${calls.filter(call => call.action === 'food_log').length}. No live writes.`);
+  document.getElementById('synthetic-count')?.replaceChildren(`Simulated save requests: ${calls.filter(call => call.action === 'food_log').length}. Automatic photos: ${calls.filter(call => call.action === 'food_analyze' && call.autoLog === true).length}. No live writes.`);
   return new Response(JSON.stringify({ ok: true, ...data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 };
 function Preview() {

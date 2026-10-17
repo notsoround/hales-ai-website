@@ -18,6 +18,7 @@ import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/
 import { libraryRequest } from '../../../../components/cupcake/library';
 import { LibraryApprovalCancelled } from '../../../../components/cupcake/libraryApproval';
 import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
+import { MealDialog } from '../../../../components/cupcake/MealDialog';
 import { AppUpdateNotice } from '../../../../components/cupcake/AppUpdateNotice';
 import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPrivateAccess, privateAccessHeaders } from '../../../../components/cupcake/privateAccess';
 
@@ -61,7 +62,7 @@ async function loadDashboardStats(range: DashboardRange, cursor?: string): Promi
 }
 
 type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
-type FoodResult = { meal?: FoodMeal; duplicate?: boolean; error?: boolean; Description?: string; description?: string; Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number; Carbs?: number; carbs_g?: number };
+type FoodResult = { logError?: string; meal?: FoodMeal; duplicate?: boolean; error?: boolean; Description?: string; description?: string; Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number; Carbs?: number; carbs_g?: number };
 
 async function prepareFoodImage(file: File) {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPEG, PNG, or WebP image.');
@@ -353,7 +354,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
     <div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Record a note</button></div></div></div>
     <div className="cc-action-row"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}>Quick tip</button><button className="cc-secondary" onClick={()=>setTab('snap')}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
     <TodayWeight onOpen={()=>setTab('week')}/>
-    {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 meal needs your OK':pendingCapped&&pendingMeals>=200&&needs===pendingMeals?`${needs} or more meals need your OK`:`${needs} meals need your OK`}</button>}
+    {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':pendingCapped&&pendingMeals>=200&&needs===pendingMeals?`${needs} or more food photos need attention`:`${needs} food photos need attention`}</button>}
     <details className="cc-card"><summary style={{fontSize:20,cursor:'pointer',minHeight:44}}>Your latest signals</summary>
       {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:selected?<SignalDetail entry={selected} onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>setSelected(null)} onTalkAbout={openTalkAbout}/>:!items?<Spinner/>:!items.length?<Empty text="No recent records were returned. Your older history may still be available in Wins & losses."/>:<div className="space-y-2.5">{items.map((it,i)=><button key={i} type="button" onClick={()=>setSelected({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon})} aria-label={`Open ${it.title}`} className="cc-signal flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"><div className="text-2xl leading-none mt-0.5">{it.icon}</div><div className="flex-1 min-w-0"><p className="font-semibold text-sm truncate">{it.title}</p><p className="text-xs text-white/60">{it.body}</p></div><div className="cc-signal-time text-white/30 whitespace-nowrap mt-1">{signalClock(it.time,it.date,it.ts)}</div></button>)}</div>}
     </details>
@@ -366,6 +367,10 @@ const ChatView = QuickChat;
 // ---------- SNAP (food photo) ----------
 const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [preview, setPreview] = useState<string | null>(null);
+  const [photoTime, setPhotoTime] = useState('');
+  const [reviewBeforeLog, setReviewBeforeLog] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const mealTrigger = useRef<HTMLElement | null>(null);
   const [note, setNote] = useState('');
   const [consumedAt, setConsumedAt] = useState('');
   const [confirmedConsumed, setConfirmedConsumed] = useState(false);
@@ -384,20 +389,24 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     if (busy) return;
     setError(''); setBusy(true);
     setConfirmedConsumed(false); setConsumedAt(''); setPortionNote('');
-    void prepareFoodImage(f).then(image => { setPreview(image); setResult(null); }).catch(e => setError(e instanceof Error ? e.message : 'Could not prepare that image.')).finally(() => setBusy(false));
+    const at = new Date(f.lastModified >= 946684800000 && f.lastModified <= Date.now() ? f.lastModified : Date.now()).toISOString();
+    setPhotoTime(at); setDetailsOpen(true); setResult(null);
+    void prepareFoodImage(f).then(async image => { setPreview(image); await analyze(image, at); }).catch(e => setError(e instanceof Error ? e.message : 'Could not prepare that image.')).finally(() => setBusy(false));
   };
 
-  const analyze = async () => {
-    if (!preview || busy) return;
+  const analyze = async (photo?: string, at = photoTime) => {
+    const image = photo || preview;
+    if (!image || (busy && !photo)) return;
+    setDetailsOpen(true); setConsumedAt(at);
     setBusy(true); setResult(null); setError(''); setConfirmedConsumed(false); setPortionNote('');
-    try { setResult(await libraryRequest<FoodResult>({ action: 'food_analyze', image: preview, note, estimateVisiblePortion: true, reviewOnly: true })); void loadRecentMeals(); }
+    try { const data = await libraryRequest<FoodResult>({ action: 'food_analyze', image, note, estimateVisiblePortion: true, reviewOnly: true, autoLog: !reviewBeforeLog, confirmConsumed: !reviewBeforeLog, consumedAt: at }, { foodGesture: true }); setResult(data); if (data.logError) setError(data.logError); void loadRecentMeals(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Food analysis failed. The original image remains on this device.'); }
     finally { setBusy(false); }
   };
 
-  const retry = async () => { const mealId = result?.meal?.id; if (!mealId || busy) return; setBusy(true); setError(''); try { setResult(await libraryRequest<FoodResult>({ action: 'food_retry', mealId })); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Retry failed.'); } finally { setBusy(false); } };
-  const refine = async () => { const mealId = result?.meal?.id; if (!mealId || !portionNote.trim() || busy) return; setBusy(true); setError(''); setConfirmedConsumed(false); try { setResult(await libraryRequest<FoodResult>({ action: 'food_refine', mealId, note: portionNote.trim(), consumedPortions: { note: portionNote.trim() }, reviewOnly: true })); setPortionNote(''); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Could not update the portion estimate.'); } finally { setBusy(false); } };
-  const openMeal = async (mealId: string) => { if (busy) return; setBusy(true); setError(''); try { const data = await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId }); setResult({ meal: data.meal }); setPreview(null); setPortionNote(''); setConfirmedConsumed(false); setConsumedAt(''); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load that saved meal.'); } finally { setBusy(false); } };
+  const retry = async () => { const mealId = result?.meal?.id; if (!mealId || busy) return; setBusy(true); setError(''); try { setResult(await libraryRequest<FoodResult>({ action: 'food_retry', mealId }, { foodGesture: true })); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Retry failed.'); } finally { setBusy(false); } };
+  const refine = async () => { const mealId = result?.meal?.id; if (!mealId || !portionNote.trim() || busy) return; setBusy(true); setError(''); setConfirmedConsumed(false); try { setResult(await libraryRequest<FoodResult>({ action: 'food_refine', mealId, note: portionNote.trim(), consumedPortions: { note: portionNote.trim() }, reviewOnly: true, autoLog: false }, { foodGesture: true })); setPortionNote(''); void loadRecentMeals(); } catch (e) { setError(e instanceof Error ? e.message : 'Could not update the portion estimate.'); } finally { setBusy(false); } };
+  const openMeal = async (mealId: string) => { if (busy) return; setBusy(true); setError(''); try { const data = await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId }); setResult({ meal: data.meal }); setPreview(null); setPortionNote(''); setConfirmedConsumed(false); setConsumedAt(data.meal.pendingConsumedAt || data.meal.photoTakenAt || data.meal.createdAt || ''); setDetailsOpen(true); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load that saved meal.'); } finally { setBusy(false); } };
 
   const logMeal = async () => {
     const meal = result?.meal; if (!meal || busy || portionNote.trim() || !confirmedConsumed || (!consumedAt && !meal.pendingConsumedAt)) return;
@@ -409,7 +418,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       const at = new Date(timestamp).toISOString();
       attemptedAt = at;
       setResult(current => current?.meal ? { ...current, meal: { ...current.meal, pendingConsumedAt: at } } : current);
-      setResult(await libraryRequest<FoodResult>({ action: 'food_log', mealId: meal.id, confirmConsumed: true, consumedAt: at }));
+      setResult(await libraryRequest<FoodResult>({ action: 'food_log', mealId: meal.id, confirmConsumed: true, consumedAt: at }, { foodGesture: true }));
       void loadRecentMeals();
     }
     catch (e) {
@@ -424,37 +433,21 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     finally { setBusy(false); }
   };
 
-  const viewingSaved = Boolean(result?.meal && !preview);
-  const suggestedPhotoTime = photoConsumedAt(result?.meal?.createdAt);
+  const suggestedPhotoTime = photoConsumedAt(result?.meal?.photoTakenAt || result?.meal?.createdAt);
   const pendingMeals = recentMeals.filter(meal => !meal.sheetLoggedAt);
   const loggedMeals = recentMeals.filter(meal => meal.sheetLoggedAt);
-  const mealRow = (meal: FoodMeal) => <button type="button" className="cc-snap-recent-item" key={meal.id} disabled={busy} onClick={() => void openMeal(meal.id)}><span><strong>{meal.description || 'Food photo'}</strong><small>{meal.createdAt ? new Date(meal.createdAt).toLocaleString() : 'Saved meal'} · {recentMealStatus(meal)}{meal.sheetLoggedAt ? '' : ' · not in calorie totals'}</small></span><span>{meal.total?.calories ?? '—'} kcal</span></button>;
-  const mealQueue = <section className="cc-snap-queue" aria-label="Meals that need your OK"><div className="cc-heading-row"><h3>{pendingMeals.length ? `${pendingMeals.length} need your OK` : 'Meals that need your OK'}</h3><button className="cc-text-button" disabled={busy} onClick={() => void loadRecentMeals()}>Refresh</button></div><p className="cc-muted cc-small">Open a photo, use the photo time or pick another time, check that you ate those portions, then add it to your food log. Nothing is counted before that.</p>{pendingMeals.length ? pendingMeals.map(mealRow) : <p className="text-sm text-white/40">No saved photos are waiting.</p>}</section>;
+  const mealRow = (meal: FoodMeal) => <button type="button" className="cc-snap-recent-item" key={meal.id} disabled={busy} aria-expanded={detailsOpen && result?.meal?.id === meal.id} onClick={event => { mealTrigger.current = event.currentTarget; if (detailsOpen && result?.meal?.id === meal.id) setDetailsOpen(false); else void openMeal(meal.id); }}><span><strong>{meal.description || 'Food photo'}</strong><small>{meal.createdAt ? new Date(meal.consumedAt || meal.photoTakenAt || meal.createdAt).toLocaleString() : 'Saved meal'} · {recentMealStatus(meal)}{meal.sheetLoggedAt ? '' : ' · not in calorie totals'}</small></span><span>{meal.total?.calories ?? '—'} kcal</span></button>;
+  const mealQueue = pendingMeals.length ? <section className="cc-snap-queue" aria-label="Photos to check"><div className="cc-heading-row"><h3>{pendingMeals.length} {pendingMeals.length === 1 ? 'photo' : 'photos'} to check</h3><button className="cc-text-button" disabled={busy} onClick={() => void loadRecentMeals()}>Refresh</button></div><p className="cc-muted cc-small">These photos need a nutrition estimate or a logging retry. Open one to see what is missing.</p>{pendingMeals.map(mealRow)}</section> : null;
   const cameraBlock = <>
-      {!viewingSaved && !preview && (
-        <div
-          onClick={() => { if (!busy) cameraRef.current?.click(); }}
-          className="relative aspect-square rounded-3xl border-2 border-dashed border-pink-500/30 bg-white/[0.03] overflow-hidden flex items-center justify-center cursor-pointer"
-        >
-          <div className="text-center text-pink-200/50 px-6">
-            <Camera size={40} className="mx-auto mb-3" />
-            <p className="text-sm">Tap to snap or upload your meal</p>
-            <p className="text-xs mt-1 text-white/30">Cupcake estimates calories, carbs & sugar</p>
-          </div>
-        </div>
-      )}
-      {!viewingSaved && preview && <img src={preview} alt="food" className="cc-snap-preview" />}
-      {!viewingSaved && <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy} onClick={() => cameraRef.current?.click()}><Camera size={17} />Take photo</button><button type="button" className="cc-secondary" disabled={busy} onClick={() => fileRef.current?.click()}>Choose existing photo</button></div>}
+    <div className="cc-food-default"><p><strong>Full photo = full meal</strong><br/><small>Photos log automatically at the photo file’s time. Unknown nutrition stays marked as missing.</small></p><label><input aria-label="Review before logging" type="checkbox" disabled={busy} checked={reviewBeforeLog} onChange={e => setReviewBeforeLog(e.target.checked)}/>Review portions or change the time before logging</label><input aria-label="Food note" value={note} disabled={busy} onChange={e => setNote(e.target.value)} placeholder="Optional: half the rice, sugar-free drink…" className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm"/></div>
+    <div className="cc-food-capture"><Camera size={30}/><div><p>Take a photo of what you ate</p><small>Calories and nutrients are estimates.</small></div></div>
+    <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy} onClick={event => { mealTrigger.current = event.currentTarget; cameraRef.current?.click(); }}><Camera size={17}/>Take photo</button><button type="button" className="cc-secondary" disabled={busy} onClick={event => { mealTrigger.current = event.currentTarget; fileRef.current?.click(); }}>Choose existing photo</button></div>
+    {busy && <p role="status">Preparing your meal and saving its estimate…</p>}
   </>;
-  const closeSavedMeal = () => {
-    if (busy) return;
-    setResult(null); setPreview(null); setError(''); setNote(''); setPortionNote(''); setConfirmedConsumed(false); setConsumedAt('');
-  };
 
   return (
     <div className="space-y-4">
       <div className="cc-snap-head">
-        {viewingSaved && <button type="button" className="cc-text-button" disabled={busy} onClick={closeSavedMeal}><ArrowLeft size={17}/>Back</button>}
         <button type="button" className="cc-text-button" onClick={() => onBack?.()}><ArrowLeft size={17}/>Back to Today</button>
         <h2 className="cc-snap-title">Log food</h2>
       </div>
@@ -462,19 +455,23 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       {reviewFirst ? cameraBlock : mealQueue}
       <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
-      {error && <p className="text-sm text-rose-200" role="alert">{error}</p>}
+      {error && !detailsOpen && <p className="text-sm text-rose-200" role="alert">{error}</p>}
 
-      {preview && (
+      {preview && !result && !busy && (
         <>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note (optional)…"
             className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm outline-none focus:border-pink-400/50 placeholder:text-white/30" />
-          <button onClick={analyze} disabled={busy}
+          <button onClick={() => void analyze()} disabled={busy}
             className="w-full py-3.5 rounded-full font-semibold bg-gradient-to-r from-pink-500 to-rose-600 flex items-center justify-center gap-2 disabled:opacity-50">
-            {busy ? <><Loader2 className="animate-spin" size={18} /> Preparing…</> : 'Analyze food'}
+            {busy ? <><Loader2 className="animate-spin" size={18} /> Preparing…</> : 'Retry food analysis'}
           </button>
         </>
       )}
 
+      <MealDialog returnFocus={mealTrigger} open={detailsOpen} onClose={() => setDetailsOpen(false)}>
+      {busy && !result && <p role="status">Estimating and saving your meal… You can close this window while it finishes.</p>}
+      {error && <p role="alert" className="text-sm text-rose-200">{error}</p>}
+      {preview && <img src={preview} alt="Your food photo" className="cc-snap-preview"/>}
       {result && (
         <div className="bg-white/[0.05] border border-pink-500/20 rounded-2xl p-4">
           <p className="font-semibold text-pink-200">{result.meal?.description || result.Description || result.description || 'Food photo'}</p>
@@ -491,19 +488,20 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           {result.meal?.status === 'analysis_failed' && <button className="cc-secondary mt-3" disabled={busy} onClick={() => void retry()}>Retry analysis</button>}
           {!!result.meal?.items?.length && <div className="cc-snap-items"><strong>Saved item estimates</strong>{result.meal.items.map(item => <div key={item.id}><span>{item.name}{item.quantity != null ? ` · ${item.quantity} ${item.unit || 'portion(s)'}` : ''}</span><small>{item.nutrition?.calories ?? '—'} kcal · {item.nutrition?.carbs_g ?? '—'} g total carbs · {item.nutrition?.sugar_g ?? '—'} g sugar · {item.provenance || 'estimate'}{item.variantWarning ? ` · ${item.variantWarning}` : ''}{item.calculation ? ` · ${item.calculation}` : ''}{item.portionAssumption ? ` · Assumes ${item.portionAssumption}` : ''}{item.sourceCitations?.map(source => /^https?:\/\//.test(source.url) ? <a key={source.url} href={source.url} target="_blank" rel="noreferrer"> · {source.title}</a> : null)}</small></div>)}</div>}
           {(result.meal?.totalIsPartial || (result.meal?.total && Object.values(result.meal.total).some(value => value == null))) && <p className="text-xs text-amber-200 mt-3">Partial estimate: some items or nutrients could not be estimated. Unknown values show —.</p>}
-          {result.meal?.sheetLoggedAt ? <p className="text-xs text-emerald-300 mt-3" role="status">✓ Added to your food log · included in calories for the day you ate it{result.duplicate ? ' · already counted once' : ''}</p> : result.meal && <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
-            <p className="text-sm text-amber-100" role="status">{result.meal.status === 'analysis_failed' ? 'Photo saved. Analysis failed—retry to get an estimate.' : 'Photo saved privately. Not counted in your calorie totals yet.'}</p>
+          {result.meal?.sheetLoggedAt ? <p className="text-xs text-emerald-300 mt-3" role="status">✓ Added to your food log · eaten {new Date(result.meal.consumedAt || result.meal.photoTakenAt || result.meal.createdAt || '').toLocaleString()} · included in that day’s calories{result.duplicate ? ' · already counted once' : ''}</p> : result.meal && <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+            <p className="text-sm text-amber-100" role="status">{result.meal.status === 'analysis_failed' ? 'Photo saved. Analysis failed—retry to get an estimate.' : result.meal.autoLogRequested && result.meal.needsClarification ? 'Meal photo saved as eaten. Nutrition is missing; it is not counted as zero calories.' : 'Photo saved privately. Not counted in your calorie totals yet.'}</p>
             {result.meal.status !== 'analysis_failed' && <p className="text-xs text-white/60">To give your OK: set when you ate it, check the box, then add it to your food log.</p>}
             {result.meal.total?.calories != null && !result.meal.needsClarification && !!result.meal.items?.length && result.meal.items.every(item => item.nutrition?.calories != null) && <>
               {suggestedPhotoTime && !result.meal.pendingConsumedAt && <button type="button" className="cc-secondary" disabled={busy} onClick={() => { setConsumedAt(suggestedPhotoTime); setConfirmedConsumed(false); }}>Use the photo time</button>}
               {result.meal.pendingConsumedAt ? <p className="text-xs text-white/60">Retrying the same meal time: {new Date(result.meal.pendingConsumedAt).toLocaleString()}</p> : <MealTimeInput key={result.meal.id} value={consumedAt} disabled={busy} onChange={value => { setConsumedAt(value); setConfirmedConsumed(false); }} />}
-              <label className="cc-meal-consent"><input type="checkbox" disabled={busy || !!portionNote.trim()} checked={confirmedConsumed} onChange={e => setConfirmedConsumed(e.target.checked)} />I ate these portions. Add this estimate to my calorie totals.</label>{portionNote.trim() && <p className="text-xs text-amber-200">Apply your correction, or clear it, before confirming these portions.</p>}
+              <label className="cc-meal-consent"><input aria-label="Confirm consumed portions" type="checkbox" disabled={busy || !!portionNote.trim()} checked={confirmedConsumed} onChange={e => setConfirmedConsumed(e.target.checked)} />I ate these portions. Add this estimate to my calorie totals.</label>{portionNote.trim() && <p className="text-xs text-amber-200">Apply your correction, or clear it, before confirming these portions.</p>}
               <button type="button" className="cc-primary" disabled={busy || !!portionNote.trim() || !confirmedConsumed || (!consumedAt && !result.meal.pendingConsumedAt)} onClick={() => void logMeal()}>{busy ? 'Saving…' : 'Add to food log'}</button>
             </>}
           </div>}
 
         </div>
       )}
+      </MealDialog>
       {!!loggedMeals.length && <section className="cc-snap-recent"><div className="cc-heading-row"><h3>Already in your food log</h3></div>{loggedMeals.map(mealRow)}</section>}
     </div>
   );
