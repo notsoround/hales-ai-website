@@ -38,7 +38,7 @@ function surface(path, component, props, dependencies = {}) {
     useCallback(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) slots[i] = { value: fn, deps }; return slots[i].value; },
     useEffect(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) { slots[i] = { deps }; effects.push(fn); } },
   };
-  const context = { exports: {}, Date: FixtureDate, Intl, URL, URLSearchParams, require(name) {
+  const context = { exports: {}, window: { location: { search: '' } }, Date: FixtureDate, Intl, URL, URLSearchParams, require(name) {
     if (name === 'react') return hooks;
     if (name === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: 'fragment' };
     if (name === './CalendarDateFields') return { CalendarDateFields };
@@ -91,7 +91,9 @@ const MealTimeInput = () => null;
 let meal = { id: 'synthetic_meal', status: 'ready', description: 'Synthetic rice bowl', total: { calories: 320, carbs_g: 48, sugar_g: 5, protein_g: 12 }, items: [{ id: 'synthetic_item', name: 'Synthetic rice', nutrition: { calories: 320, carbs_g: 48, sugar_g: 5 } }] };
 let logMode = 'cancel';
 const requests = [];
+const nutritionReload = async () => {};
 const snap = surface('src/pages/cupcake/sandbox/cupcakegpt/page.tsx', 'SnapView', {}, {
+  '../../../../components/cupcake/nutritionApi': { useNutritionData: () => ({ history: null, reload: nutritionReload }) },
   '../../../../components/cupcake/MealTimeInput': { MealTimeInput },
   '../../../../components/cupcake/libraryApproval': { LibraryApprovalCancelled },
   '../../../../components/cupcake/library': { libraryRequest: async body => {

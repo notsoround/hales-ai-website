@@ -18,7 +18,11 @@ window.fetch = async (_url, init) => {
   const body = JSON.parse(String(init?.body || '{}'));
   calls.push(body);
   let data: Record<string, unknown>;
-  if (body.action === 'outcome_list') { const entries = outcomes.filter(entry => (!body.start || String(entry.date) >= body.start) && (!body.end || String(entry.date) <= body.end)); data = { entries, counts: { wins: entries.filter(entry => entry.outcome === 'win').length, losses: entries.filter(entry => entry.outcome === 'loss').length, unscored: 0, total: entries.length }, nextCursor: null }; }
+  if (String(_url).includes('cupcake-feed?scope=food-history')) data = { items: [], nextCursor: null, coverage: { scope: 'food-history', complete: true } };
+  else if (body.action === 'food_history') data = { meals: meal.sheetLoggedAt ? [meal] : [], total: meal.sheetLoggedAt ? 1 : 0, nextCursor: null, hasMore: false, pendingCount: meal.sheetLoggedAt ? 0 : 1, undatedLoggedCount: 0 };
+  else if (body.action === 'food_settings_get') data = { settings: { calorieTarget: null, expenditureEstimate: null, effectiveFrom: null, versions: [] } };
+  else if (body.action === 'food_photo') data = { photo: { dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0ioAAAAASUVORK5CYII=' } };
+  else if (body.action === 'outcome_list') { const entries = outcomes.filter(entry => (!body.start || String(entry.date) >= body.start) && (!body.end || String(entry.date) <= body.end)); data = { entries, counts: { wins: entries.filter(entry => entry.outcome === 'win').length, losses: entries.filter(entry => entry.outcome === 'loss').length, unscored: 0, total: entries.length }, nextCursor: null }; }
   else if (body.action === 'outcome_record') { const prior = outcomes.find(entry => entry.id === body.id); if (prior && JSON.stringify(prior.source) !== JSON.stringify(body.source)) throw Error('Synthetic request identity conflict'); const entry = prior || { ...body, evidenceType: 'owner-reported-outcome', createdAt: new Date().toISOString() }; if (!prior) outcomes.push(entry); data = { entry, replayed: !!prior, libraryIndexed: true }; }
   else if (body.action === 'food_analyze') {
     if (body.autoLog === true && body.confirmConsumed !== true) throw Error('Missing consumption confirmation');

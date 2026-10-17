@@ -35,7 +35,7 @@ export async function libraryRequest<T>(body: Record<string, unknown>, options?:
     : data?.error || 'Cupcake could not complete that request. Your original is unchanged. Try again.');
   return data;
   };
-  const foodGesture = options?.foodGesture === true && ['food_analyze', 'food_retry', 'food_refine', 'food_log'].includes(String(body.action));
+  const foodGesture = options?.foodGesture === true && ['food_analyze', 'food_retry', 'food_refine', 'food_log', 'food_settings_save'].includes(String(body.action));
   return await confirmedLibraryRequest(body, send, description => foodGesture || window.confirm(`Cupcake needs your confirmation:\n\n${description}\n\nApprove this action?`)) as T;
 }
 export function safeFilename(title: string) { return (Array.from(title).filter(c => c.charCodeAt(0) >= 32).join('').replace(/[<>:"/\\|?*]/g, ' ').trim().slice(0, 100) || 'Cupcake conversation'); }

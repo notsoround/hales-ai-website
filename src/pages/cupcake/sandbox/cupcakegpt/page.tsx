@@ -18,6 +18,10 @@ import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/
 import { libraryRequest } from '../../../../components/cupcake/library';
 import { LibraryApprovalCancelled } from '../../../../components/cupcake/libraryApproval';
 import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
+import { SavedMealDialog } from '../../../../components/cupcake/SavedMealDialog';
+import { NutritionTodayCard, NutritionWorkspace } from '../../../../components/cupcake/NutritionWorkspace';
+import { useNutritionData } from '../../../../components/cupcake/nutritionApi';
+import { dayLabel, nutritionDay } from '../../../../components/cupcake/nutritionModel';
 import { MealDialog } from '../../../../components/cupcake/MealDialog';
 import { AppUpdateNotice } from '../../../../components/cupcake/AppUpdateNotice';
 import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPrivateAccess, privateAccessHeaders } from '../../../../components/cupcake/privateAccess';
@@ -326,6 +330,8 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   const [items,setItems]=useState<FeedItem[]|null>(null);
   const [err,setErr]=useState(false);
   const [selected,setSelected]=useState<DashboardEntry|null>(null);
+  const [selectedMeal,setSelectedMeal]=useState<string|null>(null);
+  const nutrition=useNutritionData();
   const loadId=useRef(0);
   const load=useCallback(()=>{
     const request=++loadId.current;
@@ -336,28 +342,18 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
       .catch(()=>{if(request===loadId.current)setErr(true);});
   },[]);
   useEffect(()=>{load();},[load]);
-  const [pendingMeals,setPendingMeals]=useState(0);
-  const [pendingCapped,setPendingCapped]=useState(false);
-  useEffect(()=>{
-    let live=true;
-    void libraryRequest<{meals:FoodMeal[]}>({action:'food_list',limit:200}).then(data=>{
-      if(!live)return;
-      const meals=data.meals||[];
-      setPendingCapped(meals.length>=200);
-      setPendingMeals(meals.filter(meal=>!meal.sheetLoggedAt).length);
-    }).catch(()=>{if(live){setPendingMeals(0);setPendingCapped(false);}});
-    return()=>{live=false;};
-  },[]);
   const loadMeal=useCallback(async(mealId:string)=>(await libraryRequest<{meal:FoodMeal}>({action:'food_get',mealId})).meal,[]);
-  const needs=Math.max(items?mealsNeedingOk(items):0,pendingMeals);
+  const needs=Math.max(items?mealsNeedingOk(items):0,nutrition.history?.pendingCount||0);
   return <>
     <div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Record a note</button></div></div></div>
-    <div className="cc-action-row"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}>Quick tip</button><button className="cc-secondary" onClick={()=>setTab('snap')}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
+    <div className="cc-action-row"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}>Quick tip</button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
+    <NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/>
+    <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
     <TodayWeight onOpen={()=>setTab('week')}/>
-    {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':pendingCapped&&pendingMeals>=200&&needs===pendingMeals?`${needs} or more food photos need attention`:`${needs} food photos need attention`}</button>}
-    <details className="cc-card"><summary style={{fontSize:20,cursor:'pointer',minHeight:44}}>Your latest signals</summary>
-      {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:selected?<SignalDetail entry={selected} onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>setSelected(null)} onTalkAbout={openTalkAbout}/>:!items?<Spinner/>:!items.length?<Empty text="No recent records were returned. Your older history may still be available in Wins & losses."/>:<div className="space-y-2.5">{items.map((it,i)=><button key={i} type="button" onClick={()=>setSelected({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon})} aria-label={`Open ${it.title}`} className="cc-signal flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"><div className="text-2xl leading-none mt-0.5">{it.icon}</div><div className="flex-1 min-w-0"><p className="font-semibold text-sm truncate">{it.title}</p><p className="text-xs text-white/60">{it.body}</p></div><div className="cc-signal-time text-white/30 whitespace-nowrap mt-1">{signalClock(it.time,it.date,it.ts)}</div></button>)}</div>}
-    </details>
+    {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
+    <section className="cc-card"><div className="cc-heading-row"><h3>Your latest signals</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
+      {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:selected?<SignalDetail entry={selected} onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={openTalkAbout}/>:!items?<Spinner/>:!items.length?<Empty text="No recent records were returned. Your older history may still be available in Wins & losses."/>:<div className="space-y-2.5">{items.slice(0,5).map((it,i)=><button key={i} type="button" onClick={()=>it.type==='food'&&typeof it.details?.mealId==='string'?setSelectedMeal(it.details.mealId):setSelected({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon})} aria-label={`Open ${it.title}`} className="cc-signal flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"><div className="text-2xl leading-none mt-0.5">{it.icon}</div><div className="flex-1 min-w-0"><p className="font-semibold text-sm truncate">{it.title}</p><p className="text-xs text-white/60">{it.body}</p></div><div className="cc-signal-time text-white/30 whitespace-nowrap mt-1"><span>{it.date===nutritionDay()?'Today':it.date?dayLabel(it.date):'Date unavailable'}</span><br/>{signalClock(it.time,it.date,it.ts)}</div></button>)}</div>}
+    </section>
   </>;
 }
 
@@ -366,6 +362,12 @@ const ChatView = QuickChat;
 
 // ---------- SNAP (food photo) ----------
 const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+  const nutrition = useNutritionData();
+  const reloadNutrition = nutrition.reload;
+  const [selectedSavedMeal,setSelectedSavedMeal] = useState<string|null>(()=>new URLSearchParams(window.location.search).get('meal'));
+  const [captureOpen,setCaptureOpen] = useState(()=>{try{const open=sessionStorage.getItem('cupcake-food-capture')==='1';sessionStorage.removeItem('cupcake-food-capture');return open;}catch{return false;}});
+  const captureSection = useRef<HTMLDetailsElement>(null);
+  useEffect(()=>{if(captureOpen)captureSection.current?.scrollIntoView({block:'start'});},[captureOpen]);
   const [preview, setPreview] = useState<string | null>(null);
   const [photoTime, setPhotoTime] = useState('');
   const [reviewBeforeLog, setReviewBeforeLog] = useState(false);
@@ -382,7 +384,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [reviewFirst] = useState(foodReviewFirst);
   const fileRef = useRef<HTMLInputElement>(null); const cameraRef = useRef<HTMLInputElement>(null);
 
-  const loadRecentMeals = useCallback(async () => { try { const data = await libraryRequest<{ meals: FoodMeal[] }>({ action: 'food_list', limit: 200 }); setRecentMeals(data.meals || []); } catch (e) { setError(e instanceof Error ? e.message : 'Recent food photos are unavailable.'); } }, []);
+  const loadRecentMeals = useCallback(async () => { try { const data = await libraryRequest<{ meals: FoodMeal[] }>({ action: 'food_list', limit: 200 }); setRecentMeals(data.meals || []); void reloadNutrition(); } catch (e) { setError(e instanceof Error ? e.message : 'Recent food photos are unavailable.'); } }, [reloadNutrition]);
   useEffect(() => { void loadRecentMeals(); }, [loadRecentMeals]);
 
   const onFile = (f: File) => {
@@ -435,7 +437,6 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   const suggestedPhotoTime = photoConsumedAt(result?.meal?.photoTakenAt || result?.meal?.createdAt);
   const pendingMeals = recentMeals.filter(meal => !meal.sheetLoggedAt);
-  const loggedMeals = recentMeals.filter(meal => meal.sheetLoggedAt);
   const mealRow = (meal: FoodMeal) => <button type="button" className="cc-snap-recent-item" key={meal.id} disabled={busy} aria-expanded={detailsOpen && result?.meal?.id === meal.id} onClick={event => { mealTrigger.current = event.currentTarget; if (detailsOpen && result?.meal?.id === meal.id) setDetailsOpen(false); else void openMeal(meal.id); }}><span><strong>{meal.description || 'Food photo'}</strong><small>{meal.createdAt ? new Date(meal.consumedAt || meal.photoTakenAt || meal.createdAt).toLocaleString() : 'Saved meal'} · {recentMealStatus(meal)}{meal.sheetLoggedAt ? '' : ' · not in calorie totals'}</small></span><span>{meal.total?.calories ?? '—'} kcal</span></button>;
   const mealQueue = pendingMeals.length ? <section className="cc-snap-queue" aria-label="Photos to check"><div className="cc-heading-row"><h3>{pendingMeals.length} {pendingMeals.length === 1 ? 'photo' : 'photos'} to check</h3><button className="cc-text-button" disabled={busy} onClick={() => void loadRecentMeals()}>Refresh</button></div><p className="cc-muted cc-small">These photos need a nutrition estimate or a logging retry. Open one to see what is missing.</p>{pendingMeals.map(mealRow)}</section> : null;
   const cameraBlock = <>
@@ -449,10 +450,13 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     <div className="space-y-4">
       <div className="cc-snap-head">
         <button type="button" className="cc-text-button" onClick={() => onBack?.()}><ArrowLeft size={17}/>Back to Today</button>
-        <h2 className="cc-snap-title">Log food</h2>
+        <h2 className="cc-snap-title">Food</h2>
       </div>
-      {reviewFirst ? mealQueue : cameraBlock}
-      {reviewFirst ? cameraBlock : mealQueue}
+      {reviewFirst && mealQueue}
+      <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>
+      <NutritionWorkspace {...nutrition} onOpenMeal={setSelectedSavedMeal} onSaveSettings={nutrition.saveSettings} onRetry={()=>void nutrition.reload()} onOpenCapture={()=>{setCaptureOpen(true); requestAnimationFrame(()=>captureSection.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>
+      <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)}/>
+      {!reviewFirst && mealQueue}
       <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
       {error && !detailsOpen && <p className="text-sm text-rose-200" role="alert">{error}</p>}
@@ -488,6 +492,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           {result.meal?.status === 'analysis_failed' && <button className="cc-secondary mt-3" disabled={busy} onClick={() => void retry()}>Retry analysis</button>}
           {!!result.meal?.items?.length && <div className="cc-snap-items"><strong>Saved item estimates</strong>{result.meal.items.map(item => <div key={item.id}><span>{item.name}{item.quantity != null ? ` · ${item.quantity} ${item.unit || 'portion(s)'}` : ''}</span><small>{item.nutrition?.calories ?? '—'} kcal · {item.nutrition?.carbs_g ?? '—'} g total carbs · {item.nutrition?.sugar_g ?? '—'} g sugar · {item.provenance || 'estimate'}{item.variantWarning ? ` · ${item.variantWarning}` : ''}{item.calculation ? ` · ${item.calculation}` : ''}{item.portionAssumption ? ` · Assumes ${item.portionAssumption}` : ''}{item.sourceCitations?.map(source => /^https?:\/\//.test(source.url) ? <a key={source.url} href={source.url} target="_blank" rel="noreferrer"> · {source.title}</a> : null)}</small></div>)}</div>}
           {(result.meal?.totalIsPartial || (result.meal?.total && Object.values(result.meal.total).some(value => value == null))) && <p className="text-xs text-amber-200 mt-3">Partial estimate: some items or nutrients could not be estimated. Unknown values show —.</p>}
+          {result.meal?.sheetLoggedAt && <button className="cc-secondary mt-3" onClick={()=>{setDetailsOpen(false);setSelectedSavedMeal(result.meal!.id);}}>Browse saved meal &amp; photo</button>}
           {result.meal?.sheetLoggedAt ? <p className="text-xs text-emerald-300 mt-3" role="status">✓ Added to your food log · eaten {new Date(result.meal.consumedAt || result.meal.photoTakenAt || result.meal.createdAt || '').toLocaleString()} · included in that day’s calories{result.duplicate ? ' · already counted once' : ''}</p> : result.meal && <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
             <p className="text-sm text-amber-100" role="status">{result.meal.status === 'analysis_failed' ? 'Photo saved. Analysis failed—retry to get an estimate.' : result.meal.autoLogRequested && result.meal.needsClarification ? 'Meal photo saved as eaten. Nutrition is missing; it is not counted as zero calories.' : 'Photo saved privately. Not counted in your calorie totals yet.'}</p>
             {result.meal.status !== 'analysis_failed' && <p className="text-xs text-white/60">To give your OK: set when you ate it, check the box, then add it to your food log.</p>}
@@ -502,7 +507,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         </div>
       )}
       </MealDialog>
-      {!!loggedMeals.length && <section className="cc-snap-recent"><div className="cc-heading-row"><h3>Already in your food log</h3></div>{loggedMeals.map(mealRow)}</section>}
+
     </div>
   );
 };
