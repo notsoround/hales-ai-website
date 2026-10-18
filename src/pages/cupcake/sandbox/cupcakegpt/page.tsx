@@ -25,6 +25,9 @@ import { dayLabel, nutritionDay } from '../../../../components/cupcake/nutrition
 import { MealDialog } from '../../../../components/cupcake/MealDialog';
 import { AppUpdateNotice } from '../../../../components/cupcake/AppUpdateNotice';
 import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPrivateAccess, privateAccessHeaders } from '../../../../components/cupcake/privateAccess';
+import { TodayEnergy } from '../../../../components/cupcake/TodayEnergy';
+import { AccentHeatToggle } from '../../../../components/cupcake/AccentHeatToggle';
+import { useAccentHeat } from '../../../../components/cupcake/useAccentHeat';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -207,6 +210,7 @@ const CupcakeGPT: React.FC = () => {
   const [quickAction, setQuickAction] = useState<'tip' | 'reset' | null>(null);
   const [speak, setSpeak] = useState(false);
   const [access, setAccess] = useState<AccessGate>(() => (readPrivateAccess() ? 'opening' : 'form'));
+  const [accentHeat, setAccentHeat] = useAccentHeat();
   const [keyInput, setKeyInput] = useState(readPrivateAccess);
   const [unlocking, setUnlocking] = useState(false);
   const [accessError, setAccessError] = useState('');
@@ -303,7 +307,7 @@ const CupcakeGPT: React.FC = () => {
   const promptInstall = () => { if (!install) return; void install.prompt().then(() => install.userChoice).then(() => setInstall(null)); };
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
-  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><details className="cc-settings"><summary>Settings</summary><div className="cc-settings-panel"><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" disabled={mediaBusy} onClick={lock}>Lock</button></header>
+  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><details className="cc-settings"><summary>Settings</summary><div className="cc-settings-panel"><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" disabled={mediaBusy} onClick={lock}>Lock</button></header>
     <main className="cc-shell">
       <AppUpdateNotice busy={mediaBusy} part="banner" />
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
@@ -348,6 +352,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
     <div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Record a note</button></div></div></div>
     <div className="cc-action-row"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}>Quick tip</button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
     <NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/>
+    <TodayEnergy items={items} nutrition={nutrition}/>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
     <TodayWeight onOpen={()=>setTab('week')}/>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}

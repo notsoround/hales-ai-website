@@ -1,0 +1,7 @@
+/* Calm/Hot accent. Calm is the existing pink (--cc-pink set in studio.css).
+   Hot is the cupcake-opolis magenta set (styles/base.css, dark theme). */
+:root[data-accent-heat="hot"] .cc-app{--cc-pink:#ff3d7a;--cc-pink-strong:#ff3d7a;--cc-pink-bright:#ff6b9d;--cc-pink-hover:#ff6b9d;--cc-pink-ring:#ff2d6f;--cc-pink-subtle:rgba(255,45,111,.14)}
+.cc-heat{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--cc-line);border-radius:999px}
+.cc-heat button{min-height:30px;padding:4px 12px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.cc-heat button[aria-pressed="true"]{background:var(--cc-pink);color:#1A1218}
+.cc-heat button:focus-visible{outline:2px solid var(--cc-pink-ring,var(--cc-pink));outline-offset:2px}

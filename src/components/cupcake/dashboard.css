@@ -4,6 +4,6 @@
 
 .cc-dashboard h2{font-size:28px}
 .cc-dashboard-card{background:#1B1920;border-color:#302C36}
-.cc-dashboard-range button[aria-selected=true]{color:#E9A5C6;background:#E9A5C614;border-color:#E9A5C640}
+.cc-dashboard-range button[aria-selected=true]{color:var(--cc-pink);background:#E9A5C614;border-color:#E9A5C640}
 @media(min-width:1024px){.cc-dashboard h2{font-size:32px}}
 @media(min-width:1024px){.cc-dashboard h2{font-size:32px}}
