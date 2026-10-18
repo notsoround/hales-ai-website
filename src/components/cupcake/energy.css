@@ -1,0 +1,27 @@
+.cc-energy{display:grid;gap:12px;margin:12px 0}
+.cc-sugar{display:grid;gap:4px}.cc-sugar b{font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}.cc-sugar b small{font-size:14px;font-weight:600;opacity:.75}.cc-sugar p{margin:0}
+.cc-sugar .cc-eyebrow,.cc-energy-unavailable{display:inline-flex;align-items:center;gap:6px}
+.cc-energy-curve{display:grid;gap:10px}.cc-energy-curve h3{margin:0}
+.cc-energy-svg{width:100%;height:auto;display:block;overflow:visible}
+.cc-energy-grid{stroke:var(--cc-line);stroke-width:1}
+.cc-energy-zero{stroke:#BFB7C4;stroke-opacity:.45;stroke-dasharray:3 4}
+.cc-energy-tick{fill:#BFB7C4;font-size:11px}
+.cc-energy-line{fill:none;stroke:var(--cc-pink);stroke-width:2.5;stroke-linecap:round}
+.cc-energy-projection{stroke:var(--cc-pink);stroke-opacity:.5;stroke-width:1.5;stroke-dasharray:5 5}
+.cc-energy-meal{fill:var(--cc-pink);stroke:#111016;stroke-width:1.5}
+.cc-energy-now{fill:#111016;stroke:var(--cc-pink);stroke-width:2.5}
+.cc-energy-exercise{fill:#7fd1ae}
+.cc-energy-bought{fill:none;stroke:#f2c27b;stroke-width:1.5}
+.cc-energy-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:0}
+.cc-energy-stats div{padding:8px 10px;border:1px solid var(--cc-line);border-radius:12px}
+.cc-energy-stats dt{font-size:11px;opacity:.7}.cc-energy-stats dd{margin:2px 0 0;font-weight:700;font-variant-numeric:tabular-nums}
+.cc-energy-note{margin:0;font-size:12px}
+.cc-energy-unavailable{margin:0;padding:10px 12px;border:1px dashed var(--cc-line);border-radius:12px;font-size:13px;color:#BFB7C4}
+.cc-exercise{display:grid;gap:8px}.cc-exercise>.cc-secondary{justify-self:start;display:inline-flex;align-items:center;gap:8px}
+.cc-exercise-form{display:grid;gap:8px}.cc-exercise-form p{margin:0;font-size:13px}
+.cc-exercise-row{display:flex;gap:8px;align-items:center}
+.cc-exercise-row input{flex:1;min-height:44px;padding:0 12px;border:1px solid var(--cc-line);border-radius:12px;background:#16141c;color:inherit;font:inherit}
+.cc-exercise-row input:focus-visible{outline:2px solid var(--cc-pink);outline-offset:1px}
+.cc-exercise-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.cc-exercise-list li{display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:13px}
+.cc-exercise-list li span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
