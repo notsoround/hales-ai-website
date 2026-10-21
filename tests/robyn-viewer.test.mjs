@@ -78,3 +78,57 @@ test('robyn view is isolated from owner code and the /cupcake unlock is unchange
     assert.equal(diff,'',f+' unchanged from cac7237');
   }
 });
+
+// ---- v2: details, export, chat, voice, coach, RP app link ----
+import {fetchDetails,fetchExport,sendChat,startVoice,endVoice,fetchCoach,trimHistory,markdownLight,rpAppLink,adherence,dailyActuals,exportName,RP_APP,CHAT_MAX} from '../src/components/cupcake/robyn/viewerApi.ts';
+
+const ok=(body)=>async(url,init)=>{ok.seen.push({url,init});return new Response(typeof body==='string'?body:JSON.stringify(body),{status:200});};
+ok.seen=[];
+
+test('v2 viewer calls use only viewer endpoints with the viewer header',async()=>{
+  ok.seen=[];
+  await fetchDetails(TOKEN,4,ok({ok:true,days:[]}));
+  await fetchExport(TOKEN,2,'csv','meals',ok('date,time\n'));
+  await fetchExport(TOKEN,1,'json','days',ok({schema:'x'}));
+  await fetchCoach(TOKEN,ok({ok:true,has_data:false}));
+  assert.equal(await sendChat(TOKEN,' hi ',[{role:'assistant',content:'Hello'}],ok({answer:'Yes'})),'Yes');
+  await startVoice(TOKEN,ok({session:'rv_s_1',webCall:{id:'c',webCallUrl:'https://x.daily.co/r'}}));
+  await endVoice(TOKEN,'rv_s_1',ok({ended:true}));
+  assert.deepEqual(ok.seen.map(s=>s.url.replace(VIEWER_API,'')),['/details?weeks=4','/export?weeks=2&format=csv&section=meals','/export?weeks=1&format=json','/coach','/chat','/voice/start','/voice/end']);
+  for(const s of ok.seen){assert.equal(s.init.headers['X-Cupcake-Viewer'],TOKEN);assert.equal(s.init.credentials,'omit');assert.ok(!('X-Cupcake-Key' in s.init.headers));}
+  assert.deepEqual(JSON.parse(ok.seen[4].init.body),{message:'hi',history:[{role:'assistant',content:'Hello'}]});
+  await assert.rejects(sendChat(TOKEN,'x'.repeat(CHAT_MAX+1),[],ok({})));
+  assert.equal(exportName(2,'2026-10-21','csv','meals'),'matt-hales-2w-2026-10-21-meals.csv');
+});
+
+test('chat history is trimmed client-side and markdown-light never yields HTML',()=>{
+  const turns=Array.from({length:14},(_,i)=>({role:i%2?'assistant':'user',content:'m'+i}));
+  assert.equal(trimHistory(turns).length,10); assert.equal(trimHistory(turns)[0].content,'m4');
+  const md=markdownLight('**Sessions**: 8 vs 5\n- <b>steps</b> up');
+  assert.deepEqual(md[0].segs,[{bold:true,text:'Sessions'},{bold:false,text:': 8 vs 5'}]);
+  assert.equal(md[1].bullet,true); assert.equal(md[1].segs[0].text,'<b>steps</b> up');
+});
+
+test('RP app link: universal link with the store as fallback by platform',()=>{
+  assert.deepEqual(rpAppLink('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'),{href:RP_APP.web,fallback:RP_APP.ios});
+  assert.deepEqual(rpAppLink('Mozilla/5.0 (Linux; Android 15)'),{href:RP_APP.web,fallback:RP_APP.android});
+  assert.deepEqual(rpAppLink('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)'),{href:'https://robynpeck.fitbudd.com/app',fallback:null});
+});
+
+test('plan adherence and daily actuals from day details',()=>{
+  const day=(date,mins,meals=[],steps=null)=>({date,meals,workouts:mins?[{time:'09:00',description:'x',minutes:mins,kcal:100}]:[],sleep:null,steps,weight:[],wins:0,losses:0,food_kcal:meals.length?meals.reduce((a,m)=>a+m.kcal,0):null,exercise_minutes:mins,exercise_kcal:mins?100:0});
+  const tpl={days:{mon:[{name:'Strength',minutes:47},{name:'Treadmill',minutes:30}],tue:[{name:'Treadmill',minutes:30}]}};
+  const rows=adherence(tpl,[day('2026-10-19',77),day('2026-10-20',10),day('2026-10-21',0),day('2026-10-18',20)]);
+  assert.deepEqual(rows.map(r=>r.state),['done','partial','rest','extra']);
+  assert.equal(rows[0].planned,77);
+  const a=dailyActuals([day('2026-10-19',0,[{kcal:1000,protein_g:50,fat_g:null,carbs_g:100}],8000),day('2026-10-20',0,[],4000)]);
+  assert.deepEqual([a.days,a.kcal,a.protein_g,a.fat_g,a.steps,a.water_fl_oz],[1,1000,50,0,6000,null]);
+});
+
+test('v2 dashboard modules carry no owner key, private key or unsupported claims',()=>{
+  for(const f of ['RobynDashboard.tsx','DaySheet.tsx','CupcakePanel.tsx','CoachSections.tsx','viewerApi.ts']){
+    const src=readFileSync(new URL('../src/components/cupcake/robyn/'+f,import.meta.url),'utf8');
+    assert.ok(!/X-Cupcake-Key|CUPCAKE_VAPI_API_KEY|cupcake-private-access|sk-[A-Za-z0-9]/.test(src),f);
+    assert.ok(!/synced with|beautiful|amazing/i.test(src),f);
+  }
+});
