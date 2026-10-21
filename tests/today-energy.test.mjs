@@ -7,6 +7,7 @@ import {chicagoHourOnDay,closestReading,loadGlucoseReadings,parseGlucoseEntries}
 import {ExerciseUnavailableError,listExercises,logExercise,deleteExercise} from '../src/components/cupcake/exerciseApi.ts';
 import {estimateExerciseBurn} from '../src/components/cupcake/exerciseEstimate.ts';
 import {normalizeAccentHeat} from '../src/components/cupcake/accentHeat.ts';
+import {StepsUnavailableError,latestSteps,parseStepsDay,stepsDayLabel} from '../src/components/cupcake/stepsApi.ts';
 
 const now=new Date('2026-10-18T19:00:00Z'); // 2:00 PM Chicago
 const settings={calorieTarget:2000,expenditureEstimate:2400,effectiveFrom:'2026-10-01',versions:[]};
@@ -77,4 +78,20 @@ test('exercise API maps an unknown library action to unavailable, never fakes da
 test('exercise estimate and accent heat normalisation',()=>{
   const e=estimateExerciseBurn('30 min walk');assert.ok(e.kcal>0);assert.equal(e.source,'local-met');
   assert.equal(normalizeAccentHeat('hot'),'hot');assert.equal(normalizeAccentHeat('HOT'),'calm');assert.equal(normalizeAccentHeat(null),'calm');
+});
+
+test('steps: series carries the latest daily count without changing net',()=>{
+  const a=buildMetabolicSeries({meals,settings,now}),b=buildMetabolicSeries({meals,settings,now,steps:4681});
+  assert.equal(a.steps,null); assert.equal(b.steps,4681); assert.equal(a.net,b.net); assert.deepEqual(a.samples,b.samples);
+});
+test('steps: latestSteps asks steps_list for the range and returns the newest valid day',async()=>{
+  const calls=[];
+  const request=async body=>{calls.push(body);return {entries:[{date:'2026-10-18',count:12208},{date:'2026-10-19',count:4681,windowBasis:'trailing_24h_previous_day'},{date:'2026-10-20',count:-5},{date:'bad',count:1}]};};
+  const day=await latestSteps(request,'2026-10-08','2026-10-21');
+  assert.deepEqual(calls,[{action:'steps_list',start:'2026-10-08',end:'2026-10-21'}]);
+  assert.deepEqual(day,{date:'2026-10-19',count:4681,windowBasis:'trailing_24h_previous_day',source:'health_connect'});
+  assert.equal(await latestSteps(async()=>({entries:[]}),'2026-10-08','2026-10-21'),null);
+  await assert.rejects(latestSteps(async()=>{throw new Error('Unknown library action');},'2026-10-08','2026-10-21'),StepsUnavailableError);
+  assert.equal(parseStepsDay({date:'2026-10-19',count:1.5}),null);
+  assert.equal(stepsDayLabel('2026-10-19'),'Mon, Oct 19');
 });
