@@ -452,3 +452,22 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
 .rv-scale .rv-stats { margin: 10px 0 6px; }
 .rv-scale .rv-sub { margin: 0; }
 .rv-tl-photo { border-style: dotted; background: var(--rv-bg, #F5F5F7); }
+
+/* Launch welcome card (dismissed once, remembered on this device) */
+.rv-welcome { position: relative; margin-bottom: 18px; padding: 24px 26px 22px; animation: rv-welcome-in .5s cubic-bezier(.2,.8,.2,1) both; }
+.rv-welcome h2 { font-family: var(--rv-display); font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+.rv-welcome > .rv-sub { margin: 0 0 14px; }
+.rv-welcome-x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent; color: var(--rv-muted); font-size: 22px; line-height: 1; cursor: pointer; }
+.rv-welcome-x:hover { background: rgba(0,0,0,.05); }
+.rv-welcome-x:focus-visible, .rv-wbtn:focus-visible { outline: 2px solid var(--rv-accent); outline-offset: 2px; }
+.rv-welcome-list { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.rv-welcome-list li { display: flex; gap: 2px; padding: 12px 12px 11px; border-radius: 12px; background: var(--c-tint, #F5F5F7); }
+.rv-welcome-list .rv-sdot { margin-top: 6px; flex: none; }
+.rv-welcome-list strong { display: block; font-size: 14px; font-weight: 600; color: var(--c-ink, inherit); }
+.rv-welcome-list span { display: block; font-size: 12.5px; line-height: 1.4; color: var(--rv-ink2, #3A3A3C); margin-top: 2px; }
+.rv-welcome-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.rv-wbtn { appearance: none; border: 1px solid var(--rv-line); background: var(--rv-card, #fff); color: inherit; font: inherit; font-size: 14px; font-weight: 600; padding: 9px 18px; border-radius: 999px; cursor: pointer; }
+.rv-wbtn-primary { background: var(--rv-accent); border-color: var(--rv-accent); color: #fff; }
+@keyframes rv-welcome-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rv-welcome { animation: none; } }
+@media (max-width: 640px) { .rv-welcome { padding: 20px 18px 18px; } .rv-welcome-list { grid-template-columns: 1fr; gap: 8px; } }
