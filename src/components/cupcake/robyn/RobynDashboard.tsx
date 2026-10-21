@@ -94,7 +94,7 @@ function RpLink() {
   };
   return (
     <a className="rv-rp" href={link.href} onClick={open} target={link.fallback ? undefined : '_blank'} rel="noopener noreferrer">
-      <img src="/cupcake/rp-app-icon.png" alt="" width={20} height={20} />Open the RP app
+      <img src="/cupcake-rp-app-icon.png" alt="" width={20} height={20} />Open the RP app
     </a>
   );
 }
