@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Droplet, Mic, Square } from 'lucide-react';
+import { Activity, Droplet, Mic, Moon, Square } from 'lucide-react';
 import { libraryRequest } from './library';
 import { addDays, nutritionDay, nutritionDayStart, signedCalories, type NutritionHistory, type NutritionSettings } from './nutritionModel';
 import { buildMetabolicSeries, monotonePath, sampleNetAt, type BoughtEvent, type MetabolicSeries } from './metabolicSeries';
@@ -7,6 +7,7 @@ import { preparedPurchases } from './purchases';
 import { chicagoHourOnDay, closestReading, loadGlucoseReadings, type GlucoseReading, type LibraryRequest } from './glucoseApi';
 import { ExerciseUnavailableError, deleteExercise, listExercises, logExercise, type ExerciseEntry } from './exerciseApi';
 import { StepsUnavailableError, latestSteps, stepsDayLabel, type StepsDay } from './stepsApi';
+import { RingconnUnavailableError, latestRingconnNight, nightSummary, type RingconnNight } from './ringconnApi';
 import { estimateExerciseBurn, type ExerciseEstimateItem } from './exerciseEstimate';
 import { speechDictationSupported, startDictation, type DictationSession } from './speechDictation';
 import './energy.css';
@@ -33,6 +34,7 @@ export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: 
   const comparisonReady = !!nutrition.history?.complete && !nutrition.history.pendingCount && !nutrition.history.undatedLoggedCount;
   return <section className="cc-energy" aria-label="Energy today">
     <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd}/>
+    <LastNightCard day={day}/>
     <div className="cc-card cc-energy-curve">
       <div className="cc-heading-row"><h3>Energy balance today</h3></div>
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
@@ -41,6 +43,26 @@ export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: 
       <ExerciseQuickLog state={exercise}/>
     </div>
   </section>;
+}
+
+function LastNightCard({ day }: { day: string }) {
+  const [state, setState] = useState<{ status: 'loading' | 'ready' | 'unavailable' | 'error'; night: RingconnNight | null }>({ status: 'loading', night: null });
+  useEffect(() => {
+    let live = true;
+    setState({ status: 'loading', night: null });
+    latestRingconnNight(request, addDays(day, -1), day).then(night => { if (live) setState({ status: 'ready', night }); })
+      .catch(error => { if (live) setState({ status: error instanceof RingconnUnavailableError ? 'unavailable' : 'error', night: null }); });
+    return () => { live = false; };
+  }, [day]);
+  const n = state.night;
+  return <div className="cc-card cc-last-night" aria-live="polite">
+    <span className="cc-eyebrow"><Moon size={14}/> Last night</span>
+    {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
+      : state.status === 'unavailable' ? <p className="cc-muted">RingConn nights are not available from the library yet.</p>
+        : state.status === 'error' ? <p className="cc-muted">RingConn night could not load.</p>
+          : !n ? <p className="cc-muted">No RingConn night uploaded yet today.</p>
+            : <><b>{nightSummary(n)}</b><p className="cc-muted">RingConn via Health Connect{n.nightId !== day ? ` · ${stepsDayLabel(n.nightId)}` : ''} · snapshot {clock(Date.parse(n.capturedAt))}{n.complete ? '' : ` · partial${n.failed.length ? `: ${n.failed.join(', ')} unavailable` : ''}`} · provider estimates; HRV not exported</p></>}
+  </div>;
 }
 
 function SugarCard({ day, dayStart, dayEnd }: { day: string; dayStart: number; dayEnd: number }) {
