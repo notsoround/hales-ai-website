@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Checkin, Coach, CoreField, Day } from './viewerApi.ts';
 import { adherence, dailyActuals, fmt, longDate, shortDate } from './viewerApi.ts';
+import { AssessmentView } from '../assessment/AssessmentView.tsx';
 
 const DAYMS = 86400000;
 const t = (iso: string) => Date.parse(iso + 'T12:00:00Z');
@@ -88,6 +89,17 @@ function Chip({ label, change, unit, since }: { label: string; change: number | 
   return <span className={`rv-dchip ${change < 0 ? 'rv-dchip-down' : change > 0 ? 'rv-dchip-up' : ''}`}><b>{change > 0 ? '+' : change < 0 ? '−' : ''}{fmt(Math.abs(change), 1)}{unit}</b> {label} since {since}</span>;
 }
 
+export function AssessmentCard({ coach }: { coach: Coach }) {
+  const a = coach.assessment;
+  if (!a?.table) return null;
+  return (
+    <Card title="Assessment" kicker="Robyn's assessments" tone="weight" sample={coach.sample} wide
+      aside={<span className="rv-next">{a.table.count} assessments · latest {shortDate(a.table.current.date)}</span>}>
+      <AssessmentView data={a} variant="light" />
+    </Card>
+  );
+}
+
 export function BodySection({ coach }: { coach: Coach }) {
   const rows = coach.checkins.filter(r => r.source === 'robyn_peck_app');
   if (!rows.length) return null;
@@ -146,7 +158,7 @@ export function BodySection({ coach }: { coach: Coach }) {
           <Trend rows={rows} field="body_fat_navy_pct" unit="%" height={90} compact label="Body fat tape estimate" /></div>}
         {scaleLast && <ScaleCard row={scaleLast} />}
         </div>}
-        <p className="rv-foot">Body-fat trend uses the US Navy tape method{height ? ` at a height of ${fmt(height)} in` : ''}, computed from neck and waist at each check-in.{photoOnly.length > 0 && ` ${photoOnly.map(r => shortDate(r.date)).join(', ')}: progress photos only, no measurements (photos are not stored here).`}</p>
+        <p className="rv-foot">{coach.assessment?.table ? 'Body fat: Robyn’s assessments (above) are the reference; the tape and smart-scale figures here are secondary estimates for comparison. ' : ''}Tape body-fat trend uses the US Navy method{height ? ` at a height of ${fmt(height)} in` : ''}, computed from neck and waist at each check-in.{photoOnly.length > 0 && ` ${photoOnly.map(r => shortDate(r.date)).join(', ')}: progress photos only, no measurements (photos are not stored here).`}</p>
         {flagged.length > 0 && <p className="rv-foot rv-flag-foot"><span className="rv-flag-ico" aria-hidden="true" />Marked readings are shown but left out of trend lines and changes:{' '}
           {flagged.join('; ')}.</p>}
       </Card>

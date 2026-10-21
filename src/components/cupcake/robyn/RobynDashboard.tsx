@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Coach, Day, DayPoint, ExportSection, Metric, Weekly } from './viewerApi.ts';
-import { BodySection, CheckinsCard, MealPlanCard, PlanVsActual, WorkoutGrid } from './CoachSections.tsx';
+import { AssessmentCard, BodySection, CheckinsCard, MealPlanCard, PlanVsActual, WorkoutGrid } from './CoachSections.tsx';
 import { EXPORT_SECTIONS, fetchCoach, NOTE_MAX, ViewerAuthError, captureToken, deltaText, deltaTone, expiryLabel, exportName, fetchDetails, fetchExport, fetchWeekly, fmt, hm, longDate, niceMax, postNote, rpAppLink, shortDate } from './viewerApi.ts';
 import { DaySheet } from './DaySheet.tsx';
 import type { MetricKey, SheetView } from './DaySheet.tsx';
@@ -420,8 +420,9 @@ export default function RobynDashboard() {
 
             {coach?.has_data && <>
               <div className="rv-coach-head"><div className="rv-kicker">From Robyn&rsquo;s plan</div><h2>Coaching plan &amp; check-ins</h2>
-                <p className="rv-sub">Entered from the Robyn Peck app into Cupcake by Matt. There is no live connection to the app.</p></div>
+                <p className="rv-sub">Check-ins and plan entered from the Robyn Peck app by Matt{coach.assessment?.table ? '; assessments from Robyn’s own assessment sheet' : ''}. There is no live connection to the app.</p></div>
               <div className="rv-coach">
+                <AssessmentCard coach={coach} />
                 <BodySection coach={coach} />
                 {days && <PlanVsActual coach={coach} days={days.filter(d => d.period !== 'previous')} />}
                 {days && <WorkoutGrid coach={coach} days={days.filter(d => d.period !== 'previous')} onDay={openDay} />}

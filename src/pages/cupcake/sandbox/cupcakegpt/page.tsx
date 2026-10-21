@@ -7,6 +7,7 @@ import {QuickChat} from '../../../../components/cupcake/QuickChat';
 // Talks to n8n webhooks on automate.hales.ai (CORS-enabled).
 
 import CupcakeStudio from '../../../../components/cupcake/CupcakeStudio';
+import { BodyAssessmentCard } from '../../../../components/cupcake/assessment/BodyAssessmentCard';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 // framer-motion intentionally not used: tab switches must render instantly and
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
@@ -355,6 +356,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
     <TodayEnergy items={items} nutrition={nutrition}/>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
     <TodayWeight onOpen={()=>setTab('week')}/>
+    <BodyAssessmentCard/>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
     <section className="cc-card"><div className="cc-heading-row"><h3>Your latest signals</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
       {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:selected?<SignalDetail entry={selected} onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={openTalkAbout}/>:!items?<Spinner/>:!items.length?<Empty text="No recent records were returned. Your older history may still be available in Wins & losses."/>:<div className="space-y-2.5">{items.slice(0,5).map((it,i)=><button key={i} type="button" onClick={()=>it.type==='food'&&typeof it.details?.mealId==='string'?setSelectedMeal(it.details.mealId):setSelected({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon})} aria-label={`Open ${it.title}`} className="cc-signal flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"><div className="text-2xl leading-none mt-0.5">{it.icon}</div><div className="flex-1 min-w-0"><p className="font-semibold text-sm truncate">{it.title}</p><p className="text-xs text-white/60">{it.body}</p></div><div className="cc-signal-time text-white/30 whitespace-nowrap mt-1"><span>{it.date===nutritionDay()?'Today':it.date?dayLabel(it.date):'Date unavailable'}</span><br/>{signalClock(it.time,it.date,it.ts)}</div></button>)}</div>}

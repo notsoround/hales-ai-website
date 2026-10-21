@@ -1,3 +1,4 @@
+import type { Assessment } from '../assessment/AssessmentView.tsx';
 // Robyn's read-only coach view. Talks ONLY to the viewer API with a short-lived viewer
 // token from the link (?t=…). Never reads or sends the Cupcake password/owner key.
 export const VIEWER_API = 'https://automate.hales.ai/api/viewer';
@@ -40,6 +41,7 @@ export type Coach = { ok: true; has_data: boolean; sample?: boolean; timezone: s
   profile?: { height_in?: number; sex?: string; age?: number } | null;
   checkins: Checkin[]; derived: { count: number; first: string | null; latest: string | null; next_due: string | null;
     deltas: Partial<Record<CoreField, { first: { date: string; value: number }; latest: { date: string; value: number }; change: number }>> };
+  assessment?: Assessment | null;
   source_labels?: Record<string, string> };
 export function fetchCoach(token: string, fetchImpl: Fetch = fetch): Promise<Coach> {
   return call<Coach>(fetchImpl, '/coach', token);

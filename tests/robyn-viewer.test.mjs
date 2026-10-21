@@ -63,7 +63,7 @@ test('delta tone and wording stay neutral where direction is ambiguous',()=>{
 });
 
 test('robyn view is isolated from owner code and the /cupcake unlock is unchanged',()=>{
-  for(const f of ['src/components/cupcake/robyn/RobynDashboard.tsx','src/components/cupcake/robyn/viewerApi.ts','src/pages/cupcake/robyn/page.tsx']){
+  for(const f of ['src/components/cupcake/robyn/RobynDashboard.tsx','src/components/cupcake/robyn/viewerApi.ts','src/components/cupcake/robyn/CoachSections.tsx','src/components/cupcake/assessment/AssessmentView.tsx','src/pages/cupcake/robyn/page.tsx']){
     const src=readFileSync(new URL('../'+f,import.meta.url),'utf8');
     assert.ok(!/privateAccess|X-Cupcake-Key|cupcake-library|localStorage|VITE_CUPCAKE/.test(src),f+' must not touch owner auth');
   }
@@ -72,11 +72,15 @@ test('robyn view is isolated from owner code and the /cupcake unlock is unchange
   const re=/^\/cupcake\/robyn\/?$/;
   assert.ok(re.test('/cupcake/robyn')&&re.test('/cupcake/robyn/'));
   assert.ok(!re.test('/cupcake')&&!re.test('/cupcake/sandbox/robyn')&&!re.test('/cupcake/robynx'));
-  for(const f of ['src/App.tsx','src/pages/cupcake/sandbox/cupcakegpt/page.tsx','src/components/cupcake/privateAccess.ts']){
+  for(const f of ['src/App.tsx','src/components/cupcake/privateAccess.ts']){
     let diff='';
     try{diff=execSync(`git diff --stat cac7237e -- ${f}`,{cwd:new URL('..',import.meta.url)}).toString();}catch{diff='';}
     assert.equal(diff,'',f+' unchanged from cac7237');
   }
+  // The Cupcake app page only gained the owner-side Body/Assessment card (import + one render line); nothing else changed.
+  const page=execSync('git diff -U0 cac7237e -- src/pages/cupcake/sandbox/cupcakegpt/page.tsx',{cwd:new URL('..',import.meta.url)}).toString()
+    .split('\n').filter(l=>/^[+-]/.test(l)&&!/^(\+\+\+|---) /.test(l));
+  assert.ok(page.length<=2&&page.every(l=>l.startsWith('+')&&/BodyAssessmentCard/.test(l)),'cupcakegpt page: only the BodyAssessmentCard was added');
 });
 
 // ---- v2: details, export, chat, voice, coach, RP app link ----
