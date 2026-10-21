@@ -95,3 +95,19 @@ test('steps: latestSteps asks steps_list for the range and returns the newest va
   assert.equal(parseStepsDay({date:'2026-10-19',count:1.5}),null);
   assert.equal(stepsDayLabel('2026-10-19'),'Mon, Oct 19');
 });
+
+test('ringconn: latest night summary from ringconn_night_list, nulls stay unknown',async()=>{
+  const {RingconnUnavailableError,latestRingconnNight,nightSummary,parseRingconnNight,hoursMinutes}=await import('../src/components/cupcake/ringconnApi.ts');
+  const calls=[];
+  const summary=(night,over={})=>({night_id:night,captured_at:`${night}T13:00:00Z`,metrics:{sleep:{asleep_minutes:397,session_duration_minutes:435},average_heart_rate:{value_bpm:61.4},resting_heart_rate:{value_bpm:55},spo2:{mean_percent:96.2,min_percent:91}},coverage:{all_reads_complete:true,types:{sleep:{status:'ok'}}},...over});
+  const request=async body=>{calls.push(body);return {entries:[summary('2026-10-20'),summary('2026-10-21'),{night_id:'bad'}]};};
+  const n=await latestRingconnNight(request,'2026-10-20','2026-10-21');
+  assert.deepEqual(calls,[{action:'ringconn_night_list',start:'2026-10-20',end:'2026-10-21'}]);
+  assert.equal(n.nightId,'2026-10-21'); assert.equal(n.complete,true);
+  assert.equal(nightSummary(n),'Asleep 6 h 37 m of 7 h 15 m · resting HR 55 · avg HR 61 · SpO₂ 96% (min 91)');
+  const partial=parseRingconnNight(summary('2026-10-21',{metrics:{sleep:{asleep_minutes:null,session_duration_minutes:null},spo2:{mean_percent:null}},coverage:{all_reads_complete:false,types:{spo2:{status:'read_error'}}}}));
+  assert.equal(partial.spo2Mean,null); assert.deepEqual(partial.failed,['spo2']); assert.equal(nightSummary(partial),'No sleep session');
+  assert.equal(await latestRingconnNight(async()=>({entries:[]}),'2026-10-20','2026-10-21'),null);
+  await assert.rejects(latestRingconnNight(async()=>{throw new Error('Unknown library action');},'2026-10-20','2026-10-21'),RingconnUnavailableError);
+  assert.equal(hoursMinutes(65),'1 h 05 m');
+});
