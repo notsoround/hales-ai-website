@@ -9,7 +9,7 @@
 // living   the saved expenditure estimate prorated across the Chicago day.
 // exercise net burn of exercise entries saved in the library.
 // bought   café/takeout purchases are markers only and never change net.
-// steps    no step source is connected yet, so steps are reported as none.
+// steps    latest Health Connect daily count (steps_list); display only, never changes net.
 import { addDays, loggedMeals, mealDay, nutritionDay, nutritionDayStart, nutritionDays, settingsForDay } from './nutritionModel.ts';
 import type { FoodHistoryMeal, NutritionSettings } from './nutritionModel.ts';
 
@@ -21,7 +21,7 @@ export type SeriesSample = { t: number; net: number };
 export type MetabolicSeries = {
   day: string; dayStart: number; dayEnd: number; now: number;
   samples: SeriesSample[]; events: BalanceEvent[]; bought: BoughtEvent[];
-  eaten: number; living: number; exercise: number; steps: null;
+  eaten: number; living: number; exercise: number; steps: number | null;
   /** eaten − living, exactly nutritionDays(...).balance whenever that is known. */
   foodBalance: number | null; net: number; partial: boolean; projectedEndOfDay: number;
 };
@@ -31,7 +31,7 @@ const knownCalories = (meal: FoodHistoryMeal) => typeof meal.total?.calories ===
 const mealAt = (meal: FoodHistoryMeal, dayStart: number) => meal.consumedAt && /(Z|[+-]\d\d:\d\d)$/.test(meal.consumedAt) && Number.isFinite(Date.parse(meal.consumedAt)) ? Date.parse(meal.consumedAt) : dayStart;
 
 /** Returns null when there is no expenditure estimate for the day (the line would be meaningless). */
-export function buildMetabolicSeries(input: { meals: FoodHistoryMeal[]; settings: NutritionSettings; exercise?: readonly ExerciseLike[]; bought?: readonly BoughtEvent[]; now?: Date }): MetabolicSeries | null {
+export function buildMetabolicSeries(input: { meals: FoodHistoryMeal[]; settings: NutritionSettings; exercise?: readonly ExerciseLike[]; bought?: readonly BoughtEvent[]; steps?: number | null; now?: Date }): MetabolicSeries | null {
   const nowDate = input.now || new Date(), day = nutritionDay(nowDate);
   const basis = settingsForDay(input.settings, day);
   const expenditure = basis && typeof basis.expenditureEstimate === 'number' && basis.expenditureEstimate > 0 ? basis.expenditureEstimate : null;
@@ -63,7 +63,7 @@ export function buildMetabolicSeries(input: { meals: FoodHistoryMeal[]; settings
   const reference = nutritionDays(input.meals, [day], input.settings, new Date(now))[0];
   const net = eaten - living - exercise;
   return {
-    day, dayStart, dayEnd, now, samples, events, bought, eaten, living, exercise, steps: null,
+    day, dayStart, dayEnd, now, samples, events, bought, eaten, living, exercise, steps: typeof input.steps === 'number' && Number.isFinite(input.steps) ? input.steps : null,
     foodBalance: reference ? reference.balance : null, net, partial: !!reference?.partial,
     projectedEndOfDay: net - expenditure * ((dayEnd - now) / span),
   };

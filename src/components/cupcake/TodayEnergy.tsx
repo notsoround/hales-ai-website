@@ -6,6 +6,7 @@ import { buildMetabolicSeries, monotonePath, sampleNetAt, type BoughtEvent, type
 import { preparedPurchases } from './purchases';
 import { chicagoHourOnDay, closestReading, loadGlucoseReadings, type GlucoseReading, type LibraryRequest } from './glucoseApi';
 import { ExerciseUnavailableError, deleteExercise, listExercises, logExercise, type ExerciseEntry } from './exerciseApi';
+import { StepsUnavailableError, latestSteps, stepsDayLabel, type StepsDay } from './stepsApi';
 import { estimateExerciseBurn, type ExerciseEstimateItem } from './exerciseEstimate';
 import { speechDictationSupported, startDictation, type DictationSession } from './speechDictation';
 import './energy.css';
@@ -26,8 +27,9 @@ function useMinuteClock() {
 export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: NutritionState }) {
   const now = useMinuteClock(), day = nutritionDay(now), dayStart = nutritionDayStart(day), dayEnd = nutritionDayStart(addDays(day, 1));
   const exercise = useExercise(dayStart, dayEnd);
+  const steps = useLatestSteps(day);
   const bought = useMemo<BoughtEvent[]>(() => preparedPurchases(items, dayStart, now.getTime()).map(p => ({ id: p.id, at: p.at, label: p.merchant, amount: p.amount, currency: p.currency })), [items, dayStart, now]);
-  const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), bought, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, bought, now]);
+  const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), bought, steps: steps.day?.count ?? null, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, bought, steps.day, now]);
   const comparisonReady = !!nutrition.history?.complete && !nutrition.history.pendingCount && !nutrition.history.undatedLoggedCount;
   return <section className="cc-energy" aria-label="Energy today">
     <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd}/>
@@ -35,7 +37,7 @@ export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: 
       <div className="cc-heading-row"><h3>Energy balance today</h3></div>
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
         : !series ? <p className="cc-muted">Add a daily expenditure estimate in Food settings to draw today’s curve.</p>
-          : <EnergyCurve series={series} comparisonReady={comparisonReady}/>}
+          : <EnergyCurve series={series} comparisonReady={comparisonReady} steps={steps}/>}
       <ExerciseQuickLog state={exercise}/>
     </div>
   </section>;
@@ -61,7 +63,7 @@ function SugarCard({ day, dayStart, dayEnd }: { day: string; dayStart: number; d
 }
 
 const W = 640, H = 210, PAD = { l: 44, r: 12, t: 12, b: 34 };
-function EnergyCurve({ series, comparisonReady }: { series: MetabolicSeries; comparisonReady: boolean }) {
+function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeries; comparisonReady: boolean; steps: StepsState }) {
   const span = series.dayEnd - series.dayStart;
   const values = [0, ...series.samples.map(s => s.net), series.projectedEndOfDay];
   const lo = Math.min(...values), hi = Math.max(...values), range = Math.max(200, hi - lo), pad = range * 0.08;
@@ -89,7 +91,7 @@ function EnergyCurve({ series, comparisonReady }: { series: MetabolicSeries; com
       <div><dt>Eaten (logged)</dt><dd>{kcal(series.eaten)}</dd></div>
       <div><dt>Living burn so far</dt><dd>−{kcal(series.living)}</dd></div>
       <div><dt>Exercise</dt><dd>{series.exercise ? `−${kcal(series.exercise)}` : '0'}</dd></div>
-      <div><dt>Steps</dt><dd>none</dd></div>
+      <div><dt>Steps{steps.day ? ` · ${stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : 'none'}</dd></div>
       <div><dt>Net now</dt><dd>{signedCalories(series.net)}</dd></div>
       <div><dt>Projected midnight</dt><dd>{signedCalories(series.projectedEndOfDay)}</dd></div>
     </dl>
@@ -98,9 +100,29 @@ function EnergyCurve({ series, comparisonReady }: { series: MetabolicSeries; com
       {series.bought.length ? `${series.bought.length === 1 ? '1 café/takeout purchase is' : `${series.bought.length} café/takeout purchases are`} marked ◆ as context; only logged meals count as eaten. ` : ''}
       {untimed ? `${untimed === 1 ? '1 meal has' : `${untimed} meals have`} no time and ${untimed === 1 ? 'is' : 'are'} counted from midnight. ` : ''}
       {unknown ? `${unknown === 1 ? '1 meal has' : `${unknown} meals have`} unknown calories. ` : ''}
-      No step source is connected.
+      {stepsNote(steps)}
     </p>
   </>;
+}
+
+type StepsState = { status: 'loading' | 'ready' | 'unavailable' | 'error'; day: StepsDay | null };
+function stepsNote(steps: StepsState): string {
+  if (steps.day) return `Steps: ${steps.day.count.toLocaleString('en-US')} on ${stepsDayLabel(steps.day.date)}, the latest daily Health Connect upload (shown only; not counted as burn).`;
+  if (steps.status === 'loading') return 'Loading steps…';
+  if (steps.status === 'unavailable') return 'Steps are not available from the library yet.';
+  if (steps.status === 'error') return 'Steps could not load.';
+  return 'No Health Connect steps uploaded in the last 14 days.';
+}
+function useLatestSteps(day: string): StepsState {
+  const [state, setState] = useState<StepsState>({ status: 'loading', day: null });
+  useEffect(() => {
+    let live = true;
+    setState(s => ({ ...s, status: 'loading' }));
+    latestSteps(request, addDays(day, -13), day).then(found => { if (live) setState({ status: 'ready', day: found }); })
+      .catch(error => { if (live) setState({ status: error instanceof StepsUnavailableError ? 'unavailable' : 'error', day: null }); });
+    return () => { live = false; };
+  }, [day]);
+  return state;
 }
 
 type ExerciseState = { status: 'loading' | 'ready' | 'unavailable' | 'error'; entries: ExerciseEntry[]; reload: () => void; add: (entry: ExerciseEntry) => void; remove: (id: string) => void };
