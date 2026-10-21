@@ -160,7 +160,7 @@ export function CupcakePanel({ token, open, onClose, onExpired }: { token: strin
   return (
     <aside className={open ? 'rv-panel rv-open' : 'rv-panel'} aria-hidden={!open} aria-label="Ask Cupcake" tabIndex={-1} ref={panel}>
       <header className="rv-panel-head">
-        <img src="/cupcake-avatar.jpg" alt="" className="rv-panel-avatar" />
+        <img src="/cupcake-icon.svg" alt="" className="rv-panel-avatar" />
         <div><h2>Ask Cupcake</h2><span className="rv-sub">About Matt&rsquo;s logged data</span></div>
         {info && info !== 'error' && info.voice && info.available && (
           <div className="rv-seg rv-seg-sm" role="radiogroup" aria-label="Conversation mode" style={{ ['--rv-i' as string]: mode === 'voice' ? 0 : 1 }}>

@@ -379,7 +379,7 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
 .rv-multiple { border: 1px solid var(--rv-line); border-radius: 14px; padding: 10px 12px 6px; background: linear-gradient(180deg, var(--c-tint), transparent 70%); }
 .rv-multiple-head { display: flex; justify-content: space-between; align-items: baseline; }
 .rv-multiple-val { font-weight: 650; font-variant-numeric: tabular-nums; } .rv-multiple-val em { font-style: normal; font-size: 11.5px; color: var(--rv-good); margin-left: 6px; font-weight: 600; }
-.rv-gauges { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 14px; margin-top: 18px; align-items: center; }
+.rv-gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; margin-top: 18px; align-items: center; }
 .rv-gauge { text-align: center; border: 1px solid var(--rv-line); border-radius: 14px; padding: 12px 10px 10px; }
 .rv-gauge svg { width: 100%; max-width: 170px; display: block; margin: 0 auto; }
 .rv-band { fill: none; stroke-width: 10; stroke-linecap: round; }
@@ -439,8 +439,16 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
 @media (max-width: 1000px) { .rv-rings { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .rv-coach { grid-template-columns: 1fr; } .rv-body-grid { grid-template-columns: 1fr; } .rv-multiples { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-  .rv-gauges { grid-template-columns: 1fr 1fr; } .rv-band-key { grid-column: 1 / -1; }
+  .rv-gauges { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .rv-gauge { padding: 10px 4px 8px; } .rv-gauge-val { font-size: 18px; } .rv-band-key { grid-column: 1 / -1; }
+  .rv-scale .rv-stats { gap: 6px 18px; }
   .rv-wrow { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .rv-watermark { font-size: 44px; } .rv-dchips { justify-content: flex-start; } .rv-section-head { flex-wrap: wrap; }
 }
 @media (max-width: 760px) { .rv-multiple-head { flex-direction: column; align-items: flex-start; gap: 1px; } .rv-multiple { padding: 8px 8px 4px; } }
+
+/* v3: tape body-fat trend, smart-scale composition, photo-only check-ins */
+.rv-bf-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 14px; }
+.rv-bf-trend, .rv-scale { border: 1px solid var(--rv-line); border-radius: 14px; padding: 12px 14px 10px; }
+.rv-scale .rv-stats { margin: 10px 0 6px; }
+.rv-scale .rv-sub { margin: 0; }
+.rv-tl-photo { border-style: dotted; background: var(--rv-bg, #F5F5F7); }

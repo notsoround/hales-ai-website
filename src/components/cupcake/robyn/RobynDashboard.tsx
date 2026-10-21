@@ -414,7 +414,7 @@ export default function RobynDashboard() {
       {sheet && <DaySheet view={sheet} days={days} loading={!days} onClose={closeSheet} onDay={openDay} />}
       {data && <>
         <button className={chat ? 'rv-fab rv-fab-hidden' : 'rv-fab'} onClick={() => setChat(true)} aria-label="Ask Cupcake" aria-expanded={chat}>
-          <img src="/cupcake-avatar.jpg" alt="" /><span>Ask Cupcake</span>
+          <img src="/cupcake-icon.svg" alt="" /><span>Ask Cupcake</span>
         </button>
         <CupcakePanel token={token} open={chat} onClose={closeChat} onExpired={expire} />
       </>}

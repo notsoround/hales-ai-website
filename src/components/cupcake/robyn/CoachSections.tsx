@@ -4,7 +4,7 @@ import { adherence, dailyActuals, fmt, longDate, shortDate } from './viewerApi.t
 
 const DAYMS = 86400000;
 const t = (iso: string) => Date.parse(iso + 'T12:00:00Z');
-const FLAG_TEXT = { entry_error: 'Likely entry error', repeated_value: 'Repeated value' } as const;
+const FLAG_TEXT = { entry_error: 'Suspect entry', repeated_value: 'Repeated / manual value' } as const;
 
 function Card({ title, kicker, tone, sample, aside, children, wide }: { title: string; kicker: string; tone: string; sample?: boolean; aside?: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -30,7 +30,7 @@ function smooth(pts: [number, number][]): string {
 
 function Trend({ rows, field, unit, digits = 1, height = 150, compact = false, label }: { rows: Checkin[]; field: CoreField; unit: string; digits?: number; height?: number; compact?: boolean; label: string }) {
   const [hover, setHover] = useState<number | null>(null);
-  const all = rows.filter(r => r[field] !== null).map(r => ({ date: r.date, v: r[field] as number, flag: r.flags[field] }));
+  const all = rows.filter(r => r[field] != null).map(r => ({ date: r.date, v: r[field] as number, flag: r.flags[field] }));
   const good = all.filter(p => !p.flag);
   if (!good.length) return <p className="rv-empty">No {label.toLowerCase()} readings.</p>;
   const W = 360, H = height, top = 14, bottom = compact ? 16 : 22, left = 4, right = 8;
@@ -92,32 +92,34 @@ export function BodySection({ coach }: { coach: Coach }) {
   const rows = coach.checkins.filter(r => r.source === 'robyn_peck_app');
   if (!rows.length) return null;
   const d = coach.derived;
-  const first = d.first ? shortDate(d.first) : '';
-  const bf = rows.filter(r => r.body_fat_pct !== null);
-  const bfGood = bf.filter(r => !r.flags.body_fat_pct);
-  const bfLatest = bf[bf.length - 1];
+  const since = (f: CoreField) => { const x = d.deltas[f]; return x ? shortDate(x.first.date) : ''; };
+  const navy = rows.filter(r => r.body_fat_navy_pct != null);
+  const scale = coach.checkins.filter(r => r.source === 'ihome_scale');
+  const scaleLast = scale[scale.length - 1];
+  const photoOnly = rows.filter(r => r.weight_lb === null && r.waist_in === null && r.note);
+  const height = coach.profile?.height_in;
   const groups = new Map<string, { f: string; k: 'entry_error' | 'repeated_value'; dates: string[]; v: number | null }>();
   rows.forEach(r => Object.entries(r.flags).forEach(([f, k]) => {
-    const key = `${f}|${k}`; const g = groups.get(key) ?? { f, k: k!, dates: [], v: (r as unknown as Record<string, number | null>)[f] ?? null };
+    const key = `${f}|${k}|${(r as unknown as Record<string, number | null>)[f]}`; const g = groups.get(key) ?? { f, k: k!, dates: [], v: (r as unknown as Record<string, number | null>)[f] ?? null };
     g.dates.push(r.date); groups.set(key, g);
   }));
-  const NAMES: Record<string, string> = { weight_lb: 'weight', neck_in: 'neck', waist_in: 'waist', hips_in: 'hips', body_fat_pct: 'body fat' };
+  const NAMES: Record<string, string> = { weight_lb: 'weight', neck_in: 'neck', waist_in: 'waist', hips_in: 'hips', body_fat_pct: 'app-reported body fat' };
   const flagged = [...groups.values()].map(g => g.k === 'repeated_value' && g.dates.length > 1
     ? `${NAMES[g.f] ?? g.f} ${g.v ?? ''}${g.f === 'body_fat_pct' ? '%' : ''} repeated ${shortDate(g.dates[0])} – ${shortDate(g.dates[g.dates.length - 1])} (${g.dates.length} check-ins)`
     : `${g.dates.map(shortDate).join(', ')} ${NAMES[g.f] ?? g.f} ${g.v ?? ''}${g.f === 'body_fat_pct' ? '%' : g.f.endsWith('_in') ? '″' : ''} (${FLAG_TEXT[g.k].toLowerCase()})`);
   return (
     <>
       <Card title="Body" kicker="Check-ins · Robyn Peck app" tone="weight" sample={coach.sample} wide
-        aside={<div className="rv-dchips"><Chip label="weight" change={d.deltas.weight_lb?.change} unit=" lb" since={first} /><Chip label="waist" change={d.deltas.waist_in?.change} unit="″" since={first} /></div>}>
+        aside={<div className="rv-dchips"><Chip label="weight" change={d.deltas.weight_lb?.change} unit=" lb" since={since('weight_lb')} /><Chip label="waist" change={d.deltas.waist_in?.change} unit="″" since={since('waist_in')} /></div>}>
         <div className="rv-body-grid">
           <div>
             <div className="rv-body-head"><span className="rv-label">Weight</span><strong>{fmt(d.deltas.weight_lb?.latest.value ?? rows[rows.length - 1].weight_lb, 1)}<small> lb</small></strong>
-              <span className="rv-sub">from {fmt(d.deltas.weight_lb?.first.value, 1)} lb on {first}</span></div>
+              <span className="rv-sub">from {fmt(d.deltas.weight_lb?.first.value, 1)} lb on {since('weight_lb')}</span></div>
             <Trend rows={rows} field="weight_lb" unit="lb" label="Weight at check-ins" />
           </div>
           <div>
             <div className="rv-body-head"><span className="rv-label">Waist</span><strong>{fmt(d.deltas.waist_in?.latest.value, 1)}<small> in</small></strong>
-              <span className="rv-sub">from {fmt(d.deltas.waist_in?.first.value, 1)} in on {first}</span></div>
+              <span className="rv-sub">from {fmt(d.deltas.waist_in?.first.value, 1)} in on {since('waist_in')}</span></div>
             <Trend rows={rows} field="waist_in" unit="in" label="Waist at check-ins" />
           </div>
         </div>
@@ -131,16 +133,39 @@ export function BodySection({ coach }: { coach: Coach }) {
           })}
         </div>
         <div className="rv-gauges">
-          <Gauge value={bfGood[0]?.body_fat_pct ?? null} label="Body fat · first reliable" sub={bfGood[0] ? shortDate(bfGood[0].date) : 'no reading'} />
-          <Gauge value={bfLatest?.body_fat_pct ?? null} label="Body fat · latest" sub={bfLatest ? shortDate(bfLatest.date) : 'no reading'} flag={bfLatest?.flags.body_fat_pct} />
+          {navy.length > 0 && <Gauge value={navy[0].body_fat_navy_pct ?? null} label="Body fat · tape estimate" sub={shortDate(navy[0].date)} />}
+          {navy.length > 1 && <Gauge value={navy[navy.length - 1].body_fat_navy_pct ?? null} label="Body fat · tape estimate" sub={`${shortDate(navy[navy.length - 1].date)} · latest`} />}
+          {scaleLast?.body_fat_pct != null && <Gauge value={scaleLast.body_fat_pct} label="Body fat · smart scale" sub={shortDate(scaleLast.date)} />}
           <div className="rv-band-key"><span className="rv-label">General reference ranges</span>
             {[['rv-band-a', '< 14%'], ['rv-band-b', '14–18%'], ['rv-band-c', '18–25%'], ['rv-band-d', '25–32%'], ['rv-band-e', '> 32%']].map(([c, l]) => <span key={c}><i className={`rv-band-sw ${c}`} />{l}</span>)}
             <span className="rv-sub">For orientation only; tape and scale estimates vary.</span></div>
         </div>
+        {(navy.length > 1 || scaleLast) && <div className="rv-bf-row">
+        {navy.length > 1 && <div className="rv-bf-trend"><div className="rv-multiple-head"><span className="rv-label">Body fat trend · tape estimate</span>
+          <span className="rv-multiple-val">{fmt(navy[navy.length - 1].body_fat_navy_pct, 1)}%{d.deltas.body_fat_navy_pct && <em>{d.deltas.body_fat_navy_pct.change > 0 ? '+' : '−'}{fmt(Math.abs(d.deltas.body_fat_navy_pct.change), 1)}</em>}</span></div>
+          <Trend rows={rows} field="body_fat_navy_pct" unit="%" height={90} compact label="Body fat tape estimate" /></div>}
+        {scaleLast && <ScaleCard row={scaleLast} />}
+        </div>}
+        <p className="rv-foot">Body-fat trend uses the US Navy tape method{height ? ` at a height of ${fmt(height)} in` : ''}, computed from neck and waist at each check-in.{photoOnly.length > 0 && ` ${photoOnly.map(r => shortDate(r.date)).join(', ')}: progress photos only, no measurements (photos are not stored here).`}</p>
         {flagged.length > 0 && <p className="rv-foot rv-flag-foot"><span className="rv-flag-ico" aria-hidden="true" />Marked readings are shown but left out of trend lines and changes:{' '}
           {flagged.join('; ')}.</p>}
       </Card>
     </>
+  );
+}
+
+const SCALE_FIELDS: [string, string, (v: number) => string][] = [
+  ['bmi', 'BMI', v => fmt(v, 1)], ['muscle_mass_lb', 'Muscle mass', v => `${fmt(v, 1)} lb`], ['visceral_fat', 'Visceral fat', v => fmt(v, 0)],
+  ['bmr_kcal', 'BMR', v => `${fmt(v)} kcal`], ['goal_weight_lb', 'Goal weight', v => `${fmt(v, 1)} lb`]];
+function ScaleCard({ row }: { row: Checkin }) {
+  const items = SCALE_FIELDS.filter(([k]) => row.extra[k] != null);
+  return (
+    <div className="rv-scale">
+      <div className="rv-multiple-head"><span className="rv-label">Smart scale · composition · {shortDate(row.date)}</span>
+        {row.body_fat_pct != null && <span className="rv-multiple-val">{fmt(row.body_fat_pct, 1)}% body fat</span>}</div>
+      <dl className="rv-stats">{items.map(([k, l, f]) => <div key={k}><dt>{l}</dt><dd>{f(row.extra[k])}</dd></div>)}</dl>
+      {row.note && <p className="rv-sub">{row.note}</p>}
+    </div>
   );
 }
 
@@ -157,7 +182,7 @@ export function CheckinsCard({ coach }: { coach: Coach }) {
         aside={d.next_due && <span className="rv-next">Next due ~{shortDate(d.next_due)}</span>}>
         <div className="rv-timeline" role="list">
           <div className="rv-tl-line" />
-          {rows.map(r => <span key={r.date} role="listitem" className={`rv-tl-dot${Object.values(r.flags).includes('entry_error') ? ' rv-tl-flag' : ''}`} style={{ left: pos(r.date) }} title={`${longDate(r.date)}${r.weight_lb ? ` · ${r.weight_lb} lb` : ''}`}><em>{shortDate(r.date)}</em></span>)}
+          {rows.map(r => <span key={r.date} role="listitem" className={`rv-tl-dot${Object.values(r.flags).includes('entry_error') ? ' rv-tl-flag' : ''}${r.weight_lb === null && r.waist_in === null ? ' rv-tl-photo' : ''}`} style={{ left: pos(r.date) }} title={`${longDate(r.date)}${r.weight_lb ? ` · ${r.weight_lb} lb` : r.note ? ' · photos only' : ''}`}><em>{shortDate(r.date)}</em></span>)}
           {d.next_due && <span className="rv-tl-dot rv-tl-next" style={{ left: '100%' }} role="listitem"><em>{shortDate(d.next_due)}</em></span>}
         </div>
         <Stats2 items={[['Check-ins', String(d.count)], ['Last', d.latest ? shortDate(d.latest) : '—'], ['Every', '~7 days']]} />
@@ -247,8 +272,9 @@ export function MealPlanCard({ coach }: { coach: Coach }) {
       <ol className="rv-mealplan">{mp.meals.map(m => (
         <li key={m.name}><div className="rv-mp-head"><strong>{m.name}</strong><span>{fmt(m.kcal)} kcal</span></div>
           <div className="rv-mp-bar"><span style={{ width: `${(100 * m.kcal) / Math.max(...mp.meals.map(x => x.kcal))}%` }} /></div>
-          <p>{m.items.join(' · ')}</p></li>))}</ol>
+          {m.items.length > 0 && <p>{m.items.join(' · ')}</p>}</li>))}</ol>
       {mp.notes && mp.notes.length > 0 && <div className="rv-mp-notes"><div className="rv-label">Notes from Robyn</div><ul>{mp.notes.map(n => <li key={n}>{n}</li>)}</ul></div>}
+      {mp.groceries && <p className="rv-foot">{mp.groceries}</p>}
     </Card>
   );
 }
