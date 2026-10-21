@@ -278,6 +278,29 @@ function Skeleton() {
   return <div className="rv-kpis" aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <div key={i} className="rv-card rv-kpi rv-skeleton"><span /><span /><span /></div>)}</div>;
 }
 
+const WELCOME_KEY = 'cupcake-robyn-welcome-v1';
+const WELCOME_ITEMS: [string, string, string][] = [
+  ['summary', 'Live dashboard', 'Updates as Matt logs, with this week beside last week.'],
+  ['food', 'Day drill-downs', 'Tap any day, bar or figure for meals, workouts and sleep.'],
+  ['weight', 'Coaching check-ins', 'Check-ins and the plan from your app, with body trends.'],
+  ['steps', 'Export', 'Download everything as a spreadsheet (CSV) or JSON.'],
+  ['sleep', 'Ask Cupcake', 'Ask about the numbers by voice or text.'],
+];
+function Welcome({ onAsk }: { onAsk: () => void }) {
+  const [open, setOpen] = useState(() => { try { return storage()?.getItem(WELCOME_KEY) !== 'dismissed'; } catch { return true; } });
+  if (!open) return null;
+  const close = () => { try { storage()?.setItem(WELCOME_KEY, 'dismissed'); } catch { /* ignore */ } setOpen(false); };
+  return (
+    <section className="rv-card rv-welcome" aria-labelledby="rv-welcome-title">
+      <button className="rv-welcome-x" onClick={close} aria-label="Dismiss welcome">×</button>
+      <h2 id="rv-welcome-title">Hi Robyn, welcome</h2>
+      <p className="rv-sub">Matt set this page up for your weekly sessions. It's read-only, and here's what's new:</p>
+      <ul className="rv-welcome-list">{WELCOME_ITEMS.map(([tone, t, d]) => <li key={t} className={`rv-s-${tone}`}><i className="rv-sdot" /><div><strong>{t}</strong><span>{d}</span></div></li>)}</ul>
+      <div className="rv-welcome-actions"><button className="rv-wbtn rv-wbtn-primary" onClick={close}>Get started</button><button className="rv-wbtn" onClick={() => { close(); onAsk(); }}>Ask Cupcake</button></div>
+    </section>
+  );
+}
+
 export default function RobynDashboard() {
   useHeadMeta();
   const token = useMemo(() => captureToken(window.location.href, window.history, storage()), []);
@@ -342,6 +365,7 @@ export default function RobynDashboard() {
 
         {!data || !m ? <Skeleton /> : (
           <div className={busy ? 'rv-body rv-busy' : 'rv-body'} aria-busy={busy}>
+            <Welcome onAsk={() => setChat(true)} />
             <div className="rv-kpis">
               <Kpi section="food" onOpen={() => openMetric('food')} label="Logged calories" value={m.food_kcal_avg.current} format={v => fmt(v)} unit="kcal" sub={`per logged day · ${fmt(m.food_days.current)} of ${weeks * 7} days`}><Delta m={m.food_kcal_avg} unit="kcal" /></Kpi>
               <Kpi section="food" onOpen={() => openMetric('meals')} key_={keys.has('meals')} label="Meals logged" value={m.meals.current} format={v => fmt(v)} sub={`prior ${fmt(m.meals.previous)}`}><Delta m={m.meals} /></Kpi>
