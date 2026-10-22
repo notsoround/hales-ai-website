@@ -55,6 +55,8 @@
 @media (max-width: 640px) {
   .ax-hero { grid-template-columns: 1fr; grid-template-areas: "big" "chips" "trend"; }
   .ax-big { font-size: 44px; }
+  .ax-tick { font-size: 17px; }  /* the 520-wide chart scales to ~60% on phones */
+  .ax-tip { font-size: 13px; }
   .ax-th { display: none; }
   .ax-tr { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; padding: 10px; }
   .ax-rh { grid-column: 1 / -1; display: flex !important; align-items: baseline; justify-content: space-between; }
