@@ -167,6 +167,7 @@ export function BodySection({ coach, body }: { coach: Coach; body?: Body }) {
           {(['neck_in', 'waist_in', 'hips_in'] as const).map(f => {
             const s = rows.filter(r => r[f] !== null && !r.flags[f]);
             const ch = s.length > 1 ? (s[s.length - 1][f] as number) - (s[0][f] as number) : null;
+            if (!s.length) return null;   // no readings for this measure: no empty tile
             return <div key={f} className="rv-multiple"><div className="rv-multiple-head"><span className="rv-label">{{ neck_in: 'Neck', waist_in: 'Waist', hips_in: 'Hips' }[f]}</span>
               <span className="rv-multiple-val">{s.length ? `${fmt(s[s.length - 1][f], 1)}″` : '—'}{ch !== null && <em>{ch > 0 ? '+' : ch < 0 ? '−' : ''}{fmt(Math.abs(ch), 1)}</em>}</span></div>
               <Trend rows={rows} field={f} unit="in" height={70} compact label={`${f.split('_')[0]} trend`} /></div>;
@@ -289,8 +290,9 @@ export function WorkoutGrid({ coach, days, onDay }: { coach: Coach; days: Day[];
   const weeks: typeof rows[] = [];
   rows.forEach((r, i) => { if (i % 7 === 0) weeks.push([]); weeks[weeks.length - 1].push(r); });
   const ICON = { done: '✓', partial: '◐', missed: '', rest: '', extra: '+' };
+  const low = planned.length > 0 && hit / planned.length < 0.5;   // a success colour only when most planned days were done
   return (
-    <Card title="Assigned vs done" kicker="Workouts" tone="exercise" sample={coach.sample} wide aside={<span className="rv-next">{hit} of {planned.length} planned days completed</span>}>
+    <Card title="Assigned vs done" kicker="Workouts" tone="exercise" sample={coach.sample} wide aside={<span className={`rv-next${low ? ' rv-next-neutral' : ''}`}>{hit} of {planned.length} planned days completed</span>}>
       <div className="rv-wgrid" role="table" aria-label="Assigned workouts against logged workouts">
         {weeks.map((w, wi) => <div key={wi} className="rv-wrow" role="row">{w.map(r => (
           <button key={r.date} role="cell" className={`rv-wcell rv-w-${r.state}`} onClick={() => onDay(r.date)}
@@ -298,7 +300,7 @@ export function WorkoutGrid({ coach, days, onDay }: { coach: Coach; days: Day[];
             <span className="rv-wday">{new Date(r.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })} <b>{Number(r.date.slice(8))}</b></span>
             <span className="rv-wmark" aria-hidden="true">{ICON[r.state]}</span>
             <span className="rv-wplan">{r.assigned.length ? r.assigned.map(x => <span key={x.name}>{x.name} · {x.minutes}′</span>) : <span>Rest</span>}</span>
-            <span className="rv-wdone">{r.done ? `${fmt(r.done)} min logged` : r.planned ? 'Not logged' : ''}</span>
+            <span className="rv-wdone">{r.done ? (r.planned ? `${fmt(r.done)} min logged` : `Bonus ${fmt(r.done)} min`) : r.planned ? 'Not logged' : ''}</span>
           </button>))}</div>)}
       </div>
       <div className="rv-wlegend"><span><i className="rv-w-done" />Done (≥80% of planned minutes)</span><span><i className="rv-w-partial" />Partial</span><span><i className="rv-w-missed" />Not logged</span></div>

@@ -8,14 +8,17 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id: string) {
-          if (!id.includes('node_modules')) return undefined;
-          if (/[/\\](three|@react-three)[/\\]/.test(id)) return 'three';
-          if (/[/\\](framer-motion|@react-spring)[/\\]/.test(id)) return 'motion';
-          if (id.includes('@vapi-ai')) return 'vapi';
-          return undefined;
+        // React has its own group (highest priority) so shared React modules never land in the motion chunk;
+        // otherwise every route, including /cupcake/robyn, preloads framer-motion.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /[/\\]node_modules[/\\](react|react-dom|scheduler)[/\\]/, priority: 30 },
+            { name: 'three', test: /[/\\]node_modules[/\\](three|@react-three)[/\\]/, priority: 20 },
+            { name: 'motion', test: /[/\\]node_modules[/\\](framer-motion|@react-spring)[/\\]/, priority: 20 },
+            { name: 'vapi', test: /[/\\]node_modules[/\\]@vapi-ai[/\\]/, priority: 20 },
+          ],
         },
       },
     },

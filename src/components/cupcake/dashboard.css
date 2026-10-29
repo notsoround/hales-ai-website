@@ -7,3 +7,5 @@
 .cc-dashboard-range button[aria-selected=true]{color:var(--cc-pink);background:#E9A5C614;border-color:#E9A5C640}
 @media(min-width:1024px){.cc-dashboard h2{font-size:32px}}
 @media(min-width:1024px){.cc-dashboard h2{font-size:32px}}
+
+.cc-weight-card .cc-weight-eyebrow{font-size:12px;letter-spacing:.18em;font-weight:700;color:#eb9bbe;margin:0 0 6px}.cc-weight-card .cc-weight-change{font-size:13px;font-weight:600;color:#d8c9d9}.cc-weight-card .cc-good{color:#7fd1ae}.cc-weight-card .cc-bad{color:#f2c27b}.cc-weight-card .cc-weight-others{font-size:12px;opacity:.85}.cc-weight-card .cc-weight-more{color:#eb9bbe}

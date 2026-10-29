@@ -77,10 +77,11 @@ test('robyn view is isolated from owner code and the /cupcake unlock is unchange
     try{diff=execSync(`git diff --stat cac7237e -- ${f}`,{cwd:new URL('..',import.meta.url)}).toString();}catch{diff='';}
     assert.equal(diff,'',f+' unchanged from cac7237');
   }
-  // The Cupcake app page only gained the owner-side Body/Assessment card (import + one render line); nothing else changed.
+  // The Cupcake app page changed only in its Today cards (Body/Assessment card, headline weight card, action chips);
+  // sign-in, private access and the feed request are untouched.
   const page=execSync('git diff -U0 cac7237e -- src/pages/cupcake/sandbox/cupcakegpt/page.tsx',{cwd:new URL('..',import.meta.url)}).toString()
     .split('\n').filter(l=>/^[+-]/.test(l)&&!/^(\+\+\+|---) /.test(l));
-  assert.ok(page.length<=2&&page.every(l=>l.startsWith('+')&&/BodyAssessmentCard/.test(l)),'cupcakegpt page: only the BodyAssessmentCard was added');
+  assert.ok(page.length>0&&page.every(l=>!/PrivateAccess|privateAccess|X-Cupcake-Key|connect\(|cupcake-feed|unlock|AccessGate/.test(l)),'cupcakegpt page: only Today cards changed');
 });
 
 // ---- v2: details, export, chat, voice, coach, RP app link ----

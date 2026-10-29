@@ -25,6 +25,8 @@ export type Weekly = {
   body?: Body;
   /** Aggregates saved by the last weekly email render (never transactions); null when none saved yet. */
   spending?: Spending | null;
+  /** Up to three biggest week-over-week changes, ranked by size. Older servers omit it. */
+  top_changes?: { key: string; text: string; tone: 'good' | 'bad' | 'neutral'; dir: 'up' | 'down' }[];
 };
 export type BodyReading = { value: number; date: string; source: string; label: string; previous?: { value: number; date: string; change: number } | null };
 export type Body = { weight: BodyReading | null; weight_others: BodyReading[]; body_fat: BodyReading | null; body_fat_others: BodyReading[] };
