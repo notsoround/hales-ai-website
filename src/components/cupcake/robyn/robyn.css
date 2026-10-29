@@ -70,7 +70,7 @@
 .rv-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .rv-grid { stroke: var(--rv-line); stroke-width: 1; }
 .rv-axis { stroke: var(--rv-line); stroke-width: 1.5; }
-.rv-tick { fill: var(--rv-muted); font-size: 10px; font-family: var(--rv-text); }
+.rv-tick { fill: var(--rv-muted); font-size: 11.5px; font-family: var(--rv-text); }
 .rv-bar { fill: var(--c-bar, var(--rv-accent)); transition: opacity .2s var(--rv-ease); }
 .rv-bar-prev { fill: var(--c-prev, var(--rv-prev)); transition: opacity .2s var(--rv-ease); }
 .rv-hit { fill: transparent; outline: none; cursor: pointer; }
@@ -129,6 +129,7 @@
 .rv-s-weight { --c-ink: #8A6D3B; --c-bar: #D2B98B; --c-prev: #EADFC8; --c-tint: #FAF6EE; }
 .rv-s-wins { --c-ink: #8C6A12; --c-bar: #CFAE52; --c-prev: #ECDDB0; --c-tint: #FBF7EA; }
 .rv-s-summary { --c-ink: #0A6CD6; --c-bar: #0A84FF; --c-prev: #BBD9FB; --c-tint: #EEF5FE; }
+.rv-s-spend { --c-ink: #5E5E66; --c-bar: #AEAEB2; --c-prev: #D1D1D6; --c-tint: #F5F5F7; }
 @media (prefers-color-scheme: dark) {
   .rv-s-food { --c-ink: #F0A7B8; --c-prev: #5A3640; --c-tint: rgba(217,138,156,.12); }
   .rv-s-exercise { --c-ink: #A9D4B2; --c-prev: #33493A; --c-tint: rgba(141,181,150,.12); }
@@ -137,6 +138,7 @@
   .rv-s-weight { --c-ink: #E3CDA2; --c-prev: #4E4330; --c-tint: rgba(210,185,139,.12); }
   .rv-s-wins { --c-ink: #E8C96E; --c-prev: #4D4325; --c-tint: rgba(207,174,82,.12); }
   .rv-s-summary { --c-ink: #64AEFF; --c-prev: #1F3B5C; --c-tint: rgba(10,132,255,.14); }
+  .rv-s-spend { --c-ink: #C7C7CC; --c-prev: #3A3A3C; --c-tint: rgba(174,174,178,.12); }
 }
 .rv-sdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--c-bar, var(--rv-muted)); margin-right: 7px; vertical-align: 1px; }
 .rv-toned .rv-kicker { color: var(--c-ink); }
@@ -409,7 +411,7 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
 .rv-ring-track { fill: none; stroke: var(--c-tint); stroke-width: 9; } .rv-ring-fill { fill: none; stroke: var(--c-bar); stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray .9s var(--rv-ease); }
 .rv-ring-over { fill: none; stroke: var(--c-ink); stroke-width: 9; stroke-linecap: round; opacity: .75; }
 .rv-ring-pct { font-family: var(--rv-display); font-size: 17px; font-weight: 650; fill: var(--rv-ink); font-variant-numeric: tabular-nums; }
-.rv-ring-sub { font-size: 8.5px; fill: var(--rv-muted); }
+.rv-ring-sub { font-size: 10.5px; fill: var(--rv-muted); }
 .rv-ring-none .rv-ring-track { stroke: rgba(118,118,128,.12); stroke-dasharray: 3 4; }
 .rv-ring-nums { font-size: 12.5px; color: var(--rv-ink2); font-variant-numeric: tabular-nums; } .rv-ring-nums b { color: var(--rv-ink); }
 .rv-ring .rv-label { color: var(--c-ink); }
@@ -471,3 +473,25 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
 @keyframes rv-welcome-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .rv-welcome { animation: none; } }
 @media (max-width: 640px) { .rv-welcome { padding: 20px 18px 18px; } .rv-welcome-list { grid-template-columns: 1fr; gap: 8px; } }
+
+/* One headline per body measure; other readings are detail. */
+.rv-hl-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.rv-hl { display: flex; flex-direction: column; gap: 1px; }
+.rv-hl strong { font-family: var(--rv-display); font-size: 34px; font-weight: 650; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.rv-hl small { font-size: 15px; color: var(--rv-muted); font-weight: 500; }
+.rv-hl .rv-sub { margin-top: 0; } .rv-hl .rv-delta { font-size: 13px; }
+.rv-body-head-detail strong { font-size: 20px; }
+.rv-headline-note { margin: -4px 0 8px; }
+.rv-other-bf { margin-top: 16px; border-top: 1px solid var(--rv-line); padding-top: 10px; }
+.rv-other-bf > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--c-ink); list-style-position: inside; padding: 4px 0; }
+.rv-other-bf[open] > summary { margin-bottom: 4px; }
+/* Spending (aggregates from the weekly email) */
+.rv-spend-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.rv-spend-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--rv-line); font-size: 14px; }
+.rv-spend-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-spend-list strong { font-variant-numeric: tabular-nums; } .rv-spend-list em { font-style: normal; font-size: 12px; color: var(--rv-muted); }
+/* Ask Cupcake header: the Voice/Text switch drops to its own row on phones instead of overlapping the title. */
+@media (max-width: 480px) {
+  .rv-panel-head { flex-wrap: wrap; row-gap: 10px; }
+  .rv-panel-head > .rv-seg { order: 3; flex: 1 0 100%; }
+}

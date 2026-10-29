@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Coach, Day, DayPoint, ExportSection, Metric, Weekly } from './viewerApi.ts';
-import { AssessmentCard, BodySection, CheckinsCard, MealPlanCard, PlanVsActual, WorkoutGrid } from './CoachSections.tsx';
+import type { BodyReading, Coach, Day, DayPoint, ExportSection, Metric, Spending, Weekly } from './viewerApi.ts';
+import { AssessmentCard, BodyHeadline, BodySection, CheckinsCard, MealPlanCard, PlanVsActual, WorkoutGrid } from './CoachSections.tsx';
 import { EXPORT_SECTIONS, fetchCoach, NOTE_MAX, ViewerAuthError, captureToken, deltaText, deltaTone, expiryLabel, exportName, fetchDetails, fetchExport, fetchWeekly, fmt, hm, longDate, niceMax, postNote, rpAppLink, shortDate } from './viewerApi.ts';
 import { DaySheet } from './DaySheet.tsx';
 import type { MetricKey, SheetView } from './DaySheet.tsx';
@@ -79,6 +79,39 @@ function Kpi({ label, value, format, unit, sub, children, section, key_, onOpen 
       <div className="rv-value"><span className="rv-value-num">{format(shown === null ? null : value !== null && Number.isInteger(value) ? Math.round(shown) : shown)}</span>{unit ? <span className="rv-unit"> {unit}</span> : null}</div>
       <div className="rv-kpi-foot">{children}{sub ? <span className="rv-sub">{sub}</span> : null}</div>
     </button>
+  );
+}
+
+/** The headline weight: the latest dated reading this period across sources, with source and date; else the scale. */
+function headlineWeight(data: Weekly): BodyReading | null {
+  const w = data.body?.weight;
+  return w && w.source !== 'scale' && w.date >= data.period.current.start ? w : null;
+}
+
+function ReadingDelta({ r, unit }: { r: BodyReading; unit: string }) {
+  const p = r.previous;
+  if (!p) return <span className="rv-delta rv-neutral">First reading from this source</span>;
+  const tone = p.change === 0 ? 'neutral' : p.change < 0 ? 'good' : 'bad';
+  return <span className={`rv-delta rv-${tone}`}>{p.change > 0 ? '▲' : p.change < 0 ? '▼' : '='} {Math.abs(p.change).toFixed(1)} {unit}<span className="rv-delta-ref"> vs {shortDate(p.date)}</span></span>;
+}
+
+const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function SpendingCard({ s }: { s: Spending | null | undefined }) {
+  if (!s) return (
+    <Section tone="spend" title="Spending" kicker="Bank card">
+      <Stats items={[['Total spend', 'Not available'], ['Food & drink', 'Not available']]} />
+      <p className="rv-foot">No weekly bank summary has been saved yet, so spending is unknown here (a data gap, not $0). It appears after the next weekly email.</p>
+    </Section>
+  );
+  const diff = s.previous.complete ? s.total - s.previous.total : null;
+  return (
+    <Section tone="spend" title="Spending" kicker={`Bank card · ${s.label}`}>
+      <Stats items={[['Total spend', money(s.total)], ['Food & drink', money(s.food_total)], ['Purchases', fmt(s.count)], ['Food charges', fmt(s.food_count)]]} />
+      <p className="rv-sub">{diff === null ? `Previous week (${s.previous.label}): incomplete, so no comparison.` : `Previous week (${s.previous.label}): ${money(s.previous.total)}; this week is ${diff === 0 ? 'the same' : `${money(Math.abs(diff))} ${diff > 0 ? 'more' : 'less'}`}.`}</p>
+      {s.top_merchants.length > 0 && <ul className="rv-spend-list">{s.top_merchants.map(t => <li key={t.merchant}><span>{t.merchant}</span><strong>{money(t.total)}</strong><em>{t.count} {t.count === 1 ? 'charge' : 'charges'}</em></li>)}</ul>}
+      <p className="rv-foot">Card purchases from the weekly email ({s.label}), never counted as meals. Excludes transfers, payments and refunds.{s.pending_count ? ` Includes ${s.pending_count} pending (${money(s.pending_total)}).` : ''}{s.complete ? '' : ' The bank data did not cover every day.'}</p>
+    </Section>
   );
 }
 
@@ -279,13 +312,6 @@ function Skeleton() {
 }
 
 const WELCOME_KEY = 'cupcake-robyn-welcome-v1';
-const WELCOME_ITEMS: [string, string, string][] = [
-  ['summary', 'Live dashboard', 'Updates as Matt logs, with this week beside last week.'],
-  ['food', 'Day drill-downs', 'Tap any day, bar or figure for meals, workouts and sleep.'],
-  ['weight', 'Coaching check-ins', 'Check-ins and the plan from your app, with body trends.'],
-  ['steps', 'Export', 'Download everything as a spreadsheet (CSV) or JSON.'],
-  ['sleep', 'Ask Cupcake', 'Ask about the numbers by voice or text.'],
-];
 function Welcome({ onAsk }: { onAsk: () => void }) {
   const [open, setOpen] = useState(() => { try { return storage()?.getItem(WELCOME_KEY) !== 'dismissed'; } catch { return true; } });
   if (!open) return null;
@@ -293,10 +319,9 @@ function Welcome({ onAsk }: { onAsk: () => void }) {
   return (
     <section className="rv-card rv-welcome" aria-labelledby="rv-welcome-title">
       <button className="rv-welcome-x" onClick={close} aria-label="Dismiss welcome">×</button>
-      <h2 id="rv-welcome-title">Hi Robyn, welcome</h2>
-      <p className="rv-sub">Matt set this page up for your weekly sessions. It's read-only, and here's what's new:</p>
-      <ul className="rv-welcome-list">{WELCOME_ITEMS.map(([tone, t, d]) => <li key={t} className={`rv-s-${tone}`}><i className="rv-sdot" /><div><strong>{t}</strong><span>{d}</span></div></li>)}</ul>
-      <div className="rv-welcome-actions"><button className="rv-wbtn rv-wbtn-primary" onClick={close}>Get started</button><button className="rv-wbtn" onClick={() => { close(); onAsk(); }}>Ask Cupcake</button></div>
+      <h2 id="rv-welcome-title">Hi Robyn</h2>
+      <p className="rv-sub">Matt&rsquo;s week at a glance, updated as he logs. Tap any day or number for details, or ask Cupcake.</p>
+      <div className="rv-welcome-actions"><button className="rv-wbtn rv-wbtn-primary" onClick={close}>Got it</button><button className="rv-wbtn" onClick={() => { close(); onAsk(); }}>Ask Cupcake</button></div>
     </section>
   );
 }
@@ -345,6 +370,7 @@ export default function RobynDashboard() {
   const keys = new Set(m ? (['exercise_minutes', 'steps_avg', 'meals'] as const)
     .filter(k => deltaTone(m[k]) === 'good' && (m[k].pct === null || Math.abs(m[k].pct as number) >= 5)).slice(0, 3) : []);
   const days = details && details.weeks === weeks ? details.days : null;
+  const hw = data ? headlineWeight(data) : null;
   return (
     <main className="rv">
       <div className="rv-wrap">
@@ -372,7 +398,8 @@ export default function RobynDashboard() {
               <Kpi section="steps" onOpen={() => openMetric('steps')} key_={keys.has('steps_avg')} label="Steps per day" value={m.steps_avg.current} format={v => fmt(v)} sub={`${fmt(m.steps_days.current)} days with data`}><Delta m={m.steps_avg} /></Kpi>
               <Kpi section="exercise" onOpen={() => openMetric('exercise')} key_={keys.has('exercise_minutes')} label="Exercise" value={m.exercise_minutes.current} format={v => fmt(v)} unit="min" sub={`${fmt(m.exercise_sessions.current)} sessions`}><Delta m={m.exercise_minutes} unit="min" /></Kpi>
               <Kpi section="sleep" onOpen={() => openMetric('sleep')} label="Sleep" value={m.sleep_avg_min.current} format={v => hm(v)} sub={`${fmt(m.sleep_nights.current)} nights tracked`}><Delta m={m.sleep_avg_min} kind="minutes" /></Kpi>
-              <Kpi section="weight" onOpen={() => openMetric('weight')} label="Weight" value={m.weight_end.current} format={v => fmt(v, 1)} unit="lb" sub="latest weigh-in"><Delta m={m.weight_end} kind="decimal" unit="lb" /></Kpi>
+              {hw ? <Kpi section="weight" onOpen={() => openMetric('weight')} label="Weight" value={hw.value} format={v => fmt(v, 1)} unit="lb" sub={`${hw.label} · ${shortDate(hw.date)}`}><ReadingDelta r={hw} unit="lb" /></Kpi>
+                : <Kpi section="weight" onOpen={() => openMetric('weight')} label="Weight" value={m.weight_end.current} format={v => fmt(v, 1)} unit="lb" sub={m.weight_end.current === null ? 'no weigh-in this period' : 'scale weigh-in'}><Delta m={m.weight_end} kind="decimal" unit="lb" /></Kpi>}
             </div>
 
             <Section title="Summary" kicker="Overview" tone="summary">
@@ -408,7 +435,8 @@ export default function RobynDashboard() {
             </div>
 
             <div className="rv-grid2">
-              <Section tone="weight" title="Weight" kicker="Body" aside={<Delta m={m.weight_end} kind="decimal" unit="lb" />}>
+              <Section tone="weight" title="Scale weigh-ins" kicker="Body" aside={<Delta m={m.weight_end} kind="decimal" unit="lb" />}>
+                {hw && <p className="rv-sub rv-headline-note">Headline weight is {fmt(hw.value, 1)} lb ({hw.label}, {shortDate(hw.date)}). Scale readings below are detail.</p>}
                 <WeightChart series={data.series} onDay={openDay} />
                 <div className="rv-trend">{data.weight_trend.map(t => <div key={t.week}><span className="rv-label">{t.week}</span><strong>{fmt(t.avg_lb, 1)}</strong><span className="rv-sub">{t.readings} readings</span></div>)}</div>
               </Section>
@@ -418,12 +446,15 @@ export default function RobynDashboard() {
               </Section>
             </div>
 
+            <SpendingCard s={data.spending} />
+
             {coach?.has_data && <>
               <div className="rv-coach-head"><div className="rv-kicker">From Robyn&rsquo;s plan</div><h2>Coaching plan &amp; check-ins</h2>
                 <p className="rv-sub">Check-ins and plan entered from the Robyn Peck app by Matt{coach.assessment?.table ? '; assessments from Robyn’s own assessment sheet' : ''}. There is no live connection to the app.</p></div>
               <div className="rv-coach">
-                <AssessmentCard coach={coach} />
-                <BodySection coach={coach} />
+                <BodyHeadline body={data.body} />
+                <AssessmentCard coach={coach} hideHero={data.body?.body_fat?.source === 'robyn_assessment'} />
+                <BodySection coach={coach} body={data.body} />
                 {days && <PlanVsActual coach={coach} days={days.filter(d => d.period !== 'previous')} />}
                 {days && <WorkoutGrid coach={coach} days={days.filter(d => d.period !== 'previous')} onDay={openDay} />}
                 <CheckinsCard coach={coach} />

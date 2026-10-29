@@ -5,7 +5,7 @@
 .cc-energy-svg{width:100%;height:auto;display:block;overflow:visible}
 .cc-energy-grid{stroke:var(--cc-line);stroke-width:1}
 .cc-energy-zero{stroke:#BFB7C4;stroke-opacity:.45;stroke-dasharray:3 4}
-.cc-energy-tick{fill:#BFB7C4;font-size:11px}
+.cc-energy-tick{fill:#9C93A3;font-size:12px}
 .cc-energy-line{fill:none;stroke:var(--cc-pink);stroke-width:2.5;stroke-linecap:round}
 .cc-energy-projection{stroke:var(--cc-pink);stroke-opacity:.5;stroke-width:1.5;stroke-dasharray:5 5}
 .cc-energy-meal{fill:var(--cc-pink);stroke:#111016;stroke-width:1.5}
@@ -27,3 +27,4 @@
 .cc-exercise-list li span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cc-last-night{display:grid;gap:4px}.cc-last-night b{font-size:18px;line-height:1.3;font-variant-numeric:tabular-nums}.cc-last-night p{margin:0}
 .cc-last-night .cc-eyebrow{display:inline-flex;align-items:center;gap:6px}
+.cc-energy-stats .cc-na{font-weight:600;opacity:.6;font-size:.9em}
