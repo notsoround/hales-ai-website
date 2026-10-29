@@ -30,6 +30,7 @@ function harness(){
   navigator:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}],getAudioTracks:()=>[{}]})}},
   acquireMicrophone:async fn=>fn({}),microphoneConstraints:()=>({}),mediaError:e=>e.message,
   request:async()=>{requests.push('explicit start');return {callId:'synthetic-call',webCallUrl:'synthetic://no-network'}},
+  loadDaily:async()=>scope.Daily,
   Daily:{createCallObject(){const handlers=new Map(),left=deferred(),destroyed=deferred();const transport={left,destroyed,on:(name,fn)=>handlers.set(name,fn),join:async()=>{},leave:()=>left.promise,destroy:()=>destroyed.promise,emit:(text,eventId)=>handlers.get('app-message')({data:{type:'transcript',transcriptType:'final',role:'user',transcript:text,id:eventId}})};transports.push(transport);return transport}},
   closeVoiceTransport:(transport,confirmed)=>closeVoiceTransport(transport,confirmed,3),persistTalk,flushTalk:id=>recovery.flush(id),endRemote:async()=>{},
  };

@@ -1,6 +1,8 @@
 import {TalkCheckpointRecovery, remoteTalkSummary, talkDeviceStorage, type RemoteTalk, type RemoteTalkSession} from './talkCheckpoints';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Daily, { type DailyCall } from '@daily-co/daily-js';
+import type { DailyCall } from '@daily-co/daily-js';
+/** The Daily voice SDK (~570 KB) loads when a call starts, not with the sign-in page. */
+const loadDaily = () => import('@daily-co/daily-js').then(m => m.default, () => null);
 import { Mic, Square, Upload, Headphones, Download, Monitor, LockKeyhole } from 'lucide-react';
 import { drafts, putDraft, putChunk, draftBlob, deleteDraft, type Draft } from './storage';
 import ConversationPanel from './ConversationPanel';
@@ -176,7 +178,10 @@ export default function CupcakeStudio({ mode, onBusy, active = true }: { mode: '
     try {
       checkpointRecovery.current!.create(checkpointId,talkStarted.current,contextTalk?startingContextFor(contextTalk):undefined);
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Voice needs microphone access in a supported browser over HTTPS.');
+      const dailyReady = loadDaily();
       const mic = await acquireMicrophone(c=>navigator.mediaDevices.getUserMedia(c),microphoneConstraints(inputDevice),12000,acquisition.signal);
+      const Daily = await dailyReady;
+      if (!Daily) { mic.getTracks().forEach(t=>t.stop()); throw new Error('Voice could not load. Check your connection and try again.'); }
       if (stoppingVoice.current || generation !== voiceGeneration.current || !mounted.current) { mic.getTracks().forEach(t=>t.stop()); return; }
       voiceMic.current=mic;
       const body=contextTalk?{context:continuationContext(contextTalk)}:{};

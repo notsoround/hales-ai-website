@@ -21,7 +21,16 @@ export type Weekly = {
   metrics: Record<string, Metric>; series: DayPoint[];
   weight_trend: { week: string; avg_lb: number | null; readings: number }[];
   headlines: string[]; gaps: string[]; status?: string[];
+  /** One headline per measure (latest dated reading; Robyn's assessment first on a tie). Older servers omit it. */
+  body?: Body;
+  /** Aggregates saved by the last weekly email render (never transactions); null when none saved yet. */
+  spending?: Spending | null;
 };
+export type BodyReading = { value: number; date: string; source: string; label: string; previous?: { value: number; date: string; change: number } | null };
+export type Body = { weight: BodyReading | null; weight_others: BodyReading[]; body_fat: BodyReading | null; body_fat_others: BodyReading[] };
+export type Spending = { start: string; end: string; label: string; source?: string; fetched_at?: string | null; total: number; count: number; food_total: number; food_count: number;
+  pending_count: number; pending_total: number; complete: boolean; top_merchants: { merchant: string; total: number; count: number }[];
+  previous: { label: string; total: number; count: number; complete: boolean }; notes: string[]; saved_at?: string };
 export type Meal = { time: string; description: string; source: 'Photo' | 'Manual' | 'Bank estimate'; kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null; sugar_g: number | null; partial: boolean };
 export type Workout = { time: string; description: string; minutes: number | null; kcal: number };
 export type Sleep = { source: 'RingConn' | 'Health Connect'; asleep_min: number | null; session_min: number | null; bedtime: string | null; waketime: string | null;

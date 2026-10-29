@@ -4,7 +4,7 @@ import { libraryRequest } from './library';
 import { addDays, nutritionDay, nutritionDayStart, signedCalories, type NutritionHistory, type NutritionSettings } from './nutritionModel';
 import { buildMetabolicSeries, monotonePath, sampleNetAt, type BoughtEvent, type MetabolicSeries } from './metabolicSeries';
 import { preparedPurchases } from './purchases';
-import { chicagoHourOnDay, closestReading, loadGlucoseReadings, type GlucoseReading, type LibraryRequest } from './glucoseApi';
+import { SIX_PM_WINDOW_MS, chicagoHourOnDay, closestReading, loadGlucoseReadings, type GlucoseReading, type LibraryRequest } from './glucoseApi';
 import { ExerciseUnavailableError, deleteExercise, listExercises, logExercise, type ExerciseEntry } from './exerciseApi';
 import { StepsUnavailableError, latestSteps, stepsDayLabel, type StepsDay } from './stepsApi';
 import { RingconnUnavailableError, latestRingconnNight, nightSummary, type RingconnNight } from './ringconnApi';
@@ -33,7 +33,7 @@ export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: 
   const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), bought, steps: steps.day?.count ?? null, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, bought, steps.day, now]);
   const comparisonReady = !!nutrition.history?.complete && !nutrition.history.pendingCount && !nutrition.history.undatedLoggedCount;
   return <section className="cc-energy" aria-label="Energy today">
-    <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd}/>
+    <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd} now={now.getTime()}/>
     <LastNightCard day={day}/>
     <div className="cc-card cc-energy-curve">
       <div className="cc-heading-row"><h3>Energy balance today</h3></div>
@@ -65,27 +65,47 @@ function LastNightCard({ day }: { day: string }) {
   </div>;
 }
 
-function SugarCard({ day, dayStart, dayEnd }: { day: string; dayStart: number; dayEnd: number }) {
-  const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error'; reading: GlucoseReading | null }>({ status: 'loading', reading: null });
+function SugarCard({ day, dayStart, dayEnd, now }: { day: string; dayStart: number; dayEnd: number; now: number }) {
+  const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error'; rows: GlucoseReading[] }>({ status: 'loading', rows: [] });
   const target = chicagoHourOnDay(day, 18);
   useEffect(() => {
     let live = true;
-    setState({ status: 'loading', reading: null });
-    loadGlucoseReadings(request, dayStart, dayEnd).then(rows => { if (live) setState({ status: 'ready', reading: closestReading(rows, target) }); }).catch(() => { if (live) setState({ status: 'error', reading: null }); });
+    setState({ status: 'loading', rows: [] });
+    loadGlucoseReadings(request, dayStart, dayEnd).then(rows => { if (live) setState({ status: 'ready', rows }); }).catch(() => { if (live) setState({ status: 'error', rows: [] }); });
     return () => { live = false; };
   }, [dayStart, dayEnd, target]);
-  const r = state.reading, offMinutes = r ? Math.round(Math.abs(r.at - target) / 60000) : 0;
+  // Only a reading within ±90 min of 6 PM counts as the 6 PM sugar; earlier readings are not relabelled.
+  const r = closestReading(state.rows, target, SIX_PM_WINDOW_MS), offMinutes = r ? Math.round(Math.abs(r.at - target) / 60000) : 0;
+  const latest = state.rows.length ? state.rows[state.rows.length - 1] : null;
+  const windowOpen = now < target + SIX_PM_WINDOW_MS;
   return <div className="cc-card cc-sugar" aria-live="polite">
-    <span className="cc-eyebrow"><Droplet size={14}/> 6 PM sugar</span>
+    <span className="cc-eyebrow"><Droplet size={14}/> 6 PM blood sugar</span>
     {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
       : state.status === 'error' ? <p className="cc-muted">Manual glucose readings could not load.</p>
-        : !r ? <p className="cc-muted">No manual reading logged today.</p>
-          : <><b>{r.valueMgDl} <small>mg/dL</small></b><p className="cc-muted">Manual reading at {clock(r.at)}{offMinutes ? ` · ${offMinutes < 60 ? `${offMinutes} min` : `${(offMinutes / 60).toFixed(1)} h`} from 6 PM` : ' · right at 6 PM'}</p></>}
+        : r ? <><b>{r.valueMgDl} <small>mg/dL</small></b><p className="cc-muted">Manual reading at {clock(r.at)}{offMinutes ? ` · ${offMinutes} min from 6 PM` : ' · right at 6 PM'}</p></>
+          : <><b className="cc-sugar-none">{windowOpen && now < target - SIX_PM_WINDOW_MS ? 'Not yet' : 'No 6 PM reading'}</b>
+            <p className="cc-muted">{windowOpen ? 'Log a reading between 4:30 and 7:30 PM and it shows here.' : 'No reading was logged between 4:30 and 7:30 PM today.'}{latest ? ` Latest today: ${latest.valueMgDl} mg/dL at ${clock(latest.at)}.` : ''}</p></>}
   </div>;
 }
 
-const W = 640, H = 210, PAD = { l: 44, r: 12, t: 12, b: 34 };
+const H = 210, PAD = { l: 44, r: 12, t: 12, b: 34 };
+/** Draw at the rendered width so axis labels keep their real size on phones instead of shrinking with the viewBox. */
+function useWidth(fallback: number) {
+  const ref = useRef<SVGSVGElement>(null);
+  const [width, setWidth] = useState(fallback);
+  useEffect(() => {
+    const el = ref.current?.parentElement;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => { const w = Math.round(el.clientWidth); if (w > 0) setWidth(Math.max(300, w)); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, width] as const;
+}
 function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeries; comparisonReady: boolean; steps: StepsState }) {
+  const [svgRef, W] = useWidth(640);
   const span = series.dayEnd - series.dayStart;
   const values = [0, ...series.samples.map(s => s.net), series.projectedEndOfDay];
   const lo = Math.min(...values), hi = Math.max(...values), range = Math.max(200, hi - lo), pad = range * 0.08;
@@ -96,13 +116,14 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
   const ticks = [0, 6, 12, 18, 24].map(h => ({ h, at: series.dayStart + (span * h) / 24 }));
   const meals = series.events.filter(e => e.kind === 'meal'), workouts = series.events.filter(e => e.kind === 'exercise');
   const untimed = meals.filter(m => m.untimed).length, unknown = meals.filter(m => m.kcal === null).length;
+  const known = meals.some(m => m.kcal !== null);   // no logged calories yet: net and projection would only show burn
   const agrees = series.foodBalance !== null && Math.abs(series.foodBalance - (series.net + series.exercise)) < 0.5;
   return <>
-    <svg className="cc-energy-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Net energy now ${signedCalories(series.net)} kcal`}>
+    <svg ref={svgRef} className="cc-energy-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Net energy now ${signedCalories(series.net)} kcal`}>
       {ticks.map(t => <g key={t.h}><line x1={x(t.at)} x2={x(t.at)} y1={PAD.t} y2={H - PAD.b} className="cc-energy-grid"/><text x={x(t.at)} y={H - 4} textAnchor="middle" className="cc-energy-tick">{t.h === 0 || t.h === 24 ? '12a' : t.h === 12 ? '12p' : t.h < 12 ? `${t.h}a` : `${t.h - 12}p`}</text></g>)}
       <line x1={PAD.l} x2={W - PAD.r} y1={y(0)} y2={y(0)} className="cc-energy-zero"/>
       <text x={PAD.l - 6} y={y(0) + 4} textAnchor="end" className="cc-energy-tick">0</text>
-      <line x1={x(series.now)} x2={x(series.dayEnd)} y1={y(series.net)} y2={y(series.projectedEndOfDay)} className="cc-energy-projection"/>
+      {known && <line x1={x(series.now)} x2={x(series.dayEnd)} y1={y(series.net)} y2={y(series.projectedEndOfDay)} className="cc-energy-projection"/>}
       <path d={line} className="cc-energy-line"/>
       {meals.map(m => <circle key={m.id} cx={x(m.at)} cy={y(sampleNetAt(series.samples, m.at))} r={4.5} className="cc-energy-meal"><title>{`${m.label} · ${m.kcal === null ? 'calories unknown' : `${kcal(m.kcal)} kcal`}${m.untimed ? ' · no time logged' : ` · ${clock(m.at)}`}`}</title></circle>)}
       {workouts.map(e => <path key={e.id} d={`M${x(e.at) - 5},${y(sampleNetAt(series.samples, e.at)) - 4}h10l-5,8z`} className="cc-energy-exercise"><title>{`${e.label} · −${kcal(e.kcal || 0)} kcal · ${clock(e.at)}`}</title></path>)}
@@ -110,15 +131,15 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
       <circle cx={x(series.now)} cy={y(series.net)} r={5} className="cc-energy-now"/>
     </svg>
     <dl className="cc-energy-stats">
-      <div><dt>Eaten (logged)</dt><dd>{kcal(series.eaten)}</dd></div>
+      <div><dt>Eaten (logged)</dt><dd>{known ? kcal(series.eaten) : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Living burn so far</dt><dd>−{kcal(series.living)}</dd></div>
-      <div><dt>Exercise</dt><dd>{series.exercise ? `−${kcal(series.exercise)}` : '0'}</dd></div>
-      <div><dt>Steps{steps.day ? ` · ${stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : 'none'}</dd></div>
-      <div><dt>Net now</dt><dd>{signedCalories(series.net)}</dd></div>
-      <div><dt>Projected midnight</dt><dd>{signedCalories(series.projectedEndOfDay)}</dd></div>
+      <div><dt>Exercise</dt><dd>{series.exercise ? `−${kcal(series.exercise)}` : <span className="cc-na">None logged</span>}</dd></div>
+      <div><dt>Steps{steps.day ? ` · ${stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : <span className="cc-na">Not available</span>}</dd></div>
+      <div><dt>Net now</dt><dd>{known ? signedCalories(series.net) : <span className="cc-na">Not available</span>}</dd></div>
+      <div><dt>Projected midnight</dt><dd>{known ? signedCalories(series.projectedEndOfDay) : <span className="cc-na">Not available</span>}</dd></div>
     </dl>
     <p className="cc-muted cc-energy-note">
-      {comparisonReady && agrees ? 'Before exercise, this matches the Food today balance. ' : 'The Food today balance is not available yet, so this line uses known calories only. '}
+      {!known ? 'No meals with calories are logged yet today, so net and the midnight projection are not shown. ' : comparisonReady && agrees ? 'Before exercise, this matches the Food today balance. ' : 'The Food today balance is not available yet, so this line uses known calories only. '}
       {series.bought.length ? `${series.bought.length === 1 ? '1 café/takeout purchase is' : `${series.bought.length} café/takeout purchases are`} marked ◆ as context; only logged meals count as eaten. ` : ''}
       {untimed ? `${untimed === 1 ? '1 meal has' : `${untimed} meals have`} no time and ${untimed === 1 ? 'is' : 'are'} counted from midnight. ` : ''}
       {unknown ? `${unknown === 1 ? '1 meal has' : `${unknown} meals have`} unknown calories. ` : ''}

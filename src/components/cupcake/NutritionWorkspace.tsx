@@ -34,14 +34,15 @@ export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTING
   const now = useNutritionClock(fixedNow), day = nutritionDay(now);
   const summary = history ? nutritionDays(history.meals, [day], settings, now)[0] : null;
   const comparisonReady = !!history?.complete && !history.pendingCount && !history.undatedLoggedCount;
+  // One primary number: calories logged today (the same figure as "Eaten" in the energy chart). Balance lives in the chart.
+  const targetReady = !!summary && summary.target !== null && summary.meals.length > 0 && comparisonReady && !summary.partial;
+  const left = targetReady ? summary!.target! - summary!.calories : null;
   return <section className="cc-nutrition-today" aria-label="Food today">
     <div className="cc-nutrition-heading"><span className="cc-nutrition-eyebrow"><CalendarDays size={16}/> Food today</span><button type="button" className="cc-nutrition-link" onClick={onOpenCalendar}>Open calendar <ArrowUpRight size={16}/></button></div>
     {!history || !summary ? <LoadState loading={loading} error={error} onRetry={onRetry}/> : <>
       {error && <p role="alert" className="cc-nutrition-warning">{error} {onRetry && <button type="button" onClick={onRetry}>Try again</button>}</p>}
-      <div className="cc-nutrition-today-values"><div><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}</strong><span>{summary.partial ? 'known kcal · partial estimate' : 'estimated kcal logged'}</span><small>{summary.meals.length ? `${summary.meals.length} logged meal${summary.meals.length === 1 ? '' : 's'}` : 'No meals logged today'}</small></div>
-        <div className="cc-nutrition-today-balance"><small>Estimated energy balance</small><b>{comparisonReady && summary.balance !== null ? `${signedCalories(summary.balance)} kcal` : 'Not available'}</b><span>{comparisonReady && summary.balance !== null ? 'Logged intake − estimated use so far' : summary.expenditure === null ? 'Set your daily expenditure estimate in the calendar' : 'Needs complete loaded estimates and no unassigned meals'}</span></div></div>
-      {summary.target !== null && summary.meals.length > 0 && !summary.partial && comparisonReady && <p className="cc-nutrition-note">{signedCalories(summary.calories - summary.target)} kcal vs your {Math.round(summary.target).toLocaleString()} kcal daily intake target.</p>}
-      {summary.balance !== null && comparisonReady && <p className="cc-nutrition-note">Estimated use is spread evenly across today. Missing meals change this comparison.</p>}
+      <div className="cc-nutrition-today-values"><div><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}</strong><span>{summary.partial ? 'known kcal · partial estimate' : 'kcal logged today'}</span><small>{summary.meals.length ? `${summary.meals.length} logged meal${summary.meals.length === 1 ? '' : 's'}` : 'No meals logged today'}</small></div>
+        <div className="cc-nutrition-today-balance"><small>Daily intake target</small><b>{targetReady ? (left! >= 0 ? `${Math.round(left!).toLocaleString()} kcal left` : `${Math.round(-left!).toLocaleString()} kcal over`) : 'Not available'}</b><span>{targetReady ? `of ${Math.round(summary.target!).toLocaleString()} kcal target` : summary.target === null ? 'Set a daily intake target in the calendar' : 'Needs complete loaded estimates and no unassigned meals'}</span></div></div>
       <LastMeal meals={history.meals} now={now} onOpenMeal={onOpenMeal}/>
       {(!history.complete || history.pendingCount > 0 || history.undatedLoggedCount > 0) && <p className="cc-nutrition-note">{!history.complete ? 'Partial history. ' : ''}{history.pendingCount ? `${history.pendingCount} photos not logged. ` : ''}{history.undatedLoggedCount ? `${history.undatedLoggedCount} meals without eaten times. ` : ''}<button type="button" className="cc-nutrition-inline" onClick={onOpenCalendar}>Review coverage</button></p>}
     </>}

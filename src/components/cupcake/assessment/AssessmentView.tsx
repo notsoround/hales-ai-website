@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './assessment.css';
+import { f1, intervalLabel, md, mdy, raw, signed } from './assessmentFormat';
 
 /** Robyn's coach-entered assessment (her RP/FitBudd assessment sheet), as computed by the Cupcake library. */
 export type AssessmentRow = { date: string; weight_lb: number; body_fat_pct: number; lean_mass_lb: number; fat_mass_lb: number };
@@ -17,11 +18,6 @@ const COLS: Record<string, [string, string]> = {
   thigh_in: ['Thigh', 'in'], calf_in: ['Calf', 'in'], forearm_in: ['Forearm', 'in'],
   weight_lb: ['Weight', 'lb'], body_fat_pct: ['Body fat', '%'], lean_mass_lb: ['Lean muscle', 'lb'], fat_mass_lb: ['Fat mass', 'lb'],
 };
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const md = (iso: string) => `${MON[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8, 10))}`;
-const mdy = (iso: string) => `${md(iso)}, ${iso.slice(0, 4)}`;
-const f2 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${f2(Math.abs(v))}`;
 const KEYS = ['weight_lb', 'body_fat_pct', 'lean_mass_lb', 'fat_mass_lb'] as const;
 const UNIT: Record<typeof KEYS[number], string> = { weight_lb: ' lb', body_fat_pct: '%', lean_mass_lb: ' lb', fat_mass_lb: ' lb' };
 
@@ -44,26 +40,26 @@ function BodyFatTrend({ points }: { points: { date: string; v: number }[] }) {
         <path d={area} fill="url(#ax-grad)" />
         <path d={line} className="ax-line" />
         {points.map((p, i) => <circle key={p.date} cx={x(p.date)} cy={y(p.v)} r={hover === i ? 5.5 : 3.8} className="ax-pt" tabIndex={0}
-          onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} aria-label={`${mdy(p.date)}: ${f2(p.v)}%`} />)}
-        <text x={x(points[0].date)} y={y(points[0].v) - 9} className="ax-tick" textAnchor="start">{f2(points[0].v)}%</text>
-        <text x={x(points[points.length - 1].date)} y={y(points[points.length - 1].v) - 9} className="ax-tick" textAnchor="end">{f2(points[points.length - 1].v)}%</text>
+          onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} aria-label={`${mdy(p.date)}: ${f1(p.v)}%`} />)}
+        <text x={x(points[0].date)} y={y(points[0].v) - 9} className="ax-tick" textAnchor="start">{f1(points[0].v)}%</text>
+        <text x={x(points[points.length - 1].date)} y={y(points[points.length - 1].v) - 9} className="ax-tick" textAnchor="end">{f1(points[points.length - 1].v)}%</text>
         <text x={left} y={H - 5} className="ax-tick">{md(points[0].date)}</text>
         <text x={W - right} y={H - 5} className="ax-tick" textAnchor="end">{md(points[points.length - 1].date)}</text>
       </svg>
-      {h && <div className="ax-tip" style={{ left: `${(x(h.date) / W) * 100}%` }} role="status">{mdy(h.date)} · {f2(h.v)}%</div>}
+      {h && <div className="ax-tip" style={{ left: `${(x(h.date) / W) * 100}%` }} role="status">{mdy(h.date)} · {f1(h.v)}%</div>}
     </figure>
   );
 }
 
 /** Same information as Robyn's assessment screen: headline, summary table and measurements history. */
-export function AssessmentView({ data, variant }: { data: Assessment; variant: 'light' | 'dark' }) {
+export function AssessmentView({ data, variant, hideHero = false }: { data: Assessment; variant: 'light' | 'dark'; hideHero?: boolean }) {
   const t = data.table;
   if (!t) return null;
   const rows: [string, string, AssessmentRow | AssessmentChange | null, string][] = [
     ['First assessment', mdy(t.first.date), t.first, ''],
     ['Previous assessment', t.previous ? mdy(t.previous.date) : '', t.previous, ''],
     ['Current assessment', mdy(t.current.date), t.current, ''],
-    ['Weekly loss / gain', `current vs ${t.previous ? md(t.previous.date) : 'previous'}`, t.weekly, 'ax-c1'],
+    [...intervalLabel(t.previous?.date, t.current.date), t.weekly, 'ax-c1'],
     ['Average loss / gain', `per assessment · ${t.count - 1} intervals`, t.average, 'ax-c2'],
     ['Total loss / gain', `since ${md(t.first.date)}`, t.total, 'ax-c3'],
   ];
@@ -72,15 +68,15 @@ export function AssessmentView({ data, variant }: { data: Assessment; variant: '
   return (
     <div className={`ax ax-${variant}`}>
       <div className="ax-hero">
-        <div>
+        {!hideHero && <div>
           <div className="ax-label">Current body fat</div>
-          <div className="ax-big">{f2(t.current_body_fat_pct)}<span>%</span></div>
+          <div className="ax-big">{f1(t.current_body_fat_pct)}<span>%</span></div>
           <div className="ax-sub">{data.source_label} · {mdy(t.current.date)}</div>
-        </div>
+        </div>}
         <div className="ax-chips">
           {t.total && <span className={`ax-chip ${t.total.body_fat_pct < 0 ? 'ax-chip-down' : ''}`}><b>{signed(t.total.body_fat_pct)} pts</b> since {md(t.first.date)}</span>}
-          <span className="ax-chip"><b>{f2(t.current.lean_mass_lb)} lb</b> lean muscle</span>
-          <span className="ax-chip"><b>{f2(t.current.fat_mass_lb)} lb</b> fat mass</span>
+          <span className="ax-chip"><b>{f1(t.current.lean_mass_lb)} lb</b> lean muscle</span>
+          <span className="ax-chip"><b>{f1(t.current.fat_mass_lb)} lb</b> fat mass</span>
         </div>
         <BodyFatTrend points={bf} />
       </div>
@@ -89,7 +85,7 @@ export function AssessmentView({ data, variant }: { data: Assessment; variant: '
         {rows.filter(r => r[2]).map(([label, sub, v, change]) => (
           <div key={label} className={`ax-tr${change ? ` ax-change ${change}` : ''}`} role="row">
             <span role="rowheader" className="ax-rh"><b>{label}</b><small>{sub}</small></span>
-            {KEYS.map(k => <span key={k} role="cell" data-label={COLS[k][0]}>{change ? signed(v![k]) : f2(v![k])}<small>{UNIT[k]}</small></span>)}
+            {KEYS.map(k => <span key={k} role="cell" data-label={COLS[k][0]}>{change ? signed(v![k]) : f1(v![k])}<small>{UNIT[k]}</small></span>)}
           </div>))}
       </div>
       <details className="ax-history" open={variant === 'light'}>
@@ -97,7 +93,7 @@ export function AssessmentView({ data, variant }: { data: Assessment; variant: '
         <div className="ax-scroll">
           <table>
             <thead><tr><th>Date</th>{cols.map(c => <th key={c}>{COLS[c][0]}<small>{COLS[c][1]}</small></th>)}</tr></thead>
-            <tbody>{[...data.history].reverse().map(h => <tr key={h.date}><th>{mdy(h.date)}</th>{cols.map(c => <td key={c}>{typeof h[c] === 'number' ? f2(h[c] as number) : ''}</td>)}</tr>)}</tbody>
+            <tbody>{[...data.history].reverse().map(h => <tr key={h.date}><th>{mdy(h.date)}</th>{cols.map(c => <td key={c}>{typeof h[c] === 'number' ? raw(h[c] as number) : ''}</td>)}</tr>)}</tbody>
           </table>
         </div>
       </details>

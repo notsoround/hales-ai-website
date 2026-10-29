@@ -24,12 +24,19 @@ export async function loadGlucoseReadings(request: LibraryRequest, start: number
   return parseGlucoseEntries(data.entries).filter(r => r.at >= start && r.at < end);
 }
 
-/** The reading closest to `target`, or null. Ties go to the earlier reading. */
-export function closestReading(readings: GlucoseReading[], target: number): GlucoseReading | null {
+/** The reading closest to `target`, or null. Ties go to the earlier reading.
+ * With `windowMs`, readings further than that from `target` are ignored. */
+export function closestReading(readings: GlucoseReading[], target: number, windowMs = Number.POSITIVE_INFINITY): GlucoseReading | null {
   let best: GlucoseReading | null = null;
-  for (const reading of readings) if (!best || Math.abs(reading.at - target) < Math.abs(best.at - target)) best = reading;
+  for (const reading of readings) {
+    if (Math.abs(reading.at - target) > windowMs) continue;
+    if (!best || Math.abs(reading.at - target) < Math.abs(best.at - target)) best = reading;
+  }
   return best;
 }
+
+/** A "6 PM" reading must be within 90 minutes of 6 PM; anything else is not a 6 PM reading. */
+export const SIX_PM_WINDOW_MS = 90 * 60000;
 
 /** Epoch ms for `hour`:00 on a YYYY-MM-DD day in America/Chicago (DST-safe). */
 export function chicagoHourOnDay(day: string, hour: number): number {

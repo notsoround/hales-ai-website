@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Checkin, Coach, CoreField, Day } from './viewerApi.ts';
+import type { Body, BodyReading, Checkin, Coach, CoreField, Day } from './viewerApi.ts';
 import { adherence, dailyActuals, fmt, longDate, shortDate } from './viewerApi.ts';
 import { AssessmentView } from '../assessment/AssessmentView.tsx';
 
@@ -89,18 +89,46 @@ function Chip({ label, change, unit, since }: { label: string; change: number | 
   return <span className={`rv-dchip ${change < 0 ? 'rv-dchip-down' : change > 0 ? 'rv-dchip-up' : ''}`}><b>{change > 0 ? '+' : change < 0 ? '−' : ''}{fmt(Math.abs(change), 1)}{unit}</b> {label} since {since}</span>;
 }
 
-export function AssessmentCard({ coach }: { coach: Coach }) {
+function Headline({ label, r, unit, changeUnit }: { label: string; r: BodyReading; unit: string; changeUnit: string }) {
+  const p = r.previous;
+  return (
+    <div className="rv-hl">
+      <span className="rv-label">{label}</span>
+      <strong>{r.value.toFixed(1)}<small>{unit}</small></strong>
+      <span className="rv-sub">{r.label} · {shortDate(r.date)}</span>
+      {p && <span className={`rv-delta rv-${p.change === 0 ? 'neutral' : p.change < 0 ? 'good' : 'bad'}`}>{p.change > 0 ? '+' : p.change < 0 ? '−' : ''}{Math.abs(p.change).toFixed(1)}{changeUnit}<span className="rv-delta-ref"> vs {shortDate(p.date)}</span></span>}
+    </div>
+  );
+}
+
+/** One headline weight and body fat (latest dated reading; Robyn's assessment first on a tie). Everything else is detail. */
+export function BodyHeadline({ body }: { body?: Body }) {
+  if (!body || (!body.body_fat && (!body.weight || body.weight.source === 'scale'))) return null;
+  const others = [...body.weight_others.map(o => `${o.label} ${o.value.toFixed(1)} lb (${shortDate(o.date)})`),
+    ...body.body_fat_others.map(o => `${o.label} ${o.value.toFixed(1)}% (${shortDate(o.date)})`)];
+  return (
+    <Card title="Body this week" kicker="Headline numbers" tone="weight" wide>
+      <div className="rv-hl-row">
+        {body.body_fat && <Headline label="Body fat" r={body.body_fat} unit="%" changeUnit=" pts" />}
+        {body.weight && <Headline label="Weight" r={body.weight} unit=" lb" changeUnit=" lb" />}
+      </div>
+      {others.length > 0 && <p className="rv-foot">Other readings (detail): {others.join(' · ')}.</p>}
+    </Card>
+  );
+}
+
+export function AssessmentCard({ coach, hideHero = false }: { coach: Coach; hideHero?: boolean }) {
   const a = coach.assessment;
   if (!a?.table) return null;
   return (
     <Card title="Assessment" kicker="Robyn's assessments" tone="weight" sample={coach.sample} wide
       aside={<span className="rv-next">{a.table.count} assessments · latest {shortDate(a.table.current.date)}</span>}>
-      <AssessmentView data={a} variant="light" />
+      <AssessmentView data={a} variant="light" hideHero={hideHero} />
     </Card>
   );
 }
 
-export function BodySection({ coach }: { coach: Coach }) {
+export function BodySection({ coach, body }: { coach: Coach; body?: Body }) {
   const rows = coach.checkins.filter(r => r.source === 'robyn_peck_app');
   if (!rows.length) return null;
   const d = coach.derived;
@@ -125,12 +153,12 @@ export function BodySection({ coach }: { coach: Coach }) {
         aside={<div className="rv-dchips"><Chip label="weight" change={d.deltas.weight_lb?.change} unit=" lb" since={since('weight_lb')} /><Chip label="waist" change={d.deltas.waist_in?.change} unit="″" since={since('waist_in')} /></div>}>
         <div className="rv-body-grid">
           <div>
-            <div className="rv-body-head"><span className="rv-label">Weight</span><strong>{fmt(d.deltas.weight_lb?.latest.value ?? rows[rows.length - 1].weight_lb, 1)}<small> lb</small></strong>
+            <div className="rv-body-head rv-body-head-detail"><span className="rv-label">Weight · RP app</span><strong>{fmt(d.deltas.weight_lb?.latest.value ?? rows[rows.length - 1].weight_lb, 1)}<small> lb</small></strong>
               <span className="rv-sub">from {fmt(d.deltas.weight_lb?.first.value, 1)} lb on {since('weight_lb')}</span></div>
             <Trend rows={rows} field="weight_lb" unit="lb" label="Weight at check-ins" />
           </div>
           <div>
-            <div className="rv-body-head"><span className="rv-label">Waist</span><strong>{fmt(d.deltas.waist_in?.latest.value, 1)}<small> in</small></strong>
+            <div className="rv-body-head rv-body-head-detail"><span className="rv-label">Waist · RP app</span><strong>{fmt(d.deltas.waist_in?.latest.value, 1)}<small> in</small></strong>
               <span className="rv-sub">from {fmt(d.deltas.waist_in?.first.value, 1)} in on {since('waist_in')}</span></div>
             <Trend rows={rows} field="waist_in" unit="in" label="Waist at check-ins" />
           </div>
@@ -144,6 +172,8 @@ export function BodySection({ coach }: { coach: Coach }) {
               <Trend rows={rows} field={f} unit="in" height={70} compact label={`${f.split('_')[0]} trend`} /></div>;
           })}
         </div>
+        <details className="rv-other-bf" open={!coach.assessment?.table && !body?.body_fat}>
+        <summary>Other body-fat estimates (tape, smart scale)</summary>
         <div className="rv-gauges">
           {navy.length > 0 && <Gauge value={navy[0].body_fat_navy_pct ?? null} label="Body fat · tape estimate" sub={shortDate(navy[0].date)} />}
           {navy.length > 1 && <Gauge value={navy[navy.length - 1].body_fat_navy_pct ?? null} label="Body fat · tape estimate" sub={`${shortDate(navy[navy.length - 1].date)} · latest`} />}
@@ -158,6 +188,7 @@ export function BodySection({ coach }: { coach: Coach }) {
           <Trend rows={rows} field="body_fat_navy_pct" unit="%" height={90} compact label="Body fat tape estimate" /></div>}
         {scaleLast && <ScaleCard row={scaleLast} />}
         </div>}
+        </details>
         <p className="rv-foot">{coach.assessment?.table ? 'Body fat: Robyn’s assessments (above) are the reference; the tape and smart-scale figures here are secondary estimates for comparison. ' : ''}Tape body-fat trend uses the US Navy method{height ? ` at a height of ${fmt(height)} in` : ''}, computed from neck and waist at each check-in.{photoOnly.length > 0 && ` ${photoOnly.map(r => shortDate(r.date)).join(', ')}: progress photos only, no measurements (photos are not stored here).`}</p>
         {flagged.length > 0 && <p className="rv-foot rv-flag-foot"><span className="rv-flag-ico" aria-hidden="true" />Marked readings are shown but left out of trend lines and changes:{' '}
           {flagged.join('; ')}.</p>}
