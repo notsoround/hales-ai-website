@@ -95,8 +95,8 @@
 .cc-app .cc-weight-card { position: relative; padding: 20px 22px; background: var(--cc-surface); border-color: var(--cc-border); }
 .cc-app .cc-weight-card:hover, .cc-app .cc-weight-card:focus-visible { background: var(--cc-surface-2); border-color: var(--cc-border); }
 .cc-app .cc-weight-card strong { font-size: 40px; font-weight: 700; }
-/* Empty, loading and error states use the same headline size as the other empty cards (e.g. Sugar "Not yet"). */
-.cc-app .cc-weight-card strong.cc-weight-none { font-size: 36px; font-weight: 650; line-height: 1.1; }
+/* Empty, loading and error states use the same size as the Food/Energy "Not available" values (22px; 20px on phones). */
+.cc-app .cc-weight-card strong.cc-weight-none { font-size: 22px; font-weight: 650; line-height: 1.3; letter-spacing: 0; }
 .cc-app .cc-weight-card > span:not([class]) { color: var(--cc-text-2); font-size: 13px; }
 .cc-app .cc-weight-card .cc-weight-more { color: var(--cat-ink); font-weight: 600; margin-top: 10px; }
 .cc-app .cc-weight-card .cc-weight-spark { position: absolute; top: 18px; right: 18px; width: 42%; max-width: 190px; margin: 0; text-align: right; }
@@ -116,6 +116,7 @@
   .cc-app .cc-welcome h2 { font-size: 36px; }
   .cc-app .cc-today-actions .cc-secondary { border-radius: 18px; font-size: 13px; padding: 10px 6px; line-height: 1.2; }
   .cc-app .cc-weight-card .cc-weight-spark { width: 40%; top: 16px; right: 16px; }
+  .cc-app .cc-weight-card strong.cc-weight-none { font-size: 20px; }
   .cc-app .cc-nutrition-today-values { grid-template-columns: 1fr; gap: 14px; }
   .cc-app .cc-nutrition-today-values strong { font-size: 46px; }
   .cc-app .cc-nutrition-today-values span { font-size: 13px; }
