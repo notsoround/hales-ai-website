@@ -1,11 +1,11 @@
 /* Robyn coach overview — scoped to .rv; no global overrides beyond this root. */
 .rv {
-  --rv-bg: #F5F5F7; --rv-card: #FFFFFF; --rv-ink: #1D1D1F; --rv-ink2: #424245; --rv-muted: #6E6E73; --rv-line: rgba(0,0,0,.08);
+  --rv-bg: #F2F2F7; --rv-card: #FFFFFF; --rv-ink: #1D1D1F; --rv-ink2: #424245; --rv-muted: #6E6E73; --rv-line: rgba(0,0,0,.08);
   --rv-accent: #0A84FF; --rv-accent-soft: rgba(10,132,255,.12); --rv-prev: #C7C7CC; --rv-good: #1F7A3A; --rv-caution: #B4560B;
-  --rv-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.04);
-  --rv-r: 18px; --rv-ease: cubic-bezier(.2,.8,.2,1);
-  --rv-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-  --rv-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  --rv-shadow: 0 1px 1px rgba(0,0,0,.03), 0 6px 20px rgba(0,0,0,.05);
+  --rv-r: var(--ds-r-xl); --rv-ease: cubic-bezier(.2,.8,.2,1);
+  --rv-text: var(--ds-font);
+  --rv-display: var(--ds-display);
   min-height: 100vh; background: var(--rv-bg); color: var(--rv-ink); font-family: var(--rv-text);
   font-size: 15px; line-height: 1.5; letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; text-align: left;
 }
@@ -122,28 +122,18 @@
 @keyframes rv-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- v2: section palette (matches the email) ---------- */
-.rv-s-food { --c-ink: #A3485F; --c-bar: #D98A9C; --c-prev: #EDC6CF; --c-tint: #FBF0F3; }
-.rv-s-exercise { --c-ink: #4F7A5A; --c-bar: #8DB596; --c-prev: #CFE2D3; --c-tint: #F1F7F2; }
-.rv-s-sleep { --c-ink: #5B63B0; --c-bar: #9AA3E0; --c-prev: #D3D7F3; --c-tint: #F2F3FC; }
-.rv-s-steps { --c-ink: #2F7F86; --c-bar: #6DB7BD; --c-prev: #C4E3E5; --c-tint: #EEF7F8; }
-.rv-s-weight { --c-ink: #8A6D3B; --c-bar: #D2B98B; --c-prev: #EADFC8; --c-tint: #FAF6EE; }
-.rv-s-wins { --c-ink: #8C6A12; --c-bar: #CFAE52; --c-prev: #ECDDB0; --c-tint: #FBF7EA; }
-.rv-s-summary { --c-ink: #0A6CD6; --c-bar: #0A84FF; --c-prev: #BBD9FB; --c-tint: #EEF5FE; }
-.rv-s-spend { --c-ink: #5E5E66; --c-bar: #AEAEB2; --c-prev: #D1D1D6; --c-tint: #F5F5F7; }
-@media (prefers-color-scheme: dark) {
-  .rv-s-food { --c-ink: #F0A7B8; --c-prev: #5A3640; --c-tint: rgba(217,138,156,.12); }
-  .rv-s-exercise { --c-ink: #A9D4B2; --c-prev: #33493A; --c-tint: rgba(141,181,150,.12); }
-  .rv-s-sleep { --c-ink: #B9C0F2; --c-prev: #383C63; --c-tint: rgba(154,163,224,.12); }
-  .rv-s-steps { --c-ink: #93D2D7; --c-prev: #2A4C4F; --c-tint: rgba(109,183,189,.12); }
-  .rv-s-weight { --c-ink: #E3CDA2; --c-prev: #4E4330; --c-tint: rgba(210,185,139,.12); }
-  .rv-s-wins { --c-ink: #E8C96E; --c-prev: #4D4325; --c-tint: rgba(207,174,82,.12); }
-  .rv-s-summary { --c-ink: #64AEFF; --c-prev: #1F3B5C; --c-tint: rgba(10,132,255,.14); }
-  .rv-s-spend { --c-ink: #C7C7CC; --c-prev: #3A3A3C; --c-tint: rgba(174,174,178,.12); }
-}
+.rv-s-food { --c-ink: var(--ds-food-ink); --c-bar: var(--ds-food); --c-prev: var(--ds-food-prev); --c-tint: var(--ds-food-tint); }
+.rv-s-exercise { --c-ink: var(--ds-exercise-ink); --c-bar: var(--ds-exercise); --c-prev: var(--ds-exercise-prev); --c-tint: var(--ds-exercise-tint); }
+.rv-s-sleep { --c-ink: var(--ds-sleep-ink); --c-bar: var(--ds-sleep); --c-prev: var(--ds-sleep-prev); --c-tint: var(--ds-sleep-tint); }
+.rv-s-steps { --c-ink: var(--ds-steps-ink); --c-bar: var(--ds-steps); --c-prev: var(--ds-steps-prev); --c-tint: var(--ds-steps-tint); }
+.rv-s-weight { --c-ink: var(--ds-body-ink); --c-bar: var(--ds-body); --c-prev: var(--ds-body-prev); --c-tint: var(--ds-body-tint); }
+.rv-s-wins { --c-ink: var(--ds-wins-ink); --c-bar: var(--ds-wins); --c-prev: var(--ds-wins-prev); --c-tint: var(--ds-wins-tint); }
+.rv-s-summary { --c-ink: var(--ds-summary-ink); --c-bar: var(--ds-summary); --c-prev: var(--ds-summary-prev); --c-tint: var(--ds-summary-tint); }
+.rv-s-spend { --c-ink: #5E5E66; --c-bar: #8E8E93; --c-prev: #D1D1D6; --c-tint: rgba(118,118,128,.1); }
+@media (prefers-color-scheme: dark) { .rv-s-spend { --c-ink: #C7C7CC; --c-bar: #AEAEB2; --c-prev: #3A3A3C; --c-tint: rgba(174,174,178,.12); } }
 .rv-sdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--c-bar, var(--rv-muted)); margin-right: 7px; vertical-align: 1px; }
 .rv-toned .rv-kicker { color: var(--c-ink); }
 .rv-toned { position: relative; overflow: hidden; }
-.rv-toned::before { content: ""; position: absolute; left: 0; top: 22px; bottom: 22px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c-bar); opacity: .85; }
 
 /* Card elevation + KPI buttons */
 .rv-card { transition: box-shadow .3s var(--rv-ease), transform .3s var(--rv-ease), border-color .3s var(--rv-ease); }
@@ -515,3 +505,53 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
   .rv-jump a { flex: none; padding: 7px 14px; border-radius: 980px; background: var(--rv-card); border: 1px solid var(--rv-line); color: var(--rv-ink); font-size: 14px; font-weight: 600; text-decoration: none; }
 }
 .rv-legend > span { white-space: nowrap; }
+/* ---------- Design system v3 (shared tokens in ../design/tokens.css) ---------- */
+.rv h1 { font-size: 36px; letter-spacing: -0.03em; }
+.rv-card { border-color: transparent; }
+@media (prefers-color-scheme: dark) { .rv-card { border-color: rgba(255,255,255,.06); } }
+.rv-section { padding: 22px 24px 22px; }
+.rv-section-head { margin-bottom: 16px; }
+.rv h2 { font-size: 21px; font-weight: 650; letter-spacing: -0.02em; margin-top: 6px; }
+/* Category header: tinted glyph chip + coloured label, like a health-app tile. */
+.rv-kicker { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--c-ink, var(--rv-muted)); }
+.rv .ds-ico { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; margin: 0; border-radius: 7px; background: var(--c-bar, var(--rv-accent)); color: #fff; vertical-align: middle; }
+.rv .ds-ico svg { width: 14px; height: 14px; }
+.rv-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.rv-kpi { padding: 16px 16px 14px; gap: 8px; min-height: 138px; }
+.rv-kpi .rv-value { font-size: 30px; font-weight: 650; letter-spacing: -0.03em; }
+.rv-kpi .rv-value::after { content: ""; display: block; height: 4px; width: 32px; margin-top: 8px; border-radius: 4px; background: var(--c-bar); opacity: .9; }
+.rv-delta { font-weight: 600; }
+.rv-tc { border: 0; background: rgba(118,118,128,.1); border-radius: 980px; padding: 9px 16px 9px 12px; font-size: 15px; }
+.rv-tc.rv-good { background: color-mix(in srgb, var(--rv-good) 13%, transparent); }
+.rv-tc.rv-bad { background: color-mix(in srgb, var(--rv-caution) 13%, transparent); }
+.rv-tc span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 10px; background: var(--rv-card); }
+.rv-day { background: rgba(118,118,128,.07); border-radius: 14px; }
+.rv-seg { border-radius: 12px; } .rv-seg-thumb { border-radius: 9px; }
+.rv-pill { border-color: transparent; }
+.rv-stats dd { font-size: 19px; font-weight: 650; }
+.rv-trend > div { border: 0; background: var(--c-tint, rgba(118,118,128,.08)); border-radius: 14px; }
+.rv-trend strong { color: var(--c-ink, var(--rv-ink)); }
+.rv-grid { stroke-dasharray: 2 4; }
+.rv-legend { gap: 14px; flex-wrap: wrap; }
+.rv-dot { border-radius: 50%; }
+.rv-welcome { background: linear-gradient(135deg, color-mix(in srgb, var(--ds-summary) 10%, var(--rv-card)), var(--rv-card) 60%); }
+.rv-footer { margin-top: 36px; }
+@media (max-width: 760px) {
+  .rv h1 { font-size: 30px; }
+  .rv-section { padding: 18px 16px 18px; }
+  .rv-kpi { min-height: 128px; padding: 14px 14px 12px; }
+  .rv-kpi .rv-value { font-size: 26px; }
+  .rv-jump { background: color-mix(in srgb, var(--rv-bg) 82%, transparent); -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); border-bottom: 0; }
+  .rv-jump a { border-color: transparent; box-shadow: var(--rv-shadow); font-size: 13.5px; }
+}
+/* Spending: one total, this vs last week bars, top 3 merchants (matches the weekly email) */
+.rv-spend-hero { margin: 0 0 12px; font-family: var(--rv-display); font-size: 22px; font-weight: 650; }
+.rv-spend-hero strong { display: block; font-size: 34px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.rv-spend-hero .rv-sub { font-family: var(--rv-text); font-size: 13px; font-weight: 400; margin-top: 2px; }
+.rv-spend-bars { display: grid; gap: 8px; margin: 4px 0 12px; }
+.rv-spend-bars > div { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 12px; align-items: center; font-size: 13px; color: var(--rv-muted); }
+.rv-spend-bars i { display: block; height: 10px; border-radius: 5px; background: rgba(118,118,128,.12); overflow: hidden; }
+.rv-spend-bars b { display: block; height: 100%; border-radius: 5px; background: var(--c-bar); }
+.rv-spend-bars b.rv-spend-prev { background: var(--c-prev); }
+.rv-spend-bars strong { color: var(--rv-ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+.rv-spend-list li { grid-template-columns: minmax(0, 1fr) auto auto; }

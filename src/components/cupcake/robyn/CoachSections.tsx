@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Body, BodyReading, Checkin, Coach, CoreField, Day } from './viewerApi.ts';
 import { adherence, dailyActuals, fmt, longDate, shortDate } from './viewerApi.ts';
 import { AssessmentView } from '../assessment/AssessmentView.tsx';
+import { ToneIcon } from '../design/ToneIcon.tsx';
 
 const DAYMS = 86400000;
 const t = (iso: string) => Date.parse(iso + 'T12:00:00Z');
@@ -11,7 +12,7 @@ function Card({ title, kicker, tone, sample, aside, children, wide }: { title: s
   return (
     <section className={`rv-card rv-section rv-toned rv-s-${tone}${wide ? ' rv-wide' : ''}${sample ? ' rv-sample' : ''}`}>
       {sample && <span className="rv-watermark" aria-label="Sample data">Sample</span>}
-      <header className="rv-section-head"><div><div className="rv-kicker"><i className="rv-sdot" />{kicker}</div><h2>{title}</h2></div>{aside}</header>
+      <header className="rv-section-head"><div><div className="rv-kicker"><ToneIcon tone={tone} className="rv-sdot ds-ico" />{kicker}</div><h2>{title}</h2></div>{aside}</header>
       {children}
     </section>
   );

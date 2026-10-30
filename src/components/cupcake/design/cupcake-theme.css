@@ -1,0 +1,124 @@
+/* /cupcake design system layer (dark by design: a private, night-friendly app). Tokens: ./tokens.css. Loaded after the component styles. */
+.cc-app { --cc-bg: #0A090D; --cc-surface: #16141A; --cc-surface-2: #201D25; --cc-border: rgba(255,255,255,.07); --cc-line: rgba(255,255,255,.08);
+  --cc-text: #F6F1F7; --cc-text-2: #CBC2CF; --cc-text-3: #A097A6;
+  color-scheme: dark; color: var(--cc-text); font-family: var(--ds-font); letter-spacing: -.006em; -webkit-font-smoothing: antialiased;
+  background: radial-gradient(1000px 460px at 80% -160px, color-mix(in srgb, var(--cc-pink) 14%, transparent), transparent 70%) no-repeat, var(--cc-bg); }
+.cc-app h1, .cc-app h2, .cc-app h3 { font-family: var(--ds-display); }
+.cc-app .cc-muted, .cc-app .cc-top small, .cc-app .cc-welcome p { color: var(--cc-text-2); }
+
+/* Chrome: frosted header, sidebar and tab bar */
+.cc-app .cc-top { background: transparent; border-color: var(--cc-border); }
+.cc-app .cc-top strong { font-family: var(--ds-display); font-weight: 650; letter-spacing: -.02em; }
+.cc-app .cc-nav { background: color-mix(in srgb, #121016 78%, transparent); -webkit-backdrop-filter: saturate(160%) blur(22px); backdrop-filter: saturate(160%) blur(22px); border-color: var(--cc-border); }
+.cc-app .cc-nav button { color: var(--cc-text-3); font-weight: 550; transition: color .2s var(--ds-ease), background .2s var(--ds-ease); }
+.cc-app .cc-nav button[aria-current=page] { color: var(--cc-pink-bright, #ffafd0); background: color-mix(in srgb, var(--cc-pink) 13%, transparent); }
+@media (max-width: 1023px) { .cc-app .cc-nav button[aria-current=page] { background: none; } .cc-app .cc-nav button[aria-current=page] svg { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--cc-pink) 55%, transparent)); } }
+.cc-app .cc-primary, .cc-app .cc-secondary { border-radius: 980px; min-height: 48px; padding: 12px 20px; font-weight: 600; transition: transform .15s var(--ds-ease), background .2s var(--ds-ease); }
+.cc-app .cc-primary { background: linear-gradient(180deg, var(--cc-pink-bright, #ffafd0), var(--cc-pink-strong, #ffa3c5)); box-shadow: 0 8px 28px color-mix(in srgb, var(--cc-pink) 24%, transparent); }
+.cc-app .cc-secondary { background: var(--cc-surface-2); border-color: var(--cc-border); color: var(--cc-text); }
+.cc-app .cc-primary:active:not(:disabled), .cc-app .cc-secondary:active:not(:disabled) { transform: scale(.97); }
+@media (hover: hover) { .cc-app .cc-secondary:hover:not(:disabled) { background: #2A2630; } }
+
+/* Hero */
+.cc-app .cc-welcome { margin-bottom: 22px; }
+.cc-app .cc-welcome .cc-eyebrow { font-size: 12px; letter-spacing: .14em; }
+.cc-app .cc-welcome h2 { font-size: clamp(34px, 6vw, 52px); font-weight: 700; letter-spacing: -.04em; margin: 8px 0 6px; }
+.cc-app .cc-welcome p { font-size: 17px; margin: 0 0 16px; }
+.cc-app .cc-today-actions { justify-content: flex-start; margin: 0 0 18px; }
+.cc-app .cc-today-actions .cc-secondary { min-height: 44px; padding: 10px 16px; font-size: 14px; }
+
+/* Cards: one surface, one radius, a category glyph chip in every header */
+.cc-app .cc-card, .cc-app .cc-nutrition-today, .cc-app .cc-dashboard-card { background: var(--cc-surface); border: 1px solid var(--cc-border); border-radius: var(--ds-r-xl);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 30px rgba(0,0,0,.18); }
+.cc-app .cc-card { padding: 20px 22px; }
+.cc-app .ds-ico { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 8px; background: var(--cat, var(--cc-pink)); color: #fff; font-style: normal; }
+.cc-app .ds-ico svg { width: 15px; height: 15px; }
+.cc-app .cc-card > .cc-eyebrow, .cc-app .cc-assessment .cc-eyebrow, .cc-app .cc-nutrition-eyebrow, .cc-app .cc-weight-card .cc-weight-eyebrow, .cc-app .cc-card-title {
+  display: inline-flex; align-items: center; gap: 9px; margin: 0 0 10px; font-family: var(--ds-font); font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--cat-ink, var(--cc-pink)); }
+.cc-app .cc-card-title { font-size: 15px; margin: 0; }
+.cc-app .cc-nutrition-today { --cat: var(--ds-food); --cat-ink: var(--ds-food-ink); background: radial-gradient(ellipse at 0 0, var(--ds-food-tint), transparent 60%), var(--cc-surface); }
+.cc-app .cc-sugar { --cat: var(--ds-glucose); --cat-ink: var(--ds-glucose-ink); }
+.cc-app .cc-last-night { --cat: var(--ds-sleep); --cat-ink: var(--ds-sleep-ink); }
+.cc-app .cc-energy-curve { --cat: var(--ds-steps); --cat-ink: var(--ds-steps-ink); }
+.cc-app .cc-weight-card, .cc-app .cc-today-grid .cc-card:has(.cc-assessment-head), .cc-app .cc-assessment { --cat: var(--ds-body); --cat-ink: var(--ds-body-ink); }
+.cc-app .cc-signals { --cat: var(--cc-pink); --cat-ink: var(--cc-pink-bright, #ffafd0); }
+.cc-app .cc-nutrition-eyebrow svg { box-sizing: content-box; width: 15px; height: 15px; padding: 5.5px; border-radius: 8px; background: var(--cat); color: #fff; }
+
+/* Bento layout: two columns on wide screens, one on phones */
+.cc-app .cc-today-grid { display: grid; gap: 14px; }
+.cc-app .cc-today-grid > *, .cc-app .cc-today-grid .cc-energy > * { margin: 0; min-width: 0; }
+.cc-app .cc-today-grid .cc-energy { display: grid; gap: 14px; margin: 0; }
+@media (min-width: 900px) {
+  .cc-app .cc-today-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cc-app .cc-today-grid > .cc-nutrition-today, .cc-app .cc-today-grid > .cc-energy, .cc-app .cc-today-grid > .cc-needs-ok, .cc-app .cc-today-grid > .cc-signals { grid-column: 1 / -1; }
+  .cc-app .cc-today-grid .cc-energy { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cc-app .cc-today-grid .cc-energy-curve { grid-column: 1 / -1; }
+}
+
+/* Big numbers */
+.cc-app .cc-sugar b, .cc-app .cc-sleep b, .cc-app .cc-nutrition-today-values strong, .cc-app .cc-weight-card strong, .cc-app .cc-energy-stats dd {
+  font-family: var(--ds-display); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.cc-app .cc-sugar b, .cc-app .cc-sleep b { font-size: 36px; font-weight: 650; }
+.cc-app .cc-sugar b small, .cc-app .cc-sleep b small { font-family: var(--ds-font); font-size: 15px; font-weight: 550; letter-spacing: 0; color: var(--cc-text-3); opacity: 1; }
+
+/* Food: logged total + a progress ring towards the intake target */
+.cc-app .cc-nutrition-today { padding: 20px 22px; }
+.cc-app .cc-nutrition-today-values { align-items: center; margin: 14px 0 16px; }
+.cc-app .cc-nutrition-today-values strong { font-size: 52px; font-weight: 700; }
+.cc-app .cc-nutrition-today-values span, .cc-app .cc-nutrition-today-values small { color: var(--cc-text-2); font-size: 13px; }
+.cc-app .cc-nutrition-today-balance { display: flex; align-items: center; gap: 16px; border-left: 0; padding-left: 0; }
+.cc-app .cc-nutrition-today-balance > div { display: grid; gap: 4px; }
+.cc-app .cc-nutrition-today-balance b { font-family: var(--ds-display); font-size: 22px; font-weight: 650; letter-spacing: -.02em; }
+.cc-app .cc-nutrition-today .cc-nutrition-last { background: var(--cc-surface-2); border-color: transparent; border-radius: var(--ds-r-lg); }
+.cc-app .cc-nutrition-link { color: var(--cat-ink); font-weight: 600; }
+.ds-ring { flex: none; display: block; }
+.ds-ring-track { stroke: var(--ds-food-tint, rgba(255,255,255,.1)); }
+.ds-ring-fill { stroke: var(--ds-food, #FF5C7A); transition: stroke-dasharray .9s var(--ds-ease); }
+
+/* Sleep */
+.cc-app .cc-sleep-bar { height: 10px; background: var(--ds-sleep-tint); }
+.cc-app .cc-sleep-bar i { background: linear-gradient(90deg, var(--ds-sleep), #B48CFF); }
+.cc-app .cc-sleep-of { color: var(--cc-text-2); opacity: 1; }
+.cc-app .cc-sleep-chips span, .cc-app .cc-energy-stats div { border: 0; background: var(--cc-surface-2); }
+.cc-app .cc-sleep-chips span { padding: 6px 12px; font-weight: 550; }
+
+/* Energy chart */
+.cc-app .cc-energy-grid { stroke: rgba(255,255,255,.06); }
+.cc-app .cc-energy-tick { fill: var(--cc-text-3); }
+.cc-app .cc-energy-line { stroke-width: 3; filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--cc-pink) 35%, transparent)); }
+.cc-app .cc-energy-stats { gap: 8px; }
+.cc-app .cc-energy-stats div { padding: 10px 12px; border-radius: var(--ds-r-md); }
+.cc-app .cc-energy-stats dt { color: var(--cc-text-3); opacity: 1; font-size: 12px; }
+.cc-app .cc-energy-stats dd { font-size: 18px; }
+
+/* Weight: headline + 30-day sparkline */
+.cc-app .cc-weight-card { position: relative; padding: 20px 22px; background: var(--cc-surface); border-color: var(--cc-border); }
+.cc-app .cc-weight-card:hover, .cc-app .cc-weight-card:focus-visible { background: var(--cc-surface-2); border-color: var(--cc-border); }
+.cc-app .cc-weight-card strong { font-size: 40px; font-weight: 700; }
+.cc-app .cc-weight-card > span:not([class]) { color: var(--cc-text-2); font-size: 13px; }
+.cc-app .cc-weight-card .cc-weight-more { color: var(--cat-ink); font-weight: 600; margin-top: 10px; }
+.cc-app .cc-weight-card .cc-weight-spark { position: absolute; top: 18px; right: 18px; width: 42%; max-width: 190px; margin: 0; text-align: right; }
+.cc-app .cc-weight-card .cc-weight-spark svg { width: 100%; height: auto; display: block; }
+.cc-app .cc-weight-card .cc-weight-spark small { font-size: 11px; color: var(--cc-text-3); }
+.ds-spark-line { stroke: var(--ds-body, #40B8F0); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.ds-spark-area { fill: var(--ds-body-tint, rgba(64,184,240,.14)); }
+.ds-spark-dot { fill: var(--ds-body, #40B8F0); stroke: var(--cc-surface, #16141A); stroke-width: 2; }
+
+/* Signals list */
+.cc-app .cc-signals .cc-signal { background: var(--cc-surface-2); border-color: transparent; border-radius: var(--ds-r-lg); }
+.cc-app .cc-signals .cc-heading-row { margin-bottom: 12px; }
+.cc-app .cc-text-button { font-weight: 600; }
+
+@media (max-width: 600px) {
+  .cc-app .cc-card, .cc-app .cc-nutrition-today, .cc-app .cc-weight-card { padding: 18px; border-radius: 22px; }
+  .cc-app .cc-welcome h2 { font-size: 36px; }
+  .cc-app .cc-today-actions .cc-secondary { border-radius: 18px; font-size: 13px; padding: 10px 6px; line-height: 1.2; }
+  .cc-app .cc-weight-card .cc-weight-spark { width: 40%; top: 16px; right: 16px; }
+  .cc-app .cc-nutrition-today-values { grid-template-columns: 1fr; gap: 14px; }
+  .cc-app .cc-nutrition-today-values strong { font-size: 46px; }
+  .cc-app .cc-nutrition-today-values span { font-size: 13px; }
+  .cc-app .cc-nutrition-today-values b { font-size: 20px; }
+  .cc-app .cc-nutrition-today-balance { padding: 12px; border-radius: var(--ds-r-lg); background: var(--cc-surface-2); }
+  .cc-app .cc-nutrition-today .cc-nutrition-link { font-size: 13px !important; }
+}
+@media (prefers-reduced-motion: reduce) { .ds-ring-fill { transition: none; } }
