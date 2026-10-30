@@ -5,7 +5,9 @@ import { EXPORT_SECTIONS, fetchCoach, NOTE_MAX, ViewerAuthError, captureToken, d
 import { DaySheet } from './DaySheet.tsx';
 import type { MetricKey, SheetView } from './DaySheet.tsx';
 import { CupcakePanel } from './CupcakePanel.tsx';
+import '../design/tokens.css';
 import './robyn.css';
+import { ToneIcon } from '../design/ToneIcon.tsx';
 
 type Weeks = 1 | 2 | 4;
 type State = { kind: 'loading' } | { kind: 'ready'; data: Weekly } | { kind: 'expired' } | { kind: 'missing' } | { kind: 'error'; message: string };
@@ -17,7 +19,7 @@ function useHeadMeta() {
   useEffect(() => {
     const prev = { title: document.title, bg: document.body.style.background };
     document.title = 'Weekly overview · Matt Hales';
-    document.body.style.background = 'var(--rv-bg, #F5F5F7)';
+    document.body.style.background = matchMedia('(prefers-color-scheme: dark)').matches ? '#000000' : '#F2F2F7'; // body sits outside .rv, so the token can't reach it; matches overscroll to the page
     const metas = [['robots', 'noindex, nofollow'], ['referrer', 'no-referrer']].map(([name, content]) => {
       const m = document.createElement('meta'); m.name = name; m.content = content; document.head.appendChild(m); return m;
     });
@@ -75,7 +77,7 @@ function Kpi({ label, value, format, unit, sub, children, section, key_, onOpen 
   const [ref, seen] = useSeen<HTMLButtonElement>();
   return (
     <button ref={ref} className={`rv-card rv-kpi rv-s-${section}${key_ ? ' rv-key' : ''}${key_ && seen ? ' rv-seen' : ''}`} onClick={onOpen} aria-label={`${label}: ${format(value)}${unit ? ' ' + unit : ''}. Show breakdown`}>
-      <div className="rv-label"><i className="rv-sdot" />{label}</div>
+      <div className="rv-label"><ToneIcon tone={section} className="rv-sdot ds-ico" />{label}</div>
       <div className="rv-value"><span className="rv-value-num">{format(shown === null ? null : value !== null && Number.isInteger(value) ? Math.round(shown) : shown)}</span>{unit ? <span className="rv-unit"> {unit}</span> : null}</div>
       <div className="rv-kpi-foot">{children}{sub ? <span className="rv-sub">{sub}</span> : null}</div>
     </button>
@@ -105,11 +107,15 @@ function SpendingCard({ s }: { s: Spending | null | undefined }) {
     </Section>
   );
   const diff = s.previous.complete ? s.total - s.previous.total : null;
+  const bars: [string, number, string][] = [['This week', s.total, ''], ...(s.previous.complete ? [['Previous week', s.previous.total, 'rv-spend-prev'] as [string, number, string]] : [])];
+  const top = Math.max(...bars.map(b => b[1]));
   return (
     <Section tone="spend" title="Spending" kicker={`Bank card · ${s.label}`}>
-      <Stats items={[['Total spend', money(s.total)], ['Food & drink', money(s.food_total)], ['Purchases', fmt(s.count)], ['Food charges', fmt(s.food_count)]]} />
+      {s.count === 0 ? <p className="rv-spend-hero">No card purchases this week 🎉</p>
+        : <div className="rv-spend-hero"><strong>{money(s.total)}</strong><span className="rv-sub">across {fmt(s.count)} {s.count === 1 ? 'purchase' : 'purchases'} · food &amp; drink {money(s.food_total)} ({fmt(s.food_count)} {s.food_count === 1 ? 'charge' : 'charges'})</span></div>}
+      {top > 0 && <div className="rv-spend-bars">{bars.map(([k, v, cls]) => <div key={k}><span>{k}</span><i><b className={cls} style={{ width: `${v > 0 ? Math.max(2, v / top * 100) : 0}%` }} /></i><strong>{money(v)}</strong></div>)}</div>}
       <p className="rv-sub">{diff === null ? `Previous week (${s.previous.label}): incomplete, so no comparison.` : `Previous week (${s.previous.label}): ${money(s.previous.total)}; this week is ${diff === 0 ? 'the same' : `${money(Math.abs(diff))} ${diff > 0 ? 'more' : 'less'}`}.`}</p>
-      {s.top_merchants.length > 0 && <ul className="rv-spend-list">{s.top_merchants.map(t => <li key={t.merchant}><span>{t.merchant}</span><strong>{money(t.total)}</strong><em>{t.count} {t.count === 1 ? 'charge' : 'charges'}</em></li>)}</ul>}
+      {s.top_merchants.length > 0 && <ul className="rv-spend-list" aria-label="Top merchants">{s.top_merchants.slice(0, 3).map(t => <li key={t.merchant}><span>{t.merchant}</span><strong>{money(t.total)}</strong><em>{t.count} {t.count === 1 ? 'charge' : 'charges'}</em></li>)}</ul>}
       <p className="rv-foot">Card purchases from the weekly email ({s.label}), never counted as meals. Excludes transfers, payments and refunds.{s.pending_count ? ` Includes ${s.pending_count} pending (${money(s.pending_total)}).` : ''}{s.complete ? '' : ' The bank data did not cover every day.'}</p>
     </Section>
   );
@@ -261,7 +267,7 @@ function WeightChart({ series, onDay }: { series: DayPoint[]; onDay: (d: string)
 function Section({ title, kicker, children, aside, tone }: { title: string; kicker?: string; children: React.ReactNode; aside?: React.ReactNode; tone?: string }) {
   return (
     <section className={`rv-card rv-section${tone ? ` rv-s-${tone} rv-toned` : ''}`}>
-      <header className="rv-section-head"><div>{kicker && <div className="rv-kicker"><i className="rv-sdot" />{kicker}</div>}<h2>{title}</h2></div>{aside}</header>
+      <header className="rv-section-head"><div>{kicker && <div className="rv-kicker"><ToneIcon tone={tone} className="rv-sdot ds-ico" />{kicker}</div>}<h2>{title}</h2></div>{aside}</header>
       {children}
     </section>
   );

@@ -30,6 +30,10 @@ import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPriv
 import { TodayEnergy } from '../../../../components/cupcake/TodayEnergy';
 import { AccentHeatToggle } from '../../../../components/cupcake/AccentHeatToggle';
 import { useAccentHeat } from '../../../../components/cupcake/useAccentHeat';
+import { ToneIcon } from '../../../../components/cupcake/design/ToneIcon';
+import { Sparkline } from '../../../../components/cupcake/design/Visuals';
+import '../../../../components/cupcake/design/tokens.css';
+import '../../../../components/cupcake/design/cupcake-theme.css';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -338,7 +342,8 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
  const change=hb?hb.previous?{v:hb.previous.change,ref:md(hb.previous.date)}:null:latest&&weekAgo?{v:Math.round((latest.weightLb-weekAgo.weightLb)*10)/10,ref:'a week earlier'}:null;
  const others=[...(hb&&latest?[`Scale ${latest.weightLb.toFixed(1)} lb (${weightTime(latest.measuredAt)})`]:[]),...(body?.weight_others||[]).filter(o=>o.source!=='scale'&&!(hb&&o.source===hb.source)).map(o=>`${o.label} ${o.value.toFixed(1)} lb (${md(o.date)})`)];
  const age=!hb&&latest?weightAge(latest.measuredAt):null;
- return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen}><span className="cc-weight-eyebrow">WEIGHT</span>
+  const trend=scale&&scale.length?scale.filter(m=>Date.parse(scale[0].measuredAt)-Date.parse(m.measuredAt)<=30*864e5).map(m=>m.weightLb).reverse():[];
+ return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen}><span className="cc-weight-eyebrow"><ToneIcon tone="weight"/>Weight</span>{trend.length>2&&<span className="cc-weight-spark"><Sparkline values={trend}/><small>Scale · 30 days</small></span>}
   <strong>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:'No weigh-in yet'}</strong>
   <span>{hb?`${hb.label} · ${md(hb.date)}`:latest?`${weightProvenanceLabel(latest.basis,latest.source)} · ${weightTime(latest.measuredAt)}${age?` · ${age}`:''}`:error?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
   {change&&<span className={`cc-weight-change ${change.v<0?'cc-good':change.v>0?'cc-bad':''}`}>{change.v>0?'▲ +':change.v<0?'▼ −':'= '}{Math.abs(change.v).toFixed(1)} lb vs {change.ref}</span>}
@@ -367,15 +372,17 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   return <>
     <div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Record a note</button></div></div></div>
     <div className="cc-action-row cc-today-actions"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/>Quick tip</button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
+    <div className="cc-today-grid">
     <NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/>
     <TodayEnergy items={items} nutrition={nutrition}/>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
     <TodayWeight onOpen={()=>setTab('week')}/>
     <BodyAssessmentCard/>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
-    <section className="cc-card"><div className="cc-heading-row"><h3>Your latest signals</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
+    <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Your latest signals</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
       {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:selected?<SignalDetail entry={selected} onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={openTalkAbout}/>:!items?<Spinner/>:!items.length?<Empty text="No recent records were returned. Your older history may still be available in Wins & losses."/>:<div className="space-y-2.5">{items.slice(0,5).map((it,i)=><button key={i} type="button" onClick={()=>it.type==='food'&&typeof it.details?.mealId==='string'?setSelectedMeal(it.details.mealId):setSelected({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon})} aria-label={`Open ${it.title}`} className="cc-signal flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"><div className="text-2xl leading-none mt-0.5">{it.icon}</div><div className="flex-1 min-w-0"><p className="font-semibold text-sm truncate">{it.title}</p><p className="text-xs text-white/60">{it.body}</p></div><div className="cc-signal-time text-white/30 whitespace-nowrap mt-1"><span>{it.date===nutritionDay()?'Today':it.date?dayLabel(it.date):'Date unavailable'}</span><br/>{signalClock(it.time,it.date,it.ts)}</div></button>)}</div>}
     </section>
+    </div>
   </>;
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Droplet, Mic, Moon, Square } from 'lucide-react';
+import { Activity, Mic, Square } from 'lucide-react';
 import { libraryRequest } from './library';
 import { addDays, nutritionDay, nutritionDayStart, signedCalories, type NutritionHistory, type NutritionSettings } from './nutritionModel';
 import { buildMetabolicSeries, monotonePath, sampleNetAt, type BoughtEvent, type MetabolicSeries } from './metabolicSeries';
@@ -11,6 +11,7 @@ import { RingconnUnavailableError, hoursMinutes, latestRingconnNight, nightSumma
 import { estimateExerciseBurn, type ExerciseEstimateItem } from './exerciseEstimate';
 import { speechDictationSupported, startDictation, type DictationSession } from './speechDictation';
 import './energy.css';
+import { ToneIcon } from './design/ToneIcon';
 
 type FeedLike = Parameters<typeof preparedPurchases>[0];
 type NutritionState = { history: NutritionHistory | null; settings: NutritionSettings; loading: boolean };
@@ -36,7 +37,7 @@ export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: 
     <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd} now={now.getTime()}/>
     <LastNightCard day={day}/>
     <div className="cc-card cc-energy-curve">
-      <div className="cc-heading-row"><h3>Energy balance today</h3></div>
+      <div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="energy"/>Energy balance today</h3></div>
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
         : !series ? <p className="cc-muted">Add a daily expenditure estimate in Food settings to draw today’s curve.</p>
           : <EnergyCurve series={series} comparisonReady={comparisonReady} steps={steps}/>}
@@ -56,7 +57,7 @@ function LastNightCard({ day }: { day: string }) {
   }, [day]);
   const n = state.night;
   return <div className="cc-card cc-last-night" aria-live="polite">
-    <span className="cc-eyebrow"><Moon size={14}/> Last night</span>
+    <span className="cc-eyebrow"><ToneIcon tone="sleep"/>Last night</span>
     {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
       : state.status === 'unavailable' ? <p className="cc-muted">RingConn nights are not available from the library yet.</p>
         : state.status === 'error' ? <p className="cc-muted">RingConn night could not load.</p>
@@ -79,7 +80,7 @@ function SugarCard({ day, dayStart, dayEnd, now }: { day: string; dayStart: numb
   const latest = state.rows.length ? state.rows[state.rows.length - 1] : null;
   const windowOpen = now < target + SIX_PM_WINDOW_MS;
   return <div className="cc-card cc-sugar" aria-live="polite">
-    <span className="cc-eyebrow"><Droplet size={14}/> 6 PM blood sugar</span>
+    <span className="cc-eyebrow"><ToneIcon tone="glucose"/>6 PM blood sugar</span>
     {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
       : state.status === 'error' ? <p className="cc-muted">Manual glucose readings could not load.</p>
         : r ? <><b>{r.valueMgDl} <small>mg/dL</small></b><p className="cc-muted">Manual reading at {clock(r.at)}{offMinutes ? ` · ${offMinutes} min from 6 PM` : ' · right at 6 PM'}</p></>

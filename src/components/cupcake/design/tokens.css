@@ -1,0 +1,40 @@
+/* Cupcake design system: one set of tokens for /cupcake (.cc-app, always dark) and Robyn's page (.rv, follows the device's light/dark setting).
+   The weekly email (voice-vault cupcake_weekly_digest.PALETTE) uses the light values. Per category: -ink is text (AA on the card),
+   the bare name is the fill, -prev the prior-period fill, -tint a soft wash. */
+.cc-app, .rv {
+  --ds-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ds-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ds-r-xl: 24px; --ds-r-lg: 18px; --ds-r-md: 14px; --ds-r-sm: 10px; --ds-ease: cubic-bezier(.2,.8,.2,1);
+}
+.rv {
+  --ds-food-ink: #C2264B; --ds-food: #FF5C7A; --ds-food-prev: #FFD0D9; --ds-food-tint: #FFF0F3;
+  --ds-steps-ink: #A84B00; --ds-steps: #FF9500; --ds-steps-prev: #FFDDB0; --ds-steps-tint: #FFF5E8;
+  --ds-exercise-ink: #1E7B34; --ds-exercise: #34C759; --ds-exercise-prev: #C5EDD0; --ds-exercise-tint: #EEFAF1;
+  --ds-sleep-ink: #4B48C8; --ds-sleep: #7A78F0; --ds-sleep-prev: #D5D4FA; --ds-sleep-tint: #F1F1FE;
+  --ds-body-ink: #0B6E99; --ds-body: #32ADE6; --ds-body-prev: #C4E7F7; --ds-body-tint: #EDF8FD;
+  --ds-wins-ink: #8A6500; --ds-wins: #F5B800; --ds-wins-prev: #F7E3A6; --ds-wins-tint: #FEF9E9;
+  --ds-glucose-ink: #8E3CC0; --ds-glucose: #BF5AF2; --ds-glucose-prev: #E8CCF9; --ds-glucose-tint: #F9F0FE;
+  --ds-summary-ink: #0A6CD6; --ds-summary: #0A84FF; --ds-summary-prev: #BBD9FB; --ds-summary-tint: #EEF5FE;
+}
+.cc-app {
+  --ds-food-ink: #FF8FA6; --ds-food: #FF5C7A; --ds-food-prev: #5C2733; --ds-food-tint: rgba(255,92,122,.14);
+  --ds-steps-ink: #FFB75C; --ds-steps: #FF9F0A; --ds-steps-prev: #5A3A10; --ds-steps-tint: rgba(255,159,10,.14);
+  --ds-exercise-ink: #6BE08A; --ds-exercise: #30D158; --ds-exercise-prev: #1F4A2B; --ds-exercise-tint: rgba(48,209,88,.14);
+  --ds-sleep-ink: #A9A7FF; --ds-sleep: #7D7AFF; --ds-sleep-prev: #33325E; --ds-sleep-tint: rgba(125,122,255,.16);
+  --ds-body-ink: #7ACFF5; --ds-body: #40B8F0; --ds-body-prev: #1E4558; --ds-body-tint: rgba(64,184,240,.14);
+  --ds-wins-ink: #FFD84D; --ds-wins: #FFCC00; --ds-wins-prev: #4E4210; --ds-wins-tint: rgba(255,204,0,.13);
+  --ds-glucose-ink: #DA8FFF; --ds-glucose: #BF5AF2; --ds-glucose-prev: #4A2A5C; --ds-glucose-tint: rgba(191,90,242,.16);
+  --ds-summary-ink: #64AEFF; --ds-summary: #0A84FF; --ds-summary-prev: #1F3B5C; --ds-summary-tint: rgba(10,132,255,.16);
+}
+@media (prefers-color-scheme: dark) {
+  .rv {
+    --ds-food-ink: #FF8FA6; --ds-food-prev: #5C2733; --ds-food-tint: rgba(255,92,122,.14);
+    --ds-steps-ink: #FFB75C; --ds-steps: #FF9F0A; --ds-steps-prev: #5A3A10; --ds-steps-tint: rgba(255,159,10,.14);
+    --ds-exercise-ink: #6BE08A; --ds-exercise: #30D158; --ds-exercise-prev: #1F4A2B; --ds-exercise-tint: rgba(48,209,88,.14);
+    --ds-sleep-ink: #A9A7FF; --ds-sleep: #7D7AFF; --ds-sleep-prev: #33325E; --ds-sleep-tint: rgba(125,122,255,.16);
+    --ds-body-ink: #7ACFF5; --ds-body: #40B8F0; --ds-body-prev: #1E4558; --ds-body-tint: rgba(64,184,240,.14);
+    --ds-wins-ink: #FFD84D; --ds-wins: #FFCC00; --ds-wins-prev: #4E4210; --ds-wins-tint: rgba(255,204,0,.13);
+    --ds-glucose-ink: #DA8FFF; --ds-glucose-prev: #4A2A5C; --ds-glucose-tint: rgba(191,90,242,.16);
+    --ds-summary-ink: #64AEFF; --ds-summary-prev: #1F3B5C; --ds-summary-tint: rgba(10,132,255,.16);
+  }
+}
