@@ -90,6 +90,7 @@ export function AssessmentView({ data, variant, hideHero = false }: { data: Asse
       </div>
       <details className="ax-history" open={variant === 'light'}>
         <summary><span className="ax-label">Measurements history</span><span className="ax-sub">{data.history.length} assessments · columns without values are hidden</span></summary>
+        <span className="ax-swipe" aria-hidden="true">Swipe sideways for all columns →</span>
         <div className="ax-scroll">
           <table>
             <thead><tr><th>Date</th>{cols.map(c => <th key={c}>{COLS[c][0]}<small>{COLS[c][1]}</small></th>)}</tr></thead>

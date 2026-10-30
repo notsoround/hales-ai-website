@@ -495,3 +495,23 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
   .rv-panel-head { flex-wrap: wrap; row-gap: 10px; }
   .rv-panel-head > .rv-seg { order: 3; flex: 1 0 100%; }
 }
+/* UX round 2: top changes, chart targets/values, jump chips, calmer workout pill, readable disabled button */
+.rv-top-changes { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.rv-tc { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--rv-line); border-radius: 12px; font-size: 16px; font-weight: 600; color: var(--rv-ink); }
+.rv-tc.rv-good span { color: var(--rv-good); } .rv-tc.rv-bad span { color: var(--rv-caution); } .rv-tc.rv-neutral span { color: var(--rv-muted); }
+.rv-tc.rv-neutral { color: var(--rv-ink); }
+.rv-more { margin-top: 12px; } .rv-more > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--rv-accent); font-size: 14px; font-weight: 600; }
+.rv-more .rv-headlines li:first-child { font-weight: 400; }
+.rv-target { stroke: var(--rv-ink2); stroke-width: 1; stroke-dasharray: 4 4; opacity: .55; }
+.rv-unit { font-weight: 600; }
+.rv-target-key { display: inline-block; width: 14px; height: 0; border-top: 1.5px dashed var(--rv-ink2); vertical-align: middle; margin-right: 6px; opacity: .7; }
+.rv-bar-val { font-size: 10.5px; }
+.rv-next-neutral { background: rgba(118,118,128,.12); color: var(--rv-ink2); }
+.rv-button:disabled { opacity: 1; background: rgba(118,118,128,.22); color: var(--rv-ink2); }
+.rv-anchor { display: block; scroll-margin-top: 64px; }
+.rv-jump { display: none; }
+@media (max-width: 760px) {
+  .rv-jump { display: flex; gap: 6px; position: sticky; top: 0; z-index: 5; margin: 0 -16px 10px; padding: 8px 16px; overflow-x: auto; background: var(--rv-bg); border-bottom: 1px solid var(--rv-line); scrollbar-width: none; }
+  .rv-jump a { flex: none; padding: 7px 14px; border-radius: 980px; background: var(--rv-card); border: 1px solid var(--rv-line); color: var(--rv-ink); font-size: 14px; font-weight: 600; text-decoration: none; }
+}
+.rv-legend > span { white-space: nowrap; }

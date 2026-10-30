@@ -7,7 +7,7 @@ import { preparedPurchases } from './purchases';
 import { SIX_PM_WINDOW_MS, chicagoHourOnDay, closestReading, loadGlucoseReadings, type GlucoseReading, type LibraryRequest } from './glucoseApi';
 import { ExerciseUnavailableError, deleteExercise, listExercises, logExercise, type ExerciseEntry } from './exerciseApi';
 import { StepsUnavailableError, latestSteps, stepsDayLabel, type StepsDay } from './stepsApi';
-import { RingconnUnavailableError, latestRingconnNight, nightSummary, type RingconnNight } from './ringconnApi';
+import { RingconnUnavailableError, hoursMinutes, latestRingconnNight, nightSummary, type RingconnNight } from './ringconnApi';
 import { estimateExerciseBurn, type ExerciseEstimateItem } from './exerciseEstimate';
 import { speechDictationSupported, startDictation, type DictationSession } from './speechDictation';
 import './energy.css';
@@ -61,7 +61,7 @@ function LastNightCard({ day }: { day: string }) {
       : state.status === 'unavailable' ? <p className="cc-muted">RingConn nights are not available from the library yet.</p>
         : state.status === 'error' ? <p className="cc-muted">RingConn night could not load.</p>
           : !n ? <p className="cc-muted">No RingConn night uploaded yet today.</p>
-            : <><b>{nightSummary(n)}</b><p className="cc-muted">RingConn via Health Connect{n.nightId !== day ? ` · ${stepsDayLabel(n.nightId)}` : ''} · snapshot {clock(Date.parse(n.capturedAt))}{n.complete ? '' : ` · partial${n.failed.length ? `: ${n.failed.join(', ')} unavailable` : ''}`} · provider estimates; HRV not exported</p></>}
+            : <><SleepSummary n={n}/><p className="cc-muted cc-last-night-src">RingConn via Health Connect{n.nightId !== day ? ` · ${stepsDayLabel(n.nightId)}` : ''} · snapshot {clock(Date.parse(n.capturedAt))}{n.complete ? '' : ` · partial${n.failed.length ? `: ${n.failed.join(', ')} unavailable` : ''}`} · provider estimates; HRV not exported</p></>}
   </div>;
 }
 
@@ -85,6 +85,20 @@ function SugarCard({ day, dayStart, dayEnd, now }: { day: string; dayStart: numb
         : r ? <><b>{r.valueMgDl} <small>mg/dL</small></b><p className="cc-muted">Manual reading at {clock(r.at)}{offMinutes ? ` · ${offMinutes} min from 6 PM` : ' · right at 6 PM'}</p></>
           : <><b className="cc-sugar-none">{windowOpen && now < target - SIX_PM_WINDOW_MS ? 'Not yet' : 'No 6 PM reading'}</b>
             <p className="cc-muted">{windowOpen ? 'Log a reading between 4:30 and 7:30 PM and it shows here.' : 'No reading was logged between 4:30 and 7:30 PM today.'}{latest ? ` Latest today: ${latest.valueMgDl} mg/dL at ${clock(latest.at)}.` : ''}</p></>}
+  </div>;
+}
+
+/** Big asleep time, an asleep / in-bed bar and small stat chips instead of one dense sentence. */
+function SleepSummary({ n }: { n: RingconnNight }) {
+  const chips = [n.restingHeartRate !== null && `Resting HR ${Math.round(n.restingHeartRate)}`, n.avgHeartRate !== null && `Avg HR ${Math.round(n.avgHeartRate)}`,
+    n.spo2Mean !== null && `SpO₂ ${Math.round(n.spo2Mean)}%${n.spo2Min !== null ? ` · min ${Math.round(n.spo2Min)}` : ''}`].filter(Boolean) as string[];
+  const main = n.asleepMinutes ?? n.sessionMinutes;
+  const share = n.asleepMinutes !== null && n.sessionMinutes ? Math.min(1, n.asleepMinutes / n.sessionMinutes) : null;
+  return <div className="cc-sleep" aria-label={nightSummary(n)}>
+    <b>{main !== null ? hoursMinutes(main) : 'No sleep session'}{main !== null && <small> {n.asleepMinutes !== null ? 'asleep' : 'in bed (no stages)'}</small>}</b>
+    {share !== null && <><div className="cc-sleep-bar" aria-hidden="true"><i style={{ width: `${Math.round(share * 100)}%` }}/></div>
+      <span className="cc-sleep-of">of {hoursMinutes(n.sessionMinutes!)} in bed · {Math.round(share * 100)}% asleep</span></>}
+    {chips.length > 0 && <div className="cc-sleep-chips">{chips.map(c => <span key={c}>{c}</span>)}</div>}
   </div>;
 }
 
@@ -113,6 +127,9 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
   const y = (v: number) => PAD.t + ((hi + pad - v) / (range + 2 * pad)) * (H - PAD.t - PAD.b);
   const line = monotonePath(series.samples.map(s => ({ x: x(s.t), y: y(s.net) })));
   const lane = H - PAD.b + 12;
+  const step = range + 2 * pad > 3000 ? 1000 : 500;   // labelled gridlines either side of zero
+  const levels: number[] = [];
+  for (let v = Math.ceil((lo - pad) / step) * step; v <= hi + pad; v += step) if (v !== 0) levels.push(v);
   const ticks = [0, 6, 12, 18, 24].map(h => ({ h, at: series.dayStart + (span * h) / 24 }));
   const meals = series.events.filter(e => e.kind === 'meal'), workouts = series.events.filter(e => e.kind === 'exercise');
   const untimed = meals.filter(m => m.untimed).length, unknown = meals.filter(m => m.kcal === null).length;
@@ -121,8 +138,10 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
   return <>
     <svg ref={svgRef} className="cc-energy-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Net energy now ${signedCalories(series.net)} kcal`}>
       {ticks.map(t => <g key={t.h}><line x1={x(t.at)} x2={x(t.at)} y1={PAD.t} y2={H - PAD.b} className="cc-energy-grid"/><text x={x(t.at)} y={H - 4} textAnchor="middle" className="cc-energy-tick">{t.h === 0 || t.h === 24 ? '12a' : t.h === 12 ? '12p' : t.h < 12 ? `${t.h}a` : `${t.h - 12}p`}</text></g>)}
+      {levels.map(v => <g key={v}><line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} className="cc-energy-grid"/><text x={PAD.l - 6} y={y(v) + 4} textAnchor="end" className="cc-energy-tick">{v > 0 ? '+' : v < 0 ? '−' : ''}{kcal(Math.abs(v))}</text></g>)}
       <line x1={PAD.l} x2={W - PAD.r} y1={y(0)} y2={y(0)} className="cc-energy-zero"/>
       <text x={PAD.l - 6} y={y(0) + 4} textAnchor="end" className="cc-energy-tick">0</text>
+      <text x={PAD.l - 6} y={PAD.t - 2} textAnchor="end" className="cc-energy-tick cc-energy-unit">kcal</text>
       {known && <line x1={x(series.now)} x2={x(series.dayEnd)} y1={y(series.net)} y2={y(series.projectedEndOfDay)} className="cc-energy-projection"/>}
       <path d={line} className="cc-energy-line"/>
       {meals.map(m => <circle key={m.id} cx={x(m.at)} cy={y(sampleNetAt(series.samples, m.at))} r={4.5} className="cc-energy-meal"><title>{`${m.label} · ${m.kcal === null ? 'calories unknown' : `${kcal(m.kcal)} kcal`}${m.untimed ? ' · no time logged' : ` · ${clock(m.at)}`}`}</title></circle>)}
@@ -132,7 +151,7 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
     </svg>
     <dl className="cc-energy-stats">
       <div><dt>Eaten (logged)</dt><dd>{known ? kcal(series.eaten) : <span className="cc-na">Not available</span>}</dd></div>
-      <div><dt>Living burn so far</dt><dd>−{kcal(series.living)}</dd></div>
+      <div><dt>Burned so far</dt><dd>−{kcal(series.living)}</dd></div>
       <div><dt>Exercise</dt><dd>{series.exercise ? `−${kcal(series.exercise)}` : <span className="cc-na">None logged</span>}</dd></div>
       <div><dt>Steps{steps.day ? ` · ${stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Net now</dt><dd>{known ? signedCalories(series.net) : <span className="cc-na">Not available</span>}</dd></div>

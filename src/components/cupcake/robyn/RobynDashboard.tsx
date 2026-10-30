@@ -187,10 +187,11 @@ function DayGrid({ days, onDay }: { days: Day[]; onDay: (d: string) => void }) {
   );
 }
 
-function BarChart({ series, cur, prev, format, title, unitLabel, onDay }: { series: DayPoint[]; cur: NumKey; prev: NumKey; format: (v: number) => string; title: string; unitLabel: string; onDay: (d: string) => void }) {
+const compact = (v: number) => v >= 1000 ? `${+(v / 1000).toFixed(1)}k` : fmt(v);
+function BarChart({ series, cur, prev, format, title, unitLabel, onDay, target, tick = compact }: { series: DayPoint[]; cur: NumKey; prev: NumKey; format: (v: number) => string; title: string; unitLabel: string; onDay: (d: string) => void; target?: number; tick?: (v: number) => string }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = 360, H = 168, top = 14, bottom = 24, left = 2, right = 2;
-  const max = niceMax(series.flatMap(d => [d[cur] as number | null, d[prev] as number | null]));
+  const W = 360, H = 176, top = 22, bottom = 24, left = 2, right = 40;   // right gutter holds the scale
+  const max = niceMax([...series.flatMap(d => [d[cur] as number | null, d[prev] as number | null]), target ?? null]);
   const col = (W - left - right) / series.length;
   const bw = Math.max(2, Math.min(14, col / 2 - 2.5));
   const y = (v: number) => top + (H - top - bottom) * (1 - v / max);
@@ -199,9 +200,11 @@ function BarChart({ series, cur, prev, format, title, unitLabel, onDay }: { seri
   return (
     <figure className="rv-chart" aria-label={title}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}: this period in the section colour, the same day of the prior period in a lighter tint`} onMouseLeave={() => setHover(null)}>
-        {[0.5, 1].map(f => <line key={f} x1={left} x2={W - right} y1={y(max * f)} y2={y(max * f)} className="rv-grid" />)}
+        {[0.5, 1].map(f => <g key={f}><line x1={left} x2={W - right} y1={y(max * f)} y2={y(max * f)} className="rv-grid" />
+          <text x={W - right + 6} y={y(max * f) + 4} className="rv-tick">{tick(max * f)}</text></g>)}
+        {unitLabel && <text x={W - right + 6} y={top - 10} className="rv-tick rv-unit">{unitLabel}</text>}
         <line x1={left} x2={W - right} y1={y(0)} y2={y(0)} className="rv-axis" />
-        <text x={W - right} y={y(max) - 2} textAnchor="end" className="rv-tick">{format(max)}</text>
+        {target !== undefined && <line x1={left} x2={W - right} y1={y(target)} y2={y(target)} className="rv-target" />}
         {series.map((d, i) => {
           const x0 = left + i * col + col / 2, a = d[prev] as number | null, b = d[cur] as number | null;
           return (
@@ -212,6 +215,7 @@ function BarChart({ series, cur, prev, format, title, unitLabel, onDay }: { seri
                 aria-label={`${longDate(d.date)}: ${b === null ? 'no data' : format(b)}; prior ${a === null ? 'no data' : format(a)}. Open day`} />
               {a !== null && <rect x={x0 - bw - 1} y={y(Math.max(a, 0))} width={bw} height={Math.max(a > 0 ? 2 : 1, y(0) - y(a))} rx={Math.min(3, bw / 2)} className="rv-bar-prev" />}
               {b !== null && <rect x={x0 + 1} y={y(Math.max(b, 0))} width={bw} height={Math.max(b > 0 ? 2 : 1, y(0) - y(b))} rx={Math.min(3, bw / 2)} className="rv-bar" />}
+              {b !== null && b > 0 && series.length <= 7 && <text x={x0 + 1 + bw / 2} y={y(b) - 4} textAnchor="middle" className="rv-tick rv-bar-val">{format(b)}</text>}
               {i % every === 0 && <text x={x0} y={H - 7} textAnchor="middle" className="rv-tick">{series.length <= 7 ? d.label : shortDate(d.date)}</text>}
             </g>
           );
@@ -224,7 +228,7 @@ function BarChart({ series, cur, prev, format, title, unitLabel, onDay }: { seri
           <div className="rv-tip-prev"><span className="rv-dot rv-dot-prev" />{shortDate(hovered.prev_date)}: {hovered[prev] === null ? 'No data' : `${format(hovered[prev] as number)} ${unitLabel}`}</div>
         </div>
       )}
-      <figcaption className="rv-legend"><span><span className="rv-dot" />This period</span><span><span className="rv-dot rv-dot-prev" />Same day, prior period</span></figcaption>
+      <figcaption className="rv-legend"><span><span className="rv-dot" />This period</span><span><span className="rv-dot rv-dot-prev" />Same day, prior period</span>{target !== undefined && <span><span className="rv-target-key" />Target {format(target)}{unitLabel ? ` ${unitLabel}` : ''}</span>}</figcaption>
     </figure>
   );
 }
@@ -402,10 +406,19 @@ export default function RobynDashboard() {
                 : <Kpi section="weight" onOpen={() => openMetric('weight')} label="Weight" value={m.weight_end.current} format={v => fmt(v, 1)} unit="lb" sub={m.weight_end.current === null ? 'no weigh-in this period' : 'scale weigh-in'}><Delta m={m.weight_end} kind="decimal" unit="lb" /></Kpi>}
             </div>
 
+            <nav className="rv-jump" aria-label="Jump to section">{([['rv-week', 'Week'], ['rv-body', 'Body'], ...(coach?.has_data ? [['rv-plan', 'Plan'], ['rv-meals', 'Meals']] : []), ['rv-notes', 'Notes']] as [string, string][]).map(([id, l]) => <a key={id} href={`#${id}`}>{l}</a>)}</nav>
+            <span id="rv-week" className="rv-anchor" />
             <Section title="Summary" kicker="Overview" tone="summary">
-              <ul className="rv-headlines">{data.headlines.map(h => <li key={h}>{h}</li>)}</ul>
-              {(data.status ?? []).length > 0 && <div className="rv-status">{data.status!.map(t => <span key={t}>{t}</span>)}</div>}
-              {data.gaps.length > 0 && <div className="rv-gaps"><div className="rv-label">Data gaps</div><ul>{data.gaps.map(g => <li key={g}>{g}</li>)}</ul></div>}
+              {data.top_changes?.length ? <>
+                <ul className="rv-top-changes" aria-label={`Biggest changes vs last ${unit}`}>{data.top_changes.map(c => <li key={c.key} className={`rv-tc rv-${c.tone}`}><span aria-hidden="true">{c.dir === 'up' ? '▲' : '▼'}</span>{c.text}</li>)}</ul>
+                {(data.status ?? []).length > 0 && <div className="rv-status">{data.status!.map(t => <span key={t}>{t}</span>)}</div>}
+                <details className="rv-more"><summary>More: full summary{data.gaps.length ? ' and data gaps' : ''}</summary>
+                  <ul className="rv-headlines">{data.headlines.map(h => <li key={h}>{h}</li>)}</ul>
+                  {data.gaps.length > 0 && <div className="rv-gaps"><div className="rv-label">Data gaps</div><ul>{data.gaps.map(g => <li key={g}>{g}</li>)}</ul></div>}
+                </details></> : <>
+                <ul className="rv-headlines">{data.headlines.map(h => <li key={h}>{h}</li>)}</ul>
+                {(data.status ?? []).length > 0 && <div className="rv-status">{data.status!.map(t => <span key={t}>{t}</span>)}</div>}
+                {data.gaps.length > 0 && <div className="rv-gaps"><div className="rv-label">Data gaps</div><ul>{data.gaps.map(g => <li key={g}>{g}</li>)}</ul></div>}</>}
             </Section>
 
             <Section title="Day by day" kicker="Details" tone="summary" aside={<span className="rv-sub rv-hint">Tap a day, bar or figure for details</span>}>
@@ -415,12 +428,12 @@ export default function RobynDashboard() {
             <div className="rv-grid2">
               <Section tone="food" title="Food" kicker="Nutrition" aside={<Delta m={m.food_kcal_avg} unit="kcal" />}>
                 <Stats items={[['Meals', fmt(m.meals.current)], ['Logged kcal', fmt(m.food_kcal_total.current)], ['Sugar / day', m.sugar_g_avg.current === null ? '—' : `${fmt(m.sugar_g_avg.current)} g`]]} />
-                <BarChart series={data.series} cur="kcal" prev="prev_kcal" format={v => fmt(v)} title="Logged calories per day" unitLabel="kcal" onDay={openDay} />
+                <BarChart series={data.series} cur="kcal" prev="prev_kcal" format={v => fmt(v)} title="Logged calories per day" unitLabel="kcal" onDay={openDay} target={coach?.targets?.kcal} />
                 <p className="rv-foot">Some meals are estimated from card charges. Days without entries are gaps, not zero intake.</p>
               </Section>
               <Section tone="steps" title="Steps" kicker="Activity" aside={<Delta m={m.steps_avg} />}>
                 <Stats items={[['Total', fmt(m.steps_total.current)], ['Per day', fmt(m.steps_avg.current)], ['Prior per day', fmt(m.steps_avg.previous)]]} />
-                <BarChart series={data.series} cur="steps" prev="prev_steps" format={v => fmt(v)} title="Steps per day" unitLabel="steps" onDay={openDay} />
+                <BarChart series={data.series} cur="steps" prev="prev_steps" format={v => fmt(v)} title="Steps per day" unitLabel="steps" onDay={openDay} target={coach?.targets?.steps} />
                 <p className="rv-foot">Blank days had no upload from the phone.</p>
               </Section>
               <Section tone="exercise" title="Exercise" kicker="Activity" aside={<Delta m={m.exercise_minutes} unit="min" />}>
@@ -429,11 +442,12 @@ export default function RobynDashboard() {
               </Section>
               <Section tone="sleep" title="Sleep" kicker="Recovery" aside={<Delta m={m.sleep_avg_min} kind="minutes" />}>
                 <Stats items={[['Average', hm(m.sleep_avg_min.current)], ['Resting HR', m.resting_hr_avg.current === null ? '—' : `${fmt(m.resting_hr_avg.current)} bpm`], ['SpO₂ mean / low', m.spo2_mean.current === null ? '—' : `${fmt(m.spo2_mean.current)}% / ${fmt(m.spo2_min.current)}%`]]} />
-                <BarChart series={data.series} cur="sleep_min" prev="prev_sleep_min" format={v => hm(v)} title="Sleep per night" unitLabel="" onDay={openDay} />
+                <BarChart series={data.series} cur="sleep_min" prev="prev_sleep_min" format={v => hm(v)} title="Sleep per night" unitLabel="" onDay={openDay} tick={v => `${+(v / 60).toFixed(1)} h`} />
                 <p className="rv-foot">RingConn estimate where available. HRV is not reported by this source.</p>
               </Section>
             </div>
 
+            <span id="rv-body" className="rv-anchor" />
             <div className="rv-grid2">
               <Section tone="weight" title="Scale weigh-ins" kicker="Body" aside={<Delta m={m.weight_end} kind="decimal" unit="lb" />}>
                 {hw && <p className="rv-sub rv-headline-note">Headline weight is {fmt(hw.value, 1)} lb ({hw.label}, {shortDate(hw.date)}). Scale readings below are detail.</p>}
@@ -455,15 +469,18 @@ export default function RobynDashboard() {
                 <BodyHeadline body={data.body} />
                 <AssessmentCard coach={coach} hideHero={data.body?.body_fat?.source === 'robyn_assessment'} />
                 <BodySection coach={coach} body={data.body} />
+                <span id="rv-plan" className="rv-anchor" />
                 {days && <PlanVsActual coach={coach} days={days.filter(d => d.period !== 'previous')} />}
                 {days && <WorkoutGrid coach={coach} days={days.filter(d => d.period !== 'previous')} onDay={openDay} />}
                 <CheckinsCard coach={coach} />
+                <span id="rv-meals" className="rv-anchor" />
                 <MealPlanCard coach={coach} />
               </div>
             </>}
 
+            <span id="rv-notes" className="rv-anchor" />
             <Notes token={token} onExpired={expire} />
-            <footer className="rv-footer">Read-only overview · Link expires {expiryLabel(data.expiresAt)}<br />Prepared by Cupcake, Matt&rsquo;s AI wellness assistant<div className="rv-footer-rp"><RpLink /></div></footer>
+            <footer className="rv-footer">View-only data · notes go to Matt · Link expires {expiryLabel(data.expiresAt)}<br />Prepared by Cupcake, Matt&rsquo;s AI wellness assistant<div className="rv-footer-rp"><RpLink /></div></footer>
           </div>
         )}
       </div>

@@ -58,3 +58,5 @@
 .cc-read-aloud{min-height:44px}
 .cc-snap-queue{display:grid;gap:8px;margin:8px 0 18px}
 .cc-snap-queue h3{margin:0}
+
+@media(max-width:560px){.cc-today-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.cc-today-actions button{min-width:0;flex-direction:column;justify-content:center;gap:4px;padding:10px 6px;font-size:13px;line-height:1.2;text-align:center}.cc-top>div{min-width:0}.cc-top small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}

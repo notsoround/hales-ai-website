@@ -1,4 +1,5 @@
 import {loadWeightPage,weightProvenanceLabel,type WeightRecord} from '../../../../components/cupcake/weightApi';
+import type {Body} from '../../../../components/cupcake/robyn/viewerApi';
 import {weightTime} from '../../../../components/cupcake/weightHistoryModel';
 import {QuickReset} from '../../../../components/cupcake/QuickReset';
 import {QuickChat} from '../../../../components/cupcake/QuickChat';
@@ -12,7 +13,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 // framer-motion intentionally not used: tab switches must render instantly and
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
-  Home, MessageCircle, Camera, Trophy, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole,
+  Home, MessageCircle, Camera, Trophy, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb,
 } from 'lucide-react';
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
 import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/cupcake/dashboardModel';
@@ -324,11 +325,25 @@ const CupcakeGPT: React.FC = () => {
   </div>;
 };
 
+/** One headline weight (same rule as Robyn's page: latest dated reading, Robyn's assessment first on a tie), with date and source; other readings are detail. */
 function TodayWeight({onOpen}:{onOpen:()=>void}) {
- const [reading,setReading]=useState<WeightRecord|null>(null),[error,setError]=useState(false),[loading,setLoading]=useState(true);
- useEffect(()=>{let live=true;void loadWeightPage().then(p=>{if(live)setReading(p.latestMeasurement);}).catch(()=>{if(live)setError(true);}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[]);
- const age=reading?weightAge(reading.measuredAt):null;
- return <button className="cc-dashboard-card" onClick={onOpen}><strong>{loading?'Loading weight…':error?'Weight unavailable':reading?`${reading.weightLb.toFixed(1)} lb`:'No individual weigh-in yet'}</strong><span>{reading?`${weightProvenanceLabel(reading.basis,reading.source)} ${weightTime(reading.measuredAt)}${age?` · ${age}`:''} · View history`:error?'Open history to retry':'Averages stay separate from scale readings.'}</span></button>;
+ const [scale,setScale]=useState<WeightRecord[]|null>(null),[body,setBody]=useState<Body|null>(null),[error,setError]=useState(false),[loading,setLoading]=useState(true);
+ useEffect(()=>{let live=true;void Promise.allSettled([loadWeightPage(),libraryRequest<{body:Body}>({action:'body_headline_get'})]).then(([w,b])=>{if(!live)return;
+  if(w.status==='fulfilled')setScale(w.value.latestMeasurement?[w.value.latestMeasurement,...w.value.measurements.filter(m=>m.id!==w.value.latestMeasurement!.id)]:[]);
+  if(b.status==='fulfilled')setBody(b.value.body||null);setError(w.status==='rejected'&&b.status==='rejected');setLoading(false);});return()=>{live=false;};},[]);
+ const latest=scale?.[0]||null,hb=body?.weight&&body.weight.source!=='scale'?body.weight:null;
+ const md=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'UTC',month:'short',day:'numeric'}).format(new Date(iso+'T12:00:00Z'));
+ // Change: vs the previous reading from the same source (headline from a check-in), or vs about a week earlier (scale).
+ const weekAgo=latest&&scale?scale.find(m=>{const d=Date.parse(latest.measuredAt)-Date.parse(m.measuredAt);return d>=6.5*864e5&&d<=10*864e5;}):undefined;
+ const change=hb?hb.previous?{v:hb.previous.change,ref:md(hb.previous.date)}:null:latest&&weekAgo?{v:Math.round((latest.weightLb-weekAgo.weightLb)*10)/10,ref:'a week earlier'}:null;
+ const others=[...(hb&&latest?[`Scale ${latest.weightLb.toFixed(1)} lb (${weightTime(latest.measuredAt)})`]:[]),...(body?.weight_others||[]).filter(o=>o.source!=='scale'&&!(hb&&o.source===hb.source)).map(o=>`${o.label} ${o.value.toFixed(1)} lb (${md(o.date)})`)];
+ const age=!hb&&latest?weightAge(latest.measuredAt):null;
+ return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen}><span className="cc-weight-eyebrow">WEIGHT</span>
+  <strong>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:'No weigh-in yet'}</strong>
+  <span>{hb?`${hb.label} · ${md(hb.date)}`:latest?`${weightProvenanceLabel(latest.basis,latest.source)} · ${weightTime(latest.measuredAt)}${age?` · ${age}`:''}`:error?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
+  {change&&<span className={`cc-weight-change ${change.v<0?'cc-good':change.v>0?'cc-bad':''}`}>{change.v>0?'▲ +':change.v<0?'▼ −':'= '}{Math.abs(change.v).toFixed(1)} lb vs {change.ref}</span>}
+  {others.length>0&&<span className="cc-weight-others">Other readings: {others.join(' · ')}</span>}
+  {!loading&&!error&&<span className="cc-weight-more">View history →</span>}</button>;
 }
 
 function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
@@ -351,7 +366,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   const needs=Math.max(items?mealsNeedingOk(items):0,nutrition.history?.pendingCount||0);
   return <>
     <div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Record a note</button></div></div></div>
-    <div className="cc-action-row"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}>Quick tip</button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
+    <div className="cc-action-row cc-today-actions"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/>Quick tip</button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
     <NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/>
     <TodayEnergy items={items} nutrition={nutrition}/>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
