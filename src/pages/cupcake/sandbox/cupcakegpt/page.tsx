@@ -344,7 +344,7 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
  const age=!hb&&latest?weightAge(latest.measuredAt):null;
   const trend=scale&&scale.length?scale.filter(m=>Date.parse(scale[0].measuredAt)-Date.parse(m.measuredAt)<=30*864e5).map(m=>m.weightLb).reverse():[];
  return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen}><span className="cc-weight-eyebrow"><ToneIcon tone="weight"/>Weight</span>{trend.length>2&&<span className="cc-weight-spark"><Sparkline values={trend}/><small>Scale · 30 days</small></span>}
-  <strong>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:'No weigh-in yet'}</strong>
+  <strong className={!hb&&!latest?'cc-weight-none':undefined}>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:'No weigh-in yet'}</strong>
   <span>{hb?`${hb.label} · ${md(hb.date)}`:latest?`${weightProvenanceLabel(latest.basis,latest.source)} · ${weightTime(latest.measuredAt)}${age?` · ${age}`:''}`:error?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
   {change&&<span className={`cc-weight-change ${change.v<0?'cc-good':change.v>0?'cc-bad':''}`}>{change.v>0?'▲ +':change.v<0?'▼ −':'= '}{Math.abs(change.v).toFixed(1)} lb vs {change.ref}</span>}
   {others.length>0&&<span className="cc-weight-others">Other readings: {others.join(' · ')}</span>}
