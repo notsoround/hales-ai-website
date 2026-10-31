@@ -13,8 +13,11 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 // framer-motion intentionally not used: tab switches must render instantly and
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
-  Home, MessageCircle, Camera, Trophy, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb,
+  Home, MessageCircle, Camera, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb, Settings,
 } from 'lucide-react';
+import { SavesHero, Timeline } from '../../../../components/cupcake/TodayPulse';
+import { SectionBoundary } from '../../../../components/cupcake/SectionBoundary';
+import type { PulseItem } from '../../../../components/cupcake/pulseModel';
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
 import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/cupcake/dashboardModel';
 import { libraryRequest } from '../../../../components/cupcake/library';
@@ -23,7 +26,6 @@ import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
 import { SavedMealDialog } from '../../../../components/cupcake/SavedMealDialog';
 import { NutritionTodayCard, NutritionWorkspace } from '../../../../components/cupcake/NutritionWorkspace';
 import { useNutritionData } from '../../../../components/cupcake/nutritionApi';
-import { dayLabel, nutritionDay } from '../../../../components/cupcake/nutritionModel';
 import { MealDialog } from '../../../../components/cupcake/MealDialog';
 import { AppUpdateNotice } from '../../../../components/cupcake/AppUpdateNotice';
 import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPrivateAccess, privateAccessHeaders } from '../../../../components/cupcake/privateAccess';
@@ -34,6 +36,7 @@ import { ToneIcon } from '../../../../components/cupcake/design/ToneIcon';
 import { Sparkline } from '../../../../components/cupcake/design/Visuals';
 import '../../../../components/cupcake/design/tokens.css';
 import '../../../../components/cupcake/design/cupcake-theme.css';
+import '../../../../components/cupcake/pulse.css';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -159,6 +162,7 @@ function mealsNeedingOk(items: FeedItem[]) {
   });
   return count;
 }
+// Kept for reuse (the Today timeline now formats times with pulseModel.itemClock).
 function signalClock(time?: string, date?: string, ts?: number) {
   const format = (ms: number) => new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(ms)).replace(/[\u202f\u00a0]/g, ' ');
   if (time) {
@@ -313,7 +317,7 @@ const CupcakeGPT: React.FC = () => {
   const promptInstall = () => { if (!install) return; void install.prompt().then(() => install.userChoice).then(() => setInstall(null)); };
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
-  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><details className="cc-settings"><summary>Settings</summary><div className="cc-settings-panel"><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" disabled={mediaBusy} onClick={lock}>Lock</button></header>
+  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><details className="cc-settings"><summary aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary><div className="cc-settings-panel"><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" aria-label="Lock Cupcake" disabled={mediaBusy} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">Lock</span></button></header>
     <main className="cc-shell">
       <AppUpdateNotice busy={mediaBusy} part="banner" />
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
@@ -321,10 +325,10 @@ const CupcakeGPT: React.FC = () => {
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
       {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Cupcake is working · open controls</button>}
       {access==='ready'&&tab==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
-      {access==='ready'&&tab==='feed'&&!quickAction&&<TodayHome setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/>}
+      {access==='ready'&&tab==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
       {access==='ready'&&<div hidden={!['talk','record','library'].includes(tab)}><CupcakeStudio active={['talk','record','library'].includes(tab)} mode={tab==='talk'?'talk':tab==='library'?'library':'record'} onBusy={setMediaBusy}/></div>}
-      {access==='ready'&&<div hidden={tab!=='chat'}><div className="cc-heading-row"><div><span className="cc-eyebrow">QUICK CHAT</span><p className="cc-muted">Everyday conversation with your context. Use Library for deeper strategy and saved analyses.</p></div><button className="cc-text-button" onClick={()=>setTab('library')}>Ask across my Library</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><ChatView active={tab==='chat'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></div>}
-      {access==='ready'&&tab==='snap'&&<SnapView onBack={()=>setTab('feed')}/>}{access==='ready'&&tab==='week'&&<><button className="cc-text-button" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><WeekView onTalkAbout={openTalkAbout}/></>}
+      {access==='ready'&&<div hidden={tab!=='chat'}><div className="cc-heading-row"><div><span className="cc-eyebrow">QUICK CHAT</span><p className="cc-muted">Everyday conversation with your context. Use Library for deeper strategy and saved analyses.</p></div><button className="cc-text-button" onClick={()=>setTab('library')}>Ask across my Library</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><SectionBoundary label="Chat"><ChatView active={tab==='chat'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></SectionBoundary></div>}
+      {access==='ready'&&tab==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&tab==='week'&&<><button className="cc-text-button" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
     </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
   </div>;
 };
@@ -369,19 +373,25 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   useEffect(()=>{load();},[load]);
   const loadMeal=useCallback(async(mealId:string)=>(await libraryRequest<{meal:FoodMeal}>({action:'food_get',mealId})).meal,[]);
   const needs=Math.max(items?mealsNeedingOk(items):0,nutrition.history?.pendingCount||0);
+  const toEntry=(it:FeedItem|PulseItem,i:number):DashboardEntry=>({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon});
+  const openItem=(it:FeedItem|PulseItem,i:number)=>{if(it.type==='food'&&typeof it.details?.mealId==='string')setSelectedMeal(it.details.mealId);else setSelected(toEntry(it,i));};
+  const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',hour:'numeric',hourCycle:'h23'}).format(new Date()));
+  const greeting=hour<5?'Up late':hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  const dateLine=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',weekday:'long',month:'long',day:'numeric'}).format(new Date());
   return <>
-    <div className="cc-welcome"><div><span className="cc-eyebrow">IN YOUR CORNER</span><h2>Hey, Matt.</h2><p>What are we conquering—or confessing?</p><div className="cc-shortcuts"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/>Record a note</button></div></div></div>
-    <div className="cc-action-row cc-today-actions"><button className="cc-secondary" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/>Quick tip</button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/>Food photo</button><button className="cc-secondary" onClick={()=>setTab('week')}><Trophy size={18}/>Wins &amp; losses</button></div>
-    <div className="cc-today-grid">
-    <NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/>
-    <TodayEnergy items={items} nutrition={nutrition}/>
-    <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
-    <TodayWeight onOpen={()=>setTab('week')}/>
-    <BodyAssessmentCard/>
+    <div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, Matt.</h2><p>What are we conquering—or confessing?</p></div>
+      <div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div></div>
+    <SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))}/></SectionBoundary>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
-    <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Your latest signals</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
-      {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:selected?<SignalDetail entry={selected} onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={openTalkAbout}/>:!items?<Spinner/>:!items.length?<Empty text="No recent records were returned. Your older history may still be available in Wins & losses."/>:<div className="space-y-2.5">{items.slice(0,5).map((it,i)=><button key={i} type="button" onClick={()=>it.type==='food'&&typeof it.details?.mealId==='string'?setSelectedMeal(it.details.mealId):setSelected({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon})} aria-label={`Open ${it.title}`} className="cc-signal flex gap-3 items-start bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-2xl px-4 py-3"><div className="text-2xl leading-none mt-0.5">{it.icon}</div><div className="flex-1 min-w-0"><p className="font-semibold text-sm truncate">{it.title}</p><p className="text-xs text-white/60">{it.body}</p></div><div className="cc-signal-time text-white/30 whitespace-nowrap mt-1"><span>{it.date===nutritionDay()?'Today':it.date?dayLabel(it.date):'Date unavailable'}</span><br/>{signalClock(it.time,it.date,it.ts)}</div></button>)}</div>}
+    <div className="cc-today-grid">
+    <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
+    <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
+      {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:selected?<SignalDetail entry={selected} onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={openTalkAbout}/>:!items?<Spinner/>:!items.length?<Empty text="Nothing yet today. Purchases, calls and meals show up here as they happen. Older history is in Wins & losses."/>:<Timeline items={items} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
     </section>
+    <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition}/></SectionBoundary>
+    <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
+    <SectionBoundary label="Weight"><TodayWeight onOpen={()=>setTab('week')}/></SectionBoundary>
+    <SectionBoundary label="Body assessment"><BodyAssessmentCard/></SectionBoundary>
     </div>
   </>;
 }
