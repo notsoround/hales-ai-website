@@ -1,4 +1,11 @@
-export type ChatReply = {ok:true;reply:string;model:string;sources?:{title?:string;url?:string}[];libraryUnavailable?:boolean;recordsUnavailable?:boolean};
+export type ChatReply = {ok:true;reply:string;model:string;sources?:{title?:string;url?:string}[];libraryUnavailable?:boolean;recordsUnavailable?:boolean;unavailableSources?:string[]};
+/** Plain-words notice naming what the answer could not read, or null when nothing was missing. */
+export function unavailableNotice(r:Pick<ChatReply,'libraryUnavailable'|'recordsUnavailable'|'unavailableSources'>):string|null{
+  const named=Array.isArray(r.unavailableSources)?r.unavailableSources.filter(s=>typeof s==='string'&&s.trim()).slice(0,6):[];
+  if(named.length)return `Couldn't read ${named.length===1?named[0]:named.slice(0,-1).join(', ')+' and '+named[named.length-1]} for this answer, so it doesn't include that data.`;
+  if(r.libraryUnavailable||r.recordsUnavailable)return "Some of your records couldn't be read for this answer, so it may be missing details.";
+  return null;
+}
 export type ReceivedAnswer = {threadId:string;turnId:string;attemptId:string;response:ChatReply};
 export type PendingBegin = {threadId:string;turnId:string;text:string;parentTurnId:string|null;requestId?:string};
 const answerPrefix = 'cupcake-quick-chat-answer:';
