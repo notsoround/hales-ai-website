@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, CreditCard, Droplet, Moon, Phone, PhoneMissed, Quote, Scale, Smartphone, Utensils } from 'lucide-react';
+import { ArrowRight, CreditCard, Droplet, Dumbbell, Moon, Phone, PhoneMissed, Quote, Scale, Smartphone, Utensils } from 'lucide-react';
 import type { DashboardOutcome } from './dashboardModel';
 import { nutritionDays, nutritionDay } from './nutritionModel';
 import type { useNutritionData } from './nutritionApi';
@@ -76,7 +76,7 @@ function QuoteCard({ moment, onTalkAbout }: { moment: QuoteMoment; onTalkAbout: 
   </figure>;
 }
 
-const TONE_ICON: Record<Tone, typeof Phone> = { call: Phone, missed: PhoneMissed, spend: CreditCard, food: Utensils, body: Scale, glucose: Droplet, sleep: Moon, phone: Smartphone };
+const TONE_ICON: Record<Tone, typeof Phone> = { call: Phone, missed: PhoneMissed, spend: CreditCard, food: Utensils, body: Scale, glucose: Droplet, sleep: Moon, phone: Smartphone, exercise: Dumbbell };
 
 export function Timeline({ items, onOpen, max = 8, onAll, formatClock }: { items: PulseItem[]; onOpen: (item: PulseItem, index: number) => void; max?: number; onAll: () => void; formatClock?: (item: PulseItem) => string }) {
   const rows = items.slice(0, max).map((item, i) => { const row = timelineRow(item, i, items); const clock = formatClock?.(item); return clock ? { ...row, clock } : row; });

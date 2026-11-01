@@ -443,7 +443,7 @@ export default function RobynDashboard() {
                 <p className="rv-foot">Blank days had no upload from the phone.</p>
               </Section>
               <Section tone="exercise" title="Exercise" kicker="Activity" aside={<Delta m={m.exercise_minutes} unit="min" />}>
-                <Stats items={[['Sessions', fmt(m.exercise_sessions.current)], ['Minutes', fmt(m.exercise_minutes.current)], ['Calories', fmt(m.exercise_kcal.current)]]} />
+                <Stats items={[['Sessions', fmt(m.exercise_sessions.current)], ['Minutes', fmt(m.exercise_minutes.current)], ['kcal burned', fmt(m.exercise_kcal.current)]]} />
                 <BarChart series={data.series} cur="ex_min" prev="prev_ex_min" format={v => fmt(v)} title="Exercise minutes per day" unitLabel="min" onDay={openDay} />
               </Section>
               <Section tone="sleep" title="Sleep" kicker="Recovery" aside={<Delta m={m.sleep_avg_min} kind="minutes" />}>

@@ -30,6 +30,10 @@
   .cc-app .cc-quick .cc-primary { white-space: nowrap; font-size: 14px; gap: 6px; }
   .cc-app .cc-quick .cc-secondary { padding: 0; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600; border-radius: 16px; min-height: 54px; }
   .cc-app .cc-quick .cc-primary { border-radius: 16px; min-height: 54px; padding: 0 10px; }
+  /* Five actions: talk + record + food photo on row one, log exercise + quick tip as two half-width pills on row two. */
+  .cc-app .cc-quick:has(.cc-quick-pill) { grid-template-columns: repeat(4, 1fr); }
+  .cc-app .cc-quick:has(.cc-quick-pill) .cc-primary { grid-column: span 2; }
+  .cc-app .cc-quick .cc-secondary.cc-quick-pill { grid-column: span 2; flex-direction: row; gap: 8px; font-size: 13px; min-height: 44px; }
 }
 
 /* Pulse: Saves hero + quote, side by side on wide screens. */
@@ -109,10 +113,12 @@
 .cc-app .cc-tl-body small { font-size: 13px; line-height: 1.35; color: var(--cc-text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-app .cc-tl-body q { font-size: 14px; color: var(--cc-text); opacity: .88; font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-app .cc-tl-value { font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--cc-text); white-space: nowrap; }
-.cc-app .cc-tl-is-food { --tone: var(--ds-food); } .cc-app .cc-tl-is-spend { --tone: var(--ds-steps); } .cc-app .cc-tl-is-call { --tone: var(--cc-pink-bright, #ffafd0); }
-.cc-app .cc-tl-is-missed { --tone: #A39AAA; }
-.cc-app .cc-tl-is-glucose { --tone: var(--ds-glucose); } .cc-app .cc-tl-is-sleep { --tone: var(--ds-sleep); } .cc-app .cc-tl-is-phone { --tone: var(--ds-summary); }
-.cc-app .cc-tl-is-body { --tone: var(--ds-body); }
+/* Per-kind colours: `li.cc-tl-is-*` outranks the default `.cc-timeline li { --tone }` above (before this they were all pink). */
+.cc-app .cc-timeline li.cc-tl-is-food { --tone: var(--ds-food); } .cc-app .cc-timeline li.cc-tl-is-spend { --tone: var(--ds-steps); } .cc-app .cc-timeline li.cc-tl-is-call { --tone: var(--cc-pink-bright, #ffafd0); }
+.cc-app .cc-timeline li.cc-tl-is-missed { --tone: #A39AAA; }
+.cc-app .cc-timeline li.cc-tl-is-glucose { --tone: var(--ds-glucose); } .cc-app .cc-timeline li.cc-tl-is-sleep { --tone: var(--ds-sleep); } .cc-app .cc-timeline li.cc-tl-is-phone { --tone: var(--ds-summary); }
+.cc-app .cc-timeline li.cc-tl-is-body { --tone: var(--ds-body); }
+.cc-app .cc-timeline li.cc-tl-is-exercise { --tone: var(--ds-exercise); }
 .cc-app .cc-timeline-all { width: 100%; margin-top: 12px; min-height: 44px; }
 @media (max-width: 600px) {
   .cc-app .cc-saves, .cc-app .cc-quote { padding: 18px; border-radius: 22px; }

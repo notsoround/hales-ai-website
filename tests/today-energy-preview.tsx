@@ -21,7 +21,11 @@ window.fetch = async (input, init) => {
       case 'food_history': return json({ ok: true, meals, total: meals.length, pendingCount: 0, undatedLoggedCount: 0 });
       case 'food_settings_get': return json({ ok: true, settings: { calorieTarget: 2000, expenditureEstimate: 2400, effectiveFrom: '2026-01-01', versions: [] } });
       case 'glucose_manual_list': return json({ ok: true, entries: [] });
-      case 'exercise_list': return params.get('exercise') ? json({ ok: true, entries: [{ id: 'exe_synthetic', description: 'Synthetic 30 min walk', performedAt: at(1), minutes: 30, kcal: 140, basis: 'local-met' }] }) : json({ ok: false, error: 'Unknown library action' }, 400);
+      case 'exercise_list': return params.get('exercise') ? json({ ok: true, entries: [
+        { id: 'exe_synthetic', description: 'Synthetic 10 kettlebell squats', performedAt: at(4), minutes: 1.7, kcal: 6, basis: 'local-met', items: [{ activity: 'kettlebell squats', sets: 1, reps: 10, minutes: 1.7 }] },
+        { id: 'exe_synthetic_strength', description: 'Synthetic KB swings 3x15 at 35 lb, goblet squats 3x10 with 25 lb kettlebell, 10 min rowing', performedAt: at(1), minutes: 20.5, kcal: 129, basis: 'local-met',
+          items: [{ activity: 'kettlebell swings', sets: 3, reps: 15, loadKg: 15.88, minutes: 5.3 }, { activity: 'goblet squats', sets: 3, reps: 10, loadKg: 11.34, minutes: 5.3 }, { activity: 'rowing', minutes: 10 }] },
+      ] }) : json({ ok: false, error: 'Unknown library action' }, 400);
       case 'exercise_log': case 'exercise_delete': return json({ ok: false, error: 'Writes are disabled in this synthetic preview.' }, 400);
       default: return json({ ok: true, entries: [], items: [] });
     }
