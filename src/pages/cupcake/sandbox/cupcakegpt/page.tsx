@@ -16,7 +16,9 @@ import {
   Home, MessageCircle, Camera, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb, Settings,
   X,
 } from 'lucide-react';
-import { SavesHero, Timeline } from '../../../../components/cupcake/TodayPulse';
+import { Timeline } from '../../../../components/cupcake/TodayPulse';
+import { SavesHero } from '../../../../components/cupcake/SavesCard';
+import { readTalkChatFlag } from '../../../../components/cupcake/talkChatFlag';
 import { SectionBoundary } from '../../../../components/cupcake/SectionBoundary';
 import type { PulseItem } from '../../../../components/cupcake/pulseModel';
 import { SignalSheet } from '../../../../components/cupcake/SignalSheet';
@@ -216,6 +218,7 @@ function foodReviewFirst() {
 
 const CupcakeGPT: React.FC = () => {
   const [tab, setTabState] = useState<TabKey>(() => tabFromSearch(location.search));
+  const [talkChat] = useState(() => readTalkChatFlag());
   const tabRef = useRef(tab);
   tabRef.current = tab;
   const pendingScroll = useRef<number | null>(null);
@@ -240,6 +243,8 @@ const CupcakeGPT: React.FC = () => {
     setTabState(next);
     window.scrollTo(0, 0);
   }, []);
+  // Merged Talk + Chat (flag on): Chat lives on the Talk screen, so old Chat links land there.
+  useEffect(() => { if (talkChat && tab === 'chat') setTab('talk'); }, [talkChat, tab, setTab]);
   const openTalkAbout = (entry: DashboardEntry) => { sessionStorage.setItem(TALK_SEED_KEY, JSON.stringify(talkSeedFromIntervention(entry))); setTab('talk'); };
   const connect = useCallback(async (key: string, restoring = false) => {
     const attempt = ++accessAttempt.current;
@@ -329,9 +334,9 @@ const CupcakeGPT: React.FC = () => {
       {access==='ready'&&tab==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
       {access==='ready'&&tab==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
       {access==='ready'&&<div hidden={!['talk','record','library'].includes(tab)}><CupcakeStudio active={['talk','record','library'].includes(tab)} mode={tab==='talk'?'talk':tab==='library'?'library':'record'} onBusy={setMediaBusy}/></div>}
-      {access==='ready'&&<div hidden={tab!=='chat'}><div className="cc-heading-row"><div><span className="cc-eyebrow">QUICK CHAT</span><p className="cc-muted">Everyday conversation with your context. Use Library for deeper strategy and saved analyses.</p></div><button className="cc-text-button" onClick={()=>setTab('library')}>Ask across my Library</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><SectionBoundary label="Chat"><ChatView active={tab==='chat'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy}/></SectionBoundary></div>}
+      {access==='ready'&&<div hidden={!(tab==='chat'||(talkChat&&tab==='talk'))} className={talkChat?'cc-talkchat-chat':undefined}><div className="cc-heading-row"><div><span className="cc-eyebrow">{talkChat?'OR TYPE TO CUPCAKE':'QUICK CHAT'}</span><p className="cc-muted">{talkChat?'Same Cupcake, in writing. Saved conversations sync across your devices.':'Everyday conversation with your context. Use Library for deeper strategy and saved analyses.'}</p>{talkChat&&<button type="button" className="cc-text-button" onClick={()=>setTab('record')}>Record a voice note instead</button>}</div><button className="cc-text-button" onClick={()=>setTab('library')}>Ask across my Library</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><SectionBoundary label="Chat"><ChatView active={tab==='chat'||(talkChat&&tab==='talk')} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={talkChat&&mediaBusy}/></SectionBoundary></div>}
       {access==='ready'&&tab==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&tab==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
-    </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
+    </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.filter(t=>!(talkChat&&t.key==='chat')).map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
   </div>;
 };
 
@@ -383,7 +388,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   return <>
     <div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, Matt.</h2><p>What are we conquering—or confessing?</p></div>
       <div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div></div>
-    <SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))}/></SectionBoundary>
+    <SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
     <div className="cc-today-grid">
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
