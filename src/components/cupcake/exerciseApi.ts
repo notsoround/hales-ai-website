@@ -3,9 +3,13 @@
 // deployed with those actions, every call reports `unavailable` and nothing is
 // stored anywhere else: no localStorage fallback, no invented entries.
 import type { LibraryRequest } from './glucoseApi';
+import type { ExerciseEstimateItem } from './exerciseEstimate';
 
-export type ExerciseEntry = { id: string; description: string; performedAt: string; at: number; minutes: number; kcal: number; basis: string };
-export type ExerciseInput = { requestId: string; description: string; performedAt: string; minutes: number; kcal: number; basis: string };
+/** Structured strength detail as stored: reps are per set, load in kg (shown in lb). */
+export type ExerciseItem = { activity: string; sets?: number; reps?: number; loadKg?: number; minutes?: number };
+export type ExerciseEntry = { id: string; description: string; performedAt: string; at: number; minutes: number; kcal: number; basis: string; items: ExerciseItem[] };
+export type ExerciseInput = { requestId: string; description: string; performedAt: string; minutes: number; kcal: number; basis: string; items?: ExerciseItem[] };
+export const MAX_EXERCISE_ITEMS = 20;
 export class ExerciseUnavailableError extends Error {
   constructor() { super('Exercise storage is not available yet. Nothing was saved.'); this.name = 'ExerciseUnavailableError'; }
 }
@@ -22,7 +26,75 @@ export function parseExerciseEntry(value: unknown): ExerciseEntry | null {
   const kcal = typeof value.kcal === 'number' ? value.kcal : NaN;
   const minutes = typeof value.minutes === 'number' ? value.minutes : 0;
   if (!Number.isFinite(at) || !Number.isFinite(kcal) || kcal < 0) return null;
-  return { id: value.id, description: value.description, performedAt: value.performedAt, at, minutes: Number.isFinite(minutes) && minutes > 0 ? minutes : 0, kcal: Math.round(kcal), basis: typeof value.basis === 'string' ? value.basis : '' };
+  return { id: value.id, description: value.description, performedAt: value.performedAt, at, minutes: Number.isFinite(minutes) && minutes > 0 ? minutes : 0, kcal: Math.round(kcal), basis: typeof value.basis === 'string' ? value.basis : '', items: parseItems(value.items) };
+}
+
+const positive = (v: unknown, max: number): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= max;
+function parseItems(value: unknown): ExerciseItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): ExerciseItem[] => {
+    if (!record(raw) || typeof raw.activity !== 'string' || !raw.activity.trim()) return [];
+    return [{ activity: raw.activity.trim().slice(0, 60), ...(positive(raw.sets, 50) ? { sets: Math.round(raw.sets) } : {}), ...(positive(raw.reps, 1000) ? { reps: Math.round(raw.reps) } : {}),
+      ...(positive(raw.loadKg, 500) ? { loadKg: raw.loadKg } : {}), ...(positive(raw.minutes, 1440) ? { minutes: raw.minutes } : {}) }];
+  }).slice(0, MAX_EXERCISE_ITEMS);
+}
+
+/** Estimator items -> the bounded shape the library stores (reps per set, kg to 2 dp). */
+export function toStoredItems(items: readonly ExerciseEstimateItem[]): ExerciseItem[] {
+  return items.slice(0, MAX_EXERCISE_ITEMS).map(item => {
+    const sets = item.reps !== undefined ? Math.max(1, item.sets ?? 1) : undefined;
+    const reps = item.reps !== undefined && sets ? Math.max(1, Math.round(item.reps / sets)) : undefined;
+    return { activity: (item.name || item.activity).slice(0, 60), ...(sets && sets <= 50 ? { sets } : {}), ...(reps && reps <= 1000 ? { reps } : {}),
+      ...(item.loadKg !== undefined && item.loadKg > 0 && item.loadKg <= 500 ? { loadKg: Math.round(item.loadKg * 100) / 100 } : {}),
+      ...(item.minutes > 0 ? { minutes: Math.round(Math.min(item.minutes, 1440) * 10) / 10 } : {}) };
+  });
+}
+
+export const KG_PER_LB = 0.45359237;
+/** Kilograms to pounds for display, to the nearest half pound (Matt reads lb). */
+export const kgToLb = (kg: number) => Math.round(kg / KG_PER_LB * 2) / 2;
+const shortName = (name: string) => name.replace(/\b(?:kettle[\s-]?bells?|kb)\b/gi, 'KB').replace(/\b(?:dumb[\s-]?bells?|db)\b/gi, 'DB').replace(/^./, c => c.toUpperCase());
+/** "KB swings 3×15 @ 35 lb", "Rowing · 20 min". */
+export function formatExerciseItem(item: ExerciseItem): string {
+  const volume = item.sets && item.reps ? `${item.sets}×${item.reps}` : item.reps ? `×${item.reps}` : '';
+  const load = item.loadKg ? `@ ${kgToLb(item.loadKg)} lb` : '';
+  const time = !volume && item.minutes ? `· ${item.minutes < 1 ? item.minutes : Math.round(item.minutes)} min` : '';
+  return [shortName(item.activity), volume, load, time].filter(Boolean).join(' ');
+}
+
+export type ExerciseWhen = 'now' | 'earlier' | 'yesterday';
+export const EXERCISE_MAX_AGE_MS = 31 * 86400000;
+const CHICAGO = 'America/Chicago';
+/** Chicago calendar date (YYYY-MM-DD) for an instant. */
+export function chicagoDate(ms: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: CHICAGO, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+}
+/** "HH:MM" on the Chicago clock for an instant. */
+export function chicagoTime(ms: number): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: CHICAGO, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ms));
+}
+function chicagoOffsetMs(ms: number): number {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: CHICAGO, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' }).formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - Math.floor(ms / 1000) * 1000;
+}
+/** A Chicago wall-clock date + "HH:MM" as an instant (DST-aware). */
+export function chicagoWallTime(date: string, time: string): number {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date), t = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!d || !t || +t[1] > 23 || +t[2] > 59) return NaN;
+  const wall = Date.UTC(+d[1], +d[2] - 1, +d[3], +t[1], +t[2]);
+  let ms = wall - chicagoOffsetMs(wall);
+  ms = wall - chicagoOffsetMs(ms);
+  return ms;
+}
+/** The 'When' choice as an ISO instant with a timezone (Z), inside the library's 31-day window and never in the future. */
+export function exercisePerformedAt(when: ExerciseWhen, time: string, now: number): { performedAt: string; at: number } | { error: string } {
+  if (when === 'now') return { performedAt: new Date(now).toISOString(), at: now };
+  const day = when === 'yesterday' ? chicagoDate(chicagoWallTime(chicagoDate(now), '12:00') - 86400000) : chicagoDate(now);
+  const at = chicagoWallTime(day, time);
+  if (!Number.isFinite(at)) return { error: 'Pick a time for this workout.' };
+  if (at > now + 60000) return { error: 'That time has not happened yet today. Pick an earlier time.' };
+  if (at < now - EXERCISE_MAX_AGE_MS) return { error: 'Cupcake can only log workouts from the last 31 days.' };
+  return { performedAt: new Date(at).toISOString(), at };
 }
 
 async function call<T>(request: LibraryRequest, body: Record<string, unknown>): Promise<T> {

@@ -13,7 +13,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 // framer-motion intentionally not used: tab switches must render instantly and
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
-  Home, MessageCircle, Camera, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb, Settings,
+  Home, MessageCircle, Camera, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb, Settings, Dumbbell,
   X,
 } from 'lucide-react';
 import { Timeline } from '../../../../components/cupcake/TodayPulse';
@@ -21,6 +21,7 @@ import { SavesHero } from '../../../../components/cupcake/SavesCard';
 import { readTalkChatFlag } from '../../../../components/cupcake/talkChatFlag';
 import { SectionBoundary } from '../../../../components/cupcake/SectionBoundary';
 import type { PulseItem } from '../../../../components/cupcake/pulseModel';
+import { exerciseTimelineItems, mergeTimelineItems } from '../../../../components/cupcake/exerciseTimeline';
 import { SignalSheet } from '../../../../components/cupcake/SignalSheet';
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
 import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/cupcake/dashboardModel';
@@ -33,7 +34,7 @@ import { useNutritionData } from '../../../../components/cupcake/nutritionApi';
 import { MealDialog } from '../../../../components/cupcake/MealDialog';
 import { AppUpdateNotice } from '../../../../components/cupcake/AppUpdateNotice';
 import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPrivateAccess, privateAccessHeaders } from '../../../../components/cupcake/privateAccess';
-import { TodayEnergy } from '../../../../components/cupcake/TodayEnergy';
+import { TodayEnergy, useTodayExercise } from '../../../../components/cupcake/TodayEnergy';
 import { AccentHeatToggle } from '../../../../components/cupcake/AccentHeatToggle';
 import { useAccentHeat } from '../../../../components/cupcake/useAccentHeat';
 import { ToneIcon } from '../../../../components/cupcake/design/ToneIcon';
@@ -368,6 +369,9 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   const [selected,setSelected]=useState<DashboardEntry|null>(null);
   const [selectedMeal,setSelectedMeal]=useState<string|null>(null);
   const nutrition=useNutritionData();
+  const exercise=useTodayExercise();
+  const [logExerciseRequest,setLogExerciseRequest]=useState(0);
+  const timelineItems=React.useMemo(()=>items?mergeTimelineItems(items,exerciseTimelineItems(exercise.entries)):null,[items,exercise.entries]);
   const loadId=useRef(0);
   const load=useCallback(()=>{
     const request=++loadId.current;
@@ -387,15 +391,15 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   const dateLine=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',weekday:'long',month:'long',day:'numeric'}).format(new Date());
   return <>
     <div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, Matt.</h2><p>What are we conquering—or confessing?</p></div>
-      <div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div></div>
+      <div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setLogExerciseRequest(n=>n+1)}><Dumbbell size={18}/><span>Log exercise</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div></div>
     <SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
     <div className="cc-today-grid">
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
-      {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!items?<Spinner/>:!items.length?<Empty text="Nothing yet today. Purchases, calls and meals show up here as they happen. Older history is in Wins & losses."/>:<Timeline items={items} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
+      {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text="Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
     </section>
-    <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition}/></SectionBoundary>
+    <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exercise} openLogRequest={logExerciseRequest}/></SectionBoundary>
     <SignalSheet open={!!selected} label={selected?.type==='intervention'?'Call details':'Details'} onClose={()=>setSelected(null)}>{selected&&<SignalDetail entry={selected} backLabel="Back to Today" onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={entry=>{setSelected(null);openTalkAbout(entry);}}/>}</SignalSheet>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
     <SectionBoundary label="Weight"><TodayWeight onOpen={()=>setTab('week')}/></SectionBoundary>

@@ -30,6 +30,10 @@
   .cc-app .cc-quick .cc-primary { white-space: nowrap; font-size: 14px; gap: 6px; }
   .cc-app .cc-quick .cc-secondary { padding: 0; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600; border-radius: 16px; min-height: 54px; }
   .cc-app .cc-quick .cc-primary { border-radius: 16px; min-height: 54px; padding: 0 10px; }
+  /* Five actions: talk + record + food photo on row one, log exercise + quick tip as two half-width pills on row two. */
+  .cc-app .cc-quick:has(.cc-quick-pill) { grid-template-columns: repeat(4, 1fr); }
+  .cc-app .cc-quick:has(.cc-quick-pill) .cc-primary { grid-column: span 2; }
+  .cc-app .cc-quick .cc-secondary.cc-quick-pill { grid-column: span 2; flex-direction: row; gap: 8px; font-size: 13px; min-height: 44px; }
 }
 
 /* Pulse: Saves hero + quote, side by side on wide screens. */
@@ -113,6 +117,8 @@
 .cc-app .cc-tl-is-missed { --tone: #A39AAA; }
 .cc-app .cc-tl-is-glucose { --tone: var(--ds-glucose); } .cc-app .cc-tl-is-sleep { --tone: var(--ds-sleep); } .cc-app .cc-tl-is-phone { --tone: var(--ds-summary); }
 .cc-app .cc-tl-is-body { --tone: var(--ds-body); }
+/* li.* so it outranks the default `.cc-timeline li { --tone }` above. */
+.cc-app .cc-timeline li.cc-tl-is-exercise { --tone: var(--ds-exercise); }
 .cc-app .cc-timeline-all { width: 100%; margin-top: 12px; min-height: 44px; }
 @media (max-width: 600px) {
   .cc-app .cc-saves, .cc-app .cc-quote { padding: 18px; border-radius: 22px; }

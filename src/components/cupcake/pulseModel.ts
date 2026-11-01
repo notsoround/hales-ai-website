@@ -2,6 +2,7 @@
 // Pure helpers over the existing feed shape. Nothing here invents data: a missing field renders as absent.
 import { interventionOutcome, type DashboardOutcome } from './dashboardModel';
 import { addDays, nutritionDay } from './nutritionModel';
+import { exerciseRowParts } from './exerciseTimeline.ts';
 
 export type PulseItem = { id?: string; type: string; title: string; body?: string; date: string; time?: string; ts?: number; amount?: number | null; currency?: string | null; calories?: number | null; icon?: string; details?: Record<string, unknown> };
 
@@ -80,7 +81,7 @@ export function agoLabel(ms: number, now = Date.now()): string {
   return d === 1 ? 'yesterday' : `${d} days ago`;
 }
 
-export type Tone = 'food' | 'spend' | 'call' | 'missed' | 'body' | 'glucose' | 'sleep' | 'phone';
+export type Tone = 'food' | 'spend' | 'call' | 'missed' | 'body' | 'glucose' | 'sleep' | 'phone' | 'exercise';
 export type TimelineRow = { key: string; item: PulseItem; tone: Tone; title: string; sub: string; value: string; outcome?: DashboardOutcome; quote?: string | null; clock: string };
 
 const money = (amount: number, currency?: string | null) => { const c = String(currency || '').toUpperCase(); return c === 'USD' || c === '$' ? `$${amount.toFixed(2)}` : `${c || '?'} ${amount.toFixed(2)}`; };
@@ -108,6 +109,7 @@ export function timelineRow(item: PulseItem, index: number, all: PulseItem[] = [
     const lb = typeof item.details?.weightLb === 'number' ? item.details.weightLb as number : typeof item.amount === 'number' ? item.amount : null;
     return { key, item, tone: 'body', title: item.title || 'Weight', sub: 'Weight', value: lb !== null ? `${lb.toFixed(1)} lb` : '', clock };
   }
+  if (item.type === 'exercise') return { key, item, tone: 'exercise', ...exerciseRowParts(item), clock };
   if (item.type === 'glucose') return { key, item, tone: 'glucose', title: item.title || 'Glucose', sub: item.body || '', value: '', clock };
   if (item.type === 'sleep') return { key, item, tone: 'sleep', title: item.title || 'Sleep', sub: item.body || '', value: '', clock };
   return { key, item, tone: 'phone', title: item.title || 'Signal', sub: item.body || '', value: '', clock };
@@ -137,7 +139,7 @@ export function displaySummary(summary: unknown): string {
   return summary.split(/\r?\n/).filter(line => !/^\s*Cupcake(?:PhoneOutcome|PurchaseChoice):v\d+\b/.test(line)).join('\n').trim();
 }
 
-const KIND_LABEL: Record<string, string> = { intervention: 'Phone call', transaction: 'Purchase', food: 'Meal', activity: 'Weight', glucose: 'Glucose reading', sleep: 'Sleep', phone_usage: 'Phone use', phone_activity: 'Phone activity' };
+const KIND_LABEL: Record<string, string> = { exercise: 'Workout', intervention: 'Phone call', transaction: 'Purchase', food: 'Meal', activity: 'Weight', glucose: 'Glucose reading', sleep: 'Sleep', phone_usage: 'Phone use', phone_activity: 'Phone activity' };
 /** "Phone call · Sat Oct 31, 2:57 PM" in Matt's time (America/Chicago). The time appears only when the source recorded one. */
 export function signalHeading(item: Pick<PulseItem, 'type' | 'date' | 'details'>, clock: string): string {
   const missed = item.type === 'intervention' && (item.details?.missed === true || /no[_ -]?answer|missed|voicemail/i.test(String(item.details?.outcome || '')));

@@ -5,10 +5,10 @@ import { addDays, nutritionDay, nutritionDayStart, signedCalories, type Nutritio
 import { buildMetabolicSeries, monotonePath, sampleNetAt, type BoughtEvent, type MetabolicSeries } from './metabolicSeries';
 import { preparedPurchases } from './purchases';
 import { SIX_PM_WINDOW_MS, chicagoHourOnDay, closestReading, loadGlucoseReadings, type GlucoseReading, type LibraryRequest } from './glucoseApi';
-import { ExerciseUnavailableError, deleteExercise, listExercises, logExercise, type ExerciseEntry } from './exerciseApi';
+import { ExerciseUnavailableError, chicagoTime, deleteExercise, exercisePerformedAt, formatExerciseItem, listExercises, logExercise, toStoredItems, type ExerciseEntry, type ExerciseWhen } from './exerciseApi';
 import { StepsUnavailableError, latestSteps, stepsDayLabel, type StepsDay } from './stepsApi';
 import { RingconnUnavailableError, hoursMinutes, latestRingconnNight, nightSummary, type RingconnNight } from './ringconnApi';
-import { estimateExerciseBurn, type ExerciseEstimateItem } from './exerciseEstimate';
+import { estimateExerciseBurn } from './exerciseEstimate';
 import { speechDictationSupported, startDictation, type DictationSession } from './speechDictation';
 import './energy.css';
 import { ToneIcon } from './design/ToneIcon';
@@ -25,10 +25,9 @@ function useMinuteClock() {
   return now;
 }
 
-/** Today: 6 PM sugar, energy-balance curve and exercise quick-log. */
-export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: NutritionState }) {
+/** Today: 6 PM sugar, energy-balance curve and exercise quick-log. `exercise` comes from useTodayExercise() so the Timeline shares it. */
+export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: { items: FeedLike; nutrition: NutritionState; exercise: ExerciseState; openLogRequest?: number }) {
   const now = useMinuteClock(), day = nutritionDay(now), dayStart = nutritionDayStart(day), dayEnd = nutritionDayStart(addDays(day, 1));
-  const exercise = useExercise(dayStart, dayEnd);
   const steps = useLatestSteps(day);
   const bought = useMemo<BoughtEvent[]>(() => preparedPurchases(items, dayStart, now.getTime()).map(p => ({ id: p.id, at: p.at, label: p.merchant, amount: p.amount, currency: p.currency })), [items, dayStart, now]);
   const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), bought, steps: steps.day?.count ?? null, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, bought, steps.day, now]);
@@ -41,7 +40,7 @@ export function TodayEnergy({ items, nutrition }: { items: FeedLike; nutrition: 
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
         : !series ? <p className="cc-muted">Add a daily expenditure estimate in Food settings to draw today’s curve.</p>
           : <EnergyCurve series={series} comparisonReady={comparisonReady} steps={steps}/>}
-      <ExerciseQuickLog state={exercise}/>
+      <ExerciseQuickLog state={exercise} openRequest={openLogRequest}/>
     </div>
   </section>;
 }
@@ -188,7 +187,12 @@ function useLatestSteps(day: string): StepsState {
   return state;
 }
 
-type ExerciseState = { status: 'loading' | 'ready' | 'unavailable' | 'error'; entries: ExerciseEntry[]; reload: () => void; add: (entry: ExerciseEntry) => void; remove: (id: string) => void };
+export type ExerciseState = { status: 'loading' | 'ready' | 'unavailable' | 'error'; entries: ExerciseEntry[]; reload: () => void; add: (entry: ExerciseEntry) => void; remove: (id: string) => void };
+/** Today's exercise log (Chicago day), shared by the Energy card and the Timeline. */
+export function useTodayExercise(): ExerciseState {
+  const day = nutritionDay(useMinuteClock());
+  return useExercise(nutritionDayStart(day), nutritionDayStart(addDays(day, 1)));
+}
 function useExercise(dayStart: number, dayEnd: number): ExerciseState {
   const [status, setStatus] = useState<ExerciseState['status']>('loading'), [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const generation = useRef(0);
@@ -198,25 +202,36 @@ function useExercise(dayStart: number, dayEnd: number): ExerciseState {
       .catch(error => { if (current === generation.current) { setEntries([]); setStatus(error instanceof ExerciseUnavailableError ? 'unavailable' : 'error'); } });
   }, [dayStart, dayEnd]);
   useEffect(() => { reload(); }, [reload]);
-  return { status, entries, reload, add: entry => setEntries(rows => [...rows.filter(r => r.id !== entry.id), entry].sort((a, b) => a.at - b.at)), remove: id => setEntries(rows => rows.filter(r => r.id !== id)) };
+  return { status, entries, reload, add: entry => { if (entry.at >= dayStart && entry.at < dayEnd) setEntries(rows => [...rows.filter(r => r.id !== entry.id), entry].sort((a, b) => a.at - b.at)); }, remove: id => setEntries(rows => rows.filter(r => r.id !== id)) };
 }
 
-const itemSummary = (item: ExerciseEstimateItem) => `${item.activity} ${item.sets && item.reps ? `${item.sets}×${Math.round(item.reps / item.sets)}` : item.reps ? `×${item.reps}` : `${item.minutes < 1 ? item.minutes : Math.round(item.minutes)} min`}`;
+const WHEN_LABEL: Record<ExerciseWhen, string> = { now: 'Now', earlier: 'Earlier today', yesterday: 'Yesterday' };
+/** Default time for a past pick: an hour ago (rounded to 5 min) today, 6:00 PM yesterday. */
+const defaultTime = (when: ExerciseWhen) => { if (when === 'yesterday') return '18:00'; const t = Date.now() - 3600000; return chicagoTime(t - t % 300000); };
 const requestId = () => `ex_${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID().replace(/-/g, '') : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`}`;
 
 /** Talk-or-type exercise log (cupcake-opolis exercise-quick-log). Saves only to the library. */
-function ExerciseQuickLog({ state }: { state: ExerciseState }) {
+function ExerciseQuickLog({ state, openRequest = 0 }: { state: ExerciseState; openRequest?: number }) {
   const [open, setOpen] = useState(false), [text, setText] = useState(''), [busy, setBusy] = useState(false), [listening, setListening] = useState(false), [message, setMessage] = useState('');
-  const dictation = useRef<DictationSession | null>(null);
+  const [when, setWhen] = useState<ExerciseWhen>('now'), [time, setTime] = useState('');
+  const dictation = useRef<DictationSession | null>(null), root = useRef<HTMLDivElement>(null);
   useEffect(() => () => dictation.current?.abort(), []);
+  // The Today header's "Log exercise" quick action opens this same form.
+  useEffect(() => { if (!openRequest) return; setOpen(true); root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [openRequest]);
+  const pickWhen = (next: ExerciseWhen) => { setWhen(next); setTime(next === 'now' ? '' : defaultTime(next)); setMessage(''); };
+  const close = () => { dictation.current?.abort(); setOpen(false); setText(''); setWhen('now'); setTime(''); };
   const estimate = text.trim() ? estimateExerciseBurn(text) : null;
   if (state.status === 'unavailable') return <p className="cc-energy-unavailable" role="status"><Activity size={16}/> Exercise storage is not available yet. Nothing is saved or shown until the library supports it.</p>;
   const save = async () => {
     if (!estimate || estimate.kcal <= 0 || busy) { setMessage(estimate ? 'Cupcake could not recognise that activity. Try “30 min walk” or “20 push-ups”.' : ''); return; }
+    const at = exercisePerformedAt(when, time, Date.now());
+    if ('error' in at) { setMessage(at.error); return; }
     setBusy(true); setMessage('');
     try {
-      const entry = await logExercise(request, { requestId: requestId(), description: text.trim().slice(0, 300), performedAt: new Date().toISOString(), minutes: Math.round(estimate.minutes * 10) / 10, kcal: estimate.kcal, basis: estimate.source });
-      state.add(entry); setText(''); setOpen(false); setMessage(`Logged −${kcal(entry.kcal)} kcal.`);
+      const items = toStoredItems(estimate.items);
+      const entry = await logExercise(request, { requestId: requestId(), description: text.trim().slice(0, 300), performedAt: at.performedAt, minutes: Math.round(estimate.minutes * 10) / 10, kcal: estimate.kcal, basis: estimate.source, ...(items.length ? { items } : {}) });
+      state.add(entry); close();
+      setMessage(when === 'now' ? `Logged −${kcal(entry.kcal)} kcal.` : `Logged −${kcal(entry.kcal)} kcal for ${when === 'yesterday' ? 'yesterday' : 'today'} at ${clock(entry.at)}.`);
     } catch (error) {
       if (error instanceof ExerciseUnavailableError) state.reload();
       setMessage(error instanceof Error ? error.message : 'Exercise could not be saved.');
@@ -233,7 +248,7 @@ function ExerciseQuickLog({ state }: { state: ExerciseState }) {
     const session = startDictation({ onTranscript: setText, onEnd: final => { setListening(false); dictation.current = null; if (final) setText(final); }, onError: () => { setListening(false); setMessage('Dictation stopped. You can type instead.'); } }, 'en-US');
     if (session) { dictation.current = session; setListening(true); }
   };
-  return <div className="cc-exercise">
+  return <div className="cc-exercise" ref={root} id="cc-exercise-log">
     {!open ? <button type="button" className="cc-secondary" disabled={state.status === 'loading'} onClick={() => setOpen(true)}><Activity size={18}/>Log exercise</button>
       : <form className="cc-exercise-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <label className="cc-label" htmlFor="cc-exercise-text">What did you do?</label>
@@ -241,11 +256,16 @@ function ExerciseQuickLog({ state }: { state: ExerciseState }) {
           <input id="cc-exercise-text" value={text} maxLength={300} placeholder="30 min walk, 20 push-ups" onChange={event => setText(event.target.value)} autoFocus/>
           {speechDictationSupported() && <button type="button" className="cc-secondary" aria-pressed={listening} aria-label={listening ? 'Stop dictation' : 'Dictate'} onClick={listen}>{listening ? <Square size={16}/> : <Mic size={16}/>}</button>}
         </div>
-        {estimate && <p className="cc-muted">{estimate.kcal > 0 ? `About −${kcal(estimate.kcal)} kcal net · ${estimate.items.map(itemSummary).join(', ')}` : 'No activity recognised yet.'}{estimate.unrecognized.length ? ` · not counted: ${estimate.unrecognized.join(', ')}` : ''}</p>}
-        <div className="cc-exercise-row"><button type="submit" className="cc-primary" disabled={busy || !estimate || estimate.kcal <= 0}>{busy ? 'Saving…' : 'Save'}</button><button type="button" className="cc-text-button" onClick={() => { dictation.current?.abort(); setOpen(false); setText(''); }}>Cancel</button></div>
+        {estimate && <p className="cc-muted">{estimate.kcal > 0 ? `About −${kcal(estimate.kcal)} kcal net · ${Math.round(estimate.minutes)} min · ${toStoredItems(estimate.items).map(formatExerciseItem).join(', ')}` : 'No activity recognised yet.'}{estimate.unrecognized.length ? ` · not counted: ${estimate.unrecognized.join(', ')}` : ''}</p>}
+        <fieldset className="cc-exercise-when">
+          <legend className="cc-label">When</legend>
+          <div className="cc-exercise-when-picks" role="radiogroup" aria-label="When">{(Object.keys(WHEN_LABEL) as ExerciseWhen[]).map(key => <button key={key} type="button" role="radio" aria-checked={when === key} className={when === key ? 'cc-chip cc-chip-on' : 'cc-chip'} onClick={() => pickWhen(key)}>{WHEN_LABEL[key]}</button>)}</div>
+          {when !== 'now' && <label className="cc-exercise-time">Time <input type="time" value={time} step={300} required onChange={event => setTime(event.target.value)} aria-label={`Time ${WHEN_LABEL[when].toLowerCase()}`}/></label>}
+        </fieldset>
+        <div className="cc-exercise-row"><button type="submit" className="cc-primary" disabled={busy || !estimate || estimate.kcal <= 0}>{busy ? 'Saving…' : 'Save'}</button><button type="button" className="cc-text-button" onClick={close}>Cancel</button></div>
       </form>}
     {state.status === 'error' && <p className="cc-muted" role="alert">Exercise could not load. <button type="button" className="cc-text-button" onClick={state.reload}>Retry</button></p>}
     {message && <p className="cc-muted" role="status">{message}</p>}
-    {state.entries.length > 0 && <ul className="cc-exercise-list">{state.entries.map(e => <li key={e.id}><span>{e.description}</span><span>−{kcal(e.kcal)} kcal · {clock(e.at)}</span><button type="button" className="cc-text-button" disabled={busy} onClick={() => void undo(e)}>Undo</button></li>)}</ul>}
+    {state.entries.length > 0 && <ul className="cc-exercise-list">{state.entries.map(e => <li key={e.id}><span className="cc-exercise-entry"><span>{e.description}</span>{e.items.length > 0 && <small className="cc-exercise-items">{e.items.map(formatExerciseItem).join(' · ')}</small>}</span><span>−{kcal(e.kcal)} kcal · {clock(e.at)}</span><button type="button" className="cc-text-button" disabled={busy} onClick={() => void undo(e)}>Undo</button></li>)}</ul>}
   </div>;
 }

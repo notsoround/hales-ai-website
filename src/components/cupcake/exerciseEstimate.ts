@@ -7,7 +7,10 @@
  *
  * Each clause is matched to an activity with a MET value (Compendium of
  * Physical Activities, rounded). Work time comes from an explicit duration,
- * from reps × seconds-per-rep, or from distance/steps at a typical pace.
+ * from distance/steps at a typical pace, or for strength work written as sets
+ * ("3x15", "4 sets of 8") from ~1.75 min per set, rest included (work at the
+ * activity MET, the remainder at a light rest MET). A bare count ("30 push-ups")
+ * is still reps × seconds-per-rep.
  *
  * Only the *net* cost above resting is counted:
  *   kcal = (MET − 1) × bodyWeightKg × hours
@@ -48,7 +51,21 @@ const ACTIVITIES: readonly Activity[] = [
   { id: "plank", pattern: /planks?/, met: 3.8, defaultMinutes: 1 },
   { id: "kettlebell", pattern: /kettle[\s-]?bells?|\bkb\b/, met: 6, secondsPerRep: 3 },
   { id: "jump rope", pattern: /jump(?:ing)?[\s-]?rope|skipping/, met: 11, secondsPerRep: 0.5 },
-  { id: "rowing", pattern: /row(?:ing)?[\s-]?machine|\berg\b|rower/, met: 7, minutesPerMile: 9 },
+  // Strength rows (with an implement, or written as sets/reps) before the rowing machine.
+  {
+    id: "weights",
+    pattern:
+      /(?:dumbbell|\bdb|barbell|\bbb|cable|bent[\s-]?over|upright|seated|renegade|single[\s-]?arm|one[\s-]?arm|t[\s-]?bar|inverted|pendlay)\s+rows?\b|\brows?\b(?=.*(?:\d+\s*x\s*\d+|\d+\s*sets?\b|\d+\s*reps?\b))/,
+    met: 5,
+    secondsPerRep: 3,
+  },
+  {
+    id: "rowing",
+    pattern: /row(?:ing)?[\s-]?machine|\berg\b|rower|\brow(?:ing|ed)?\b/,
+    met: 7,
+    minutesPerMile: 9,
+    defaultMinutes: 15,
+  },
   {
     id: "weights",
     pattern: /weights?|lift(?:ing|ed)?|deadlifts?|bench|curls?|presses|\brows?\b/,
@@ -114,11 +131,15 @@ const NUMBER_WORDS: Record<string, number> = {
 
 const REST_MET = 2; // Light movement between sets.
 const REST_SECONDS_BETWEEN_SETS = 60;
+/** Wall-clock minutes per written set (work + rest) when no total time is given. */
+export const MINUTES_PER_SET = 1.75;
 const STEPS_PER_MINUTE = 100;
 
 export type ExerciseEstimateItem = {
   activity: string;
-  /** Minutes of work (rest between sets not included). */
+  /** What was written, without numbers or units ("kettlebell swings"); falls back to the activity id. */
+  name: string;
+  /** Minutes on the clock: work, plus rest when written as sets ("3x15"). */
   minutes: number;
   reps?: number;
   sets?: number;
@@ -142,6 +163,10 @@ function normalize(text: string): string {
     .toLowerCase()
     .replace(/×/g, "x")
     .replace(/(\d),(\d{3})\b/g, "$1$2")
+    // Rowing/running distances in metres ("2000m", "500 meters"); small numbers stay minutes.
+    .replace(/(\d+(?:\.\d+)?)\s*(?:m|meters?|metres?)\b/g, (whole, n: string) =>
+      Number(n) >= 100 ? `${Number(n) / 1000} km` : whole,
+    )
     .replace(/\bhalf (?:an )?hour\b/g, "30 min")
     .replace(/\b(?:an|one) hour\b/g, "60 min")
     .replace(/\bquarter (?:of )?(?:an )?hour\b/g, "15 min")
@@ -232,6 +257,22 @@ function parseBareCount(clause: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
+/** "kettlebell swings 3x15 at 35 lb" -> "kettlebell swings". */
+function clauseName(clause: string, fallback: string): string {
+  const name = clause
+    .replace(/\s(?:with|using|at|@)\s.*$|@.*$/, " ")
+    .replace(/\d+(?:\.\d+)?\s*x\s*\d+/g, " ")
+    .replace(
+      /\d+(?:\.\d+)?\s*(?:hours?|hrs?|h\b|minutes?|mins?|m\b|seconds?|secs?|s\b|miles?|mi\b|km\b|k\b|lbs?|pounds?|#|kgs?|kilos?|steps?|sets?(?:\s*of)?|reps?)?/g,
+      " ",
+    )
+    .replace(/\b(?:of|for|x|reps?|sets?|each|side)\b/g, " ")
+    .replace(/[^a-z\s'/-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (name || fallback).slice(0, 60);
+}
+
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
@@ -250,6 +291,7 @@ function estimateClause(clause: string, weightKg: number): ExerciseEstimateItem 
   let reps: number | undefined;
   let sets: number | undefined;
   let restMinutes = 0;
+  let restIncluded = false;
   let assumed = false;
 
   if (minutes === null) {
@@ -271,7 +313,14 @@ function estimateClause(clause: string, weightKg: number): ExerciseEstimateItem 
       sets = 1;
       reps = count;
     }
-    if (reps !== undefined) {
+    if (reps !== undefined && setsReps) {
+      // Written as sets: ~1.75 min per set on the clock, rest included.
+      const work = (reps * activity.secondsPerRep) / 60;
+      const total = Math.max(work, setsReps.sets * MINUTES_PER_SET);
+      minutes = work;
+      restMinutes = total - work;
+      restIncluded = true;
+    } else if (reps !== undefined) {
       minutes = (reps * activity.secondsPerRep) / 60;
       restMinutes = (Math.max(0, (sets ?? 1) - 1) * REST_SECONDS_BETWEEN_SETS) / 60;
     }
@@ -284,10 +333,11 @@ function estimateClause(clause: string, weightKg: number): ExerciseEstimateItem 
   const kcal = netKcalPerMinute * minutes + (((REST_MET - 1) * weightKg) / 60) * restMinutes;
   return {
     activity: activity.id,
-    minutes: round1(minutes),
+    name: clauseName(clause, activity.id),
+    minutes: round1(restIncluded ? minutes + restMinutes : minutes),
     ...(reps !== undefined ? { reps } : {}),
     ...(sets !== undefined && sets > 1 ? { sets } : {}),
-    ...(loadKg !== undefined ? { loadKg: round1(loadKg) } : {}),
+    ...(loadKg !== undefined ? { loadKg: Math.round(loadKg * 100) / 100 } : {}),
     kcal: Math.max(0, Math.round(kcal)),
     assumed,
   };
