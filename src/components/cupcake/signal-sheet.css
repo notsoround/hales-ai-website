@@ -1,0 +1,34 @@
+/* Signal detail sheet (Today). Phone: bottom sheet. Wider: centred panel. */
+.cc-app dialog.cc-signal-sheet{width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 48px);margin:auto;padding:12px 22px 24px;border:1px solid #ffffff24;border-radius:24px;background:#17131b;color:#f5eef4;overflow:auto;overscroll-behavior:contain;box-shadow:0 24px 80px #0009;box-sizing:border-box}
+.cc-signal-sheet::backdrop{background:#000b;backdrop-filter:blur(4px)}
+.cc-signal-sheet[open]{animation:cc-sheet-in .22s cubic-bezier(.2,.8,.2,1)}
+.cc-sheet-grip{display:none}
+.cc-signal-sheet .cc-dashboard-detail{margin:0;padding:0;border:0;background:none;box-shadow:none}
+@media(max-width:599px){
+  .cc-app dialog.cc-signal-sheet{width:100vw;max-width:100vw;max-height:88dvh;margin:auto 0 0;border-radius:22px 22px 0 0;border-bottom:0;padding:6px 16px calc(20px + env(safe-area-inset-bottom))}
+  .cc-signal-sheet[open]{animation:cc-sheet-up .26s cubic-bezier(.2,.8,.2,1)}
+  .cc-sheet-grip{display:block;width:40px;height:4px;margin:4px auto 6px;border-radius:999px;background:#ffffff38}
+}
+@keyframes cc-sheet-in{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes cc-sheet-up{from{transform:translateY(40%);opacity:.4}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.cc-signal-sheet[open]{animation:none}}
+
+/* Detail header: back link on its own row, then kind · date, then the title. Fixes the back/eyebrow collision. */
+.cc-detail-head{display:flex;align-items:center;min-height:44px;margin-bottom:6px}
+.cc-detail-head .cc-text-button{min-height:44px;display:inline-flex;align-items:center;gap:6px;padding:0 4px 0 0}
+.cc-detail-kind{margin:2px 0 4px;font-size:13px;font-weight:700;letter-spacing:.01em;color:#c9b7ca}
+.cc-dashboard-detail > .cc-text-button{display:inline-flex;min-height:44px;align-items:center;gap:6px}
+.cc-dashboard-detail > .cc-text-button + .cc-eyebrow{display:block;margin-top:4px}
+.cc-detail-call{display:grid;gap:12px;justify-items:start;margin-bottom:18px}
+.cc-detail-call blockquote{margin:0;padding:2px 0 2px 14px;border-left:3px solid var(--cc-pink,#ff8fc0);font-size:18px;line-height:1.45;color:#f5eef4}
+.cc-detail-call blockquote > span::before{content:'\201C'}
+.cc-detail-call blockquote > span::after{content:'\201D'}
+.cc-detail-call blockquote small{display:block;margin-top:6px;font-size:12px;color:#c9b7ca}
+.cc-detail-summary{white-space:pre-line}
+/* "Did you buy it anyway?" choices: whole label is a 44px target. */
+.cc-bought label{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid #ffffff24;border-radius:999px;cursor:pointer}
+.cc-bought input{width:18px;height:18px;margin:0;accent-color:var(--cc-pink,#ff8fc0)}
+.cc-bought label:has(input:checked){border-color:var(--cc-pink,#ff8fc0);background:#ff8fc01a}
+.cc-bought > :not(label){flex-basis:100%}
+/* Wins & losses: inside a detail, only the detail's own back link shows (no stacked "Back to Today" + "Back to …"). */
+.cc-app .cc-week-back:has(~ .cc-dashboard-detail, ~ * .cc-dashboard-detail){display:none}

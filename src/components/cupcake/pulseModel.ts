@@ -130,3 +130,20 @@ export function freshness(items: PulseItem[], now = Date.now()): Array<{ label: 
   for (const [label, type] of [['Purchase', 'transaction'], ['Call', 'intervention'], ['Meal', 'food']]) { const ms = latest(type); const ago = ms ? agoLabel(ms, now) : ''; if (ago) out.push({ label, ago }); }
   return out;
 }
+
+/** Internal bookkeeping lines (dedupe markers) never belong on screen. Stored data is untouched; this is display only. */
+export function displaySummary(summary: unknown): string {
+  if (typeof summary !== 'string') return '';
+  return summary.split(/\r?\n/).filter(line => !/^\s*Cupcake(?:PhoneOutcome|PurchaseChoice):v\d+\b/.test(line)).join('\n').trim();
+}
+
+const KIND_LABEL: Record<string, string> = { intervention: 'Phone call', transaction: 'Purchase', food: 'Meal', activity: 'Weight', glucose: 'Glucose reading', sleep: 'Sleep', phone_usage: 'Phone use', phone_activity: 'Phone activity' };
+/** "Phone call · Sat Oct 31, 2:57 PM" in Matt's time (America/Chicago). The time appears only when the source recorded one. */
+export function signalHeading(item: Pick<PulseItem, 'type' | 'date' | 'details'>, clock: string): string {
+  const missed = item.type === 'intervention' && (item.details?.missed === true || /no[_ -]?answer|missed|voicemail/i.test(String(item.details?.outcome || '')));
+  const kind = missed ? 'Missed call' : KIND_LABEL[item.type] || 'Signal';
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${item.date}T12:00:00Z`)).replace(/,(?= \w+ \d)/, '') : '';
+  const m = clock.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  const time = m && +m[1] < 24 ? `${(+m[1] % 12) || 12}:${m[2]} ${+m[1] < 12 ? 'AM' : 'PM'}` : clock.trim().replace(/\s*([ap])\.?m\.?$/i, (_, a: string) => ` ${a.toUpperCase()}M`);
+  return [kind, [day, time].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+}

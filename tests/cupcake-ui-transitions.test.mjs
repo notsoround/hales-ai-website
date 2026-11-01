@@ -47,6 +47,8 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === './weightApi') return { loadWeightPage: async () => ({ latestMeasurement: null }), weightProvenanceLabel: () => '' };
       if (name === './weightHistoryModel') return { weightTime: value => String(value ?? '') };
       if (name === './PersonalOutcomes') return { PersonalOutcomes: emptyComponent };
+      if (name === './pulseModel') return { callPlace: e => e.title, callSubtitle: e => e.body || '', displaySummary: s => String(s || ''), listTitle: e => e.title, ownerQuote: () => null, signalHeading: e => e.type };
+      if (name === './TodayPulse') return { OutcomeChip: emptyComponent };
       if (name === './library') return { libraryRequest: api };
       if (name.endsWith('.css')) return {};
       if (['./ConnectionCheck', './StrategyRequests', './PlanningWorkspace', './ReceiptWorkspace', './ConversationPanel'].includes(name)) return { default: emptyComponent, AnalysisCard: emptyComponent };
