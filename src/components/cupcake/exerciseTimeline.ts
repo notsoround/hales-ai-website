@@ -1,6 +1,6 @@
 // Logged workouts on the Today Timeline: their own kind, merged client-side from the library's
 // exercise_list (the n8n cupcake-feed is unchanged). Pure helpers; nothing is invented.
-import { chicagoDate, formatExerciseItem, type ExerciseEntry } from './exerciseApi.ts';
+import { burnedLabel, chicagoDate, formatExerciseItem, type ExerciseEntry } from './exerciseApi.ts';
 import type { PulseItem } from './pulseModel.ts';
 
 /** Logged workouts as Timeline items of type 'exercise'. */
@@ -8,9 +8,9 @@ export function exerciseTimelineItems(entries: readonly ExerciseEntry[]): PulseI
   return entries.map(e => {
     const detail = e.items.length ? e.items.map(formatExerciseItem).join(' · ') : '';
     const minutes = e.minutes ? `${Math.round(e.minutes)} min` : '';
-    return { id: `exercise-${e.id}`, type: 'exercise', title: e.description, body: [minutes ? `Workout · ${minutes}` : 'Workout', detail].filter(Boolean).join(' · '),
+    return { id: `exercise-${e.id}`, type: 'exercise', title: e.description, body: ['Burned', minutes, detail].filter(Boolean).join(' · '),
       date: chicagoDate(e.at), time: new Date(e.at).toISOString(), ts: e.at, calories: null, icon: '🏋️',
-      details: { kcal: e.kcal, minutes: e.minutes, items: e.items, source: 'Logged in Cupcake (estimated net burn)' } };
+      details: { kcal: e.kcal, minutes: e.minutes, items: e.items, source: `Logged in Cupcake · ${burnedLabel(e.kcal)} (estimated, above resting)` } };
   });
 }
 
@@ -18,7 +18,8 @@ export function exerciseTimelineItems(entries: readonly ExerciseEntry[]): PulseI
 export function exerciseRowParts(item: PulseItem): { title: string; sub: string; value: string } {
   const kcal = typeof item.details?.kcal === 'number' ? item.details.kcal as number : null;
   const minutes = typeof item.details?.minutes === 'number' ? item.details.minutes as number : 0;
-  return { title: item.title || 'Workout', sub: item.body || (minutes ? `Workout · ${Math.round(minutes)} min` : 'Workout'), value: kcal !== null ? `−${Math.round(kcal).toLocaleString('en-US')} kcal` : '' };
+  // Positive burn: the value is "129 kcal" and the line under the title starts with "Burned" (the full label is too wide for the value column at 375px).
+  return { title: item.title || 'Workout', sub: item.body || (minutes ? `Burned · ${Math.round(minutes)} min` : 'Burned'), value: kcal !== null ? `${Math.round(Math.abs(kcal)).toLocaleString('en-US')} kcal` : '' };
 }
 
 /**

@@ -5,7 +5,7 @@ import { addDays, nutritionDay, nutritionDayStart, signedCalories, type Nutritio
 import { buildMetabolicSeries, monotonePath, sampleNetAt, type BoughtEvent, type MetabolicSeries } from './metabolicSeries';
 import { preparedPurchases } from './purchases';
 import { SIX_PM_WINDOW_MS, chicagoHourOnDay, closestReading, loadGlucoseReadings, type GlucoseReading, type LibraryRequest } from './glucoseApi';
-import { ExerciseUnavailableError, chicagoTime, deleteExercise, exercisePerformedAt, formatExerciseItem, listExercises, logExercise, toStoredItems, type ExerciseEntry, type ExerciseWhen } from './exerciseApi';
+import { ExerciseUnavailableError, burnedLabel, chicagoDate, chicagoTime, chicagoWallTime, deleteExercise, exerciseDescription, exercisePerformedAt, formatExerciseItem, listExercises, logExercise, toStoredItems, type ExerciseEntry, type ExerciseWhen } from './exerciseApi';
 import { StepsUnavailableError, latestSteps, stepsDayLabel, type StepsDay } from './stepsApi';
 import { RingconnUnavailableError, hoursMinutes, latestRingconnNight, nightSummary, type RingconnNight } from './ringconnApi';
 import { estimateExerciseBurn } from './exerciseEstimate';
@@ -145,14 +145,14 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
       {known && <line x1={x(series.now)} x2={x(series.dayEnd)} y1={y(series.net)} y2={y(series.projectedEndOfDay)} className="cc-energy-projection"/>}
       <path d={line} className="cc-energy-line"/>
       {meals.map(m => <circle key={m.id} cx={x(m.at)} cy={y(sampleNetAt(series.samples, m.at))} r={4.5} className="cc-energy-meal"><title>{`${m.label} · ${m.kcal === null ? 'calories unknown' : `${kcal(m.kcal)} kcal`}${m.untimed ? ' · no time logged' : ` · ${clock(m.at)}`}`}</title></circle>)}
-      {workouts.map(e => <path key={e.id} d={`M${x(e.at) - 5},${y(sampleNetAt(series.samples, e.at)) - 4}h10l-5,8z`} className="cc-energy-exercise"><title>{`${e.label} · −${kcal(e.kcal || 0)} kcal · ${clock(e.at)}`}</title></path>)}
+      {workouts.map(e => <path key={e.id} d={`M${x(e.at) - 5},${y(sampleNetAt(series.samples, e.at)) - 4}h10l-5,8z`} className="cc-energy-exercise"><title>{`${e.label} · ${burnedLabel(e.kcal || 0)} · ${clock(e.at)}`}</title></path>)}
       {series.bought.map(b => <g key={b.id} transform={`translate(${x(b.at)},${lane})`}><path d="M0,-5L5,0L0,5L-5,0Z" className="cc-energy-bought"/><title>{`Bought at ${b.label} · ${b.amount.toLocaleString('en-US', { style: 'currency', currency: b.currency })} · ${clock(b.at)} · context only, not counted as eaten`}</title></g>)}
       <circle cx={x(series.now)} cy={y(series.net)} r={5} className="cc-energy-now"/>
     </svg>
     <dl className="cc-energy-stats">
       <div><dt>Eaten (logged)</dt><dd>{known ? kcal(series.eaten) : <span className="cc-na">Not available</span>}</dd></div>
-      <div><dt>Burned so far</dt><dd>−{kcal(series.living)}</dd></div>
-      <div><dt>Exercise</dt><dd>{series.exercise ? `−${kcal(series.exercise)}` : <span className="cc-na">None logged</span>}</dd></div>
+      <div><dt>Burned so far</dt><dd>{kcal(series.living)}</dd></div>
+      <div><dt>Exercise</dt><dd>{series.exercise ? <>{kcal(series.exercise)} <small className="cc-energy-unit-word">burned</small></> : <span className="cc-na">None logged</span>}</dd></div>
       <div><dt>Steps{steps.day ? ` · ${stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Net now</dt><dd>{known ? signedCalories(series.net) : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Projected midnight</dt><dd>{known ? signedCalories(series.projectedEndOfDay) : <span className="cc-na">Not available</span>}</dd></div>
@@ -162,6 +162,7 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
       {series.bought.length ? `${series.bought.length === 1 ? '1 café/takeout purchase is' : `${series.bought.length} café/takeout purchases are`} marked ◆ as context; only logged meals count as eaten. ` : ''}
       {untimed ? `${untimed === 1 ? '1 meal has' : `${untimed} meals have`} no time and ${untimed === 1 ? 'is' : 'are'} counted from midnight. ` : ''}
       {unknown ? `${unknown === 1 ? '1 meal has' : `${unknown} meals have`} unknown calories. ` : ''}
+      {series.exercise ? `Workouts burned ${kcal(series.exercise)} kcal; the line drops by that much at each ▼. ` : ''}
       {stepsNote(steps)}
     </p>
   </>;
@@ -209,29 +210,47 @@ const WHEN_LABEL: Record<ExerciseWhen, string> = { now: 'Now', earlier: 'Earlier
 /** Default time for a past pick: an hour ago (rounded to 5 min) today, 6:00 PM yesterday. */
 const defaultTime = (when: ExerciseWhen) => { if (when === 'yesterday') return '18:00'; const t = Date.now() - 3600000; return chicagoTime(t - t % 300000); };
 const requestId = () => `ex_${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID().replace(/-/g, '') : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`}`;
+/** One-tap fills. Matt's usual weights: 25 lb KB, 15 lb DBs. Each fills the text, so it stays editable and the estimate is the same as typing it. */
+const ROUTINE_CHIPS: ReadonlyArray<{ label: string; text: string }> = [
+  { label: 'McGill Big Three', text: 'McGill Big Three' },
+  { label: 'Kettlebell', text: 'KB swings 3x15 @ 25 lb, goblet squats 4x10 @ 25 lb' },
+  { label: 'Dumbbells', text: 'DB floor fly 4x10 @ 15 lb, one-arm DB row 4x15 @ 15 lb, seated DB shoulder press 4x15 @ 15 lb' },
+  { label: 'Rowing', text: '20 min rowing' },
+];
+const PARTIAL_STEPS = [25, 50, 75] as const;
 
 /** Talk-or-type exercise log (cupcake-opolis exercise-quick-log). Saves only to the library. */
 function ExerciseQuickLog({ state, openRequest = 0 }: { state: ExerciseState; openRequest?: number }) {
   const [open, setOpen] = useState(false), [text, setText] = useState(''), [busy, setBusy] = useState(false), [listening, setListening] = useState(false), [message, setMessage] = useState('');
-  const [when, setWhen] = useState<ExerciseWhen>('now'), [time, setTime] = useState('');
+  // When: picked by Matt (manual) or set from words in the text ("yesterday"), which he can override.
+  const [whenPick, setWhenPick] = useState<{ when: ExerciseWhen; time: string } | null>(null);
+  // Partial: null = follow the text ("about half"), 100 = full, otherwise the % Matt picked.
+  const [partialPick, setPartialPick] = useState<number | null>(null);
   const dictation = useRef<DictationSession | null>(null), root = useRef<HTMLDivElement>(null);
   useEffect(() => () => dictation.current?.abort(), []);
   // The Today header's "Log exercise" quick action opens this same form.
   useEffect(() => { if (!openRequest) return; setOpen(true); root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [openRequest]);
-  const pickWhen = (next: ExerciseWhen) => { setWhen(next); setTime(next === 'now' ? '' : defaultTime(next)); setMessage(''); };
-  const close = () => { dictation.current?.abort(); setOpen(false); setText(''); setWhen('now'); setTime(''); };
-  const estimate = text.trim() ? estimateExerciseBurn(text) : null;
+  const close = () => { dictation.current?.abort(); setOpen(false); setText(''); setWhenPick(null); setPartialPick(null); };
+  const estimate = text.trim() ? estimateExerciseBurn(text, { fraction: partialPick === null ? null : partialPick / 100 }) : null;
+  const recognised = !!estimate && estimate.items.length > 0 && estimate.kcal >= 1;
+  const detected = estimate?.when ?? null;
+  const when: ExerciseWhen = whenPick?.when ?? detected?.when ?? 'now';
+  const time = whenPick ? whenPick.time : detected ? (detected.time && (detected.when === 'yesterday' || chicagoWallTime(chicagoDate(Date.now()), detected.time) <= Date.now()) ? detected.time : defaultTime(detected.when)) : '';
+  const percent = Math.round((estimate?.fraction ?? (partialPick ?? 100) / 100) * 100);
+  const partial = percent < 100;
   if (state.status === 'unavailable') return <p className="cc-energy-unavailable" role="status"><Activity size={16}/> Exercise storage is not available yet. Nothing is saved or shown until the library supports it.</p>;
   const save = async () => {
-    if (!estimate || estimate.kcal <= 0 || busy) { setMessage(estimate ? 'Cupcake could not recognise that activity. Try “30 min walk” or “20 push-ups”.' : ''); return; }
+    // Nothing recognised: nothing is sent, whatever the button state or an Enter key press.
+    if (!estimate || !recognised || busy) { setMessage(estimate ? 'Cupcake could not recognise an exercise yet. Try a chip, or “10 kettlebell squats”, “20 min rowing”.' : ''); return; }
     const at = exercisePerformedAt(when, time, Date.now());
     if ('error' in at) { setMessage(at.error); return; }
     setBusy(true); setMessage('');
     try {
       const items = toStoredItems(estimate.items);
-      const entry = await logExercise(request, { requestId: requestId(), description: text.trim().slice(0, 300), performedAt: at.performedAt, minutes: Math.round(estimate.minutes * 10) / 10, kcal: estimate.kcal, basis: estimate.source, ...(items.length ? { items } : {}) });
+      const description = exerciseDescription(text, estimate.notes, estimate.routine ?? 'Workout');
+      const entry = await logExercise(request, { requestId: requestId(), description, performedAt: at.performedAt, minutes: Math.round(estimate.minutes * 10) / 10, kcal: estimate.kcal, basis: estimate.source, ...(items.length ? { items } : {}) });
       state.add(entry); close();
-      setMessage(when === 'now' ? `Logged −${kcal(entry.kcal)} kcal.` : `Logged −${kcal(entry.kcal)} kcal for ${when === 'yesterday' ? 'yesterday' : 'today'} at ${clock(entry.at)}.`);
+      setMessage(when === 'now' ? `Logged · ${burnedLabel(entry.kcal)}.` : `Logged for ${when === 'yesterday' ? 'yesterday' : 'today'} at ${clock(entry.at)} · ${burnedLabel(entry.kcal)}.`);
     } catch (error) {
       if (error instanceof ExerciseUnavailableError) state.reload();
       setMessage(error instanceof Error ? error.message : 'Exercise could not be saved.');
@@ -251,21 +270,34 @@ function ExerciseQuickLog({ state, openRequest = 0 }: { state: ExerciseState; op
   return <div className="cc-exercise" ref={root} id="cc-exercise-log">
     {!open ? <button type="button" className="cc-secondary" disabled={state.status === 'loading'} onClick={() => setOpen(true)}><Activity size={18}/>Log exercise</button>
       : <form className="cc-exercise-form" onSubmit={event => { event.preventDefault(); void save(); }}>
+        <div className="cc-exercise-chips" role="group" aria-label="Routines">{ROUTINE_CHIPS.map(chip => <button key={chip.label} type="button" className={text === chip.text ? 'cc-chip cc-chip-on' : 'cc-chip'} aria-pressed={text === chip.text} onClick={() => { setText(chip.text); setMessage(''); }}>{chip.label}</button>)}</div>
         <label className="cc-label" htmlFor="cc-exercise-text">What did you do?</label>
         <div className="cc-exercise-row">
-          <input id="cc-exercise-text" value={text} maxLength={300} placeholder="30 min walk, 20 push-ups" onChange={event => setText(event.target.value)} autoFocus/>
+          <input id="cc-exercise-text" value={text} maxLength={300} placeholder="10 kettlebell squats, 20 min rowing" onChange={event => setText(event.target.value)} autoFocus/>
           {speechDictationSupported() && <button type="button" className="cc-secondary" aria-pressed={listening} aria-label={listening ? 'Stop dictation' : 'Dictate'} onClick={listen}>{listening ? <Square size={16}/> : <Mic size={16}/>}</button>}
         </div>
-        {estimate && <p className="cc-muted">{estimate.kcal > 0 ? `About −${kcal(estimate.kcal)} kcal net · ${Math.round(estimate.minutes)} min · ${toStoredItems(estimate.items).map(formatExerciseItem).join(', ')}` : 'No activity recognised yet.'}{estimate.unrecognized.length ? ` · not counted: ${estimate.unrecognized.join(', ')}` : ''}</p>}
+        {estimate && (recognised
+          ? <div className="cc-exercise-preview" aria-live="polite"><strong>About {kcal(estimate.kcal)} kcal burned · {Math.round(estimate.minutes) || '<1'} min{estimate.routine ? ` · ${estimate.routine}` : ''}</strong>
+              <ul>{toStoredItems(estimate.items).map((item, i) => <li key={i}>{formatExerciseItem(item)}</li>)}</ul>
+              {estimate.notes.length > 0 && <small>Note: {estimate.notes.join(', ')}</small>}
+              {estimate.unrecognized.length > 0 && <small>Not counted: {estimate.unrecognized.join(', ')}</small>}</div>
+          : <p className="cc-muted" role="status">No exercise recognised yet, so nothing can be saved. Try a chip above, or “10 kettlebell squats”, “20 min rowing”.</p>)}
         <fieldset className="cc-exercise-when">
-          <legend className="cc-label">When</legend>
-          <div className="cc-exercise-when-picks" role="radiogroup" aria-label="When">{(Object.keys(WHEN_LABEL) as ExerciseWhen[]).map(key => <button key={key} type="button" role="radio" aria-checked={when === key} className={when === key ? 'cc-chip cc-chip-on' : 'cc-chip'} onClick={() => pickWhen(key)}>{WHEN_LABEL[key]}</button>)}</div>
-          {when !== 'now' && <label className="cc-exercise-time">Time <input type="time" value={time} step={300} required onChange={event => setTime(event.target.value)} aria-label={`Time ${WHEN_LABEL[when].toLowerCase()}`}/></label>}
+          <legend className="cc-label">When{!whenPick && detected ? <span className="cc-exercise-auto"> · set from “{detected.phrase}”</span> : null}</legend>
+          <div className="cc-exercise-when-picks" role="radiogroup" aria-label="When">{(Object.keys(WHEN_LABEL) as ExerciseWhen[]).map(key => <button key={key} type="button" role="radio" aria-checked={when === key} className={when === key ? 'cc-chip cc-chip-on' : 'cc-chip'} onClick={() => { setWhenPick({ when: key, time: key === 'now' ? '' : defaultTime(key) }); setMessage(''); }}>{WHEN_LABEL[key]}</button>)}</div>
+          {when !== 'now' && <label className="cc-exercise-time">Time <input type="time" value={time} step={300} required onChange={event => setWhenPick({ when, time: event.target.value })} aria-label={`Time ${WHEN_LABEL[when].toLowerCase()}`}/></label>}
         </fieldset>
-        <div className="cc-exercise-row"><button type="submit" className="cc-primary" disabled={busy || !estimate || estimate.kcal <= 0}>{busy ? 'Saving…' : 'Save'}</button><button type="button" className="cc-text-button" onClick={close}>Cancel</button></div>
+        <fieldset className="cc-exercise-when cc-exercise-partial">
+          <legend className="cc-label">How much{partialPick === null && estimate?.fractionSource === 'text' ? <span className="cc-exercise-auto"> · set from your words</span> : null}</legend>
+          <div className="cc-exercise-when-picks" role="radiogroup" aria-label="How much of it">
+            <button type="button" role="radio" aria-checked={!partial} className={!partial ? 'cc-chip cc-chip-on' : 'cc-chip'} onClick={() => setPartialPick(100)}>All of it</button>
+            {PARTIAL_STEPS.map(p => <button key={p} type="button" role="radio" aria-checked={partial && percent === p} className={partial && percent === p ? 'cc-chip cc-chip-on' : 'cc-chip'} onClick={() => setPartialPick(p)}>Partial {p}%</button>)}
+          </div>
+        </fieldset>
+        <div className="cc-exercise-row"><button type="submit" className="cc-primary" disabled={busy || !recognised}>{busy ? 'Saving…' : 'Save'}</button><button type="button" className="cc-text-button" onClick={close}>Cancel</button></div>
       </form>}
     {state.status === 'error' && <p className="cc-muted" role="alert">Exercise could not load. <button type="button" className="cc-text-button" onClick={state.reload}>Retry</button></p>}
     {message && <p className="cc-muted" role="status">{message}</p>}
-    {state.entries.length > 0 && <ul className="cc-exercise-list">{state.entries.map(e => <li key={e.id}><span className="cc-exercise-entry"><span>{e.description}</span>{e.items.length > 0 && <small className="cc-exercise-items">{e.items.map(formatExerciseItem).join(' · ')}</small>}</span><span>−{kcal(e.kcal)} kcal · {clock(e.at)}</span><button type="button" className="cc-text-button" disabled={busy} onClick={() => void undo(e)}>Undo</button></li>)}</ul>}
+    {state.entries.length > 0 && <ul className="cc-exercise-list">{state.entries.map(e => <li key={e.id}><span className="cc-exercise-entry"><span>{e.description}</span>{e.items.length > 0 && <small className="cc-exercise-items">{e.items.map(formatExerciseItem).join(' · ')}</small>}</span><span className="cc-exercise-burn">{burnedLabel(e.kcal)} · {clock(e.at)}</span><button type="button" className="cc-text-button" disabled={busy} onClick={() => void undo(e)}>Undo</button></li>)}</ul>}
   </div>;
 }

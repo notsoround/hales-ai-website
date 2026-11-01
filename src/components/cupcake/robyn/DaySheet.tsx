@@ -9,7 +9,7 @@ const METRICS: Record<MetricKey, { title: string; section: string; value: (d: Da
   food: { title: 'Logged calories by day', section: 'food', value: d => d.food_kcal === null ? '—' : `${fmt(d.food_kcal)} kcal`, raw: d => d.food_kcal },
   meals: { title: 'Meals by day', section: 'food', value: d => d.meals.length ? `${d.meals.length} meal${d.meals.length === 1 ? '' : 's'}` : '—', raw: d => d.meals.length || null },
   steps: { title: 'Steps by day', section: 'steps', value: d => d.steps === null ? '—' : fmt(d.steps), raw: d => d.steps },
-  exercise: { title: 'Exercise by day', section: 'exercise', value: d => d.workouts.length ? `${fmt(d.exercise_minutes)} min · ${fmt(d.exercise_kcal)} kcal` : '—', raw: d => d.workouts.length ? d.exercise_minutes : null },
+  exercise: { title: 'Exercise by day', section: 'exercise', value: d => d.workouts.length ? `${fmt(d.exercise_minutes)} min · ${fmt(d.exercise_kcal)} kcal burned` : '—', raw: d => d.workouts.length ? d.exercise_minutes : null },
   sleep: { title: 'Sleep by night', section: 'sleep', value: d => d.sleep ? hm(d.sleep.asleep_min ?? d.sleep.session_min) : '—', raw: d => d.sleep ? (d.sleep.asleep_min ?? d.sleep.session_min) : null },
   weight: { title: 'Weigh-ins by day', section: 'weight', value: d => d.weight.length ? `${d.weight[d.weight.length - 1].lb.toFixed(1)} lb` : '—', raw: d => d.weight.length ? d.weight[d.weight.length - 1].lb : null },
 };
@@ -32,7 +32,7 @@ function DayBody({ day }: { day: Day }) {
     <>
       <div className="rv-sheet-kpis">
         <div className="rv-s-food"><span className="rv-label"><i className="rv-sdot" />Food</span><strong>{day.food_kcal === null ? '—' : fmt(day.food_kcal)}</strong><span className="rv-sub">kcal · {day.meals.length} meals</span></div>
-        <div className="rv-s-exercise"><span className="rv-label"><i className="rv-sdot" />Exercise</span><strong>{fmt(day.exercise_minutes)}</strong><span className="rv-sub">min · {fmt(day.exercise_kcal)} kcal</span></div>
+        <div className="rv-s-exercise"><span className="rv-label"><i className="rv-sdot" />Exercise</span><strong>{fmt(day.exercise_minutes)}</strong><span className="rv-sub">min · {fmt(day.exercise_kcal)} kcal burned</span></div>
         <div className="rv-s-steps"><span className="rv-label"><i className="rv-sdot" />Steps</span><strong>{fmt(day.steps)}</strong><span className="rv-sub">{day.steps === null ? 'no upload' : 'phone'}</span></div>
         <div className="rv-s-sleep"><span className="rv-label"><i className="rv-sdot" />Sleep</span><strong>{sl ? hm(sl.asleep_min ?? sl.session_min) : '—'}</strong><span className="rv-sub">{sl ? sl.source : 'not tracked'}</span></div>
       </div>
@@ -53,7 +53,7 @@ function DayBody({ day }: { day: Day }) {
       <section className="rv-sheet-sec rv-s-exercise">
         <h3><i className="rv-sdot" />Workouts</h3>
         {day.workouts.length ? <ul className="rv-rows">{day.workouts.map((w, i) => (
-          <li key={i}><div className="rv-row-main"><span className="rv-row-time">{time12(w.time)}</span><span className="rv-row-desc">{w.description}</span><span className="rv-row-val">{fmt(w.minutes)} min · {fmt(w.kcal)} kcal</span></div></li>))}</ul>
+          <li key={i}><div className="rv-row-main"><span className="rv-row-time">{time12(w.time)}</span><span className="rv-row-desc">{w.description}</span><span className="rv-row-val">{fmt(w.minutes)} min · {fmt(w.kcal)} kcal burned</span></div></li>))}</ul>
           : <Empty>No workouts logged.</Empty>}
       </section>
 

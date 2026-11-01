@@ -29,9 +29,9 @@
 .cc-exercise-items{color:var(--ds-exercise-ink,#6BE08A);font-size:12px;line-height:1.35;white-space:normal}
 .cc-exercise-when{border:0;margin:0;padding:0;display:grid;gap:6px;min-width:0}.cc-exercise-when legend{padding:0;margin-bottom:6px}
 .cc-exercise-when-picks{display:flex;flex-wrap:wrap;gap:6px}
-.cc-exercise-when .cc-chip{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--cc-line);background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer}
-.cc-exercise-when .cc-chip-on{border-color:var(--ds-exercise,#30D158);background:var(--ds-exercise-tint,rgba(48,209,88,.14));color:var(--ds-exercise-ink,#6BE08A);font-weight:600}
-.cc-exercise-when .cc-chip:focus-visible{outline:2px solid var(--cc-pink);outline-offset:1px}
+.cc-exercise-form .cc-chip{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--cc-line);background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer}
+.cc-exercise-form .cc-chip-on{border-color:var(--ds-exercise,#30D158);background:var(--ds-exercise-tint,rgba(48,209,88,.14));color:var(--ds-exercise-ink,#6BE08A);font-weight:600}
+.cc-exercise-form .cc-chip:focus-visible{outline:2px solid var(--cc-pink);outline-offset:1px}
 .cc-exercise-time{display:flex;align-items:center;gap:8px;font-size:14px}
 .cc-exercise-time input{min-height:44px;padding:0 12px;border:1px solid var(--cc-line);border-radius:12px;background:#16141c;color:inherit;font:inherit;color-scheme:dark}
 .cc-last-night{display:grid;gap:4px}.cc-last-night p{margin:0}
@@ -42,3 +42,11 @@
 .cc-last-night-src{font-size:12px;opacity:.7}
 .cc-last-night .cc-eyebrow{display:inline-flex;align-items:center;gap:6px}
 .cc-energy-stats .cc-na{font-weight:600;opacity:.6;font-size:.9em}
+
+.cc-exercise-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cc-exercise-preview{display:grid;gap:4px;padding:10px 12px;border-radius:12px;background:var(--ds-exercise-tint,rgba(48,209,88,.14));font-size:13px}
+.cc-exercise-preview strong{color:var(--ds-exercise-ink,#6BE08A);font-size:14px}
+.cc-exercise-preview ul{margin:0;padding-left:18px;display:grid;gap:2px}.cc-exercise-preview small{color:var(--cc-muted,#b9b2c4)}
+.cc-exercise-auto{font-weight:400;color:var(--ds-exercise-ink,#6BE08A);font-size:12px}
+.cc-exercise-burn{color:var(--ds-exercise-ink,#6BE08A);white-space:nowrap}
+.cc-energy-unit-word{font-size:12px;font-weight:500;opacity:.8}
