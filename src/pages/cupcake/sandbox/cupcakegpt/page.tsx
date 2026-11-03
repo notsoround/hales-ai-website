@@ -79,7 +79,7 @@ async function loadDashboardStats(range: DashboardRange, cursor?: string): Promi
   const data = await readJson(response) as FeedResponse;
   const entries: DashboardEntry[] = (data.items || []).map((item, index) => ({ id: item.id || `${item.type}-${item.ts || index}`, type: item.type, date: item.date, time: item.time, title: item.title, body: item.body, amount: item.amount ?? null, currency: item.currency ?? null, calories: item.calories ?? null, details: item.details, icon: item.icon }));
   const coverageNote = data.coverage ? `${data.coverage.complete === false ? 'Partial coverage. ' : ''}${(data.coverage.notes || []).join(' ')}`.trim() : '';
-  return { range: { start: range.preset==='all'?(data.coverage?.start||range.start):range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: data.totals?.calories || 0, spend: data.totals?.spendUsd || 0, currency: 'USD', weightLb: data.totals?.weightLb ?? null, weightDate: data.totals?.weightDate || '' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, nextCursor:data.nextCursor,totalCount:data.coverage?.totalCount,outcomes:data.outcomes, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
+  return { range: { start: range.preset==='all'?(data.coverage?.start||range.start):range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: typeof data.totals?.calories === 'number' ? data.totals.calories : null, spend: typeof data.totals?.spendUsd === 'number' ? data.totals.spendUsd : null, currency: 'USD', weightLb: data.totals?.weightLb ?? null, weightDate: data.totals?.weightDate || '' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, nextCursor:data.nextCursor,totalCount:data.coverage?.totalCount,outcomes:data.outcomes, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
 }
 
 type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
@@ -322,18 +322,6 @@ const CupcakeGPT: React.FC = () => {
     const before=(e:Event)=>{e.preventDefault();setInstall(e as InstallPrompt);};window.addEventListener('beforeinstallprompt',before);
     return()=>{links.forEach(l=>l.remove());window.removeEventListener('beforeinstallprompt',before);};
   },[]);
-  useEffect(()=>{
-    // Lock the phone view to the viewport on Cupcake only (the public site keeps normal zoom).
-    // maximum-scale=1 also stops iOS from zooming in when a small input is focused.
-    const meta=document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-    const previous=meta?.getAttribute('content')??null;
-    const fit=previous&&/viewport-fit\s*=\s*cover/.test(previous)?', viewport-fit=cover':'';
-    if(meta)meta.setAttribute('content',`width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no${fit}`);
-    // iOS Safari ignores user-scalable=no for pinch; cancelling its gesture event blocks pinch-zoom there.
-    const noPinch=(e:Event)=>e.preventDefault();
-    for(const type of ['gesturestart','gesturechange'])document.addEventListener(type,noPinch,{passive:false});
-    return()=>{if(meta&&previous!==null)meta.setAttribute('content',previous);for(const type of ['gesturestart','gesturechange'])document.removeEventListener(type,noPinch);};
-  },[]);
   const promptInstall = () => { if (!install) return; void install.prompt().then(() => install.userChoice).then(() => setInstall(null)); };
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
@@ -355,10 +343,10 @@ const CupcakeGPT: React.FC = () => {
 
 /** One headline weight (same rule as Robyn's page: latest dated reading, Robyn's assessment first on a tie), with date and source; other readings are detail. */
 function TodayWeight({onOpen}:{onOpen:()=>void}) {
- const [scale,setScale]=useState<WeightRecord[]|null>(null),[body,setBody]=useState<Body|null>(null),[error,setError]=useState(false),[loading,setLoading]=useState(true);
+ const [scale,setScale]=useState<WeightRecord[]|null>(null),[body,setBody]=useState<Body|null>(null),[error,setError]=useState(false),[scaleError,setScaleError]=useState(false),[loading,setLoading]=useState(true);
  useEffect(()=>{let live=true;void Promise.allSettled([loadWeightPage(),libraryRequest<{body:Body}>({action:'body_headline_get'})]).then(([w,b])=>{if(!live)return;
   if(w.status==='fulfilled')setScale(w.value.latestMeasurement?[w.value.latestMeasurement,...w.value.measurements.filter(m=>m.id!==w.value.latestMeasurement!.id)]:[]);
-  if(b.status==='fulfilled')setBody(b.value.body||null);setError(w.status==='rejected'&&b.status==='rejected');setLoading(false);});return()=>{live=false;};},[]);
+  if(b.status==='fulfilled')setBody(b.value.body||null);setScaleError(w.status==='rejected');setError(w.status==='rejected'&&b.status==='rejected');setLoading(false);});return()=>{live=false;};},[]);
  const latest=scale?.[0]||null,hb=body?.weight&&body.weight.source!=='scale'?body.weight:null;
  const md=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'UTC',month:'short',day:'numeric'}).format(new Date(iso+'T12:00:00Z'));
  // Change: vs the previous reading from the same source (headline from a check-in), or vs about a week earlier (scale).
@@ -368,8 +356,8 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
  const age=!hb&&latest?weightAge(latest.measuredAt):null;
   const trend=scale&&scale.length?scale.filter(m=>Date.parse(scale[0].measuredAt)-Date.parse(m.measuredAt)<=30*864e5).map(m=>m.weightLb).reverse():[];
  return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen}><span className="cc-weight-eyebrow"><ToneIcon tone="weight"/>Weight</span>{trend.length>2&&<span className="cc-weight-spark"><Sparkline values={trend}/><small>Scale · 30 days</small></span>}
-  <strong className={!hb&&!latest?'cc-weight-none':undefined}>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:'No weigh-in yet'}</strong>
-  <span>{hb?`${hb.label} · ${md(hb.date)}`:latest?`${weightProvenanceLabel(latest.basis,latest.source)} · ${weightTime(latest.measuredAt)}${age?` · ${age}`:''}`:error?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
+  <strong className={!hb&&!latest?'cc-weight-none':undefined}>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:scaleError?'Scale weight unavailable':'No weigh-in yet'}</strong>
+  <span>{hb?`${hb.label} · ${md(hb.date)}`:latest?`${weightProvenanceLabel(latest.basis,latest.source)} · ${weightTime(latest.measuredAt)}${age?` · ${age}`:''}`:error||scaleError?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
   {change&&<span className={`cc-weight-change ${change.v<0?'cc-good':change.v>0?'cc-bad':''}`}>{change.v>0?'▲ +':change.v<0?'▼ −':'= '}{Math.abs(change.v).toFixed(1)} lb vs {change.ref}</span>}
   {others.length>0&&<span className="cc-weight-others">Other readings: {others.join(' · ')}</span>}
   {!loading&&!error&&<span className="cc-weight-more">View history →</span>}</button>;
@@ -410,6 +398,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
       {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text="Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
+      {!err&&timelineItems&&(exercise.status==='error'||exercise.status==='unavailable')&&<p className="cc-muted cc-small" role="status">{exercise.status==='error'?'Workouts couldn’t load, so any logged today are missing from this timeline.':'Workouts are not available from the library, so they are not shown here.'}</p>}
     </section>
     <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exercise} openLogRequest={logExerciseRequest}/></SectionBoundary>
     <SignalSheet open={!!selected} label={selected?.type==='intervention'?'Call details':'Details'} onClose={()=>setSelected(null)}>{selected&&<SignalDetail entry={selected} backLabel="Back to Today" onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={entry=>{setSelected(null);openTalkAbout(entry);}}/>}</SignalSheet>

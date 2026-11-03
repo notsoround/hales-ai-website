@@ -5,6 +5,7 @@ import { nutritionDays, nutritionDay } from './nutritionModel';
 import type { useNutritionData } from './nutritionApi';
 import { privateAccessHeaders } from './privateAccess';
 import { ToneIcon } from './design/ToneIcon';
+import { todayKcalBit } from './dataState';
 import { OUTCOME_LABEL, dayHeading, freshness, lastNDays, latestQuote, savesWeek, timelineRow, type PulseItem, type QuoteMoment, type Tone } from './pulseModel';
 
 const API = 'https://automate.hales.ai/webhook';
@@ -43,7 +44,7 @@ export function SavesHero({ todayItems, nutrition, onOpenWins, onTalkAbout }: { 
   const todayBits = [
     s ? { k: 'saves', v: String(s.todayWins), l: s.todayWins === 1 ? 'save' : 'saves' } : null,
     spentToday !== null ? { k: 'spent', v: `$${spentToday.toFixed(2)}`, l: 'spent' } : null,
-    food && food.meals.length ? { k: 'kcal', v: Math.round(food.calories).toLocaleString('en-US'), l: 'kcal eaten' } : null,
+    (() => { const bit = todayKcalBit(food); return bit ? { k: 'kcal', ...bit } : null; })(),
   ].filter((b): b is { k: string; v: string; l: string } => !!b);
   return <div className="cc-pulse">
     <section className="cc-saves" aria-labelledby="cc-saves-title">

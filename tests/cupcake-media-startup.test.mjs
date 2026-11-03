@@ -47,6 +47,10 @@ function scenario({ deadline = 1000, meeting = false } = {}) {
     putDraft: async () => events.push('draft-created'), setHeardAudio: () => {}, setLevel: () => {}, setInputName: () => {},
     AudioContext:class {async resume(){} close(){} createMediaStreamSource(){return{connect(){}}}createAnalyser(){return {fftSize:512,getByteTimeDomainData(){}}}},
     requestAnimationFrame:()=>1,deleteDraft:async id=>events.push(['draft-deleted',id]),
+    // Talk-about-this-call seed (added with the missed-call Talk card); no call is pre-selected in these startup tests.
+    callSeed:null,setCallSeed:()=>{},TALK_SEED_KEY:'synthetic-talk-seed',
+    // Talk preloads the Daily SDK alongside the permission prompt; any call object creation counts as a provider session.
+    loadDaily:async()=>({createCallObject(){events.push('provider-request');throw Error('Provider must never be reached by pending-permission tests');}}),sessionStorage:{setItem(){},getItem(){return null;},removeItem(){}},
   };
   vm.createContext(scope); vm.runInContext(js, scope);
   const start = () => meeting ? scope.startRecording(true) : scope.mode === 'record' ? scope.startRecording(false) : scope.startVoice();

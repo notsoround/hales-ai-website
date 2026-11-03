@@ -244,22 +244,22 @@ function Stats2({ items }: { items: [string, string][] }) {
   return <dl className="rv-stats">{items.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>;
 }
 
-function Ring({ value, target, label, unit, tone, digits = 0, note }: { value: number | null; target: number | undefined; label: string; unit: string; tone: string; digits?: number; note?: string }) {
+function Ring({ value, target, label, unit, tone, digits = 0, note, partial = false }: { value: number | null; target: number | undefined; label: string; unit: string; tone: string; digits?: number; note?: string; partial?: boolean }) {
   if (target === undefined) return null;
   const r = 34, c = 2 * Math.PI * r;
   const f = value === null ? 0 : value / target;
   const over = f > 1.05;
   return (
     <div className={`rv-ring rv-s-${tone}${value === null ? ' rv-ring-none' : ''}`}>
-      <svg viewBox="0 0 84 84" role="img" aria-label={`${label}: ${value === null ? 'not tracked' : `${fmt(value, digits)} of ${fmt(target)} ${unit}`}`}>
+      <svg viewBox="0 0 84 84" role="img" aria-label={`${label}: ${value === null ? (partial ? 'unknown, not estimated for logged meals' : 'not tracked') : `${fmt(value, digits)} of ${fmt(target)} ${unit}${partial ? ', partial: some meals have no estimate' : ''}`}`}>
         <circle cx="42" cy="42" r={r} className="rv-ring-track" />
         {value !== null && <circle cx="42" cy="42" r={r} className="rv-ring-fill" strokeDasharray={`${Math.min(1, f) * c} ${c}`} transform="rotate(-90 42 42)" />}
         {over && <circle cx="42" cy="42" r={r} className="rv-ring-over" strokeDasharray={`${Math.min(1, f - 1) * c} ${c}`} transform="rotate(-90 42 42)" />}
         <text x="42" y="40" textAnchor="middle" className="rv-ring-pct">{value === null ? '—' : `${Math.round(f * 100)}%`}</text>
-        <text x="42" y="54" textAnchor="middle" className="rv-ring-sub">{value === null ? 'not tracked' : 'of target'}</text>
+        <text x="42" y="54" textAnchor="middle" className="rv-ring-sub">{value === null ? (partial ? 'unknown' : 'not tracked') : partial ? 'partial' : 'of target'}</text>
       </svg>
       <div className="rv-label">{label}</div>
-      <div className="rv-ring-nums">{value === null ? <span className="rv-sub">{note ?? 'Not tracked in Cupcake'}</span> : <><b>{fmt(value, digits)}</b> / {fmt(target)} {unit}</>}</div>
+      <div className="rv-ring-nums">{value === null ? <span className="rv-sub">{note ?? (partial ? 'Unknown · not estimated for logged meals' : 'Not tracked in Cupcake')}</span> : <><b>{fmt(value, digits)}</b> / {fmt(target)} {unit}{partial && <span className="rv-sub"> · partial</span>}</>}</div>
     </div>
   );
 }
@@ -271,14 +271,14 @@ export function PlanVsActual({ coach, days }: { coach: Coach; days: Day[] }) {
   return (
     <Card title="Plan vs actual" kicker="Daily targets" tone="food" sample={coach.sample} wide aside={<span className="rv-sub rv-hint">Average per logged day · {a.days} days with meals</span>}>
       <div className="rv-rings">
-        <Ring label="Calories" value={a.kcal} target={tg.kcal} unit="kcal" tone="food" />
-        <Ring label="Protein" value={a.protein_g} target={tg.protein_g} unit="g" tone="food" />
-        <Ring label="Fat" value={a.fat_g} target={tg.fat_g} unit="g" tone="food" />
-        <Ring label="Carbs" value={a.carbs_g} target={tg.carbs_g} unit="g" tone="food" />
+        <Ring label="Calories" value={a.kcal} partial={a.partial.kcal} target={tg.kcal} unit="kcal" tone="food" />
+        <Ring label="Protein" value={a.protein_g} partial={a.partial.protein_g} target={tg.protein_g} unit="g" tone="food" />
+        <Ring label="Fat" value={a.fat_g} partial={a.partial.fat_g} target={tg.fat_g} unit="g" tone="food" />
+        <Ring label="Carbs" value={a.carbs_g} partial={a.partial.carbs_g} target={tg.carbs_g} unit="g" tone="food" />
         <Ring label="Steps" value={a.steps} target={tg.steps} unit="" tone="steps" />
         <Ring label="Water" value={null} target={tg.water_fl_oz} unit="fl oz" tone="sleep" note={`Target ${fmt(tg.water_fl_oz)} fl oz · not tracked`} />
       </div>
-      <p className="rv-foot">Targets from Robyn&rsquo;s plan; actuals from Cupcake logs. Calorie and macro figures are estimates, and days without meals are left out.</p>
+      <p className="rv-foot">Targets from Robyn&rsquo;s plan; actuals from Cupcake logs. Calorie and macro figures are estimates, and days without meals are left out.{Object.values(a.partial).some(Boolean) ? ' Partial: some logged meals have no estimate for a figure, so it averages only the known values (unknown is not counted as 0).' : ''}</p>
     </Card>
   );
 }

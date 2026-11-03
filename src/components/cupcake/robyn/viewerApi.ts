@@ -69,13 +69,30 @@ export function adherence(template: Coach['workout_template'], days: Day[]) {
     return { date: d.date, assigned, planned, done, sessions: d.workouts.length, state };
   });
 }
-/** Average per logged day over the window's current days (macros summed from meals). */
+type FoodKey = 'kcal' | 'protein_g' | 'fat_g' | 'carbs_g';
+const mealValue = (m: Meal, k: FoodKey): number | null => typeof m[k] === 'number' && Number.isFinite(m[k]) ? m[k] as number : null;
+/** One day's logged calories: `value` sums only the meals with a known estimate, `partial` when any meal's calories
+ *  are unknown or estimated as partial. A meal without an estimate is unknown, never 0 kcal. */
+export function dayFoodKcal(d: Day): { value: number | null; partial: boolean } {
+  if (!d.meals.length) return { value: d.food_kcal, partial: false };
+  const known = d.meals.map(m => mealValue(m, 'kcal')).filter((v): v is number => v !== null);
+  return { value: known.length ? known.reduce((a, v) => a + v, 0) : null, partial: known.length < d.meals.length || d.meals.some(m => m.partial) };
+}
+/** Average per logged day over the window's current days (macros summed from meals).
+ *  Unknown values are left out rather than counted as 0: a metric is averaged over the days with at least one known
+ *  value, is null when no meal has it, and is flagged partial when any logged meal lacks it. */
 export function dailyActuals(days: Day[]) {
   const logged = days.filter(d => d.meals.length);
-  const avg = (f: (d: Day) => number) => logged.length ? logged.reduce((a, d) => a + f(d), 0) / logged.length : null;
-  const sum = (d: Day, k: 'protein_g' | 'fat_g' | 'carbs_g') => d.meals.reduce((a, m) => a + (m[k] ?? 0), 0);
+  const metric = (k: FoodKey) => {
+    const perDay = logged.map(d => { const known = d.meals.map(m => mealValue(m, k)).filter((v): v is number => v !== null); return known.length ? known.reduce((a, v) => a + v, 0) : null; })
+      .filter((v): v is number => v !== null);
+    const partial = logged.some(d => d.meals.some(m => mealValue(m, k) === null || (k === 'kcal' && m.partial)));
+    return { value: perDay.length ? perDay.reduce((a, v) => a + v, 0) / perDay.length : null, partial };
+  };
+  const kcal = metric('kcal'), protein = metric('protein_g'), fat = metric('fat_g'), carbs = metric('carbs_g');
   const steps = days.filter(d => d.steps !== null);
-  return { days: logged.length, kcal: avg(d => d.food_kcal ?? 0), protein_g: avg(d => sum(d, 'protein_g')), fat_g: avg(d => sum(d, 'fat_g')), carbs_g: avg(d => sum(d, 'carbs_g')),
+  return { days: logged.length, kcal: kcal.value, protein_g: protein.value, fat_g: fat.value, carbs_g: carbs.value,
+    partial: { kcal: kcal.partial, protein_g: protein.partial, fat_g: fat.partial, carbs_g: carbs.partial },
     steps: steps.length ? steps.reduce((a, d) => a + (d.steps ?? 0), 0) / steps.length : null, stepDays: steps.length, water_fl_oz: null as number | null };
 }
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };

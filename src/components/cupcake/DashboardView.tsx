@@ -10,11 +10,12 @@ import { PersonalOutcomes } from './PersonalOutcomes';
 import { dashboardSelectionEntries, interventionGroups, interventionOutcome, mergeEntries, metricScales, outcomeRate, rangeLabel, transactionAmount, validDashboardDates, type DashboardSelection } from './dashboardModel';
 import { callPlace, callSubtitle, displaySummary, listTitle, ownerQuote, signalHeading } from './pulseModel';
 import { OutcomeChip } from './TodayPulse';
+import { calorieTotal } from './dataState';
 
 export type DashboardRange = { preset: 'day' | 'week' | 'month' | 'custom' | 'all'; start: string; end: string; timezone: 'America/Chicago' };
 export type DashboardEntry = { id: string; type: string; date: string; time?: string; title: string; body?: string; amount?: number | null; currency?: string | null; calories?: number | null; parentId?: string | null; source?: string; category?: string; saved?: boolean | string; icon?: string; details?: { mealId?: string | null; outcome?: unknown; boughtAnyway?: unknown; [key: string]: unknown } };
 export type FoodMeal = { id: string; status: string; createdAt?: string; photoTakenAt?: string; autoLogRequested?: boolean; consumedAt?: string; pendingConsumedAt?: string; logState?: string; countedInTotals?: boolean; calorieRange?: { low: number; high: number } | null; description?: string; total?: Record<string, number | null>; warnings?: string[]; lookupWarnings?: string[]; totalIsPartial?: boolean; items?: Array<{ id: string; name: string; quantity?: number | null; unit?: string | null; nutrition?: Record<string, number | null>; provenance?: string; calculation?: string; confidence?: string; portionAssumption?: string; calorieRange?: { low: number; high: number } | null; variantWarning?: string; sourceCitations?: Array<{ title: string; url: string }> }>; needsClarification?: boolean; clarification?: string | null; sheetLoggedAt?: string | null };
-export type DashboardStats = { range: { start: string; end: string; timezone?: string; coverage?: string; spendSource?: string }; totals: { calories: number; spend: number; currency?: string; weightLb?: number | null; weightDate?: string }; series: Array<{ date: string; calories: number; spend: number }>; entries: DashboardEntry[]; nextCursor?: string | null; totalCount?: number; outcomes?: {wins:number;losses:number;missed:number;unscored:number;interventions:number}; coverage?: string };
+export type DashboardStats = { range: { start: string; end: string; timezone?: string; coverage?: string; spendSource?: string }; totals: { calories: number | null; spend: number | null; currency?: string; weightLb?: number | null; weightDate?: string }; series: Array<{ date: string; calories: number; spend: number }>; entries: DashboardEntry[]; nextCursor?: string | null; totalCount?: number; outcomes?: {wins:number;losses:number;missed:number;unscored:number;interventions:number}; coverage?: string };
 export type DashboardLoader = (range: DashboardRange, cursor?: string) => Promise<DashboardStats>;
 export type InterventionUpdate = (entry: DashboardEntry, note: string, boughtAnyway: boolean | null) => Promise<void>;
 export type TalkAboutEntry = (entry: DashboardEntry) => void;
@@ -148,6 +149,8 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
   const counts = ready ? countsFor(ready) : null;
   const rate = counts ? outcomeRate(counts) : null;
   const partial = partialCoverageLine(ready?.coverage);
+  // Missing totals are unavailable (—), and food entries without an estimate mark the calorie total partial.
+  const calorie = ready ? calorieTotal(ready.totals.calories, ready.entries) : null;
   const latest = latestWeight ? { lb: latestWeight.weightLb, at: Date.parse(latestWeight.measuredAt) } : null;
   const weightAge = latest ? relativeWeightAge(latest.at) : '';
   const weightButton = <button className="cc-dashboard-card" onClick={() => setWeightOpen(true)}><strong>{latest ? `${latest.lb.toFixed(1)} lb` : '—'}</strong><span>{latest ? `${weightProvenanceLabel(latestWeight?.basis, latestWeight?.source)} ${weightTime(latest.at)}${weightAge ? ` · ${weightAge}` : ''} · View graph` : weightError ? 'Weight unavailable · Open to retry' : 'Weight history · Awaiting a timestamped weigh-in'}</span></button>;
@@ -175,8 +178,8 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
         <div className="cc-card"><h3>Purchase decision win rate</h3><p className="cc-muted">{rate.percent === null ? 'No scored phone outcomes in this range' : `${rate.percent}% recorded wins`}</p><p className="cc-muted">{counts.wins} wins out of {rate.scored} scored outcomes ({counts.wins} wins + {counts.losses} losses). {rate.excluded} missed or unscored records excluded.</p></div>
         <PersonalOutcomes range={range} refreshKey={refreshKey} />
         {preset!=='all'&&<div className="cc-dashboard-cards">
-          <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Food entries', kind: 'food' })}><strong>{Math.round(ready.totals.calories).toLocaleString()}</strong><span>Est. calories logged · View food</span></button>
-          <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: `${ready.totals.currency || 'USD'} transactions`, kind: 'transaction', currency: ready.totals.currency })}><strong>{moneyPrefix}{ready.totals.spend.toFixed(2)}</strong><span>{ready.range.spendSource === 'Plaid posted outflows' ? 'Posted spend' : 'Logged spend'} · View transactions</span></button>
+          <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Food entries', kind: 'food' })}><strong>{calorie!.value}</strong><span>{!calorie!.available ? 'Calories unavailable' : calorie!.partial ? `Est. calories logged · partial, ${calorie!.unknown} without an estimate` : 'Est. calories logged'} · View food</span></button>
+          <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: `${ready.totals.currency || 'USD'} transactions`, kind: 'transaction', currency: ready.totals.currency })}><strong>{ready.totals.spend === null ? '—' : `${moneyPrefix}${ready.totals.spend.toFixed(2)}`}</strong><span>{ready.totals.spend === null ? 'Spend unavailable' : ready.range.spendSource === 'Plaid posted outflows' ? 'Posted spend' : 'Logged spend'} · View transactions</span></button>
           {weightButton}
         </div>}
         {preset==='all'&&<button className="cc-dashboard-card" onClick={()=>setWeightOpen(true)}>Weight history · Open graph</button>}

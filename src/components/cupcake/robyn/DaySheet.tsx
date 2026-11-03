@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react';
 import type { Day } from './viewerApi.ts';
-import { fmt, hm, longDate } from './viewerApi.ts';
+import { dayFoodKcal, fmt, hm, longDate } from './viewerApi.ts';
+
+/** Logged kcal for a day; a day with any meal lacking an estimate is labelled partial (unknown is not 0). */
+const foodKcalText = (d: Day, unit = true): string => { const f = dayFoodKcal(d); return f.value === null ? (f.partial ? 'unknown' : '—') : `${fmt(f.value)}${unit ? ' kcal' : ''}${f.partial ? ' · partial' : ''}`; };
 
 export type SheetView = { kind: 'day'; date: string } | { kind: 'metric'; metric: MetricKey };
 export type MetricKey = 'food' | 'meals' | 'steps' | 'exercise' | 'sleep' | 'weight';
 
 const METRICS: Record<MetricKey, { title: string; section: string; value: (d: Day) => string; raw: (d: Day) => number | null }> = {
-  food: { title: 'Logged calories by day', section: 'food', value: d => d.food_kcal === null ? '—' : `${fmt(d.food_kcal)} kcal`, raw: d => d.food_kcal },
+  food: { title: 'Logged calories by day', section: 'food', value: d => foodKcalText(d), raw: d => dayFoodKcal(d).value },
   meals: { title: 'Meals by day', section: 'food', value: d => d.meals.length ? `${d.meals.length} meal${d.meals.length === 1 ? '' : 's'}` : '—', raw: d => d.meals.length || null },
   steps: { title: 'Steps by day', section: 'steps', value: d => d.steps === null ? '—' : fmt(d.steps), raw: d => d.steps },
   exercise: { title: 'Exercise by day', section: 'exercise', value: d => d.workouts.length ? `${fmt(d.exercise_minutes)} min · ${fmt(d.exercise_kcal)} kcal burned` : '—', raw: d => d.workouts.length ? d.exercise_minutes : null },
@@ -31,7 +34,7 @@ function DayBody({ day }: { day: Day }) {
   return (
     <>
       <div className="rv-sheet-kpis">
-        <div className="rv-s-food"><span className="rv-label"><i className="rv-sdot" />Food</span><strong>{day.food_kcal === null ? '—' : fmt(day.food_kcal)}</strong><span className="rv-sub">kcal · {day.meals.length} meals</span></div>
+        <div className="rv-s-food"><span className="rv-label"><i className="rv-sdot" />Food</span><strong>{dayFoodKcal(day).value === null ? '—' : fmt(dayFoodKcal(day).value)}</strong><span className="rv-sub">kcal · {day.meals.length} meals{dayFoodKcal(day).partial ? ' · partial' : ''}</span></div>
         <div className="rv-s-exercise"><span className="rv-label"><i className="rv-sdot" />Exercise</span><strong>{fmt(day.exercise_minutes)}</strong><span className="rv-sub">min · {fmt(day.exercise_kcal)} kcal burned</span></div>
         <div className="rv-s-steps"><span className="rv-label"><i className="rv-sdot" />Steps</span><strong>{fmt(day.steps)}</strong><span className="rv-sub">{day.steps === null ? 'no upload' : 'phone'}</span></div>
         <div className="rv-s-sleep"><span className="rv-label"><i className="rv-sdot" />Sleep</span><strong>{sl ? hm(sl.asleep_min ?? sl.session_min) : '—'}</strong><span className="rv-sub">{sl ? sl.source : 'not tracked'}</span></div>
@@ -87,7 +90,7 @@ function DayBody({ day }: { day: Day }) {
   );
 }
 
-export function DaySheet({ view, days, loading, onClose, onDay }: { view: SheetView; days: Day[] | null; loading: boolean; onClose: () => void; onDay: (date: string) => void }) {
+export function DaySheet({ view, days, loading, error = false, onClose, onDay }: { view: SheetView; days: Day[] | null; loading: boolean; error?: boolean; onClose: () => void; onDay: (date: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const prevFocus = useRef<Element | null>(null);
   useEffect(() => {
@@ -120,7 +123,8 @@ export function DaySheet({ view, days, loading, onClose, onDay }: { view: SheetV
           </div>
         </header>
         <div className="rv-sheet-body">
-          {loading && !days ? <div className="rv-sheet-loading" aria-live="polite"><span /><span /><span /></div>
+          {error && !days ? <Empty>Day details couldn&rsquo;t load, so nothing is shown here (a gap, not zero). The weekly figures above are unaffected; please try again shortly.</Empty>
+            : loading && !days ? <div className="rv-sheet-loading" aria-live="polite"><span /><span /><span /></div>
             : view.kind === 'day' ? (day ? <DayBody day={day} /> : <Empty>This day is outside the selected window.</Empty>)
               : <ul className={`rv-metric-list rv-s-${metric!.section}`}>{[...current].reverse().map(d => {
                   const v = metric!.raw(d);
