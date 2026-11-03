@@ -322,6 +322,18 @@ const CupcakeGPT: React.FC = () => {
     const before=(e:Event)=>{e.preventDefault();setInstall(e as InstallPrompt);};window.addEventListener('beforeinstallprompt',before);
     return()=>{links.forEach(l=>l.remove());window.removeEventListener('beforeinstallprompt',before);};
   },[]);
+  useEffect(()=>{
+    // Lock the phone view to the viewport on Cupcake only (the public site keeps normal zoom).
+    // maximum-scale=1 also stops iOS from zooming in when a small input is focused.
+    const meta=document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const previous=meta?.getAttribute('content')??null;
+    const fit=previous&&/viewport-fit\s*=\s*cover/.test(previous)?', viewport-fit=cover':'';
+    if(meta)meta.setAttribute('content',`width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no${fit}`);
+    // iOS Safari ignores user-scalable=no for pinch; cancelling its gesture event blocks pinch-zoom there.
+    const noPinch=(e:Event)=>e.preventDefault();
+    for(const type of ['gesturestart','gesturechange'])document.addEventListener(type,noPinch,{passive:false});
+    return()=>{if(meta&&previous!==null)meta.setAttribute('content',previous);for(const type of ['gesturestart','gesturechange'])document.removeEventListener(type,noPinch);};
+  },[]);
   const promptInstall = () => { if (!install) return; void install.prompt().then(() => install.userChoice).then(() => setInstall(null)); };
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
@@ -515,7 +527,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       {preview && !result && !busy && (
         <>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note (optional)…"
-            className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm outline-none focus:border-pink-400/50 placeholder:text-white/30" />
+            className="cc-food-note w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm outline-none focus:border-pink-400/50 placeholder:text-white/30" />
           <button onClick={() => void analyze()} disabled={busy}
             className="w-full py-3.5 rounded-full font-semibold bg-gradient-to-r from-pink-500 to-rose-600 flex items-center justify-center gap-2 disabled:opacity-50">
             {busy ? <><Loader2 className="animate-spin" size={18} /> Preparing…</> : 'Retry food analysis'}

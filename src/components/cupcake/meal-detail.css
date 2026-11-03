@@ -19,3 +19,6 @@
 .cc-food-capture-panel>summary { min-height:44px; display:flex; align-items:center; cursor:pointer; font-weight:600; }
 .cc-food-capture-panel[open]>summary { margin-bottom:16px; }
 .cc-signal-time { max-width:90px; text-align:right; }
+/* Phone zoom lock: no double-tap zoom in the meal dialog, and text fields at 16px so iOS never zooms on focus. */
+.cc-meal-dialog{touch-action:manipulation}
+@media(max-width:600px){.cc-app .cc-food-note,.cc-meal-dialog input:not([type=checkbox]):not([type=radio]):not([type=file]),.cc-meal-dialog select,.cc-meal-dialog textarea,.cc-nutrition-settings input{font-size:16px}}
