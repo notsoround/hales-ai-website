@@ -11,6 +11,8 @@ class FixtureDate extends Date {
 const context = {
   exports: {}, Date: FixtureDate,
   require(name) {
+    // library.ts also reads the saved private-access header for live requests; exports must touch neither.
+    if (name === './privateAccess') return { privateAccessHeaders() { throw Error('Export must remain offline'); } };
     assert.equal(name, './libraryApproval');
     return { confirmedLibraryRequest() { throw Error('Export must remain offline'); } };
   },

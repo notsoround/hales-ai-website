@@ -85,7 +85,7 @@ test('robyn view is isolated from owner code and the /cupcake unlock is unchange
 });
 
 // ---- v2: details, export, chat, voice, coach, RP app link ----
-import {fetchDetails,fetchExport,sendChat,startVoice,endVoice,fetchCoach,trimHistory,markdownLight,rpAppLink,adherence,dailyActuals,exportName,RP_APP,CHAT_MAX} from '../src/components/cupcake/robyn/viewerApi.ts';
+import {fetchDetails,fetchExport,sendChat,startVoice,endVoice,fetchCoach,trimHistory,markdownLight,rpAppLink,adherence,dailyActuals,dayFoodKcal,exportName,RP_APP,CHAT_MAX} from '../src/components/cupcake/robyn/viewerApi.ts';
 
 const ok=(body)=>async(url,init)=>{ok.seen.push({url,init});return new Response(typeof body==='string'?body:JSON.stringify(body),{status:200});};
 ok.seen=[];
@@ -127,7 +127,33 @@ test('plan adherence and daily actuals from day details',()=>{
   assert.deepEqual(rows.map(r=>r.state),['done','partial','rest','extra']);
   assert.equal(rows[0].planned,77);
   const a=dailyActuals([day('2026-10-19',0,[{kcal:1000,protein_g:50,fat_g:null,carbs_g:100}],8000),day('2026-10-20',0,[],4000)]);
-  assert.deepEqual([a.days,a.kcal,a.protein_g,a.fat_g,a.steps,a.water_fl_oz],[1,1000,50,0,6000,null]);
+  // An unknown macro is unknown (null, flagged partial), never 0 g.
+  assert.deepEqual([a.days,a.kcal,a.protein_g,a.fat_g,a.steps,a.water_fl_oz],[1,1000,50,null,6000,null]);
+  assert.deepEqual(a.partial,{kcal:false,protein_g:false,fat_g:true,carbs_g:false});
+});
+
+test('unknown calories and macros are left out of averages and mark them partial, never counted as 0',()=>{
+  const m=(kcal,protein_g,extra={})=>({time:'12:00',description:'meal',source:'Photo',kcal,protein_g,carbs_g:null,fat_g:null,sugar_g:null,partial:false,...extra});
+  const day=(date,meals)=>({date,meals,workouts:[],sleep:null,steps:null,weight:[],wins:0,losses:0,food_kcal:meals.length?meals.reduce((a,x)=>a+(x.kcal??0),0):null,exercise_minutes:0,exercise_kcal:0});
+  // Day 1: 600 + unknown; day 2: 900. Old maths averaged (600+0)/... and showed it as complete.
+  const a=dailyActuals([day('2026-10-19',[m(600,30),m(null,null)]),day('2026-10-20',[m(900,40)]),day('2026-10-21',[])]);
+  assert.equal(a.days,2,'only days with meals count as logged');
+  assert.equal(a.kcal,750); assert.equal(a.protein_g,35);
+  assert.deepEqual(a.partial,{kcal:true,protein_g:true,fat_g:true,carbs_g:true});
+  assert.equal(a.carbs_g,null,'no meal has carbs: unknown, not 0');
+  // A day whose only meal has no estimate does not drag the average to 0.
+  const b=dailyActuals([day('2026-10-19',[m(null,null)]),day('2026-10-20',[m(800,50)])]);
+  assert.equal(b.kcal,800); assert.equal(b.partial.kcal,true);
+  // Complete days stay complete, and a genuine 0 stays 0.
+  const c=dailyActuals([day('2026-10-19',[m(500,0)])]);
+  assert.deepEqual([c.kcal,c.protein_g,c.partial.kcal,c.partial.protein_g],[500,0,false,false]);
+  // A partial estimate on a meal marks calories partial.
+  assert.equal(dailyActuals([day('2026-10-19',[m(500,20,{partial:true})])]).partial.kcal,true);
+  // Day totals: unknown meals mark the day partial instead of silently adding 0.
+  assert.deepEqual(dayFoodKcal(day('2026-10-19',[m(600,30),m(null,null)])),{value:600,partial:true});
+  assert.deepEqual(dayFoodKcal(day('2026-10-19',[m(null,null)])),{value:null,partial:true});
+  assert.deepEqual(dayFoodKcal(day('2026-10-19',[m(450,10)])),{value:450,partial:false});
+  assert.deepEqual(dayFoodKcal(day('2026-10-19',[])),{value:null,partial:false});
 });
 
 test('v2 dashboard modules carry no owner key, private key or unsupported claims',()=>{

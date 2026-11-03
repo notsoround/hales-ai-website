@@ -60,5 +60,7 @@
 .cc-snap-queue h3{margin:0}
 
 @media(max-width:560px){.cc-today-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.cc-today-actions button{min-width:0;flex-direction:column;justify-content:center;gap:4px;padding:10px 6px;font-size:13px;line-height:1.2;text-align:center}.cc-top>div{min-width:0}.cc-top small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-/* Phone zoom lock: stop double-tap zoom across Cupcake; panning and scrolling still work. */
+/* Phone comfort: stop double-tap zoom across Cupcake; pinch zoom, panning and scrolling still work. */
 .cc-app{touch-action:manipulation}
+/* Phone tap targets: the auto-transcribe checkbox row and library search field reach 44px. */
+@media(max-width:560px){.cc-auto{min-height:44px}.cc-library-search input{min-height:44px}}

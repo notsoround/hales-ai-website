@@ -12,6 +12,7 @@ import { estimateExerciseBurn } from './exerciseEstimate';
 import { speechDictationSupported, startDictation, type DictationSession } from './speechDictation';
 import './energy.css';
 import { ToneIcon } from './design/ToneIcon';
+import { exerciseCoverageNote, exerciseStat } from './dataState';
 
 type FeedLike = Parameters<typeof preparedPurchases>[0];
 type NutritionState = { history: NutritionHistory | null; settings: NutritionSettings; loading: boolean };
@@ -39,7 +40,7 @@ export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: 
       <div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="energy"/>Energy balance today</h3></div>
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
         : !series ? <p className="cc-muted">Add a daily expenditure estimate in Food settings to draw today’s curve.</p>
-          : <EnergyCurve series={series} comparisonReady={comparisonReady} steps={steps}/>}
+          : <EnergyCurve series={series} comparisonReady={comparisonReady} steps={steps} exerciseStatus={exercise.status}/>}
       <ExerciseQuickLog state={exercise} openRequest={openLogRequest}/>
     </div>
   </section>;
@@ -118,7 +119,8 @@ function useWidth(fallback: number) {
   }, []);
   return [ref, width] as const;
 }
-function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeries; comparisonReady: boolean; steps: StepsState }) {
+function EnergyCurve({ series, comparisonReady, steps, exerciseStatus }: { series: MetabolicSeries; comparisonReady: boolean; steps: StepsState; exerciseStatus: ExerciseState['status'] }) {
+  const exerciseFigure = exerciseStat(exerciseStatus, series.exercise);
   const [svgRef, W] = useWidth(640);
   const span = series.dayEnd - series.dayStart;
   const values = [0, ...series.samples.map(s => s.net), series.projectedEndOfDay];
@@ -152,7 +154,7 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
     <dl className="cc-energy-stats">
       <div><dt>Eaten (logged)</dt><dd>{known ? kcal(series.eaten) : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Burned so far</dt><dd>{kcal(series.living)}</dd></div>
-      <div><dt>Exercise</dt><dd>{series.exercise ? <>{kcal(series.exercise)} <small className="cc-energy-unit-word">burned</small></> : <span className="cc-na">None logged</span>}</dd></div>
+      <div><dt>Exercise</dt><dd>{exerciseFigure.kind === 'value' ? <>{exerciseFigure.text} <small className="cc-energy-unit-word">burned</small></> : exerciseFigure.kind === 'loading' ? exerciseFigure.text : <span className="cc-na">{exerciseFigure.text}</span>}</dd></div>
       <div><dt>Steps{steps.day ? ` · ${stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Net now</dt><dd>{known ? signedCalories(series.net) : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Projected midnight</dt><dd>{known ? signedCalories(series.projectedEndOfDay) : <span className="cc-na">Not available</span>}</dd></div>
@@ -163,6 +165,7 @@ function EnergyCurve({ series, comparisonReady, steps }: { series: MetabolicSeri
       {untimed ? `${untimed === 1 ? '1 meal has' : `${untimed} meals have`} no time and ${untimed === 1 ? 'is' : 'are'} counted from midnight. ` : ''}
       {unknown ? `${unknown === 1 ? '1 meal has' : `${unknown} meals have`} unknown calories. ` : ''}
       {series.exercise ? `Workouts burned ${kcal(series.exercise)} kcal; the line drops by that much at each ▼. ` : ''}
+      {exerciseCoverageNote(exerciseStatus)}
       {stepsNote(steps)}
     </p>
   </>;

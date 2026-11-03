@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BodyReading, Coach, Day, DayPoint, ExportSection, Metric, Spending, Weekly } from './viewerApi.ts';
 import { AssessmentCard, BodyHeadline, BodySection, CheckinsCard, MealPlanCard, PlanVsActual, WorkoutGrid } from './CoachSections.tsx';
-import { EXPORT_SECTIONS, fetchCoach, NOTE_MAX, ViewerAuthError, captureToken, deltaText, deltaTone, expiryLabel, exportName, fetchDetails, fetchExport, fetchWeekly, fmt, hm, longDate, niceMax, postNote, rpAppLink, shortDate } from './viewerApi.ts';
+import { EXPORT_SECTIONS, dayFoodKcal, fetchCoach, NOTE_MAX, ViewerAuthError, captureToken, deltaText, deltaTone, expiryLabel, exportName, fetchDetails, fetchExport, fetchWeekly, fmt, hm, longDate, niceMax, postNote, rpAppLink, shortDate } from './viewerApi.ts';
 import { DaySheet } from './DaySheet.tsx';
 import type { MetricKey, SheetView } from './DaySheet.tsx';
 import { CupcakePanel } from './CupcakePanel.tsx';
@@ -184,7 +184,7 @@ function DayGrid({ days, onDay }: { days: Day[]; onDay: (d: string) => void }) {
     <div className="rv-days">{cur.map(d => (
       <button key={d.date} className="rv-day" onClick={() => onDay(d.date)} aria-label={`${longDate(d.date)}: open details`}>
         <span className="rv-day-date">{new Date(d.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })}<b>{Number(d.date.slice(8))}</b></span>
-        <span className="rv-day-kcal">{d.food_kcal === null ? '—' : fmt(d.food_kcal)}<small> kcal</small></span>
+        <span className="rv-day-kcal">{dayFoodKcal(d).value === null ? '—' : fmt(dayFoodKcal(d).value)}<small> kcal{dayFoodKcal(d).partial ? ' · partial' : ''}</small></span>
         <span className="rv-day-dots" aria-hidden="true">
           <i className={d.meals.length ? 'rv-s-food' : ''} /><i className={d.workouts.length ? 'rv-s-exercise' : ''} /><i className={d.steps !== null ? 'rv-s-steps' : ''} /><i className={d.sleep ? 'rv-s-sleep' : ''} /><i className={d.weight.length ? 'rv-s-weight' : ''} />
         </span>
@@ -343,6 +343,7 @@ export default function RobynDashboard() {
   const [state, setState] = useState<State>(() => token ? { kind: 'loading' } : { kind: 'missing' });
   const [busy, setBusy] = useState(false);
   const [details, setDetails] = useState<{ weeks: Weeks; days: Day[] } | null>(null);
+  const [detailsFailed, setDetailsFailed] = useState<Weeks | null>(null);
   const [sheet, setSheet] = useState<SheetView | null>(null);
   const [chat, setChat] = useState(false);
   const [coach, setCoach] = useState<Coach | null>(null);
@@ -360,7 +361,9 @@ export default function RobynDashboard() {
         if (error instanceof ViewerAuthError) return error.expired ? expire() : setState({ kind: 'expired' });
         setState(s => s.kind === 'ready' ? s : { kind: 'error', message: error instanceof Error ? error.message : 'Unavailable' });
       }).finally(() => { if (id === seq.current) setBusy(false); });
-    fetchDetails(token, weeks).then(d => { if (id === seq.current) setDetails({ weeks, days: d.days }); }).catch(() => undefined);
+    setDetailsFailed(null);
+    // A failed details request is shown as unavailable, never as an endless loading skeleton.
+    fetchDetails(token, weeks).then(d => { if (id === seq.current) setDetails({ weeks, days: d.days }); }).catch(() => { if (id === seq.current) setDetailsFailed(weeks); });
   }, [token, weeks, expire]);
   const openDay = useCallback((date: string) => setSheet({ kind: 'day', date }), []);
   const openMetric = useCallback((metric: MetricKey) => setSheet({ kind: 'metric', metric }), []);
@@ -380,6 +383,7 @@ export default function RobynDashboard() {
   const keys = new Set(m ? (['exercise_minutes', 'steps_avg', 'meals'] as const)
     .filter(k => deltaTone(m[k]) === 'good' && (m[k].pct === null || Math.abs(m[k].pct as number) >= 5)).slice(0, 3) : []);
   const days = details && details.weeks === weeks ? details.days : null;
+  const daysFailed = !days && detailsFailed === weeks;
   const hw = data ? headlineWeight(data) : null;
   return (
     <main className="rv">
@@ -428,7 +432,7 @@ export default function RobynDashboard() {
             </Section>
 
             <Section title="Day by day" kicker="Details" tone="summary" aside={<span className="rv-sub rv-hint">Tap a day, bar or figure for details</span>}>
-              {days ? <DayGrid days={days} onDay={openDay} /> : <div className="rv-days rv-days-skel" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <span key={i} />)}</div>}
+              {days ? <DayGrid days={days} onDay={openDay} /> : daysFailed ? <p className="rv-foot" role="status">Day-by-day details couldn&rsquo;t load, so they are not shown (a gap, not zero). The weekly figures are unaffected; please try again shortly.</p> : <div className="rv-days rv-days-skel" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <span key={i} />)}</div>}
             </Section>
 
             <div className="rv-grid2">
@@ -490,7 +494,7 @@ export default function RobynDashboard() {
           </div>
         )}
       </div>
-      {sheet && <DaySheet view={sheet} days={days} loading={!days} onClose={closeSheet} onDay={openDay} />}
+      {sheet && <DaySheet view={sheet} days={days} loading={!days && !daysFailed} error={daysFailed} onClose={closeSheet} onDay={openDay} />}
       {data && <>
         <button className={chat ? 'rv-fab rv-fab-hidden' : 'rv-fab'} onClick={() => setChat(true)} aria-label="Ask Cupcake" aria-expanded={chat}>
           <img src="/cupcake-icon.svg" alt="" /><span>Ask Cupcake</span>

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as dashboardModel from '../src/components/cupcake/dashboardModel.ts';
+import * as dataState from '../src/components/cupcake/dataState.ts';
 
 const fixedNow = '2026-09-20T02:30:00Z'; // Still September 19 in Chicago.
 class FixtureDate extends Date {
@@ -37,12 +38,13 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
   const emptyComponent = () => null;
   const context = {
     exports: {}, Date: FixtureDate, Intl, URL, URLSearchParams, setInterval, clearInterval,
-    location: { search: '', href: 'https://fixture.invalid/cupcake' }, history: { replaceState() {} },
+    location: { search: '', href: 'https://fixture.invalid/cupcake' }, history: { replaceState() {} }, requestAnimationFrame: () => 0,
     require(name) {
       if (name === 'react') return hooks;
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node, Fragment: 'fragment' };
       if (name === 'lucide-react') return new Proxy({}, { get: () => emptyComponent });
       if (name === './dashboardModel') return dashboardModel;
+      if (name === './dataState') return dataState;
       if (name === './WeightHistoryConnected') return { WeightHistoryConnected: emptyComponent };
       if (name === './weightApi') return { loadWeightPage: async () => ({ latestMeasurement: null }), weightProvenanceLabel: () => '' };
       if (name === './weightHistoryModel') return { weightTime: value => String(value ?? '') };
@@ -96,7 +98,7 @@ async function receiptTransitions() {
       if (body.action === 'receipt_extract') { if (rejectExtraction) throw Error('Synthetic extraction failure'); return { receipt: a, duplicate: false }; }
       throw Error(`Unexpected receipt action ${body.action}`);
     },
-    extra: { URL: { revokeObjectURL: url => revoked.push(url) }, __imageData: async file => ({ url: 'synthetic:image', preview: `blob:${file.name}` }) },
+    extra: { URL: class extends URL { static revokeObjectURL(url) { revoked.push(url); } }, /* real URL for receipt deep links, observable revoke */ __imageData: async file => ({ url: 'synthetic:image', preview: `blob:${file.name}` }) },
   });
   vm.runInContext('imageData = __imageData;', app.context);
   await app.settle();
@@ -105,9 +107,12 @@ async function receiptTransitions() {
     input.props.onChange({ target: { files: [{ name }] }, currentTarget: { value: name } });
   };
   choose('fixture-a'); await app.settle();
-  assert.equal(one(app.tree, item => item.type === 'img').props.src, 'blob:fixture-a');
+  // Since the exact-matching rework the transient preview shows only while a photo is being read;
+  // once it is saved, the receipt card replaces it (the saved original is opened on request).
+  assert.equal(all(app.tree, item => item.type === 'img').length, 0, 'saved A replaces its transient preview');
+  assert.equal(revoked.length, 0, 'preview is not released while it is still the latest choice');
   assert.ok(all(app.tree, item => item.type === 'h3').some(item => text(item) === 'Fixture A'));
-  const savedB = one(app.tree, item => item.type === 'button' && item.props.className === 'cc-library-item' && text(item).includes('Fixture B'));
+  const savedB = one(app.tree, item => item.type === 'button' && String(item.props.className).split(' ').includes('cc-library-item') && text(item).includes('Fixture B'));
   savedB.props.onClick(); await app.settle();
   assert.equal(all(app.tree, item => item.type === 'img').length, 0, 'saved B never shows A\'s transient photo');
   assert.ok(all(app.tree, item => item.type === 'h3').some(item => text(item) === 'Fixture B'));

@@ -6,6 +6,7 @@ import * as personalOutcomeDraft from '../src/components/cupcake/personalOutcome
 import { LibraryApprovalCancelled } from '../src/components/cupcake/libraryApproval.ts';
 import * as appUpdate from '../src/components/cupcake/appUpdate.ts';
 import * as dashboardModel from '../src/components/cupcake/dashboardModel.ts';
+import * as dataState from '../src/components/cupcake/dataState.ts';
 
 const fixedNow = '2026-09-20T02:30:00Z'; // Still September 19 in Chicago.
 class FixtureDate extends Date {
@@ -55,6 +56,10 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === './PersonalOutcomeForm') return { PersonalOutcomeForm: emptyComponent };
       if (name === './PersonalOutcomes') return { PersonalOutcomes: emptyComponent };
       if (name === './dashboardModel') return dashboardModel;
+      if (name === './dataState') return dataState;
+      // DashboardView's call/meal labels and outcome chip (same stubs as cupcake-ui-transitions); the scorecard assertions do not depend on them.
+      if (name === './pulseModel') return { callPlace: e => e.title, callSubtitle: e => e.body || '', displaySummary: s => String(s || ''), listTitle: e => e.title, ownerQuote: () => null, signalHeading: e => e.type };
+      if (name === './TodayPulse') return { OutcomeChip: emptyComponent };
       if (name === './library') return { libraryRequest: api };
       if (name.endsWith('.css')) return {};
       if (['./ConnectionCheck', './StrategyRequests', './PlanningWorkspace', './ReceiptWorkspace', './ConversationPanel'].includes(name)) return { default: emptyComponent, AnalysisCard: emptyComponent };
@@ -90,7 +95,8 @@ async function dashboardPaging() {
   const initialRefreshKey = personal.props.refreshKey;
   assert.equal(calls[0].end, '2026-09-19', 'dashboard uses Chicago day even when UTC is the following day');
   assert.equal(calls[0].start, '2026-09-13', 'seven day range includes today and the six preceding dates');
-  button(app.tree, '0Est. calories logged · View food').props.onClick(); await app.settle();
+  // The fixture meal has no calorie estimate, so the 0 total is labelled partial instead of looking complete.
+  button(app.tree, '0Est. calories logged · partial, 1 without an estimate · View food').props.onClick(); await app.settle();
   assert.deepEqual(Array.from(app.tree.props.entries, e => e.id), ['one']);
   app.tree.props.onMore(); app.tree.props.onMore(); await app.settle();
   assert.equal(calls.filter(c => c.cursor).length, 1, 'double clicks share one pagination request');
@@ -137,7 +143,7 @@ async function phoneTotalsAndDrilldown() {
   const app = surface('DashboardView.tsx', { loadStats: async (range, cursor) => ({ ...emptyStats(range), outcomes: { wins: 1, losses: 1, missed: 0, unscored: 0, interventions: 2 }, entries: cursor ? [win] : [loss], nextCursor: cursor ? null : 'next' }) });
   await app.settle();
   assert.match(text(app.tree), /Purchase decision win rate50% recorded wins/);
-  button(app.tree, '1Times you won · recorded stops').props.onClick(); await app.settle();
+  button(app.tree, '1Saves · times you resisted') /* relabelled in the Saves redesign (40a3a8b) */.props.onClick(); await app.settle();
   assert.equal(app.tree.props.total, 1);
   assert.equal(app.tree.props.entries.length, 0, 'loaded page does not invent the not-yet-loaded win');
   assert.equal(app.tree.props.hasMore, true);
@@ -147,6 +153,15 @@ async function phoneTotalsAndDrilldown() {
   assert.equal(app.tree.props.hasMore, false);
   app.unmount();
 }
+async function unavailableTotals() {
+  // The feed returned no totals (e.g. a failed source): the cards say unavailable instead of 0 / $0.00.
+  const app = surface('DashboardView.tsx', { loadStats: async range => ({ ...emptyStats(range), totals: { calories: null, spend: null }, entries: [{ id: 'meal', date: '2026-09-19', type: 'food', title: 'meal', calories: 300 }] }) });
+  await app.settle();
+  button(app.tree, '—Calories unavailable · View food');
+  button(app.tree, '—Spend unavailable · View transactions');
+  app.unmount();
+}
+await unavailableTotals();
 await dashboardPaging();
 await personalPaging();
 await phoneTotalsAndDrilldown();
