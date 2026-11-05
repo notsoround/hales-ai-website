@@ -13,3 +13,5 @@
 .cc-owner-note { margin:12px 0; padding:12px 14px; background:rgba(10,132,255,.06); border-left:3px solid var(--cc-accent); border-radius:8px; }
 .cc-owner-note strong { display:block; font-size:13px; font-weight:600; color:var(--cc-accent); margin-bottom:6px; }
 .cc-owner-note p { font-size:14px; line-height:1.5; color:var(--cc-text); margin:0; white-space:pre-wrap; }
+
+.cc-success { padding:10px 12px; border-radius:10px; background:rgba(127,209,174,0.15); color:#7fd1ae; font-size:13px; border-left:3px solid #7fd1ae; }

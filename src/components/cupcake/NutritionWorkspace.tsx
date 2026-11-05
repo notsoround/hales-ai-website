@@ -44,18 +44,19 @@ export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTING
       {error && <p role="alert" className="cc-nutrition-warning">{error} {onRetry && <button type="button" onClick={onRetry}>Try again</button>}</p>}
       <div className="cc-nutrition-today-values"><div><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}</strong><span>{summary.partial ? 'known kcal · partial estimate' : 'kcal logged today'}</span><small>{summary.meals.length ? `${summary.meals.length} logged meal${summary.meals.length === 1 ? '' : 's'}` : 'No meals logged today'}</small>
         {summary.meals.length > 0 && (() => {
-          const totals = { protein: 0, carbs: 0, fat: 0, hasData: false };
+          const totals = { protein: { sum: 0, count: 0 }, carbs: { sum: 0, count: 0 }, fat: { sum: 0, count: 0 } };
           summary.meals.forEach(m => {
             const protein = m.total?.protein_g; const carbs = m.total?.carbs_g; const fat = m.total?.fat_g;
-            if (typeof protein === 'number') { totals.protein += protein; totals.hasData = true; }
-            if (typeof carbs === 'number') { totals.carbs += carbs; totals.hasData = true; }
-            if (typeof fat === 'number') { totals.fat += fat; totals.hasData = true; }
+            if (typeof protein === 'number' && Number.isFinite(protein)) { totals.protein.sum += protein; totals.protein.count++; }
+            if (typeof carbs === 'number' && Number.isFinite(carbs)) { totals.carbs.sum += carbs; totals.carbs.count++; }
+            if (typeof fat === 'number' && Number.isFinite(fat)) { totals.fat.sum += fat; totals.fat.count++; }
           });
-          return totals.hasData ? (
+          const hasAny = totals.protein.count > 0 || totals.carbs.count > 0 || totals.fat.count > 0;
+          return hasAny ? (
             <div className="cc-nutrition-macros">
-              <span>P {Math.round(totals.protein)} g</span>
-              <span>C {Math.round(totals.carbs)} g</span>
-              <span>F {Math.round(totals.fat)} g</span>
+              <span>P {totals.protein.count > 0 ? Math.round(totals.protein.sum) : '—'} g</span>
+              <span>C {totals.carbs.count > 0 ? Math.round(totals.carbs.sum) : '—'} g</span>
+              <span>F {totals.fat.count > 0 ? Math.round(totals.fat.sum) : '—'} g</span>
             </div>
           ) : null;
         })()}

@@ -437,30 +437,36 @@ export default function RobynDashboard() {
 
             <div className="rv-grid2">
               <Section tone="food" title="Food" kicker="Nutrition" aside={<Delta m={m.food_kcal_avg} unit="kcal" />}>
-                <Stats items={[['Meals', fmt(m.meals.current)], ['Logged kcal', fmt(m.food_kcal_total.current)], ['Sugar / day', m.sugar_g_avg.current === null ? '—' : `${fmt(m.sugar_g_avg.current)} g`]]} />
-                {coach?.targets && (
+                <Stats items={[['Meals', fmt(m.meals.current)], ['Logged kcal', fmt(m.food_kcal_total.current)], ['Sugar / day', m.sugar_g_avg?.current === null ? '—' : `${fmt(m.sugar_g_avg.current)} g`]]} />
+                {coach?.targets && (m.protein_g_avg || m.carbs_g_avg || m.fat_g_avg) && (
                   <div className="rv-macro-bars">
-                    <div className="rv-macro-bar">
-                      <span className="rv-macro-label">Protein</span>
-                      <div className="rv-macro-bar-track">
-                        <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.protein_g_avg?.current ?? 0) / (coach.targets.protein_g ?? 1)) * 100)}%` }} />
+                    {m.protein_g_avg && coach.targets.protein_g && (
+                      <div className="rv-macro-bar">
+                        <span className="rv-macro-label">Protein</span>
+                        <div className="rv-macro-bar-track">
+                          <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.protein_g_avg.current ?? 0) / coach.targets.protein_g) * 100)}%` }} />
+                        </div>
+                        <span className="rv-macro-value">{m.protein_g_avg.current !== null ? fmt(m.protein_g_avg.current) : '—'} / {fmt(coach.targets.protein_g)} g</span>
                       </div>
-                      <span className="rv-macro-value">{fmt(m.protein_g_avg?.current ?? 0)} / {fmt(coach.targets.protein_g)} g</span>
-                    </div>
-                    <div className="rv-macro-bar">
-                      <span className="rv-macro-label">Carbs</span>
-                      <div className="rv-macro-bar-track">
-                        <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.carbs_g_avg?.current ?? 0) / (coach.targets.carbs_g ?? 1)) * 100)}%` }} />
+                    )}
+                    {m.carbs_g_avg && coach.targets.carbs_g && (
+                      <div className="rv-macro-bar">
+                        <span className="rv-macro-label">Carbs</span>
+                        <div className="rv-macro-bar-track">
+                          <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.carbs_g_avg.current ?? 0) / coach.targets.carbs_g) * 100)}%` }} />
+                        </div>
+                        <span className="rv-macro-value">{m.carbs_g_avg.current !== null ? fmt(m.carbs_g_avg.current) : '—'} / {fmt(coach.targets.carbs_g)} g</span>
                       </div>
-                      <span className="rv-macro-value">{fmt(m.carbs_g_avg?.current ?? 0)} / {fmt(coach.targets.carbs_g)} g</span>
-                    </div>
-                    <div className="rv-macro-bar">
-                      <span className="rv-macro-label">Fat</span>
-                      <div className="rv-macro-bar-track">
-                        <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.fat_g_avg?.current ?? 0) / (coach.targets.fat_g ?? 1)) * 100)}%` }} />
+                    )}
+                    {m.fat_g_avg && coach.targets.fat_g && (
+                      <div className="rv-macro-bar">
+                        <span className="rv-macro-label">Fat</span>
+                        <div className="rv-macro-bar-track">
+                          <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.fat_g_avg.current ?? 0) / coach.targets.fat_g) * 100)}%` }} />
+                        </div>
+                        <span className="rv-macro-value">{m.fat_g_avg.current !== null ? fmt(m.fat_g_avg.current) : '—'} / {fmt(coach.targets.fat_g)} g</span>
                       </div>
-                      <span className="rv-macro-value">{fmt(m.fat_g_avg?.current ?? 0)} / {fmt(coach.targets.fat_g)} g</span>
-                    </div>
+                    )}
                   </div>
                 )}
                 <BarChart series={data.series} cur="kcal" prev="prev_kcal" format={v => fmt(v)} title="Logged calories per day" unitLabel="kcal" onDay={openDay} target={coach?.targets?.kcal} />

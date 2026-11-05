@@ -43,17 +43,18 @@ function DayBody({ day }: { day: Day }) {
       <div className="rv-sheet-kpis">
         <div className="rv-s-food"><span className="rv-label"><i className="rv-sdot" />Food</span><strong>{dayFoodKcal(day).value === null ? '—' : fmt(dayFoodKcal(day).value)}</strong><span className="rv-sub">kcal · {day.meals.length} meals{dayFoodKcal(day).partial ? ' · partial' : ''}</span>
           {day.meals.length > 0 && (() => {
-            const totals = { protein: 0, carbs: 0, fat: 0, count: 0 };
+            const totals = { protein: { sum: 0, count: 0 }, carbs: { sum: 0, count: 0 }, fat: { sum: 0, count: 0 } };
             day.meals.forEach(m => {
-              if (m.protein_g !== null) { totals.protein += m.protein_g; totals.count++; }
-              if (m.carbs_g !== null) totals.carbs += m.carbs_g;
-              if (m.fat_g !== null) totals.fat += m.fat_g;
+              if (m.protein_g !== null && Number.isFinite(m.protein_g)) { totals.protein.sum += m.protein_g; totals.protein.count++; }
+              if (m.carbs_g !== null && Number.isFinite(m.carbs_g)) { totals.carbs.sum += m.carbs_g; totals.carbs.count++; }
+              if (m.fat_g !== null && Number.isFinite(m.fat_g)) { totals.fat.sum += m.fat_g; totals.fat.count++; }
             });
-            return totals.count > 0 ? (
+            const hasAny = totals.protein.count > 0 || totals.carbs.count > 0 || totals.fat.count > 0;
+            return hasAny ? (
               <span className="rv-macros">
-                <span>P {fmt(totals.protein)} g</span>
-                <span>C {fmt(totals.carbs)} g</span>
-                <span>F {fmt(totals.fat)} g</span>
+                <span>P {totals.protein.count > 0 ? fmt(totals.protein.sum) : '—'} g</span>
+                <span>C {totals.carbs.count > 0 ? fmt(totals.carbs.sum) : '—'} g</span>
+                <span>F {totals.fat.count > 0 ? fmt(totals.fat.sum) : '—'} g</span>
               </span>
             ) : null;
           })()}
