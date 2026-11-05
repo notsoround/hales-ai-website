@@ -33,7 +33,7 @@ export type Body = { weight: BodyReading | null; weight_others: BodyReading[]; b
 export type Spending = { start: string; end: string; label: string; source?: string; fetched_at?: string | null; total: number; count: number; food_total: number; food_count: number;
   pending_count: number; pending_total: number; complete: boolean; top_merchants: { merchant: string; total: number; count: number }[];
   previous: { label: string; total: number; count: number; complete: boolean }; notes: string[]; saved_at?: string };
-export type Meal = { time: string; description: string; source: 'Photo' | 'Manual' | 'Bank estimate'; kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null; sugar_g: number | null; partial: boolean };
+export type Meal = { time: string; description: string; source: 'Photo' | 'Manual' | 'Bank estimate'; kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null; sugar_g: number | null; partial: boolean; photoUrl?: string };
 export type Workout = { time: string; description: string; minutes: number | null; kcal: number };
 export type Sleep = { source: 'RingConn' | 'Health Connect'; asleep_min: number | null; session_min: number | null; bedtime: string | null; waketime: string | null;
   stages_min: Partial<Record<'deep' | 'light' | 'rem' | 'awake', number>> | null; resting_hr: number | null; avg_hr: number | null; spo2_mean: number | null; spo2_min: number | null };

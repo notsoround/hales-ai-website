@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
-import type { Day } from './viewerApi.ts';
+import { useEffect, useRef, useState } from 'react';
+import type { Day, Meal } from './viewerApi.ts';
 import { dayFoodKcal, fmt, hm, longDate } from './viewerApi.ts';
+import { PhotoViewer } from '../PhotoViewer.tsx';
 
 /** Logged kcal for a day; a day with any meal lacking an estimate is labelled partial (unknown is not 0). */
 const foodKcalText = (d: Day, unit = true): string => { const f = dayFoodKcal(d); return f.value === null ? (f.partial ? 'unknown' : '—') : `${fmt(f.value)}${unit ? ' kcal' : ''}${f.partial ? ' · partial' : ''}`; };
@@ -28,13 +29,35 @@ const time12 = (hhmm: string | null | undefined): string => {
 function Empty({ children }: { children: React.ReactNode }) { return <p className="rv-sheet-empty">{children}</p>; }
 
 function DayBody({ day }: { day: Day }) {
+  const [photoViewer, setPhotoViewer] = useState<{ meal: Meal; index: number } | null>(null);
   const sl = day.sleep;
   const stages = sl?.stages_min ? (['deep', 'light', 'rem', 'awake'] as const).filter(k => sl.stages_min?.[k] !== undefined) : [];
   const stageTotal = stages.reduce((a, k) => a + (sl?.stages_min?.[k] ?? 0), 0);
+  
+  const openPhoto = (meal: Meal, index: number) => {
+    if (meal.photoUrl) setPhotoViewer({ meal, index });
+  };
+  
   return (
     <>
       <div className="rv-sheet-kpis">
-        <div className="rv-s-food"><span className="rv-label"><i className="rv-sdot" />Food</span><strong>{dayFoodKcal(day).value === null ? '—' : fmt(dayFoodKcal(day).value)}</strong><span className="rv-sub">kcal · {day.meals.length} meals{dayFoodKcal(day).partial ? ' · partial' : ''}</span></div>
+        <div className="rv-s-food"><span className="rv-label"><i className="rv-sdot" />Food</span><strong>{dayFoodKcal(day).value === null ? '—' : fmt(dayFoodKcal(day).value)}</strong><span className="rv-sub">kcal · {day.meals.length} meals{dayFoodKcal(day).partial ? ' · partial' : ''}</span>
+          {day.meals.length > 0 && (() => {
+            const totals = { protein: 0, carbs: 0, fat: 0, count: 0 };
+            day.meals.forEach(m => {
+              if (m.protein_g !== null) { totals.protein += m.protein_g; totals.count++; }
+              if (m.carbs_g !== null) totals.carbs += m.carbs_g;
+              if (m.fat_g !== null) totals.fat += m.fat_g;
+            });
+            return totals.count > 0 ? (
+              <span className="rv-macros">
+                <span>P {fmt(totals.protein)} g</span>
+                <span>C {fmt(totals.carbs)} g</span>
+                <span>F {fmt(totals.fat)} g</span>
+              </span>
+            ) : null;
+          })()}
+        </div>
         <div className="rv-s-exercise"><span className="rv-label"><i className="rv-sdot" />Exercise</span><strong>{fmt(day.exercise_minutes)}</strong><span className="rv-sub">min · {fmt(day.exercise_kcal)} kcal burned</span></div>
         <div className="rv-s-steps"><span className="rv-label"><i className="rv-sdot" />Steps</span><strong>{fmt(day.steps)}</strong><span className="rv-sub">{day.steps === null ? 'no upload' : 'phone'}</span></div>
         <div className="rv-s-sleep"><span className="rv-label"><i className="rv-sdot" />Sleep</span><strong>{sl ? hm(sl.asleep_min ?? sl.session_min) : '—'}</strong><span className="rv-sub">{sl ? sl.source : 'not tracked'}</span></div>
@@ -46,12 +69,36 @@ function DayBody({ day }: { day: Day }) {
           <li key={i}>
             <div className="rv-row-main"><span className="rv-row-time">{time12(m.time)}</span><span className="rv-row-desc">{m.description || 'Meal'}</span><span className="rv-row-val">{m.kcal === null ? '—' : `${fmt(m.kcal)} kcal`}</span></div>
             <div className="rv-row-meta">
-              <span className={`rv-chip rv-chip-${m.source === 'Bank estimate' ? 'bank' : m.source === 'Photo' ? 'photo' : 'manual'}`}>{m.source}</span>
+              {m.photoUrl ? (
+                <button className="rv-chip rv-chip-photo rv-chip-clickable" onClick={() => openPhoto(m, i)}>
+                  {m.source}
+                </button>
+              ) : (
+                <span className={`rv-chip rv-chip-${m.source === 'Bank estimate' ? 'bank' : m.source === 'Photo' ? 'photo' : 'manual'}`}>{m.source}</span>
+              )}
               {[['P', m.protein_g], ['C', m.carbs_g], ['F', m.fat_g], ['Sugar', m.sugar_g]].filter(([, v]) => v !== null).map(([k, v]) => <span key={k as string}>{k} {fmt(v as number)} g</span>)}
               {m.partial && <span>partial estimate</span>}
             </div>
           </li>))}</ul> : <Empty>No meals logged. A day without entries is a gap, not zero intake.</Empty>}
       </section>
+      
+      {photoViewer && photoViewer.meal.photoUrl && (
+        <PhotoViewer
+          photoUrl={photoViewer.meal.photoUrl}
+          title={photoViewer.meal.description || 'Meal photo'}
+          onClose={() => setPhotoViewer(null)}
+          onPrevious={photoViewer.index > 0 ? () => {
+            const prevMeal = day.meals[photoViewer.index - 1];
+            if (prevMeal.photoUrl) setPhotoViewer({ meal: prevMeal, index: photoViewer.index - 1 });
+          } : undefined}
+          onNext={photoViewer.index < day.meals.length - 1 ? () => {
+            const nextMeal = day.meals[photoViewer.index + 1];
+            if (nextMeal.photoUrl) setPhotoViewer({ meal: nextMeal, index: photoViewer.index + 1 });
+          } : undefined}
+          hasPrevious={photoViewer.index > 0 && !!day.meals[photoViewer.index - 1].photoUrl}
+          hasNext={photoViewer.index < day.meals.length - 1 && !!day.meals[photoViewer.index + 1].photoUrl}
+        />
+      )}
 
       <section className="rv-sheet-sec rv-s-exercise">
         <h3><i className="rv-sdot" />Workouts</h3>

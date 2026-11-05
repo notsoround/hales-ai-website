@@ -11,7 +11,11 @@
 .cc-meal-macros { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:16px 0; }
 .cc-meal-macros>div { display:flex; flex-direction:column; padding:12px; background:#ffffff08; border:1px solid #ffffff14; border-radius:14px; }
 .cc-meal-macros small { color:#c4bed1; }.cc-meal-macros strong { font-size:18px; }
-.cc-meal-photo { margin:16px 0; }.cc-meal-photo img { display:block; max-height:240px; max-width:100%; border-radius:14px; object-fit:contain; margin-bottom:8px; }
+.cc-meal-photo { margin:16px 0; }
+.cc-meal-photo img { display:block; max-height:240px; max-width:100%; border-radius:14px; object-fit:contain; margin-bottom:8px; }
+.cc-meal-photo-btn { background:none; border:none; padding:0; cursor:pointer; width:100%; text-align:left; transition:opacity 0.2s; }
+.cc-meal-photo-btn:hover { opacity:0.85; }
+.cc-meal-photo-btn span { display:block; color:#fbcfe8; font-size:0.875rem; margin-top:0.5rem; }
 .cc-meal-photo a,.cc-meal-estimate-item a { color:#fbcfe8; overflow-wrap:anywhere; }
 .cc-meal-estimate-details { margin-top:20px; border-top:1px solid #ffffff20; padding-top:12px; }
 .cc-meal-estimate-details summary { cursor:pointer; min-height:44px; display:flex; align-items:center; }
