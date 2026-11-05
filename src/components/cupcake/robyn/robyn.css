@@ -41,6 +41,14 @@
 .rv-unit { font-family: var(--rv-text); font-size: 13px; font-weight: 500; color: var(--rv-muted); letter-spacing: 0; }
 .rv-kpi-foot { margin-top: auto; }
 .rv-kpi-foot .rv-sub { margin-top: 2px; }
+.rv-macros { display: flex; gap: 8px; margin-top: 6px; font-size: 12px; font-weight: 500; color: var(--rv-ink2); }
+.rv-macros span { padding: 2px 8px; background: rgba(118,118,128,.08); border-radius: 6px; }
+.rv-macro-bars { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.rv-macro-bar { display: flex; align-items: center; gap: 10px; }
+.rv-macro-label { font-size: 13px; font-weight: 500; min-width: 56px; }
+.rv-macro-bar-track { flex: 1; height: 20px; background: rgba(118,118,128,.1); border-radius: 10px; overflow: hidden; }
+.rv-macro-bar-fill { height: 100%; background: var(--c-bar, var(--rv-accent)); border-radius: 10px; transition: width 0.3s ease; }
+.rv-macro-value { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 88px; text-align: right; }
 .rv-delta { font-size: 13px; font-weight: 500; white-space: nowrap; }
 .rv-delta-ref { color: var(--rv-muted); font-weight: 400; }
 .rv-good { color: var(--rv-good); } .rv-caution { color: var(--rv-caution); } .rv-neutral { color: var(--rv-muted); }
@@ -225,6 +233,8 @@ button.rv-kpi:focus-visible { outline: 2px solid var(--c-ink, var(--rv-accent));
 .rv-row-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 0 74px; font-size: 12px; color: var(--rv-muted); font-variant-numeric: tabular-nums; }
 .rv-chip { font-size: 11px; font-weight: 500; border-radius: 980px; padding: 1px 8px; background: rgba(118,118,128,.1); color: var(--rv-ink2); }
 .rv-chip-bank { background: var(--c-tint); color: var(--c-ink); }
+.rv-chip-clickable { appearance: none; border: 1px solid currentColor; cursor: pointer; transition: all 0.15s ease; }
+.rv-chip-clickable:hover { opacity: 0.8; transform: scale(1.05); }
 .rv-sheet-empty { margin: 2px 0; font-size: 13px; color: var(--rv-muted); }
 .rv-stages { margin: 6px 0 2px; }
 .rv-stage-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; gap: 2px; }

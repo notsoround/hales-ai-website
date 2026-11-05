@@ -42,7 +42,25 @@ export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTING
     <div className="cc-nutrition-heading"><span className="cc-nutrition-eyebrow"><Utensils size={16}/> Food today</span><button type="button" className="cc-nutrition-link" onClick={onOpenCalendar}>Open calendar <ArrowUpRight size={16}/></button></div>
     {!history || !summary ? <LoadState loading={loading} error={error} onRetry={onRetry}/> : <>
       {error && <p role="alert" className="cc-nutrition-warning">{error} {onRetry && <button type="button" onClick={onRetry}>Try again</button>}</p>}
-      <div className="cc-nutrition-today-values"><div><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}</strong><span>{summary.partial ? 'known kcal · partial estimate' : 'kcal logged today'}</span><small>{summary.meals.length ? `${summary.meals.length} logged meal${summary.meals.length === 1 ? '' : 's'}` : 'No meals logged today'}</small></div>
+      <div className="cc-nutrition-today-values"><div><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}</strong><span>{summary.partial ? 'known kcal · partial estimate' : 'kcal logged today'}</span><small>{summary.meals.length ? `${summary.meals.length} logged meal${summary.meals.length === 1 ? '' : 's'}` : 'No meals logged today'}</small>
+        {summary.meals.length > 0 && (() => {
+          const totals = { protein: { sum: 0, count: 0 }, carbs: { sum: 0, count: 0 }, fat: { sum: 0, count: 0 } };
+          summary.meals.forEach(m => {
+            const protein = m.total?.protein_g; const carbs = m.total?.carbs_g; const fat = m.total?.fat_g;
+            if (typeof protein === 'number' && Number.isFinite(protein)) { totals.protein.sum += protein; totals.protein.count++; }
+            if (typeof carbs === 'number' && Number.isFinite(carbs)) { totals.carbs.sum += carbs; totals.carbs.count++; }
+            if (typeof fat === 'number' && Number.isFinite(fat)) { totals.fat.sum += fat; totals.fat.count++; }
+          });
+          const hasAny = totals.protein.count > 0 || totals.carbs.count > 0 || totals.fat.count > 0;
+          return hasAny ? (
+            <div className="cc-nutrition-macros">
+              <span>P {totals.protein.count > 0 ? Math.round(totals.protein.sum) : '—'} g</span>
+              <span>C {totals.carbs.count > 0 ? Math.round(totals.carbs.sum) : '—'} g</span>
+              <span>F {totals.fat.count > 0 ? Math.round(totals.fat.sum) : '—'} g</span>
+            </div>
+          ) : null;
+        })()}
+      </div>
         <div className="cc-nutrition-today-balance">{targetReady && <ProgressRing value={summary.calories / summary.target!} label={`${Math.round(summary.calories / summary.target! * 100)}% of the daily intake target`}/>}<div><small>Daily intake target</small><b>{targetReady ? (left! >= 0 ? `${Math.round(left!).toLocaleString()} kcal left` : `${Math.round(-left!).toLocaleString()} kcal over`) : 'Not available'}</b><span>{targetReady ? `of ${Math.round(summary.target!).toLocaleString()} kcal target` : summary.target === null ? 'Set a daily intake target in the calendar' : !summary.meals.length ? 'Log a meal to see what’s left today' : 'Some meals still need calories or a time. Review them in the calendar'}</span></div></div></div>
       <LastMeal meals={history.meals} now={now} onOpenMeal={onOpenMeal}/>
       {(!history.complete || history.pendingCount > 0 || history.undatedLoggedCount > 0) && <p className="cc-nutrition-note">{!history.complete ? 'Partial history. ' : ''}{history.pendingCount ? `${history.pendingCount} photos not logged. ` : ''}{history.undatedLoggedCount ? `${history.undatedLoggedCount} meals without eaten times. ` : ''}<button type="button" className="cc-nutrition-inline" onClick={onOpenCalendar}>Review coverage</button></p>}

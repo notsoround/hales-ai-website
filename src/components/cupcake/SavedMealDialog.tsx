@@ -4,6 +4,7 @@ import { MealDialog } from './MealDialog';
 import type { FoodMeal } from './DashboardView';
 import { libraryRequest } from './library';
 import { dayLabel, mealNeighbors, mealTimeLabel, type FoodHistoryMeal } from './nutritionModel';
+import { PhotoViewer } from './PhotoViewer';
 
 export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus }: {
   mealId: string | null; meals: FoodHistoryMeal[]; onSelect: (id: string) => void; onClose: () => void;
@@ -16,6 +17,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoRetry, setPhotoRetry] = useState(0);
   const [retry, setRetry] = useState(0);
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const historical = meals.find(m => m.id === mealId && m.source === 'food_sheet');
   const legacy = historical && !historical.id.startsWith('meal_') ? historical : undefined;
   useEffect(() => {
@@ -63,7 +65,18 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
       {legacy && <p className="cc-muted cc-small">This older food-log entry has no linked original photo.</p>}
       {photoBusy && <p role="status">Opening private photo…</p>}
       {photoError && <div role="alert"><p className="cc-error">{photoError}</p><button className="cc-secondary" onClick={() => setPhotoRetry(n => n + 1)}>Retry photo</button></div>}
-      {photo && <figure className="cc-meal-photo"><a href={photo} target="_blank" rel="noreferrer"><img src={photo} alt={`Saved photo: ${currentMeal.description || 'meal'}`}/><span>Open full photo ↗</span></a></figure>}
+      {photo && <figure className="cc-meal-photo"><button className="cc-meal-photo-btn" onClick={() => setPhotoViewerOpen(true)}><img src={photo} alt={`Saved photo: ${currentMeal.description || 'meal'}`}/><span>View full photo</span></button></figure>}
+      {photoViewerOpen && photo && (
+        <PhotoViewer
+          photoUrl={photo}
+          title={currentMeal.description || 'Food photo'}
+          onClose={() => setPhotoViewerOpen(false)}
+          onPrevious={adjacent.previous ? () => { setPhotoViewerOpen(false); onSelect(adjacent.previous!.id); } : undefined}
+          onNext={adjacent.next ? () => { setPhotoViewerOpen(false); onSelect(adjacent.next!.id); } : undefined}
+          hasPrevious={!!adjacent.previous}
+          hasNext={!!adjacent.next}
+        />
+      )}
       <details className="cc-meal-estimate-details"><summary>Estimate details &amp; sources</summary>
         {[...(currentMeal.lookupWarnings || []), ...(currentMeal.warnings || [])].map(warning => <p className="cc-muted" key={warning}>{warning}</p>)}
         {currentMeal.items?.map(item => <div className="cc-meal-estimate-item" key={item.id}><strong>{item.name}</strong><p>{item.nutrition?.calories == null ? 'Calories unknown' : `${item.nutrition.calories} kcal`}{item.quantity != null ? ` · ${item.quantity} ${item.unit || 'portion(s)'}` : ''}</p><small>{item.provenance || 'Estimate provenance unavailable'}{item.calculation ? ` · ${item.calculation}` : ''}{item.portionAssumption ? ` · ${item.portionAssumption}` : ''}{item.variantWarning ? ` · ${item.variantWarning}` : ''}</small>{item.sourceCitations?.filter(source => /^https?:\/\//.test(source.url)).map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a>)}</div>)}

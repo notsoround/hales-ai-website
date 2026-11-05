@@ -9,3 +9,9 @@
 @media(min-width:1024px){.cc-dashboard h2{font-size:32px}}
 
 .cc-weight-card .cc-weight-eyebrow{font-size:12px;letter-spacing:.18em;font-weight:700;color:#eb9bbe;margin:0 0 6px}.cc-weight-card .cc-weight-change{font-size:13px;font-weight:600;color:#d8c9d9}.cc-weight-card .cc-good{color:#7fd1ae}.cc-weight-card .cc-bad{color:#f2c27b}.cc-weight-card .cc-weight-others{font-size:12px;opacity:.85}.cc-weight-card .cc-weight-more{color:#eb9bbe}
+
+.cc-owner-note { margin:12px 0; padding:12px 14px; background:rgba(10,132,255,.06); border-left:3px solid var(--cc-accent); border-radius:8px; }
+.cc-owner-note strong { display:block; font-size:13px; font-weight:600; color:var(--cc-accent); margin-bottom:6px; }
+.cc-owner-note p { font-size:14px; line-height:1.5; color:var(--cc-text); margin:0; white-space:pre-wrap; }
+
+.cc-success { padding:10px 12px; border-radius:10px; background:rgba(127,209,174,0.15); color:#7fd1ae; font-size:13px; border-left:3px solid #7fd1ae; }

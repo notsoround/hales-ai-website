@@ -437,7 +437,38 @@ export default function RobynDashboard() {
 
             <div className="rv-grid2">
               <Section tone="food" title="Food" kicker="Nutrition" aside={<Delta m={m.food_kcal_avg} unit="kcal" />}>
-                <Stats items={[['Meals', fmt(m.meals.current)], ['Logged kcal', fmt(m.food_kcal_total.current)], ['Sugar / day', m.sugar_g_avg.current === null ? '—' : `${fmt(m.sugar_g_avg.current)} g`]]} />
+                <Stats items={[['Meals', fmt(m.meals.current)], ['Logged kcal', fmt(m.food_kcal_total.current)], ['Sugar / day', m.sugar_g_avg?.current === null ? '—' : `${fmt(m.sugar_g_avg.current)} g`]]} />
+                {coach?.targets && (m.protein_g_avg || m.carbs_g_avg || m.fat_g_avg) && (
+                  <div className="rv-macro-bars">
+                    {m.protein_g_avg && coach.targets.protein_g && (
+                      <div className="rv-macro-bar">
+                        <span className="rv-macro-label">Protein</span>
+                        <div className="rv-macro-bar-track">
+                          <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.protein_g_avg.current ?? 0) / coach.targets.protein_g) * 100)}%` }} />
+                        </div>
+                        <span className="rv-macro-value">{m.protein_g_avg.current !== null ? fmt(m.protein_g_avg.current) : '—'} / {fmt(coach.targets.protein_g)} g</span>
+                      </div>
+                    )}
+                    {m.carbs_g_avg && coach.targets.carbs_g && (
+                      <div className="rv-macro-bar">
+                        <span className="rv-macro-label">Carbs</span>
+                        <div className="rv-macro-bar-track">
+                          <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.carbs_g_avg.current ?? 0) / coach.targets.carbs_g) * 100)}%` }} />
+                        </div>
+                        <span className="rv-macro-value">{m.carbs_g_avg.current !== null ? fmt(m.carbs_g_avg.current) : '—'} / {fmt(coach.targets.carbs_g)} g</span>
+                      </div>
+                    )}
+                    {m.fat_g_avg && coach.targets.fat_g && (
+                      <div className="rv-macro-bar">
+                        <span className="rv-macro-label">Fat</span>
+                        <div className="rv-macro-bar-track">
+                          <div className="rv-macro-bar-fill" style={{ width: `${Math.min(100, ((m.fat_g_avg.current ?? 0) / coach.targets.fat_g) * 100)}%` }} />
+                        </div>
+                        <span className="rv-macro-value">{m.fat_g_avg.current !== null ? fmt(m.fat_g_avg.current) : '—'} / {fmt(coach.targets.fat_g)} g</span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <BarChart series={data.series} cur="kcal" prev="prev_kcal" format={v => fmt(v)} title="Logged calories per day" unitLabel="kcal" onDay={openDay} target={coach?.targets?.kcal} />
                 <p className="rv-foot">Some meals are estimated from card charges. Days without entries are gaps, not zero intake.</p>
               </Section>
@@ -476,15 +507,15 @@ export default function RobynDashboard() {
               <div className="rv-coach-head"><div className="rv-kicker">From Robyn&rsquo;s plan</div><h2>Coaching plan &amp; check-ins</h2>
                 <p className="rv-sub">Check-ins and plan entered from the Robyn Peck app by Matt{coach.assessment?.table ? '; assessments from Robyn’s own assessment sheet' : ''}. There is no live connection to the app.</p></div>
               <div className="rv-coach">
+                <span id="rv-plan" className="rv-anchor" />
+                {days && <PlanVsActual coach={coach} days={days.filter(d => d.period !== 'previous')} />}
+                <span id="rv-meals" className="rv-anchor" />
+                <MealPlanCard coach={coach} />
                 <BodyHeadline body={data.body} />
                 <AssessmentCard coach={coach} hideHero={data.body?.body_fat?.source === 'robyn_assessment'} />
                 <BodySection coach={coach} body={data.body} />
-                <span id="rv-plan" className="rv-anchor" />
-                {days && <PlanVsActual coach={coach} days={days.filter(d => d.period !== 'previous')} />}
                 {days && <WorkoutGrid coach={coach} days={days.filter(d => d.period !== 'previous')} onDay={openDay} />}
                 <CheckinsCard coach={coach} />
-                <span id="rv-meals" className="rv-anchor" />
-                <MealPlanCard coach={coach} />
               </div>
             </>}
 
