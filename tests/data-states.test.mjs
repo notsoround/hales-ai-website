@@ -44,9 +44,10 @@ function daySheet() {
   const context = {
     exports: {}, Intl, Date,
     require(name) {
-      if (name === 'react') return { useEffect() {}, useRef: current => ({ current }) };
+      if (name === 'react') return { useEffect() {}, useRef: current => ({ current }), useState: initial => [initial, () => {}] };
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node, Fragment: 'fragment' };
       if (name === './viewerApi.ts') return viewerApi;
+      if (name === '../PhotoViewer.tsx') return { PhotoViewer: () => node('div', { className: 'photo-viewer-stub' }) };
       throw Error(`Unexpected fixture dependency ${name}`);
     },
   };
