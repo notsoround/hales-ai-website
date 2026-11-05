@@ -212,7 +212,6 @@ function SignalList({ title, entries, total, error, onBack, onSelect,hasMore,onM
 export function SignalDetail({ entry, onBack, backLabel = 'Back to dashboard', loadMeal, updateIntervention, onUpdated, onTalkAbout }: { entry: DashboardEntry; onBack: () => void; backLabel?: string; loadMeal?: (mealId: string) => Promise<FoodMeal>; updateIntervention?: InterventionUpdate; onUpdated?: () => void; onTalkAbout?: TalkAboutEntry }) {
   const mealId = entry.details?.mealId;
   const [meal, setMeal] = useState<FoodMeal | null>(null); const [mealError, setMealError] = useState('');
-  const existingNote = typeof entry.details?.ownerNote === 'string' ? entry.details.ownerNote.trim() : '';
   const [note, setNote] = useState(''); const [bought, setBought] = useState<'yes' | 'no' | ''>('');
   const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(false); const [saveError, setSaveError] = useState('');
   useEffect(() => { setMeal(null); setMealError(''); if (!mealId || !loadMeal) return; let current = true; void loadMeal(mealId).then(value => { if (current) setMeal(value); }).catch(error => { if (current) setMealError(error instanceof Error ? error.message : 'Meal details unavailable.'); }); return () => { current = false; }; }, [loadMeal, mealId]);
