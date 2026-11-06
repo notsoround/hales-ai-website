@@ -18,7 +18,10 @@ import {
 } from 'lucide-react';
 import { Timeline } from '../../../../components/cupcake/TodayPulse';
 import { SavesHero } from '../../../../components/cupcake/SavesCard';
-import { readTalkChatFlag } from '../../../../components/cupcake/talkChatFlag';
+import { AssistantShell, type AssistantMode } from '../../../../components/cupcake/AssistantShell';
+import { AssistantPortrait, AssistantAppearanceSettings } from '../../../../components/cupcake/AssistantPersona';
+import { useAssistantAppearance } from '../../../../components/cupcake/assistantAppearance';
+import '../../../../components/cupcake/assistant-appearance.css';
 import { SectionBoundary } from '../../../../components/cupcake/SectionBoundary';
 import type { PulseItem } from '../../../../components/cupcake/pulseModel';
 import { exerciseTimelineItems, mergeTimelineItems } from '../../../../components/cupcake/exerciseTimeline';
@@ -103,11 +106,12 @@ async function prepareFoodImage(file: File) {
 }
 
 const tabs = [
-  {key:'feed',label:'Today',Icon:Home}, {key:'talk',label:'Talk',Icon:Headphones},
-  {key:'record',label:'Record',Icon:Mic}, {key:'library',label:'Library',Icon:Library},
-  {key:'chat',label:'Chat',Icon:MessageCircle},
+  {key:'feed',label:'Today',Icon:Home}, {key:'snap',label:'Food',Icon:Camera},
+  {key:'library',label:'Library',Icon:Library}, {key:'chat',label:'Assistant',Icon:MessageCircle},
 ] as const;
-type TabKey = (typeof tabs)[number]['key'] | 'snap' | 'week';
+type TabKey = (typeof tabs)[number]['key'] | 'talk' | 'record' | 'week';
+const isAssistantTab = (tab: TabKey) => ['chat','talk','record'].includes(tab);
+const assistantModeFor = (tab: TabKey): AssistantMode => tab === 'talk' ? 'voice' : tab === 'record' ? 'record' : 'text';
 type InstallPrompt = Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 type AccessGate = 'form' | 'opening' | 'retry' | 'ready';
 const TAB_KEYS: readonly TabKey[] = ['feed', 'talk', 'record', 'library', 'chat', 'snap', 'week'];
@@ -221,7 +225,14 @@ function foodReviewFirst() {
 const CupcakeGPT: React.FC = () => {
   useCupcakeViewport();
   const [tab, setTabState] = useState<TabKey>(() => tabFromSearch(location.search));
-  const [talkChat] = useState(() => readTalkChatFlag());
+  const appearance = useAssistantAppearance();
+  const assistantName = appearance.name.trim() || (appearance.persona==='matthieu'?'Matthieu':'Cupcake');
+  const [talkContextVersion, setTalkContextVersion] = useState(0);
+  const [assistantMode, setAssistantMode] = useState<AssistantMode>(() => assistantModeFor(tab));
+  const returnTab = useRef<TabKey>('feed');
+  const assistantOpen = isAssistantTab(tab);
+  const screen = assistantOpen ? returnTab.current : tab;
+  const [activity, setActivity] = useState({kind: null as 'voice'|'record'|'library'|null, label: ''});
   const tabRef = useRef(tab);
   tabRef.current = tab;
   const pendingScroll = useRef<number | null>(null);
@@ -238,6 +249,8 @@ const CupcakeGPT: React.FC = () => {
   const [mediaBusy, setMediaBusy] = useState(false);
   const [install, setInstall] = useState<InstallPrompt | null>(null);
   const setTab = useCallback((next: TabKey) => {
+    if (isAssistantTab(next)) setAssistantMode(assistantModeFor(next));
+    if (!isAssistantTab(tabRef.current)) returnTab.current = tabRef.current;
     if (tabRef.current === next) return;
     history.replaceState({ ...historyBase(), scroll: window.scrollY }, '');
     history.pushState({ scroll: 0 }, '', tabHref(next));
@@ -246,9 +259,8 @@ const CupcakeGPT: React.FC = () => {
     setTabState(next);
     window.scrollTo(0, 0);
   }, []);
-  // Merged Talk + Chat (flag on): Chat lives on the Talk screen, so old Chat links land there.
-  useEffect(() => { if (talkChat && tab === 'chat') setTab('talk'); }, [talkChat, tab, setTab]);
-  const openTalkAbout = (entry: DashboardEntry) => { sessionStorage.setItem(TALK_SEED_KEY, JSON.stringify(talkSeedFromIntervention(entry))); setTab('talk'); };
+  const openAssistantMode = (mode: AssistantMode) => setTab(mode === 'voice' ? 'talk' : mode === 'record' ? 'record' : 'chat');
+  const openTalkAbout = (entry: DashboardEntry) => { sessionStorage.setItem(TALK_SEED_KEY, JSON.stringify(talkSeedFromIntervention(entry))); setTalkContextVersion(version=>version+1); setTab('talk'); };
   const connect = useCallback(async (key: string, restoring = false) => {
     const attempt = ++accessAttempt.current;
     setUnlocking(true); setAccessError('');
@@ -308,6 +320,8 @@ const CupcakeGPT: React.FC = () => {
       tabRef.current = next;
       const state = event.state as { scroll?: unknown } | null;
       pendingScroll.current = state && typeof state.scroll === 'number' ? state.scroll : 0;
+      if (isAssistantTab(next)) setAssistantMode(assistantModeFor(next));
+      else returnTab.current = next;
       setTabState(next);
     };
     window.addEventListener('popstate', onPop);
@@ -326,20 +340,21 @@ const CupcakeGPT: React.FC = () => {
   },[]);
   const promptInstall = () => { if (!install) return; void install.prompt().then(() => install.userChoice).then(() => setInstall(null)); };
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
-  if (access === 'form') return <main className="cc-app"><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'#ffa3c5'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
-  return <div className="cc-app"><header className="cc-top"><img src={ICON} alt=""/><div><strong>Cupcake</strong><small>Your private companion</small></div><details className="cc-settings" onKeyDown={e=>{if(e.key==='Escape'&&e.currentTarget.open){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary><div className="cc-settings-scrim" aria-hidden="true" onClick={e=>{(e.currentTarget.closest('details') as HTMLDetailsElement).open=false;}}/><div className="cc-settings-panel" role="group" aria-label="Settings"><div className="cc-settings-head"><strong>Settings</strong><button type="button" className="cc-settings-close" aria-label="Close settings" onClick={e=>{const d=e.currentTarget.closest('details') as HTMLDetailsElement;d.open=false;d.querySelector('summary')?.focus();}}><X size={20} aria-hidden="true"/></button></div><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" aria-label="Lock Cupcake" disabled={mediaBusy} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">Lock</span></button></header>
+  if (access === 'form') return <main className="cc-app" data-appearance={appearance.appearance}><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'var(--cc-pink)'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
+  return <div className="cc-app" data-appearance={appearance.appearance}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong>{assistantName}</strong><small>Your private companion</small></div><details className="cc-settings" onKeyDown={e=>{if(e.key==='Escape'&&e.currentTarget.open){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary><div className="cc-settings-scrim" aria-hidden="true" onClick={e=>{(e.currentTarget.closest('details') as HTMLDetailsElement).open=false;}}/><div className="cc-settings-panel" role="group" aria-label="Settings"><div className="cc-settings-head"><strong>Settings</strong><button type="button" className="cc-settings-close" aria-label="Close settings" onClick={e=>{const d=e.currentTarget.closest('details') as HTMLDetailsElement;d.open=false;d.querySelector('summary')?.focus();}}><X size={20} aria-hidden="true"/></button></div><AssistantAppearanceSettings {...appearance}/><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" aria-label="Lock Cupcake" disabled={mediaBusy} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">Lock</span></button></header>
     <main className="cc-shell">
       <AppUpdateNotice busy={mediaBusy} part="banner" />
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
-      {mediaBusy&&!['talk','record','library'].includes(tab)&&<button className="cc-live-bar" onClick={()=>setTab('record')}>Cupcake is working · open controls</button>}
-      {access==='ready'&&tab==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
-      {access==='ready'&&tab==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
-      {access==='ready'&&<div hidden={!['talk','record','library'].includes(tab)}><CupcakeStudio active={['talk','record','library'].includes(tab)} mode={tab==='talk'?'talk':tab==='library'?'library':'record'} onBusy={setMediaBusy}/></div>}
-      {access==='ready'&&<div hidden={!(tab==='chat'||(talkChat&&tab==='talk'))} className={talkChat?'cc-talkchat-chat':undefined}><div className="cc-heading-row"><div><span className="cc-eyebrow">{talkChat?'OR TYPE TO CUPCAKE':'QUICK CHAT'}</span><p className="cc-muted">{talkChat?'Same Cupcake, in writing. Saved conversations sync across your devices.':'Everyday conversation with your context. Use Library for deeper strategy and saved analyses.'}</p>{talkChat&&<button type="button" className="cc-text-button" onClick={()=>setTab('record')}>Record a voice note instead</button>}</div><button className="cc-text-button" onClick={()=>setTab('library')}>Ask across my Library</button></div><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button><SectionBoundary label="Chat"><ChatView active={tab==='chat'||(talkChat&&tab==='talk')} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={talkChat&&mediaBusy}/></SectionBoundary></div>}
-      {access==='ready'&&tab==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&tab==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
-    </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.filter(t=>!(talkChat&&t.key==='chat')).map(({key,label,Icon})=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
+      {access==='ready'&&screen==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
+      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
+      {access==='ready'&&<AssistantShell open={assistantOpen} library={tab==='library'} mode={assistantMode} onMode={openAssistantMode} onOpen={()=>openAssistantMode(activity.kind==='voice'?'voice':activity.kind==='record'?'record':assistantMode)} onMinimize={()=>setTab(returnTab.current)} onLibrary={()=>setTab('library')} busy={mediaBusy} activity={activity} persona={appearance.persona} name={assistantName}>
+        <div hidden={!(tab==='library'||assistantMode!=='text')}><CupcakeStudio active={tab==='library'||(assistantOpen&&assistantMode!=='text')} keepMediaOnHide contextVersion={talkContextVersion} mode={tab==='library'?'library':assistantMode==='voice'?'talk':'record'} onBusy={setMediaBusy} onActivity={setActivity}/></div>
+        <div hidden={tab==='library'||assistantMode!=='text'}><div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button></div><SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy}/></SectionBoundary></div>
+      </AssistantShell>}
+      {access==='ready'&&screen==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&screen==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
+    </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={(key==='chat'?assistantOpen:tab===key)?'page':undefined} onClick={()=>key==='chat'?openAssistantMode(assistantMode):setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
   </div>;
 };
 
