@@ -4,13 +4,23 @@ import { SnapView } from '../src/pages/cupcake/sandbox/cupcakegpt/page';
 import { PersonalOutcomes } from '../src/components/cupcake/PersonalOutcomes';
 import type { FoodMeal } from '../src/components/cupcake/DashboardView';
 import '../src/index.css';
+import { useCupcakeViewport } from '../src/components/cupcake/useCupcakeViewport';
 if (!import.meta.env.DEV) throw new Error('Synthetic preview is development only.');
+const fixtureParams = new URLSearchParams(location.search);
+const fixtureScenario = fixtureParams.get('scenario');
+const analysisRelease = new Promise<void>(resolve => window.addEventListener('cupcake-fixture-release', () => resolve(), { once: true }));
 const initial: FoodMeal = { id: 'synthetic_meal_mobile', status: 'ready', createdAt: '2026-09-29T17:00:00Z', description: 'Synthetic rice bowl and sweet tea', total: { calories: 520, carbs_g: 88, sugar_g: 35, protein_g: 17 }, calorieRange: { low: 420, high: 620 }, items: [
   { id: 'synthetic_rice', name: 'Rice bowl', quantity: 1, unit: 'bowl', nutrition: { calories: 380, carbs_g: 53, sugar_g: 0, protein_g: 17 }, provenance: 'visual_estimate', portionAssumption: 'One visible bowl with rice and vegetables.' },
   { id: 'synthetic_tea', name: 'Sweet tea', quantity: 1, unit: 'glass', nutrition: { calories: 140, carbs_g: 35, sugar_g: 35, protein_g: 0 }, provenance: 'visual_estimate', portionAssumption: 'A 12 oz sweetened tea.' },
 ] };
+if (fixtureParams.has('long')) {
+  initial.description = `Synthetic meal ${'LongProductName'.repeat(20)}`;
+  initial.items![0].name = 'SyntheticIngredient'.repeat(20);
+  initial.lookupWarnings = ['SyntheticWarning'.repeat(25)];
+}
 let meal = structuredClone(initial);
 let failOnce = false;
+let analysisAttempts = 0;
 const outcomes: Array<Record<string, unknown>> = [];
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
 const calls: Array<Record<string, unknown>> = [];
@@ -25,10 +35,14 @@ window.fetch = async (_url, init) => {
   else if (body.action === 'outcome_list') { const entries = outcomes.filter(entry => (!body.start || String(entry.date) >= body.start) && (!body.end || String(entry.date) <= body.end)); data = { entries, counts: { wins: entries.filter(entry => entry.outcome === 'win').length, losses: entries.filter(entry => entry.outcome === 'loss').length, unscored: 0, total: entries.length }, nextCursor: null }; }
   else if (body.action === 'outcome_record') { const prior = outcomes.find(entry => entry.id === body.id); if (prior && JSON.stringify(prior.source) !== JSON.stringify(body.source)) throw Error('Synthetic request identity conflict'); const entry = prior || { ...body, evidenceType: 'owner-reported-outcome', createdAt: new Date().toISOString() }; if (!prior) outcomes.push(entry); data = { entry, replayed: !!prior, libraryIndexed: true }; }
   else if (body.action === 'food_analyze') {
+    if (analysisAttempts++ === 0 && fixtureScenario === 'network-error') throw Error('Synthetic food analysis connection failure.');
+    if (fixtureParams.has('defer')) await analysisRelease;
     if (body.autoLog === true && body.confirmConsumed !== true) throw Error('Missing consumption confirmation');
     meal = { ...structuredClone(initial), photoTakenAt: String(body.consumedAt), autoLogRequested: body.autoLog === true, ...(body.autoLog === true ? { consumedAt: String(body.consumedAt), sheetLoggedAt: new Date().toISOString() } : {}) };
     data = { meal };
+    if (fixtureScenario === 'analysis-failed') { meal = { ...meal, status: 'analysis_failed', sheetLoggedAt: undefined }; data = { meal }; }
   }
+  else if (body.action === 'food_retry') { meal = { ...meal, status: 'ready', sheetLoggedAt: new Date().toISOString() }; data = { meal }; }
   else if (body.action === 'food_list') data = { meals: [meal] };
   else if (body.action === 'food_get') data = { meal };
   else if (body.action === 'food_refine') { meal = { ...meal, description: 'Synthetic corrected rice bowl and unsweetened tea', total: { calories: 380, carbs_g: 53, sugar_g: 0, protein_g: 17 }, calorieRange: { low: 300, high: 460 }, items: [initial.items![0], { ...initial.items![1], name: 'Unsweetened tea', nutrition: { calories: 0, carbs_g: 0, sugar_g: 0, protein_g: 0 }, portionAssumption: 'Unsweetened, as corrected in this simulated test.' }] }; data = { meal }; }
@@ -41,6 +55,7 @@ window.fetch = async (_url, init) => {
   return new Response(JSON.stringify({ ok: true, ...data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 };
 function Preview() {
+  useCupcakeViewport();
   const [version, setVersion] = useState(0);
   return <div className="cc-app" style={{ width: 390, maxWidth: '100%', margin: '0 auto', fontFamily: 'system-ui, sans-serif' }}><main style={{ padding: 16 }}><h1 style={{ fontSize: 20 }}>Food photo · simulated mobile test</h1><p style={{ fontSize: 12, color: '#eabed2' }}>390 px preview. Open the saved meal below. Every response is synthetic; external requests are blocked.</p><button className="cc-secondary" onClick={() => { meal = structuredClone(initial); failOnce = false; setVersion(v => v + 1); }}>Reset simulated meal</button><label className="cc-meal-consent"><input type="checkbox" onChange={e => { failOnce = e.target.checked; }} />Simulate one interrupted save</label><output id="synthetic-count" style={{ fontSize: 12 }}>Simulated save requests: 0. No live writes.</output><SnapView key={version}/><hr style={{ margin: '32px 0' }}/><p className="cc-muted">Simulated personal outcomes · viewing {today} only</p><PersonalOutcomes range={{ preset: 'day', start: today, end: today, timezone: 'America/Chicago' }}/></main></div>;
 }

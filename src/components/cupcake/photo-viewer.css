@@ -21,6 +21,8 @@
   padding: 1rem;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
   z-index: 10;
+  gap: 12px;
+  align-items: flex-start;
 }
 
 .cc-photo-viewer-header h2 {
@@ -28,6 +30,13 @@
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .cc-photo-viewer .cc-icon-btn {
@@ -42,6 +51,7 @@
   color: white;
   cursor: pointer;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 
 .cc-photo-viewer .cc-icon-btn:hover {

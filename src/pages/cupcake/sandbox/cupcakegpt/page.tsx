@@ -37,6 +37,7 @@ import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPriv
 import { TodayEnergy, useTodayExercise } from '../../../../components/cupcake/TodayEnergy';
 import { AccentHeatToggle } from '../../../../components/cupcake/AccentHeatToggle';
 import { useAccentHeat } from '../../../../components/cupcake/useAccentHeat';
+import { useCupcakeViewport } from '../../../../components/cupcake/useCupcakeViewport';
 import { ToneIcon } from '../../../../components/cupcake/design/ToneIcon';
 import { Sparkline } from '../../../../components/cupcake/design/Visuals';
 import '../../../../components/cupcake/design/tokens.css';
@@ -218,6 +219,7 @@ function foodReviewFirst() {
 }
 
 const CupcakeGPT: React.FC = () => {
+  useCupcakeViewport();
   const [tab, setTabState] = useState<TabKey>(() => tabFromSearch(location.search));
   const [talkChat] = useState(() => readTalkChatFlag());
   const tabRef = useRef(tab);
