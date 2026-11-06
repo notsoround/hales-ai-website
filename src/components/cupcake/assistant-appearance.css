@@ -1,0 +1,55 @@
+/* Presentation only. Scope excludes public pages and the separate coach report (.rv). */
+.cc-app[data-appearance]{--cc-text:#edf8fc;--cc-text-2:#b7ccd5;--cc-text-3:#9fb7c2;--cc-bg:#050a0d;--cc-surface:#0c171d;--cc-surface-2:#132631;--cc-border:#29434f;--cc-line:#29434f;--cc-pink:#39e6d2;--cc-pink-strong:#39e6d2;--cc-pink-bright:#80eee1;--cc-ocean:#328dff;--cc-ink:#042d33;--cc-accent-wash:#39e6d214;--cc-edge-glow:#328dff18;--assistant-art-jacket:#153a4c;--assistant-art-light:#dcf1e9;--assistant-art-trim:#277b8b;--assistant-art-hair:#65b8b2;--assistant-art-shine:#a5e6d9;--assistant-art-screen:#133641;--assistant-art-spark:#b9fff0;background:var(--cc-bg);color:var(--cc-text);color-scheme:dark}
+.cc-app[data-appearance=rose]{--cc-text:#f5eff9;--cc-text-2:#d0bed6;--cc-text-3:#b7a3c2;--cc-bg:#100c13;--cc-surface:#1d1725;--cc-surface-2:#302237;--cc-border:#54405d;--cc-line:#403047;--cc-pink:#f5accb;--cc-pink-strong:#f5accb;--cc-pink-bright:#ffd1e3;--cc-ocean:#ab9bf1;--cc-ink:#2a1726;--cc-accent-wash:#f5accb14;--cc-edge-glow:#ab9bf118;--assistant-art-jacket:#42314e;--assistant-art-light:#ecd6e2;--assistant-art-trim:#815278;--assistant-art-hair:#d49ac2;--assistant-art-shine:#f5c6df;--assistant-art-screen:#45314e;--assistant-art-spark:#c7ede5}
+/* Category identities (food, exercise, glucose, etc.) retain their existing meaning. */
+.cc-app[data-appearance]{--ds-summary:#328dff;--ds-summary-ink:#8cc8ff;--ds-summary-prev:#1b3d5e;--ds-summary-tint:#328dff19}
+.cc-app[data-appearance=rose]{--ds-summary:#ab9bf1;--ds-summary-ink:#c7bdfa;--ds-summary-prev:#403459;--ds-summary-tint:#ab9bf119}
+.cc-app[data-appearance] .cc-primary{background:linear-gradient(115deg,var(--cc-pink),color-mix(in srgb,var(--cc-pink) 75%,var(--cc-ocean)));color:var(--cc-ink);box-shadow:0 3px 19px var(--cc-edge-glow)}
+.cc-app[data-appearance] .cc-secondary{color:var(--cc-text);border-color:var(--cc-border);background:var(--cc-surface-2)}
+.cc-app[data-appearance] :focus-visible{outline-color:var(--cc-pink-bright)}
+.cc-app[data-appearance] :is(.cc-eyebrow,.cc-studio h2 em,.cc-transcript strong,.cc-chat-line strong,.cc-detail summary,.cc-kind,.cc-analysis-meta>span,.cc-question-bubble strong,.cc-model-badge){color:var(--cc-pink-bright)}
+.cc-app[data-appearance] :is(.cc-muted,.cc-top small,.cc-auto,.cc-input-status,.cc-privacy,.cc-label,.cc-filter,.cc-recorder p,.cc-library-item small,.cc-analysis-meta,.cc-thinking small,.cc-sources ul){color:var(--cc-text-3)}
+.cc-app[data-appearance] :is(.cc-detail,.cc-meal-dialog,.cc-settings-panel,.cc-analysis,.cc-library-search,.cc-chat-saved,.cc-detail>.cc-text-button:first-child){background:var(--cc-surface);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] :is(.cc-label textarea,.cc-label select,.cc-filter select,.cc-ask textarea,.cc-detail pre,.cc-app select option){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] :is(.cc-label textarea:focus,.cc-ask textarea:focus){border-color:var(--cc-pink)}
+.cc-app[data-appearance] .cc-nav{background:color-mix(in srgb,var(--cc-bg) 94%,transparent);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-nav button{color:var(--cc-text-3)}
+.cc-app[data-appearance] :is(.cc-nav button[aria-current=page],.cc-library-tabs button[aria-selected=true],.cc-dashboard-range button[aria-selected=true]){background:var(--cc-accent-wash);color:var(--cc-pink-bright);border-color:color-mix(in srgb,var(--cc-pink) 28%,transparent)}
+.cc-app[data-appearance] :is(.cc-strategy-box,.cc-recorder){background:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--cc-ocean) 15%,transparent),transparent 65%),linear-gradient(115deg,color-mix(in srgb,var(--cc-pink) 7%,var(--cc-surface)),var(--cc-surface));border-color:color-mix(in srgb,var(--cc-pink) 30%,var(--cc-border));box-shadow:inset 0 1px 0 var(--cc-accent-wash),0 0 25px var(--cc-edge-glow)}
+.cc-app[data-appearance] .cc-record-button{background:var(--cc-pink);color:var(--cc-ink);border-color:var(--cc-accent-wash);box-shadow:0 0 0 1px color-mix(in srgb,var(--cc-pink) 35%,transparent)}
+.cc-app[data-appearance] .cc-wave i{background:var(--cc-pink)}
+.cc-app[data-appearance] :is(.cc-transcript p,.cc-chat-line,.cc-detail blockquote){border-left-color:var(--cc-pink)}
+.cc-app[data-appearance] :is(.cc-question-bubble,.cc-live-bar){background:var(--cc-accent-wash);border-color:color-mix(in srgb,var(--cc-pink) 30%,var(--cc-border))}
+.cc-app[data-appearance] .cc-dot{background:var(--cc-pink)}
+.cc-app[data-appearance] .cc-chat :is(.bg-pink-700,.bg-pink-600){background:color-mix(in srgb,var(--cc-pink) 19%,var(--cc-surface-2));color:var(--cc-text)}
+.cc-app[data-appearance] .cc-chat .text-pink-200{color:var(--cc-pink-bright)}
+.cc-app[data-appearance] .cc-chat :is(select,textarea){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-assistant-portrait{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:68px;height:76px;vertical-align:middle}
+.cc-app[data-appearance] .cc-assistant-portrait.is-small{width:43px;height:48px}
+.cc-app[data-appearance] .cc-assistant-portrait svg{display:block;width:100%;height:100%;overflow:visible}
+.cc-app[data-appearance] .cc-assistant-bubble .cc-assistant-portrait{width:56px;height:56px}
+.cc-app[data-appearance] .cc-assistant-eyes{animation:cc-assistant-blink 7s infinite}
+.cc-app[data-appearance] .cc-assistant-portrait-dot{position:absolute;right:1px;bottom:2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--cc-surface);background:#6be08a}
+@keyframes cc-assistant-blink{0%,43%,47%,100%{opacity:1}45%{opacity:.12}}
+.cc-app[data-appearance] .cc-assistant-appearance-settings{min-width:0;max-width:100%;padding:14px 0;border-top:1px solid var(--cc-border);color:var(--cc-text)}
+.cc-app[data-appearance] .cc-assistant-appearance-settings h3{font-size:18px;margin:0 0 9px;letter-spacing:-.3px}
+.cc-app[data-appearance] .cc-assistant-appearance-settings>p{font-size:13px;line-height:1.6;color:var(--cc-text-3);margin:0 0 18px;overflow-wrap:anywhere}
+.cc-app[data-appearance] .cc-assistant-preference{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--cc-text-2);margin:15px 0}
+.cc-app[data-appearance] .cc-assistant-preference :is(input,select){width:100%;min-width:0;max-width:100%;min-height:44px;padding:11px 12px;border:1px solid var(--cc-border);border-radius:12px;background:var(--cc-surface-2);color:var(--cc-text);font-size:16px}
+.cc-app[data-appearance] .cc-assistant-appearance-settings fieldset{min-width:0;border:0;margin:19px 0 15px;padding:0}
+.cc-app[data-appearance] .cc-assistant-appearance-settings legend{font-size:13px;color:var(--cc-text-2);margin-bottom:9px}
+.cc-app[data-appearance] .cc-assistant-persona-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.cc-app[data-appearance] .cc-assistant-persona-options>button{min-width:0;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--cc-border);border-radius:16px;background:var(--cc-surface);color:var(--cc-text-2);padding:12px 6px;font-size:13px}
+.cc-app[data-appearance] .cc-assistant-persona-options>button[aria-pressed=true]{border-color:var(--cc-pink);background:var(--cc-accent-wash);color:var(--cc-pink-bright)}
+.cc-app[data-appearance] .cc-assistant-appearance-settings .cc-assistant-preference-note{font-size:11px;margin:16px 0 4px}
+.cc-app[data-appearance] .cc-settings-panel{box-sizing:border-box;max-height:calc(100dvh - 115px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain;scrollbar-color:var(--cc-border) transparent}
+@media(max-width:600px){.cc-app[data-appearance] .cc-settings-panel{max-height:calc(100dvh - 20px - env(safe-area-inset-top));padding-bottom:max(20px,env(safe-area-inset-bottom))}.cc-app[data-appearance] .cc-assistant-persona-options>button{min-height:114px;padding:10px 5px}.cc-app[data-appearance] .cc-assistant-appearance-settings h3{font-size:17px}}
+@media(prefers-reduced-motion:reduce){.cc-app[data-appearance] .cc-assistant-eyes,.cc-app[data-appearance] .cc-assistant-portrait{animation:none!important}.cc-app[data-appearance] .cc-assistant-appearance-settings *{scroll-behavior:auto!important}}
+
+/* Matt's ocean palette also carries through nutrition and food planning surfaces. */
+.cc-app[data-appearance=caribbean]{--ds-food-ink:#62ead6;--ds-food:#2bcdb8;--ds-food-prev:#214d47;--ds-food-tint:#2bcdb81c}
+.cc-app[data-appearance] :is(.cc-card,.cc-nutrition-today,.cc-dashboard-card){box-shadow:inset 0 1px 0 color-mix(in srgb,var(--cc-ocean) 22%,transparent),0 8px 28px #0004;border-color:color-mix(in srgb,var(--cc-ocean) 20%,var(--cc-border))}
+/* Heat changes intensity within the selected palette. */
+:root[data-accent-heat=hot] .cc-app[data-appearance=caribbean]{--cc-pink:#30f0d7;--cc-pink-strong:#30f0d7;--cc-pink-bright:#a6fff0;--cc-ocean:#4c9dff}
+:root[data-accent-heat=hot] .cc-app[data-appearance=rose]{--cc-pink:#ff9bc9;--cc-pink-strong:#ff9bc9;--cc-pink-bright:#ffdaeb;--cc-ocean:#bbabff}
+.cc-app[data-appearance],:root[data-accent-heat] .cc-app[data-appearance]{--cc-pink-hover:var(--cc-pink-bright);--cc-pink-ring:var(--cc-pink);--cc-pink-subtle:var(--cc-accent-wash)}

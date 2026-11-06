@@ -27,7 +27,7 @@ function scenario({ deadline = 1000, meeting = false } = {}) {
   const mic = deferred(), display = deferred(), events = [];
   const ref = current => ({ current });
   const scope = {
-    recording: false, busy: false, micTesting: false, voice: 'idle', mode: 'talk', active: true, inputDevice: '', title: '', autoAnalyze: false,
+    keepMediaOnHide: false, recording: false, busy: false, micTesting: false, voice: 'idle', mode: 'talk', active: true, inputDevice: '', title: '', autoAnalyze: false,
     captureAcquisition: ref(null), captureGeneration: ref(0), voiceAcquisition: ref(null), voiceGeneration: ref(0), mounted: ref(true),
     stoppingVoice: ref(false), endingVoice: ref(new VoiceEndingCoordinator()), voiceMic: ref(null), call: ref(null), remoteId: ref(null),
     talkLocalId: ref(''), talkStarted: ref(''), talkCapture: ref(null), lineDrain: ref(new TalkLineDrain()), linesRef: ref([]), players: ref(new Map()),
