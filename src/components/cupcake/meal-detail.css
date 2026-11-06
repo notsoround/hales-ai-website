@@ -23,8 +23,14 @@
 .cc-food-capture-panel>summary { min-height:44px; display:flex; align-items:center; cursor:pointer; font-weight:600; }
 .cc-food-capture-panel[open]>summary { margin-bottom:16px; }
 .cc-signal-time { max-width:90px; text-align:right; }
-/* Phone comfort: no double-tap zoom in the meal dialog, and text fields at 16px so iOS never zooms on focus. Pinch zoom stays available (accessibility). */
-.cc-meal-dialog{touch-action:manipulation}
+/* Grid's automatic minimum otherwise expands the phone layout to fit a saved title. */
+.cc-snap-queue{grid-template-columns:minmax(0,1fr)}
+.cc-snap-recent-item{min-width:0}
+.cc-meal-dialog{overflow-wrap:anywhere;overscroll-behavior:contain;touch-action:pan-x pan-y}
+.cc-meal-dialog-head h2{min-width:0}
+.cc-meal-dialog-head button{flex-shrink:0}
+/* Keep the saved-meal navigation and all input focus states within narrow phones. */
+@media(max-width:480px){.cc-meal-navigation{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.cc-meal-navigation>span{grid-column:1/-1;grid-row:1}.cc-meal-navigation button{min-width:0;justify-content:center}}
 @media(max-width:600px){.cc-app .cc-food-note,.cc-meal-dialog input:not([type=checkbox]):not([type=radio]):not([type=file]),.cc-meal-dialog select,.cc-meal-dialog textarea,.cc-nutrition-settings input{font-size:16px}}
 /* Phone: the two food-photo buttons stack full width instead of squeezing "Choose existing photo" into three lines. */
 @media(max-width:560px){.cc-snap-actions button{flex:1 1 100%;min-width:0}}
