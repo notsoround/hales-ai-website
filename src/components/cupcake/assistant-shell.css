@@ -1,5 +1,8 @@
 .cc-assistant-workspace[hidden],.cc-assistant-workspace [hidden]{display:none!important}
 .cc-assistant-workspace{min-width:0;color:var(--cc-text)}
+/* Settings belongs above the assistant; its sticky header otherwise traps it at z=50.
+   Remove the backdrop containing block so the fixed dismiss scrim spans the viewport. */
+.cc-app .cc-top:has(.cc-settings[open]){z-index:75;-webkit-backdrop-filter:none;backdrop-filter:none}
 .cc-assistant-workspace.is-panel{position:fixed;z-index:55;right:max(16px,env(safe-area-inset-right));top:max(calc(var(--assistant-vtop,0px) + 82px),env(safe-area-inset-top));bottom:calc(var(--cc-nav-offset,76px) + env(safe-area-inset-bottom) + 12px);width:min(600px,calc(100vw - var(--cc-sidebar,0px) - 32px));max-height:calc(var(--assistant-vh,100dvh) - 112px);display:flex;flex-direction:column;overflow:hidden;border:1px solid color-mix(in srgb,var(--cc-pink) 40%,var(--cc-border));border-radius:26px;background:var(--cc-surface,#0c171d);box-shadow:0 20px 90px #000b,0 0 32px color-mix(in srgb,var(--cc-pink) 12%,transparent)}
 .cc-assistant-head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--cc-border);flex:none}
 .cc-assistant-head>div{min-width:0;flex:1}.cc-assistant-head h2{font-size:21px!important;line-height:1.2;margin:0 0 4px!important;overflow-wrap:anywhere}.cc-assistant-head h2:focus{outline:none}.cc-assistant-head p{font-size:12px;color:var(--cc-text-2);margin:0;overflow-wrap:anywhere}
