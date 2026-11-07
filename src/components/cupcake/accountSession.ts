@@ -125,7 +125,9 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'weight_list weight_get weight_add weight_correct glucose_add glucose_manual_list checkin_add checkin_list health_observation_get '
   + 'exercise_log exercise_list exercise_delete outcome_record outcome_list outcome_get body_checkin_upsert body_checkin_delete '
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '
-  + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save').split(' '));
+  + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save feed_get '
+  + 'receipt_list receipt_get receipt_confirm_match reconcile_list reconcile_resolve reconcile_settings '
+  + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel').split(' '));
 export async function accountData<T>(body: Record<string, unknown>): Promise<T> {
   const snapshot = state;
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');

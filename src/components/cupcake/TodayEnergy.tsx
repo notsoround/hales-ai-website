@@ -1,3 +1,4 @@
+import { ACCOUNT_SESSIONS } from './accountMode';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Mic, Square } from 'lucide-react';
 import { libraryRequest } from './library';
@@ -30,7 +31,7 @@ function useMinuteClock() {
 export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: { items: FeedLike; nutrition: NutritionState; exercise: ExerciseState; openLogRequest?: number }) {
   const now = useMinuteClock(), day = nutritionDay(now), dayStart = nutritionDayStart(day), dayEnd = nutritionDayStart(addDays(day, 1));
   const steps = useLatestSteps(day);
-  const bought = useMemo<BoughtEvent[]>(() => preparedPurchases(items, dayStart, now.getTime()).map(p => ({ id: p.id, at: p.at, label: p.merchant, amount: p.amount, currency: p.currency })), [items, dayStart, now]);
+  const bought = useMemo<BoughtEvent[]>(() => preparedPurchases(items, dayStart, now.getTime(), ACCOUNT_SESSIONS).map(p => ({ id: p.id, at: p.at, label: p.merchant, amount: p.amount, currency: p.currency })), [items, dayStart, now]);
   const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), bought, steps: steps.day?.count ?? null, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, bought, steps.day, now]);
   const comparisonReady = !!nutrition.history?.complete && !nutrition.history.pendingCount && !nutrition.history.undatedLoggedCount;
   return <section className="cc-energy" aria-label="Energy today">
