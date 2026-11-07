@@ -1,6 +1,9 @@
 import { ACCOUNT_SESSIONS, ACCOUNT_UNAVAILABLE } from './accountMode.ts';
 
 export type AccountIdentity = Readonly<{ account_id: string; email: string; name: string }>;
+export class AccountRequestError extends Error {
+  constructor(message: string, readonly code: string) { super(message); this.name = 'AccountRequestError'; }
+}
 type Session = Readonly<{ identity: AccountIdentity | null; generation: number; checking: boolean; message: string }>;
 let state: Session = { identity: null, generation: 0, checking: true, message: '' };
 const listeners = new Set<() => void>();
@@ -65,6 +68,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       invalidateSession('Your session expired or changed. Sign in again.');
       throw Error('Your session expired or changed. Sign in again.');
     }
+    if (response.status === 409 && result?.error === 'persona_conflict') throw new AccountRequestError('Your assistant preferences changed elsewhere.', 'persona_conflict');
     if (!response.ok || !result || result.ok === false) throw Error(response.status === 503 ? ACCOUNT_UNAVAILABLE
       : response.status === 429 ? 'Too many attempts. Please try again later.'
       : response.status === 401 ? 'Check your sign-in details and try again.'
@@ -120,7 +124,7 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'weight_list weight_get weight_add weight_correct glucose_add glucose_manual_list checkin_add checkin_list health_observation_get '
   + 'exercise_log exercise_list exercise_delete outcome_record outcome_list outcome_get body_checkin_upsert body_checkin_delete '
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '
-  + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get').split(' '));
+  + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save').split(' '));
 export async function accountData<T>(body: Record<string, unknown>): Promise<T> {
   const snapshot = state;
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');
