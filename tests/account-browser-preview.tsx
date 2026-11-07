@@ -11,6 +11,7 @@ import { TALK_SEED_KEY } from '../src/components/cupcake/dashboardModel';
 import { pendingReset, savePendingReset } from '../src/components/cupcake/quickResetRecovery';
 import { keepPendingOutcome, readPendingOutcome } from '../src/components/cupcake/personalOutcomeDraft';
 import { ACCOUNT_SESSIONS } from '../src/components/cupcake/accountMode';
+import { accountCoachPhoto } from '../src/components/cupcake/accountSession';
 import '../src/index.css';
 
 if (!import.meta.env.DEV || !ACCOUNT_SESSIONS) throw Error('Synthetic account preview requires a local opt-in test build.');
@@ -39,6 +40,7 @@ const fixture = {
     seed:personalStorage('sessionStorage').getItem(TALK_SEED_KEY),reset:pendingReset(),outcome:readPendingOutcome(personalStorage('sessionStorage')).pending,talks:readTalks(),checkpoints:new TalkCheckpointRecovery(talkDeviceStorage(),async()=>{throw Error('No transport');}).talks(),
     answers:receivedAnswers(),pending:pendingBegin('pending'),drafts:await drafts(),chat:readChatStorage('cupcake-quick-chat-draft')};},
   request:libraryRequest,
+  photo:accountCoachPhoto,
   heldStore:null as Storage|null,heldScope:null as ReturnType<typeof captureStorageScope>|null,
   holdScope(){this.heldStore=personalStorage('localStorage');this.heldScope=captureStorageScope();},
   async staleWrite(){let rejected=0;try{this.heldStore!.setItem('late-secret','late A');}catch{rejected++;}try{await putChunk('late-A',0,new Blob(['A']),this.heldScope!);}catch{rejected++;}try{await draftBlob({id:'A',title:'A',startedAt:1,mime:'audio/webm',complete:true,blob:new Blob(['A']),storageScope:this.heldScope!.namespace});}catch{rejected++;}return rejected;},
@@ -68,6 +70,13 @@ window.fetch=async(input,init)=>{
   if(route==='recovery/redeem'){fixture.serverOwner(null);return response(200,{ok:true});}
   if(route.startsWith('sign-out')){if(fixture.failLogout)return response(503,{ok:false});fixture.serverOwner(null);return response(200,{ok:true});}
   const owner=current();if(!owner)return response(401,{ok:false,error:'unauthenticated'});
+  if(route.startsWith('coach/')) {
+    if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
+    const remote=(window as unknown as {syntheticCoachServer?:(owner:string,route:string,body:Record<string,unknown>,query:string)=>Promise<{status:number;value?:Record<string,unknown>;bytes?:number[];echo?:string}>}).syntheticCoachServer;
+    if(!remote)throw Error('No synthetic coach server for '+route);
+    const result=await remote(owner.account_id,route,body,url.search);
+    return result.bytes?new Response(new Uint8Array(result.bytes),{status:result.status,headers:{'Content-Type':'image/png','X-Cupcake-Account-Context':result.echo||owner.account_id}}):response(result.status,{...result.value,identity:owner});
+  }
   if(route==='session')return response(200,{ok:true,identity:owner});
   if(route==='recovery/issue')return response(200,{ok:true,recovery_code:'synthetic-one-time-recovery'});
   if(route==='password'){fixture.serverOwner(null);return response(200,{ok:true});}
