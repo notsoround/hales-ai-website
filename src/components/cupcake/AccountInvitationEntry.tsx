@@ -10,6 +10,7 @@ export function AccountInvitationEntry({token,identity,checking,onClose}:{token:
   const [preview,setPreview]=useState<Preview|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [existing,setExisting]=useState(false),[email,setEmail]=useState(''),[name,setName]=useState(''),[password,setPassword]=useState('');
   const [persona,setPersona]=useState<Persona|''>(''),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[complete,setComplete]=useState(false);
+  const [createdEmail,setCreatedEmail]=useState<string|null>(null);
   const heading=useRef<HTMLHeadingElement>(null);
   useEffect(()=>{heading.current?.focus();},[complete]);
   useEffect(()=>{
@@ -30,8 +31,21 @@ export function AccountInvitationEntry({token,identity,checking,onClose}:{token:
     try {
       if(identity){await acceptAccountInvitation(confirmation);setComplete(true);}
       else if(existing){await signIn(email,password,false);}
-      else {await accountInvitation('redeem',{...confirmation,email,name,password});await signIn(email,password,false);setComplete(true);}
+      else {
+        const result=await accountInvitation<{relationship:{id:string;status:string}}>('redeem',{...confirmation,email,name,password});
+        if(!result.relationship?.id||result.relationship.status!=='active')throw Error('The account connection was not confirmed.');
+        // Redemption has succeeded even if the following sign-in fails. Never
+        // offer to consume this one-time invitation again on a sign-in retry.
+        setCreatedEmail(email);
+        await signIn(email,password,false);setComplete(true);
+      }
     }catch(reason){if(reason instanceof AccountRequestError&&reason.code==='invitation_sign_in_required')setExisting(true);setError(message(reason));}
+    finally{setBusy(false);setPassword('');}
+  };
+  const retryCreatedSignIn=async(event:React.FormEvent)=>{
+    event.preventDefault();if(busy||!createdEmail)return;setBusy(true);setError('');
+    try{await signIn(createdEmail,password,false);setComplete(true);}
+    catch(reason){setError(message(reason));}
     finally{setBusy(false);setPassword('');}
   };
   const signOut=async()=>{setBusy(true);setError('');try{await accountControl('sign-out',{});}catch(reason){setError(message(reason));}finally{setBusy(false);}};
@@ -43,7 +57,13 @@ export function AccountInvitationEntry({token,identity,checking,onClose}:{token:
         <p><strong>{preview.invitation.coach_name}</strong> invited <strong>{preview.invitation.email_hint}</strong>.</p>
         <p className="cc-muted">Expires {new Date(preview.invitation.expires_at*1000).toLocaleString()}. The link is private and can be accepted once.</p>
         <p>Suggested assistant: {preview.invitation.persona==='cupcake'?'Cupcake · Caribbean':'Matthieu · Soft rose'}. Your assistant’s presentation does not change access.</p>
-        <form onSubmit={event=>void submit(event)}>
+        {createdEmail?<form onSubmit={event=>void retryCreatedSignIn(event)}>
+          <p>Your account and invitation acceptance were confirmed. Sign in to open your Cupcake; the invitation will not be redeemed again.</p>
+          <label className="cc-label">Created account email<input type="email" autoComplete="username" readOnly value={createdEmail}/></label>
+          <label className="cc-label">Your password<input type="password" autoComplete="current-password" required value={password} onChange={event=>setPassword(event.target.value)} disabled={busy}/></label>
+          <button className="cc-primary" disabled={busy||checking}>{busy?'Please wait…':'Sign in to my Cupcake'}</button>
+          <p className="cc-muted cc-small">If you need recovery, leave this invitation and choose “Use a recovery code” on the sign-in screen for {createdEmail}.</p>
+        </form>:<form onSubmit={event=>void submit(event)}>
           {identity?<><p>Signed in as <strong>{identity.email}</strong>. Your password and saved assistant preferences will not change.</p><button type="button" className="cc-text-button" disabled={busy} onClick={()=>void signOut()}>Use a different account</button></>:
             <><div className="cc-invitation-actions" role="group" aria-label="Account choice"><button type="button" className="cc-secondary" aria-pressed={!existing} onClick={()=>{setExisting(false);setError('');}} disabled={busy}>Create my account</button><button type="button" className="cc-secondary" aria-pressed={existing} onClick={()=>{setExisting(true);setError('');}} disabled={busy}>I already have an account</button></div>
               <label className="cc-label">Invited email<input type="email" autoComplete="username" required value={email} onChange={event=>setEmail(event.target.value)} disabled={busy}/></label>
@@ -56,7 +76,7 @@ export function AccountInvitationEntry({token,identity,checking,onClose}:{token:
           <label className="cc-account-check"><input type="checkbox" required checked={consent} onChange={event=>setConsent(event.target.checked)} disabled={busy}/>I am 18 or older and accept this pilot disclosure.</label>
           <button className="cc-primary" disabled={busy||checking||loading||!consent||!persona}>{busy?'Please wait…':identity?'Accept invitation':existing?'Sign in to accept':'Create account and accept'}</button>
           {!identity&&existing&&<p className="cc-muted cc-small">After sign-in, confirm the invitation for the intended account.</p>}
-        </form>
+        </form>}
       </>}{error&&<p role="alert">{error}</p>}<button type="button" className="cc-text-button" disabled={busy} onClick={onClose}>Leave invitation</button></>}
   </section></main>;
 }

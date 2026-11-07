@@ -24,7 +24,7 @@ const nativeFetch = window.fetch.bind(window);
 const fixture = {
   requests: [] as {route:string;body:Record<string,unknown>;headers:Record<string,string>;credentials?:RequestCredentials}[],
   blocked: [] as string[], legacyReads:0, micRequests:0, tracksStopped:0, recorderStops:0,
-  delay:false, release:()=>{}, wrongEcho:false, failLogout:false,
+  delay:false, release:()=>{}, wrongEcho:false, failLogout:false, failSignIn:false,
   serverOwner:(owner:string|null)=>{if(owner)localStorage.setItem(SERVER,owner);else localStorage.removeItem(SERVER);},
   async seed(label:string) {
     const local=personalStorage('localStorage'), tab=personalStorage('sessionStorage');
@@ -75,7 +75,7 @@ window.fetch=async(input,init)=>{
     return response(result.status,{...result.value,...(route==='invitations/accept'||route.startsWith('sharing/')?{identity:owner}:{})});
   }
   if(['password','recovery/issue','sign-out-all','sign-out'].includes(route)&&headers['x-cupcake-account-context']&&headers['x-cupcake-account-context']!==current()?.account_id)return response(409,{ok:false,error:'account_context_changed'});
-  if(route==='sign-in'){const owner=body.email===A.email?A:body.email===B.email?B:null;if(!owner||body.password!=='Synthetic password 123!')return response(401,{ok:false});fixture.serverOwner(owner.account_id);return response(200,{ok:true,identity:owner});}
+  if(route==='sign-in'){const owner=body.email===A.email?A:body.email===B.email?B:null;if(!owner||body.password!=='Synthetic password 123!')return response(401,{ok:false});if(fixture.failSignIn){fixture.failSignIn=false;return response(503,{ok:false,error:'synthetic_sign_in_unavailable'});}fixture.serverOwner(owner.account_id);return response(200,{ok:true,identity:owner});}
   if(route==='recovery/redeem'){fixture.serverOwner(null);return response(200,{ok:true});}
   if(route.startsWith('sign-out')){if(fixture.failLogout)return response(503,{ok:false});fixture.serverOwner(null);return response(200,{ok:true});}
   const owner=current();if(!owner)return response(401,{ok:false,error:'unauthenticated'});

@@ -37,6 +37,8 @@ Validation (synthetic data and isolated Playwright contexts only):
   preview and fragment cleanup, wrong-account refusal, intended existing-account
   acceptance, new own-password signup under React StrictMode, independent off-by-
   default scopes, report-only/photo-only/both grants, expiry and revocation.
+- A confirmed signup followed by a failed sign-in clears the password and offers
+  sign-in/recovery for that email. A sign-in retry never redeems the consumed token.
 - `node tests/account-coach.test.mjs`: all three existing reader/photo/context/revoke
   browser scenarios pass.
 - Both themes at 320/390/1280 pixels have no horizontal overflow or nested forms.
