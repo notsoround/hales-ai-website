@@ -1,5 +1,6 @@
 import { useLayoutEffect } from 'react';
 import type { Persona } from './assistantAppearance';
+import { ACCOUNT_INSTALL_ICON, isMatthieuAccountInstall } from './accountInstall';
 
 /** A public presentation hint only. Accounts and saved preferences remain server-bound. */
 export function publicAssistantBrand() {
@@ -20,8 +21,9 @@ export function useAssistantDocumentBrand(name: string, persona: Persona, enable
       const existing = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
       const link = existing || document.createElement('link');
       const before = { href: link.getAttribute('href'), type: link.getAttribute('type') };
-      link.rel = rel; link.href = assistantIcon(persona);
-      link.type = persona === 'matthieu' ? 'image/png' : 'image/jpeg';
+      const installIcon = rel === 'apple-touch-icon' && isMatthieuAccountInstall();
+      link.rel = rel; link.href = installIcon ? ACCOUNT_INSTALL_ICON : assistantIcon(persona);
+      link.type = installIcon || persona === 'matthieu' ? 'image/png' : 'image/jpeg';
       if (!existing) document.head.appendChild(link);
       return () => {
         if (!existing) { link.remove(); return; }

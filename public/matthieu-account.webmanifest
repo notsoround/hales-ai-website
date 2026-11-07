@@ -1,0 +1,12 @@
+{
+  "id": "/cupcake/account?assistant=matthieu",
+  "name": "Matthieu",
+  "short_name": "Matthieu",
+  "description": "Your private account companion. Internet connection required.",
+  "start_url": "/cupcake/account?assistant=matthieu",
+  "scope": "/cupcake/account",
+  "display": "standalone",
+  "background_color": "#09070d",
+  "theme_color": "#09070d",
+  "icons": [{ "src": "/matthieu-avatar.png", "sizes": "256x256", "type": "image/png", "purpose": "any" }]
+}
