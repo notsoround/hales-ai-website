@@ -56,7 +56,7 @@ export function AccountInvitationEntry({token,identity,checking,onClose}:{token:
       <>{(checking||loading)&&<p role="status">Checking invitation…</p>}{preview&&<>
         <p><strong>{preview.invitation.coach_name}</strong> invited <strong>{preview.invitation.email_hint}</strong>.</p>
         <p className="cc-muted">Expires {new Date(preview.invitation.expires_at*1000).toLocaleString()}. The link is private and can be accepted once.</p>
-        <p>Suggested assistant: {preview.invitation.persona==='cupcake'?'Cupcake · Caribbean':'Matthieu · Soft rose'}. Your assistant’s presentation does not change access.</p>
+        <p>Suggested assistant: {preview.invitation.persona==='cupcake'?'Cupcake · Caribbean':'Matthieu · Violet'}. Your assistant’s presentation does not change access.</p>
         {createdEmail?<form onSubmit={event=>void retryCreatedSignIn(event)}>
           <p>Your account and invitation acceptance were confirmed. Sign in to open your Cupcake; the invitation will not be redeemed again.</p>
           <label className="cc-label">Created account email<input type="email" autoComplete="username" readOnly value={createdEmail}/></label>
@@ -71,7 +71,7 @@ export function AccountInvitationEntry({token,identity,checking,onClose}:{token:
               <label className="cc-label">{existing?'Your password':'Choose your own password'}<input type="password" autoComplete={existing?'current-password':'new-password'} required minLength={existing?undefined:12} value={password} onChange={event=>setPassword(event.target.value)} disabled={busy}/></label>
               {!existing&&<p className="cc-muted cc-small">Use at least 12 characters. No password is supplied by your coach.</p>}
             </>}
-          <label className="cc-label">Confirm assistant preset<select aria-label="Confirm assistant preset" required value={persona} onChange={event=>setPersona(event.target.value as Persona|'')} disabled={busy}><option value="">Choose a preset</option><option value="cupcake">Cupcake · Caribbean</option><option value="matthieu">Matthieu · Soft rose</option></select></label>
+          <label className="cc-label">Confirm assistant preset<select aria-label="Confirm assistant preset" required value={persona} onChange={event=>setPersona(event.target.value as Persona|'')} disabled={busy}><option value="">Choose a preset</option><option value="cupcake">Cupcake · Caribbean</option><option value="matthieu">Matthieu · Violet</option></select></label>
           <div className="cc-invitation-disclosure"><h2>Pilot disclosure</h2><p>{preview.disclosure.text}</p><p>This adult pilot provides personal wellness and accountability tools. It is not an emergency service. Joining does not share your data: report and optional photo access are off until you explicitly authorize them.</p></div>
           <label className="cc-account-check"><input type="checkbox" required checked={consent} onChange={event=>setConsent(event.target.checked)} disabled={busy}/>I am 18 or older and accept this pilot disclosure.</label>
           <button className="cc-primary" disabled={busy||checking||loading||!consent||!persona}>{busy?'Please wait…':identity?'Accept invitation':existing?'Sign in to accept':'Create account and accept'}</button>

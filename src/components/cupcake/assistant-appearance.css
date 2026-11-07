@@ -1,9 +1,9 @@
 /* Presentation only. Scope excludes public pages and the separate coach report (.rv). */
 .cc-app[data-appearance]{--cc-text:#edf8fc;--cc-text-2:#b7ccd5;--cc-text-3:#9fb7c2;--cc-bg:#050a0d;--cc-surface:#0c171d;--cc-surface-2:#132631;--cc-border:#29434f;--cc-line:#29434f;--cc-pink:#39e6d2;--cc-pink-strong:#39e6d2;--cc-pink-bright:#80eee1;--cc-ocean:#328dff;--cc-ink:#042d33;--cc-accent-wash:#39e6d214;--cc-edge-glow:#328dff18;--assistant-art-jacket:#153a4c;--assistant-art-light:#dcf1e9;--assistant-art-trim:#277b8b;--assistant-art-hair:#65b8b2;--assistant-art-shine:#a5e6d9;--assistant-art-screen:#133641;--assistant-art-spark:#b9fff0;background:var(--cc-bg);color:var(--cc-text);color-scheme:dark}
-.cc-app[data-appearance=rose]{--cc-text:#f5eff9;--cc-text-2:#d0bed6;--cc-text-3:#b7a3c2;--cc-bg:#100c13;--cc-surface:#1d1725;--cc-surface-2:#302237;--cc-border:#54405d;--cc-line:#403047;--cc-pink:#f5accb;--cc-pink-strong:#f5accb;--cc-pink-bright:#ffd1e3;--cc-ocean:#ab9bf1;--cc-ink:#2a1726;--cc-accent-wash:#f5accb14;--cc-edge-glow:#ab9bf118;--assistant-art-jacket:#42314e;--assistant-art-light:#ecd6e2;--assistant-art-trim:#815278;--assistant-art-hair:#d49ac2;--assistant-art-shine:#f5c6df;--assistant-art-screen:#45314e;--assistant-art-spark:#c7ede5}
+.cc-app[data-appearance=rose]{--cc-text:#f3eefb;--cc-text-2:#d0c2e4;--cc-text-3:#b6a4ce;--cc-bg:#09070d;--cc-surface:#16111f;--cc-surface-2:#241a31;--cc-border:#4c3b63;--cc-line:#352841;--cc-pink:#ae78ff;--cc-pink-strong:#ae78ff;--cc-pink-bright:#d6b8ff;--cc-ocean:#8650d5;--cc-ink:#180d27;--cc-accent-wash:#ae78ff18;--cc-edge-glow:#8650d526;--assistant-art-jacket:#3c2854;--assistant-art-light:#e8dcfa;--assistant-art-trim:#8c66b5;--assistant-art-hair:#b38de2;--assistant-art-shine:#dbc4ff;--assistant-art-screen:#2c1e43;--assistant-art-spark:#d4bcff}
 /* Category identities (food, exercise, glucose, etc.) retain their existing meaning. */
 .cc-app[data-appearance]{--ds-summary:#328dff;--ds-summary-ink:#8cc8ff;--ds-summary-prev:#1b3d5e;--ds-summary-tint:#328dff19}
-.cc-app[data-appearance=rose]{--ds-summary:#ab9bf1;--ds-summary-ink:#c7bdfa;--ds-summary-prev:#403459;--ds-summary-tint:#ab9bf119}
+.cc-app[data-appearance=rose]{--ds-summary:#a67df2;--ds-summary-ink:#c9a4ff;--ds-summary-prev:#47315f;--ds-summary-tint:#a67df219}
 .cc-app[data-appearance] .cc-primary{background:linear-gradient(115deg,var(--cc-pink),color-mix(in srgb,var(--cc-pink) 75%,var(--cc-ocean)));color:var(--cc-ink);box-shadow:0 3px 19px var(--cc-edge-glow)}
 .cc-app[data-appearance] .cc-secondary{color:var(--cc-text);border-color:var(--cc-border);background:var(--cc-surface-2)}
 .cc-app[data-appearance] :focus-visible{outline-color:var(--cc-pink-bright)}
@@ -102,7 +102,7 @@
 .cc-app[data-appearance] .cc-dashboard-coverage{border-left-color:var(--cc-pink)}
 /* Heat changes intensity within the selected palette. */
 :root[data-accent-heat=hot] .cc-app[data-appearance=caribbean]{--cc-pink:#30f0d7;--cc-pink-strong:#30f0d7;--cc-pink-bright:#a6fff0;--cc-ocean:#4c9dff}
-:root[data-accent-heat=hot] .cc-app[data-appearance=rose]{--cc-pink:#ff9bc9;--cc-pink-strong:#ff9bc9;--cc-pink-bright:#ffdaeb;--cc-ocean:#bbabff}
+:root[data-accent-heat=hot] .cc-app[data-appearance=rose]{--cc-pink:#be8cff;--cc-pink-strong:#be8cff;--cc-pink-bright:#e2ccff;--cc-ocean:#9b67ea}
 .cc-app[data-appearance],:root[data-accent-heat] .cc-app[data-appearance]{--cc-pink-hover:var(--cc-pink-bright);--cc-pink-ring:var(--cc-pink);--cc-pink-subtle:var(--cc-accent-wash)}
 
 /* A face-first crop of Cupcake's original portrait, shared by the launcher and headers. */
