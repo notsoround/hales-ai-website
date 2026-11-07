@@ -26,14 +26,16 @@ export function AssistantPortrait({ persona, name, small = false, busy = false }
   </span>;
 }
 
-export function AssistantAppearanceSettings({ appearance, setAppearance, persona, setPersona, name, setName }: AssistantAppearanceState) {
+export function AssistantAppearanceSettings({ appearance, setAppearance, persona, setPersona, name, setName, persistence }: AssistantAppearanceState) {
   const id = useId();
   return <section className="cc-assistant-appearance-settings" aria-labelledby={`${id}-title`}>
     <h3 id={`${id}-title`}>Make it feel like you</h3>
     <p>Colors, a character, and a name you choose. These preferences do not change your account or access.</p>
-    <label className="cc-assistant-preference">Appearance<select aria-label="Assistant appearance" value={appearance} onChange={e => setAppearance(e.target.value === 'rose' ? 'rose' : 'caribbean')}><option value="caribbean">Caribbean · turquoise & ocean</option><option value="rose">Soft rose · blush & lavender</option></select></label>
-    <fieldset><legend>Character</legend><div className="cc-assistant-persona-options">{(['cupcake', 'matthieu'] as const).map(value => <button key={value} type="button" aria-pressed={persona === value} onClick={() => setPersona(value)}><AssistantPortrait persona={value} name={value === 'cupcake' ? 'Cupcake' : 'Matthieu'} /><span>{value === 'cupcake' ? 'Cupcake' : 'Matthieu'}</span></button>)}</div></fieldset>
-    <label className="cc-assistant-preference">Assistant name<input aria-label="Assistant name" value={name} maxLength={24} autoComplete="off" onChange={e => setName(e.target.value)} onBlur={() => { if (!name.trim()) setName(persona === 'matthieu' ? 'Matthieu' : 'Cupcake'); }} /></label>
-    <p className="cc-assistant-preference-note">Saved in this browser when device storage is available. Colors and character are independent choices. Your system’s Reduce Motion setting is respected.</p>
+    <label className="cc-assistant-preference">Appearance<select aria-label="Assistant appearance" disabled={!persistence.editable} value={appearance} onChange={e => setAppearance(e.target.value === 'rose' ? 'rose' : 'caribbean')}><option value="caribbean">Caribbean · turquoise & ocean</option><option value="rose">Soft rose · blush & lavender</option></select></label>
+    <fieldset disabled={!persistence.editable}><legend>Character</legend><div className="cc-assistant-persona-options">{(['cupcake', 'matthieu'] as const).map(value => <button key={value} type="button" aria-pressed={persona === value} onClick={() => setPersona(value)}><AssistantPortrait persona={value} name={value === 'cupcake' ? 'Cupcake' : 'Matthieu'} /><span>{value === 'cupcake' ? 'Cupcake' : 'Matthieu'}</span></button>)}</div></fieldset>
+    <label className="cc-assistant-preference">Assistant name<input aria-label="Assistant name" disabled={!persistence.editable} value={name} maxLength={24} autoComplete="off" onChange={e => setName(e.target.value)} onBlur={() => { if (!name.trim()) setName(persona === 'matthieu' ? 'Matthieu' : 'Cupcake'); }} /></label>
+    <p className="cc-assistant-preference-note" role={persistence.mode === 'account' ? 'status' : undefined}>{persistence.message}</p>
+    {persistence.retry&&<button type="button" className="cc-text-button" onClick={persistence.retry}>Retry assistant preferences</button>}
+    <p className="cc-assistant-preference-note">Colors and character are independent choices. Your system’s Reduce Motion setting is respected.</p>
   </section>;
 }

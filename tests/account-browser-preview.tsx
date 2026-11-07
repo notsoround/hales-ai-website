@@ -76,6 +76,19 @@ window.fetch=async(input,init)=>{
   if(fixture.delay&&body.action==='fetch'&&body.id==='deferred-test')await new Promise<void>(resolve=>{fixture.release=resolve;});
   const identity=fixture.wrongEcho?(owner===A?B:A):owner;
   const ok=(value:object)=>response(200,{ok:true,...value,identity});
+  if(['persona_get','persona_save'].includes(body.action)) {
+    // A test may provide a shared in-memory server across separate browser
+    // contexts. The ordinary boundary fixture keeps its simulated server local.
+    const remote=(window as unknown as {syntheticPersonaServer?:(owner:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticPersonaServer;
+    if(remote){const result=await remote(owner.account_id,body);return response(result.status,{...result.value,identity});}
+    const key='synthetic-persona-server:'+owner.account_id;
+    const current=JSON.parse(localStorage.getItem(key)||'null')||{preferences:{appearance:'caribbean',persona:'cupcake',name:'Cupcake'},revision:0,updated:null,saved:false};
+    if(body.action==='persona_save') {
+      if(body.revision!==current.revision)return response(409,{ok:false,error:'persona_conflict',identity});
+      const next={preferences:body.preferences,revision:current.revision+1,updated:1,saved:true};localStorage.setItem(key,JSON.stringify(next));return ok(next);
+    }
+    return ok(current);
+  }
   if(body.action==='list')return ok({documents:[{id:'doc-'+owner.account_id,title:owner.name+' private document',createdAt:'2026-11-05T12:00:00Z',kind:'note',status:'ready',text:owner.name+' source text'}],projects:[],browseTotal:1,libraryTotal:1,hasMore:false,nextCursor:null});
   if(body.action==='fetch')return ok({document:{id:String(body.id),title:owner.name+' delayed original',kind:'note',status:'ready',text:owner.name+' private source'}});
   if(body.action==='weight_list')return ok({measurements:[],latestMeasurement:null,total:0,nextCursor:null,coverage:{}});
