@@ -35,7 +35,7 @@ trap cleanup EXIT
 git archive "$RELEASE_COMMIT" | tar -x -C "$WORK"
 
 assert_hash() { [[ "$(shasum -a 256 "$WORK/$1" | awk '{print $1}')" == "$2" ]] || { echo "canonical hash mismatch: $1"; exit 1; }; }
-assert_hash src/App.tsx a423957879a6bfbc78589e48b2054ac2c5e9a779e045600c3c196c1ebb7a7d1c
+assert_hash src/App.tsx 051116a7d2d5e16c488eeb3e711f2921e69397c6d702c12471802763e473ee84
 assert_hash src/components/experience/HalesExperience.tsx 729aeb758aae26748ae4bc50a5c1387435b7cef6c0a188ed44777b2218768ba3
 assert_hash src/components/experience/experience.css 207d701a8db76d28d2250f8b267f8d7c77f69cd5bdeb1f1a74d012374fe6e1a0
 assert_hash src/components/VoiceButton.tsx 6d293f5a5185bf0b686db5ae96b327d3a7a551002829953e8092627541b35487
