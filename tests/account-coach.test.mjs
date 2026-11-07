@@ -7,7 +7,7 @@ import { createServer } from 'vite';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||path.join(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));
 const cacheDir=mkdtempSync(path.join(tmpdir(),'cupcake-coach-vite-'));
-const server=await createServer({cacheDir,plugins:[{name:'synthetic-coach-root',configureServer(server){server.middlewares.use((req,_res,next)=>{if(req.url?.split('?')[0]==='/cupcake')req.url='/tests/account-browser-preview.html';next();});}}],define:{'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS':'"true"'},server:{host:'127.0.0.1',port:0,hmr:false,fs:{allow:[process.cwd(),realpathSync('node_modules')]}}});
+const server=await createServer({cacheDir,plugins:[{name:'synthetic-coach-root',configureServer(server){server.middlewares.use((req,_res,next)=>{if(['/cupcake/account','/cupcake/account/'].includes(req.url?.split('?')[0]))req.url='/tests/account-browser-preview.html';next();});}}],define:{'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS':'"true"'},server:{host:'127.0.0.1',port:0,hmr:false,fs:{allow:[process.cwd(),realpathSync('node_modules')]}}});
 await server.listen();const base=`http://127.0.0.1:${server.httpServer.address().port}`;
 const browser=await chromium.launch({headless:true});
 const A='acc_synthetic_a',B='acc_synthetic_b',now=Date.now()/1000;
@@ -46,7 +46,7 @@ async function choose(page,id){await page.getByLabel('Authorized owner',{exact:t
 async function safe(page){const s=await page.evaluate(()=>({requests:window.accountFixture.requests,blocked:window.accountFixture.blocked,reads:window.accountFixture.legacyReads}));assert.equal(s.reads,0);assert.deepEqual(s.blocked,[]);for(const r of s.requests.filter(r=>r.route.startsWith('coach/'))){assert.equal(r.credentials,'include');assert.equal(r.headers['x-cupcake-request'],'account');assert.match(r.headers['x-cupcake-account-context'],/^acc_synthetic_[ab]$/);assert.equal(r.headers['x-cupcake-key'],undefined);assert.equal(r.body.owner_id,undefined);assert.equal(r.body.account_id,undefined);}}
 try{
   const context=await browser.newContext({viewport:{width:390,height:844}});await context.exposeFunction('syntheticCoachServer',syntheticCoachServer);const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
-  await page.goto(base+'/tests/account-browser-preview.html');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(page,'b');await nav(page,'Reports');
+  await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(page,'b');await nav(page,'Reports');
   await page.waitForFunction(()=>document.querySelector('select[aria-label="Authorized owner"]')?.options.length===4);
   await choose(page,CLEAN);await page.getByRole('heading',{name:'Report — Shared A',exact:true}).waitFor();await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();
   assert.equal(await page.getByText('FORBIDDEN PRIVATE NOTE',{exact:true}).count(),0);
