@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { libraryRequest } from './library';
+import { ACCOUNT_SESSIONS } from './accountMode';
 import './receipts.css';
 
 type LineItem = { description: string; quantity: number | null; amount: number | null };
@@ -82,7 +83,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   };
 
   async function choose(file?: File) {
-    if (!file || busy) return;
+    if (ACCOUNT_SESSIONS || !file || busy) return;
     selectionVersion.current++;
     initialId.current = null;
     work(true); setError(''); setSelected(null); setPreview(''); setOriginal(''); resetMatches(); setStatus('Preparing image…');
@@ -96,7 +97,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     } finally { work(false); }
   }
   async function retry() {
-    if (!selected || busy) return;
+    if (ACCOUNT_SESSIONS || !selected || busy) return;
     work(true); setError(''); resetMatches(); setStatus('Reading the saved photo again…');
     try { const data = await libraryRequest<{ receipt: Receipt }>({ action: 'receipt_retry', receiptId: selected.id }); setSelected(data.receipt); setStatus('Receipt extraction completed.'); await refresh(); }
     catch (e) { setError((e as Error).message); setStatus('The saved photo is still private. You can retry later.'); } finally { work(false); }
@@ -109,7 +110,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     catch (e) { setError((e as Error).message); } finally { work(false); }
   }
   async function findMatches() {
-    if (!selected || busy) return;
+    if (ACCOUNT_SESSIONS || !selected || busy) return;
     work(true); setError(''); resetMatches(); setStatus('Searching posted and pending bank transactions…');
     try {
       const data = await libraryRequest<MatchResponse>({ action: 'receipt_match_candidates', receiptId: selected.id });
@@ -146,12 +147,14 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
 
   return <section className="cc-studio cc-library-workspace cc-receipts" aria-busy={busy}>
     <span className="cc-eyebrow">Receipts</span><h2>Every receipt, the right purchase</h2>
-    <p className="cc-muted">Save a receipt photo, compare its final total with your bank charges, and choose the match.</p>
+    <p className="cc-muted">{ACCOUNT_SESSIONS ? 'Browse your saved receipts, photos and confirmed matches.' : 'Save a receipt photo, compare its final total with your bank charges, and choose the match.'}</p>
     {error && <div className="cc-error" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
     <div className="cc-card cc-import-card cc-receipt-import">
+      {ACCOUNT_SESSIONS ? <div><strong>Receipt capture and bank search unavailable</strong><p className="cc-muted">New receipt photos, reading saved photos again and live bank search are not available for account sign-in yet. Your saved receipts and photos are still available below.</p></div> : <>
       <div><strong>Add a receipt</strong><p className="cc-muted">Include the entered tip and final total in the photo.</p></div>
       <div className="cc-action-row"><label className="cc-primary cc-file">Choose image<input disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label><label className="cc-secondary cc-file">Take photo<input disabled={busy} type="file" accept="image/*" capture="environment" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label></div>
       {preview && !selected && <img className="cc-receipt-photo" src={preview} alt="Receipt being read" />}
+      </>}
     </div>
     {status && <p className={busy ? 'cc-thinking' : 'cc-notice'} role="status" aria-live="polite">{status}</p>}
     {selected && <div className="cc-card cc-receipt-selected" ref={selectedCard}>
@@ -162,7 +165,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
       <div className="cc-action-row cc-receipt-sources"><button className="cc-secondary" disabled={busy} onClick={() => void showOriginal()}>{original ? 'Hide receipt photo' : 'View saved receipt photo'}</button><a href={receiptLink(selected.id)}>Link to this receipt</a></div>
       {original && <figure className="cc-receipt-original"><img className="cc-receipt-photo" src={original} alt={`Saved receipt from ${selected.merchant || 'unknown merchant'}`} /><figcaption>Saved privately with this receipt.</figcaption></figure>}
       {!!selected.lineItems?.length && <details className="cc-receipt-evidence"><summary>Receipt line items ({selected.lineItems.length})</summary><ul>{selected.lineItems.map((item, index) => <li key={index}>{item.description}{item.quantity != null && item.quantity !== 1 ? ` × ${item.quantity}` : ''}{item.amount != null ? ` — ${money(item.amount, selected.currency)}` : ''}</li>)}</ul></details>}
-      {selected.status === 'extraction_failed' ? <><p className="cc-notice">The photo is saved. Reading it needs another try.</p><button className="cc-primary" disabled={busy} onClick={() => void retry()}>Retry saved receipt</button></> : selected.matchedTransactionId ? <div className="cc-receipt-confirmed"><strong>Matched to the transaction you confirmed.</strong><p className="cc-receipt-source">Transaction ID <code>{selected.matchedTransactionId}</code></p></div> : <><button className="cc-primary" disabled={busy || expectedTotal(selected) == null || !selected.date || !selected.currency} onClick={() => void findMatches()}>{searched ? 'Refresh bank search' : 'Find transaction matches'}</button>{(!selected.currency || !selected.date || expectedTotal(selected) == null) && <p className="cc-muted">A readable date, total and currency are required. Check the saved photo; an uncertain extraction cannot be matched yet.</p>}</>}
+      {selected.status === 'extraction_failed' ? <><p className="cc-notice">{ACCOUNT_SESSIONS ? 'The photo is saved. Reading it again is not available for account sign-in yet.' : 'The photo is saved. Reading it needs another try.'}</p>{!ACCOUNT_SESSIONS && <button className="cc-primary" disabled={busy} onClick={() => void retry()}>Retry saved receipt</button>}</> : selected.matchedTransactionId ? <div className="cc-receipt-confirmed"><strong>Matched to the transaction you confirmed.</strong><p className="cc-receipt-source">Transaction ID <code>{selected.matchedTransactionId}</code></p></div> : ACCOUNT_SESSIONS ? <p className="cc-notice">Live bank search is not available for account sign-in yet. This receipt remains saved without a new match.</p> : <><button className="cc-primary" disabled={busy || expectedTotal(selected) == null || !selected.date || !selected.currency} onClick={() => void findMatches()}>{searched ? 'Refresh bank search' : 'Find transaction matches'}</button>{(!selected.currency || !selected.date || expectedTotal(selected) == null) && <p className="cc-muted">A readable date, total and currency are required. Check the saved photo; an uncertain extraction cannot be matched yet.</p>}</>}
     </div>}
     {selected && searched && <div className="cc-card cc-receipt-results">
       <div className="cc-receipt-result-heading"><span className="cc-kind">Bank comparison</span><h3>{exactCount ? `${exactCount} exact amount ${exactCount === 1 ? 'match' : 'matches'}` : coverage?.complete ? 'No exact amount match yet' : 'Search coverage needs attention'}</h3><p className="cc-muted">{choice ? 'Review the selected charge and any differences before confirming.' : exactCount ? 'Compare merchant and purchase date, then select the right charge.' : 'No transaction is selected. Check the tip and final total, or wait for the purchase to post.'}</p></div>
