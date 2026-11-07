@@ -11,11 +11,13 @@ type FeedLike = { id?: string; type?: string; title?: string; ts?: number; date?
 const text = (value: unknown) => typeof value === 'string' ? value.trim() : '';
 
 /** Prepared-food purchases (café, restaurant, bakery, candy…) at or after `since`, oldest first. Groceries are excluded. */
-export function preparedPurchases(items: readonly FeedLike[] | null | undefined, since: number, until = Number.POSITIVE_INFINITY): BoughtMarker[] {
+export function preparedPurchases(items: readonly FeedLike[] | null | undefined, since: number, until = Number.POSITIVE_INFINITY, requireObserved = false): BoughtMarker[] {
   if (!items) return [];
   return items.flatMap((item, index): BoughtMarker[] => {
     if (item.type !== 'transaction') return [];
     const details = item.details || {};
+    // Account dates may be day-only sort keys; currency must be explicit.
+    if (requireObserved && (details.dateOnly === true || !text(item.time) || !/^[A-Z]{3}$/.test(text(item.currency).toUpperCase()))) return [];
     const category = text(item.category) || text(details.category);
     const merchant = text(details.merchant) || text(item.title) || 'Purchase';
     const amount = typeof item.amount === 'number' ? item.amount : Number(details.amount);

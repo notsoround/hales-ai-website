@@ -1,6 +1,6 @@
-import { privateFetch as fetch } from './accountMode';
+import { feedRequest } from './feedApi';
 import { useRef, useState } from 'react';
-import { accessHeaders, libraryRequest } from './library';
+import { libraryRequest } from './library';
 
 type Check = { name: string; status: string; detail: string };
 export default function ConnectionCheck() {
@@ -13,7 +13,7 @@ export default function ConnectionCheck() {
     running.current = true; setBusy(true);
     const results = await Promise.allSettled([
       libraryRequest({ action: 'projects' }),
-      fetch('https://automate.hales.ai/webhook/cupcake-feed', { headers: accessHeaders(), cache: 'no-store', signal: AbortSignal.timeout(20000) }).then(async r => { if (!r.ok) throw new Error('Unavailable'); const d = await r.json(); if (!Array.isArray(d.items)) throw new Error('Invalid response'); }),
+      feedRequest(),
       navigator.permissions?.query({ name: 'microphone' as PermissionName }).then(p => p.state),
     ]);
     const mic = results[2];

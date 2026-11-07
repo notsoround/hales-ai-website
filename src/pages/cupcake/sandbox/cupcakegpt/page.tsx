@@ -1,3 +1,4 @@
+import { feedRequest, feedCoverage, phoneOutcomesAvailable } from '../../../../components/cupcake/feedApi';
 import { AccountControls, AccountSessionGate } from '../../../../components/cupcake/AccountSessionGate';
 import { AccountCoachView } from '../../../../components/cupcake/AccountCoachView';
 import { accountControl, type AccountIdentity } from '../../../../components/cupcake/accountSession';
@@ -82,13 +83,17 @@ async function updateIntervention(entry: DashboardEntry, note: string, boughtAny
 }
 const ICON = '/cupcake-avatar.jpg';
 
-type FeedResponse = { nextCursor?:string|null; outcomes?:DashboardStats['outcomes']; items?: Array<FeedItem & { id?: string; calories?: number | null; amount?: number | null; currency?: string | null; details?: Record<string, unknown> }>; totals?: { calories?: number; spendUsd?: number; foodCount?: number; transactionCount?: number; weightLb?: number | null; weightDate?: string }; daily?: Array<{ date: string; calories?: number; spendUsd?: number }>; coverage?: { start: string; end: string; timezone?: string; complete?: boolean; returnedCount?: number; totalCount?: number; spendSource?: string; notes?: string[] } };
 async function loadDashboardStats(range: DashboardRange, cursor?: string): Promise<DashboardStats> {
-  const response = await fetch(`${API}/cupcake-feed?${range.preset==='all'?`scope=history${cursor?`&cursor=${encodeURIComponent(cursor)}`:''}`:`start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`}`, { headers: authHeaders(), cache: 'no-store' });
-  const data = await readJson(response) as FeedResponse;
+  const data = await feedRequest(range.preset === 'all' ? {scope:'history',...(cursor ? {cursor} : {})} : {start:range.start,end:range.end});
   const entries: DashboardEntry[] = (data.items || []).map((item, index) => ({ id: item.id || `${item.type}-${item.ts || index}`, type: item.type, date: item.date, time: item.time, title: item.title, body: item.body, amount: item.amount ?? null, currency: item.currency ?? null, calories: item.calories ?? null, details: item.details, icon: item.icon }));
-  const coverageNote = data.coverage ? `${data.coverage.complete === false ? 'Partial coverage. ' : ''}${(data.coverage.notes || []).join(' ')}`.trim() : '';
-  return { range: { start: range.preset==='all'?(data.coverage?.start||range.start):range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource }, totals: { calories: typeof data.totals?.calories === 'number' ? data.totals.calories : null, spend: typeof data.totals?.spendUsd === 'number' ? data.totals.spendUsd : null, currency: 'USD', weightLb: data.totals?.weightLb ?? null, weightDate: data.totals?.weightDate || '' }, series: (data.daily || []).map(day => ({ date: day.date, calories: day.calories || 0, spend: day.spendUsd || 0 })), entries, nextCursor:data.nextCursor,totalCount:data.coverage?.totalCount,outcomes:data.outcomes, coverage: coverageNote || (data.coverage?.complete === false ? 'Partial feed coverage; older entries may be omitted.' : undefined) };
+  const coverageNote = feedCoverage(data);
+  const outcomes = phoneOutcomesAvailable(data.outcomes) ? data.outcomes as DashboardStats['outcomes'] : undefined;
+  return { range: { start: range.preset==='all'?(data.coverage?.start||range.start):range.start, end: range.end, timezone: data.coverage?.timezone || 'America/Chicago', coverage: coverageNote, spendSource: data.coverage?.spendSource },
+    totals: { calories: typeof data.totals?.calories === 'number' ? data.totals.calories : null, caloriesPartial:data.totals?.caloriesPartial===true, spend: typeof data.totals?.spendUsd === 'number' ? data.totals.spendUsd : null, currency:ACCOUNT_SESSIONS&&data.totals?.spendUsd==null?undefined:'USD', weightLb:data.totals?.weightLb??null,weightDate:data.totals?.weightDate||'' },
+    series:(data.daily||[]).map(day=>({date:day.date,calories:day.calories??null,spend:day.spendUsd??null})),
+    entries,nextCursor:data.nextCursor,totalCount:data.coverage?.totalCount??undefined,outcomes,
+    phoneOutcomesAvailable:ACCOUNT_SESSIONS ? !!outcomes : undefined,localComplete:data.coverage?.localComplete,coverage:coverageNote||undefined };
+
 }
 
 type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
@@ -352,7 +357,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   if (access === 'form') return <main className="cc-app" data-appearance={appearance.appearance}><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'var(--cc-pink)'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
   return <div className="cc-app" data-appearance={appearance.appearance}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong className="cc-account-identity">{accountIdentity?`MyCupcake — ${accountIdentity.name||accountIdentity.email}`:assistantName}</strong><small>Your private companion</small></div><details className="cc-settings" onKeyDown={e=>{if(e.key==='Escape'&&e.currentTarget.open){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary><div className="cc-settings-scrim" aria-hidden="true" onClick={e=>{(e.currentTarget.closest('details') as HTMLDetailsElement).open=false;}}/><div className="cc-settings-panel" role="group" aria-label="Settings"><div className="cc-settings-head"><strong>Settings</strong><button type="button" className="cc-settings-close" aria-label="Close settings" onClick={e=>{const d=e.currentTarget.closest('details') as HTMLDetailsElement;d.open=false;d.querySelector('summary')?.focus();}}><X size={20} aria-hidden="true"/></button></div><AssistantAppearanceSettings {...appearance}/>{accountIdentity&&<AccountControls identity={accountIdentity}/>}<AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?"Sign out of Cupcake":"Lock Cupcake"} disabled={mediaBusy&&!accountIdentity} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
     <main className="cc-shell">
-      <AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<p role="status" className="cc-card cc-account-staged">Account connections are being prepared. Local health, saved meals and Library reads use your account. Live voice, AI replies, private feeds and recording uploads are not available for account sign-in yet. Local recordings stay on this device.</p>}
+      <AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<p role="status" className="cc-card cc-account-staged">Account connections are being prepared. Saved health, meals, receipts, Library, local timeline and text conversations use your account. AI text replies require the account reply service. Live voice, external data refreshes and recording uploads are not available for account sign-in yet. Local recordings stay on this device.</p>}
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
@@ -393,22 +398,25 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
 function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountName?:string;setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
   const [items,setItems]=useState<FeedItem[]|null>(null);
   const [err,setErr]=useState(false);
+  const [coverage,setCoverage]=useState('');
   const [selected,setSelected]=useState<DashboardEntry|null>(null);
   const [selectedMeal,setSelectedMeal]=useState<string|null>(null);
   const nutrition=useNutritionData();
   const exercise=useTodayExercise();
   const [logExerciseRequest,setLogExerciseRequest]=useState(0);
-  const timelineItems=React.useMemo(()=>items?mergeTimelineItems(items,exerciseTimelineItems(exercise.entries)):null,[items,exercise.entries]);
+  const timelineItems=React.useMemo(()=>items?(ACCOUNT_SESSIONS?items:mergeTimelineItems(items,exerciseTimelineItems(exercise.entries))):null,[items,exercise.entries]);
   const loadId=useRef(0);
   const load=useCallback(()=>{
     const request=++loadId.current;
     setErr(false);setItems(null);
-    fetch(`${API}/cupcake-feed`,{headers:authHeaders()})
-      .then(readJson)
-      .then(d=>{if(request===loadId.current)setItems(d.items||[]);})
+    feedRequest(ACCOUNT_SESSIONS ? {start:new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date()),end:new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date())} : {})
+      .then(d=>{if(request===loadId.current){setItems(d.items);setCoverage(feedCoverage(d));}})
       .catch(()=>{if(request===loadId.current)setErr(true);});
   },[]);
-  useEffect(()=>{load();},[load]);
+  useEffect(()=>{load();const ref=loadId;return()=>{ref.current++;};},[load]);
+  // Account feed owns the timeline snapshot. Confirmed workout changes refresh it
+  // instead of replacing complete feed rows with the independent capped list.
+  const exerciseWithRefresh=ACCOUNT_SESSIONS?{...exercise,add:(entry:Parameters<typeof exercise.add>[0])=>{exercise.add(entry);load();},remove:(id:string)=>{exercise.remove(id);load();}}:exercise;
   const loadMeal=useCallback(async(mealId:string)=>(await libraryRequest<{meal:FoodMeal}>({action:'food_get',mealId})).meal,[]);
   const needs=Math.max(items?mealsNeedingOk(items):0,nutrition.history?.pendingCount||0);
   const toEntry=(it:FeedItem|PulseItem,i:number):DashboardEntry=>({id:it.id||`${it.type}-${it.ts||i}`,type:it.type,date:it.date,time:it.time,title:it.title,body:it.body,calories:it.calories,amount:it.amount,currency:it.currency,details:it.details,icon:it.icon});
@@ -424,10 +432,11 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
     <div className="cc-today-grid">
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
-      {err?<div className="cc-signal-error"><p role="alert">{ACCOUNT_SESSIONS?ACCOUNT_UNAVAILABLE:'Cupcake couldn’t load your latest signals. Check your connection.'}</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text="Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
-      {!err&&timelineItems&&(exercise.status==='error'||exercise.status==='unavailable')&&<p className="cc-muted cc-small" role="status">{exercise.status==='error'?'Workouts couldn’t load, so any logged today are missing from this timeline.':'Workouts are not available from the library, so they are not shown here.'}</p>}
+      {err?<div className="cc-signal-error"><p role="alert">{ACCOUNT_SESSIONS?ACCOUNT_UNAVAILABLE:'Cupcake couldn’t load your latest signals. Check your connection.'}</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text={ACCOUNT_SESSIONS?"No saved account entries returned for today. See coverage below for sources that are unavailable.":"Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."}/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
+      {ACCOUNT_SESSIONS&&coverage&&<p className="cc-muted cc-small">{coverage}</p>}
+      {!ACCOUNT_SESSIONS&&!err&&timelineItems&&(exercise.status==='error'||exercise.status==='unavailable')&&<p className="cc-muted cc-small" role="status">{exercise.status==='error'?'Workouts couldn’t load, so any logged today are missing from this timeline.':'Workouts are not available from the library, so they are not shown here.'}</p>}
     </section>
-    <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exercise} openLogRequest={logExerciseRequest}/></SectionBoundary>
+    <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exerciseWithRefresh} openLogRequest={logExerciseRequest}/></SectionBoundary>
     <SignalSheet open={!!selected} label={selected?.type==='intervention'?'Call details':'Details'} onClose={()=>setSelected(null)}>{selected&&<SignalDetail entry={selected} backLabel="Back to Today" onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={entry=>{setSelected(null);openTalkAbout(entry);}}/>}</SignalSheet>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
     <SectionBoundary label="Weight"><TodayWeight onOpen={()=>setTab('week')}/></SectionBoundary>
