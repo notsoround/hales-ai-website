@@ -72,6 +72,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (!response.ok || !result || result.ok === false) throw Error(response.status === 503 ? ACCOUNT_UNAVAILABLE
       : response.status === 429 ? 'Too many attempts. Please try again later.'
       : response.status === 401 ? 'Check your sign-in details and try again.'
+      : result?.error === 'coach_access_denied' ? 'This authorization is unavailable or expired. Reload your authorized reports.'
       : result?.error === 'observation_conflict' ? 'That request ID already belongs to a saved original.'
       : 'Cupcake could not complete that request. Check your details and try again.');
     return result as T;
@@ -129,8 +130,12 @@ export async function accountData<T>(body: Record<string, unknown>): Promise<T> 
   const snapshot = state;
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');
   if (typeof body.action !== 'string' || !DATA_ACTIONS.has(body.action)) throw Error(ACCOUNT_UNAVAILABLE);
+  return accountJSON<T>('data', body, snapshot);
+}
+async function accountJSON<T>(route: string, body: Record<string, unknown>, snapshot: Session): Promise<T> {
+  if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');
   if (['owner_id','ownerId','accountId','account_id','role','actor','reportOwnerId','report_owner_id'].some(key => key in body)) throw Error('Request fields cannot choose an account.');
-  const result = await send<T & {identity:unknown}>('data', body, snapshot.generation, snapshot.identity.account_id);
+  const result = await send<T & {identity:unknown}>(route, body, snapshot.generation, snapshot.identity.account_id);
   // The server compares this expectation to the cookie principal before any
   // read/write, then adds the authenticated identity last in its response.
   let verified: AccountIdentity;
@@ -142,4 +147,39 @@ export async function accountData<T>(body: Record<string, unknown>): Promise<T> 
   }
   assertGeneration(snapshot.generation);
   return result;
+}
+
+type CoachRoute = 'grants/received' | 'grants/list' | 'grants/revoke' | 'report' | 'meal-list' | 'meal-photo-url';
+const COACH_ROUTES = new Set<CoachRoute>(['grants/received','grants/list','grants/revoke','report','meal-list','meal-photo-url']);
+export async function accountCoach<T>(route: CoachRoute, body: Record<string, unknown>): Promise<T> {
+  if (!COACH_ROUTES.has(route)) throw Error(ACCOUNT_UNAVAILABLE);
+  return accountJSON<T>('coach/' + route, body, state);
+}
+/** The signed path is never an img src: cookies, context and its echo are required. */
+export async function accountCoachPhoto(path: string): Promise<Blob> {
+  const snapshot = state;
+  if (!ACCOUNT_SESSIONS || !snapshot.identity) throw Error('Sign in to view an authorized meal photo.');
+  const url = new URL(path, 'https://automate.hales.ai');
+  if (url.origin !== 'https://automate.hales.ai' || url.pathname !== '/api/account/coach/meal-photo' || url.hash
+      || url.username || url.password || [...url.searchParams.keys()].length !== 1 || !url.searchParams.get('token') || url.search.length > 2101) throw Error('The photo address was not confirmed.');
+  assertGeneration(snapshot.generation);
+  const controller = new AbortController(); requests.add(controller);
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(url.href, { credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,
+      headers:{'X-Cupcake-Request':'account','X-Cupcake-Account-Context':snapshot.identity.account_id} });
+    assertGeneration(snapshot.generation);
+    if (!response.ok) {
+      const error = await response.json().catch(() => null); assertGeneration(snapshot.generation);
+      if (response.status === 401 || (response.status === 409 && error?.error === 'account_context_changed')) invalidateSession('Your session expired or changed. Sign in again.');
+      throw Error('This meal photo is unavailable or its authorization expired. Reload your authorized reports.');
+    }
+    if (response.headers.get('X-Cupcake-Account-Context') !== snapshot.identity.account_id) {
+      invalidateSession('Cupcake could not confirm whose photo was returned. Sign in again.');
+      throw Error('The photo response was not confirmed.');
+    }
+    const blob = await response.blob(); assertGeneration(snapshot.generation);
+    if (!['image/jpeg','image/png','image/webp'].includes(blob.type) || !blob.size || blob.size > 1274000) throw Error('The photo format was not confirmed.');
+    return blob;
+  } finally { clearTimeout(timer); requests.delete(controller); }
 }

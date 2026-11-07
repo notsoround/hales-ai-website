@@ -1,4 +1,5 @@
 import { AccountControls, AccountSessionGate } from '../../../../components/cupcake/AccountSessionGate';
+import { AccountCoachView } from '../../../../components/cupcake/AccountCoachView';
 import { accountControl, type AccountIdentity } from '../../../../components/cupcake/accountSession';
 import { ACCOUNT_SESSIONS, ACCOUNT_UNAVAILABLE, privateFetch as fetch } from '../../../../components/cupcake/accountMode';
 import { personalStorage } from '../../../../components/cupcake/personalStorage';
@@ -18,7 +19,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
   Home, MessageCircle, Camera, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb, Settings, Dumbbell,
-  X,
+  X, ClipboardList,
 } from 'lucide-react';
 import { Timeline } from '../../../../components/cupcake/TodayPulse';
 import { SavesHero } from '../../../../components/cupcake/SavesCard';
@@ -113,12 +114,13 @@ const tabs = [
   {key:'feed',label:'Today',Icon:Home}, {key:'snap',label:'Food',Icon:Camera},
   {key:'library',label:'Library',Icon:Library}, {key:'chat',label:'Assistant',Icon:MessageCircle},
 ] as const;
-type TabKey = (typeof tabs)[number]['key'] | 'talk' | 'record' | 'week';
+const navigationTabs = ACCOUNT_SESSIONS ? [...tabs, {key:'reports',label:'Reports',Icon:ClipboardList} as const] : tabs;
+type TabKey = (typeof tabs)[number]['key'] | 'talk' | 'record' | 'week' | 'reports';
 const isAssistantTab = (tab: TabKey) => ['chat','talk','record'].includes(tab);
 const assistantModeFor = (tab: TabKey): AssistantMode => tab === 'talk' ? 'voice' : tab === 'record' ? 'record' : 'text';
 type InstallPrompt = Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 type AccessGate = 'form' | 'opening' | 'retry' | 'ready';
-const TAB_KEYS: readonly TabKey[] = ['feed', 'talk', 'record', 'library', 'chat', 'snap', 'week'];
+const TAB_KEYS: readonly TabKey[] = ['feed', 'talk', 'record', 'library', 'chat', 'snap', 'week', ...(ACCOUNT_SESSIONS?['reports' as const]:[])];
 
 function tabFromSearch(search: string): TabKey {
   const params = new URLSearchParams(search);
@@ -254,7 +256,8 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const [install, setInstall] = useState<InstallPrompt | null>(null);
   const setTab = useCallback((next: TabKey) => {
     if (isAssistantTab(next)) setAssistantMode(assistantModeFor(next));
-    if (!isAssistantTab(tabRef.current)) returnTab.current = tabRef.current;
+    if (tabRef.current==='reports' && isAssistantTab(next)) returnTab.current='feed';
+    else if (!isAssistantTab(tabRef.current)) returnTab.current = tabRef.current;
     if (tabRef.current === next) return;
     history.replaceState({ ...historyBase(), scroll: window.scrollY }, '');
     history.pushState({ scroll: 0 }, '', tabHref(next));
@@ -355,12 +358,13 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
       {access==='ready'&&screen==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
       {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
+      {access==='ready'&&screen==='reports'&&accountIdentity&&<SectionBoundary label="Authorized reports"><AccountCoachView identity={accountIdentity} onPersonal={()=>setTab('feed')}/></SectionBoundary>}
       {access==='ready'&&<AssistantShell open={assistantOpen} library={tab==='library'} mode={assistantMode} onMode={openAssistantMode} onOpen={()=>openAssistantMode(activity.kind==='voice'?'voice':activity.kind==='record'?'record':assistantMode)} onMinimize={()=>setTab(returnTab.current)} onLibrary={()=>setTab('library')} busy={mediaBusy} activity={activity} persona={appearance.persona} name={assistantName}>
         <div hidden={!(tab==='library'||assistantMode!=='text')}><CupcakeStudio active={tab==='library'||(assistantOpen&&assistantMode!=='text')} keepMediaOnHide contextVersion={talkContextVersion} mode={tab==='library'?'library':assistantMode==='voice'?'talk':'record'} onBusy={setMediaBusy} onActivity={setActivity}/></div>
         <div hidden={tab==='library'||assistantMode!=='text'}><div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button></div><SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy}/></SectionBoundary></div>
       </AssistantShell>}
       {access==='ready'&&screen==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&screen==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
-    </main><nav className="cc-nav" aria-label="Cupcake"><div>{tabs.map(({key,label,Icon})=><button key={key} aria-current={(key==='chat'?assistantOpen:tab===key)?'page':undefined} onClick={()=>key==='chat'?openAssistantMode(assistantMode):setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
+    </main><nav className="cc-nav" aria-label="Cupcake"><div>{navigationTabs.map(({key,label,Icon})=><button key={key} aria-current={(key==='chat'?assistantOpen:tab===key)?'page':undefined} onClick={()=>key==='chat'?openAssistantMode(assistantMode):setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
   </div>;
 };
 
