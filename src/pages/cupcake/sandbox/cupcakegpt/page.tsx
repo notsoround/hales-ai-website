@@ -243,6 +243,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const returnTab = useRef<TabKey>('feed');
   const assistantOpen = isAssistantTab(tab);
   const screen = assistantOpen ? returnTab.current : tab;
+  const navigationScreen = screen === 'week' ? 'feed' : screen;
   const [activity, setActivity] = useState({kind: null as 'voice'|'record'|'library'|null, label: ''});
   const tabRef = useRef(tab);
   tabRef.current = tab;
@@ -370,7 +371,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
         <div hidden={tab==='library'||assistantMode!=='text'}><div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button></div><SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy}/></SectionBoundary></div>
       </AssistantShell>}
       {access==='ready'&&screen==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&screen==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
-    </main><nav className="cc-nav" aria-label="Cupcake"><div>{navigationTabs.map(({key,label,Icon})=><button key={key} aria-current={(key==='chat'?assistantOpen:tab===key)?'page':undefined} onClick={()=>key==='chat'?openAssistantMode(assistantMode):setTab(key)}><Icon size={22}/>{label}</button>)}</div></nav>
+    </main><nav className="cc-nav" aria-label="Cupcake"><div>{navigationTabs.map(({key,label,Icon})=><button key={key} type="button" aria-current={key!=='chat'&&navigationScreen===key?'page':undefined} aria-controls={key==='chat'?'cupcake-assistant':undefined} aria-expanded={key==='chat'?assistantOpen:undefined} onClick={()=>key==='chat'?(assistantOpen?setTab(returnTab.current):openAssistantMode(assistantMode)):setTab(key)}><Icon size={22} aria-hidden="true"/>{label}</button>)}</div></nav>
   </div>;
 };
 
@@ -553,9 +554,9 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       {preview && !result && !busy && (
         <>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note (optional)…"
-            className="cc-food-note w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm outline-none focus:border-pink-400/50 placeholder:text-white/30" />
+            className="cc-food-note w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm placeholder:text-white/30" />
           <button onClick={() => void analyze()} disabled={busy}
-            className="w-full py-3.5 rounded-full font-semibold bg-gradient-to-r from-pink-500 to-rose-600 flex items-center justify-center gap-2 disabled:opacity-50">
+            className="cc-food-retry w-full py-3.5 rounded-full font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
             {busy ? <><Loader2 className="animate-spin" size={18} /> Preparing…</> : 'Retry food analysis'}
           </button>
         </>
@@ -566,8 +567,8 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       {error && <p role="alert" className="text-sm text-rose-200">{error}</p>}
       {preview && <img src={preview} alt="Your food photo" className="cc-snap-preview"/>}
       {result && (
-        <div className="bg-white/[0.05] border border-pink-500/20 rounded-2xl p-4">
-          <p className="font-semibold text-pink-200">{result.meal?.description || result.Description || result.description || 'Food photo'}</p>
+        <div className="cc-food-result border rounded-2xl p-4">
+          <p className="cc-food-result-accent font-semibold">{result.meal?.description || result.Description || result.description || 'Food photo'}</p>
           <p className="text-xs text-white/60 mt-2">Estimated nutrition for the portions below.</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-center">
             <Stat label="Calories" value={result.meal?.total?.calories ?? result.Calories ?? result.calories} />
@@ -575,7 +576,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
             <Stat label="Sugar (g)" value={result.meal?.total?.sugar_g ?? result.Sugar ?? result.sugar_g} />
             <Stat label="Protein (g)" value={result.meal?.total?.protein_g ?? result.Protein ?? result.protein_g} />
           </div>
-          {result.meal?.calorieRange && <p className="text-xs text-pink-200 mt-3">Estimated range: {result.meal.calorieRange.low}–{result.meal.calorieRange.high} kcal. Photo estimates depend on portion size and ingredients.</p>}
+          {result.meal?.calorieRange && <p className="cc-food-result-accent text-xs mt-3">Estimated range: {result.meal.calorieRange.low}–{result.meal.calorieRange.high} kcal. Photo estimates depend on portion size and ingredients.</p>}
           {result.meal?.lookupWarnings?.map(warning => <p className="text-xs text-amber-200 mt-3" key={warning}>Variant warning: {warning}</p>)}
           {result.meal?.status === 'ready' && !result.meal.sheetLoggedAt && !result.meal.pendingConsumedAt && <>{result.meal.needsClarification && <p className="text-xs text-amber-200 mt-3">Review needed: {result.meal.clarification || 'Some portions were unclear.'}</p>}<p className="text-xs text-white/60 mt-3">The photo estimate already uses the visible portions. Correct an item, amount, or product below, then review the updated estimate.</p><input aria-label="Portion corrections" disabled={busy} value={portionNote} onChange={e => { setPortionNote(e.target.value); setConfirmedConsumed(false); }} placeholder="e.g. Half the rice; the drink is sugar-free…" className="w-full bg-white/[0.06] border border-white/10 rounded-full px-4 py-3 text-sm mt-3" /><button className="cc-secondary mt-3" disabled={busy || !portionNote.trim()} onClick={() => void refine()}>Apply correction & re-estimate</button></>}
           {result.meal?.status === 'analysis_failed' && <button className="cc-secondary mt-3" disabled={busy} onClick={() => void retry()}>Retry analysis</button>}

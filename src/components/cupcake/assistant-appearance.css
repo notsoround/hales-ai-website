@@ -10,7 +10,7 @@
 .cc-app[data-appearance] :is(.cc-eyebrow,.cc-studio h2 em,.cc-transcript strong,.cc-chat-line strong,.cc-detail summary,.cc-kind,.cc-analysis-meta>span,.cc-question-bubble strong,.cc-model-badge){color:var(--cc-pink-bright)}
 .cc-app[data-appearance] :is(.cc-muted,.cc-top small,.cc-auto,.cc-input-status,.cc-privacy,.cc-label,.cc-filter,.cc-recorder p,.cc-library-item small,.cc-analysis-meta,.cc-thinking small,.cc-sources ul){color:var(--cc-text-3)}
 .cc-app[data-appearance] :is(.cc-detail,.cc-meal-dialog,.cc-settings-panel,.cc-analysis,.cc-library-search,.cc-chat-saved,.cc-detail>.cc-text-button:first-child){background:var(--cc-surface);color:var(--cc-text);border-color:var(--cc-border)}
-.cc-app[data-appearance] :is(.cc-label textarea,.cc-label select,.cc-filter select,.cc-ask textarea,.cc-detail pre,.cc-app select option){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] :is(.cc-label textarea,.cc-label select,.cc-filter select,.cc-ask textarea,.cc-detail pre,select option){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
 .cc-app[data-appearance] :is(.cc-label textarea:focus,.cc-ask textarea:focus){border-color:var(--cc-pink)}
 .cc-app[data-appearance] .cc-nav{background:color-mix(in srgb,var(--cc-bg) 94%,transparent);border-color:var(--cc-border)}
 .cc-app[data-appearance] .cc-nav button{color:var(--cc-text-3)}
@@ -49,6 +49,57 @@
 /* Matt's ocean palette also carries through nutrition and food planning surfaces. */
 .cc-app[data-appearance=caribbean]{--ds-food-ink:#62ead6;--ds-food:#2bcdb8;--ds-food-prev:#214d47;--ds-food-tint:#2bcdb81c}
 .cc-app[data-appearance] :is(.cc-card,.cc-nutrition-today,.cc-dashboard-card){box-shadow:inset 0 1px 0 color-mix(in srgb,var(--cc-ocean) 22%,transparent),0 8px 28px #0004;border-color:color-mix(in srgb,var(--cc-ocean) 20%,var(--cc-border))}
+
+/* Food calendars and photo review share the selected appearance at every width. */
+.cc-app[data-appearance] :is(.cc-nutrition-workspace,.cc-nutrition-today){color:var(--cc-text)}
+.cc-app[data-appearance] .cc-nutrition-workspace{--cat:var(--ds-food);--cat-ink:var(--ds-food-ink)}
+.cc-app[data-appearance] :is(.cc-nutrition-heading p,.cc-nutrition-heading>span,.cc-nutrition-overview span,.cc-nutrition-overview p,.cc-nutrition-overview small,.cc-nutrition-method,.cc-nutrition-note,.cc-nutrition-last small,.cc-nutrition-empty,.cc-nutrition-empty small,.cc-nutrition-coverage,.cc-nutrition-week small,.cc-nutrition-weekday,.cc-nutrition-month button>span,.cc-nutrition-month button small,.cc-nutrition-year>button small,.cc-nutrition-meal-time,.cc-nutrition-meal-name small,.cc-nutrition-meal-kcal small,.cc-nutrition-gap,.cc-nutrition-settings,.cc-nutrition-meal-nav>span){color:var(--cc-text-3)}
+.cc-app[data-appearance] :is(.cc-nutrition-link,.cc-nutrition-inline,.cc-nutrition-method summary,.cc-nutrition-settings summary,.cc-nutrition-photo>a:last-of-type){color:var(--cc-pink-bright)}
+.cc-app[data-appearance] :is(.cc-nutrition-primary,.cc-food-retry){background:linear-gradient(115deg,var(--cc-pink),color-mix(in srgb,var(--cc-pink) 75%,var(--cc-ocean)));color:var(--cc-ink);border-color:var(--cc-pink)}
+.cc-app[data-appearance] .cc-nutrition-scale{background:var(--cc-surface);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-nutrition-scale button{color:var(--cc-text-3)}
+.cc-app[data-appearance] .cc-nutrition-scale button[aria-pressed=true]{background:var(--cc-accent-wash);color:var(--cc-pink-bright);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cc-pink) 28%,transparent)}
+.cc-app[data-appearance] :is(.cc-nutrition-arrows button,.cc-nutrition-empty button,.cc-nutrition-warning button,.cc-nutrition-meal-nav button,.cc-nutrition-photo button){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-nutrition-overview{background:radial-gradient(ellipse at 2% 0,var(--ds-food-tint),transparent 70%),var(--cc-surface);border-color:color-mix(in srgb,var(--ds-food) 22%,var(--cc-border))}
+.cc-app[data-appearance] .cc-nutrition-overview>div+div{background:color-mix(in srgb,var(--cc-bg) 20%,transparent);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-nutrition-target-track{background:var(--ds-food-tint)}
+.cc-app[data-appearance] .cc-nutrition-target-track span{background:var(--ds-food)}
+.cc-app[data-appearance] :is(.cc-nutrition-last,.cc-nutrition-week button,.cc-nutrition-month button,.cc-nutrition-year>button,.cc-nutrition-timeline-item button){background:var(--cc-surface);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] :is(.cc-nutrition-week button:hover,.cc-nutrition-month button:hover,.cc-nutrition-year>button:hover,.cc-nutrition-timeline-item button:hover){background:var(--cc-accent-wash);border-color:color-mix(in srgb,var(--cc-pink) 40%,var(--cc-border))}
+.cc-app[data-appearance] .cc-nutrition-bar-space>span{background:linear-gradient(var(--ds-food-ink),var(--ds-food))}
+.cc-app[data-appearance] .cc-nutrition-bar-space>i{color:var(--cc-text-3)}
+.cc-app[data-appearance] .cc-nutrition-month button.is-today{background:var(--cc-accent-wash);border-color:var(--cc-pink)}
+.cc-app[data-appearance] .cc-nutrition-month button.is-today>span{color:var(--cc-pink-bright)}
+.cc-app[data-appearance] .cc-nutrition-month-dots i{background:var(--cc-surface-2)}
+.cc-app[data-appearance] .cc-nutrition-month-dots i.has-log{background:var(--ds-food)}
+.cc-app[data-appearance] :is(.cc-nutrition-gap,.cc-nutrition-settings,.cc-nutrition-meal-nav,.cc-nutrition-today-balance,.cc-nutrition-empty){border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-nutrition-settings input{background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-nutrition-settings form button{background:var(--cc-accent-wash);color:var(--cc-pink-bright);border-color:color-mix(in srgb,var(--cc-pink) 40%,var(--cc-border))}
+.cc-app[data-appearance] .cc-nutrition-macros span{background:var(--ds-food-tint);color:var(--ds-food-ink)}
+.cc-app[data-appearance] :is(.cc-food-default,.cc-food-capture,.cc-food-result){background:var(--cc-surface-2);border-color:var(--cc-border)}
+.cc-app[data-appearance] :is(.cc-food-capture small,.cc-snap-recent-item small,.cc-snap-items small,.cc-meal-breakdown small){color:var(--cc-text-3)}
+.cc-app[data-appearance] :is(.cc-food-note,.cc-food-result input:not([type=checkbox])){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-food-note:focus{border-color:var(--cc-pink)}
+.cc-app[data-appearance] :is(.cc-food-result-accent,.cc-snap-recent-item>span:last-child,.cc-snap-items>strong,.cc-meal-breakdown>strong,.cc-meal-photo-btn span,.cc-meal-photo a,.cc-meal-estimate-item a){color:var(--cc-pink-bright)}
+.cc-app[data-appearance] :is(.cc-snap-recent-item,.cc-snap-items>div,.cc-meal-breakdown>div){color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] :is(.cc-snap-items,.cc-meal-breakdown){border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-meal-dialog-head{background:var(--cc-surface)}
+
+/* Library accents and dashboard series use the same shared palette. */
+.cc-app[data-appearance] .cc-library-tabs{scrollbar-color:var(--cc-border) transparent}
+.cc-app[data-appearance] :is(.cc-library-tabs button,.cc-dashboard-range button){color:var(--cc-text-3)}
+.cc-app[data-appearance] :is(.cc-library-ask>summary,.cc-export-bar button,.cc-upload-progress,.cc-planning-sources a,.cc-dashboard-detail .cc-card strong,.cc-meal-sources a){color:var(--cc-pink-bright)}
+.cc-app[data-appearance] :is(.cc-export-bar>span,.cc-upload-progress small,.cc-chart-scales,.cc-chart-legend,.cc-dashboard-card span,.cc-dashboard-entry small){color:var(--cc-text-3)}
+.cc-app[data-appearance] .cc-export-bar button{background:var(--cc-surface-2);border-color:var(--cc-border)}
+.cc-app[data-appearance] .cc-upload-progress progress{accent-color:var(--cc-pink)}
+.cc-app[data-appearance] .cc-model-badge{background:var(--cc-accent-wash);border-color:color-mix(in srgb,var(--cc-pink) 28%,transparent)}
+.cc-app[data-appearance] .cc-planning-candidate.is-selected{background:var(--cc-accent-wash)}
+.cc-app[data-appearance] :is(.cc-dashboard-dates input,.cc-intervention-note textarea){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
+.cc-app[data-appearance] :is(.cc-bar-stack i,.cc-chart-legend i){background:var(--ds-food)}
+.cc-app[data-appearance] :is(.cc-bar-stack b,.cc-chart-legend b){background:var(--ds-summary)}
+.cc-app[data-appearance] .cc-bar-day{color:var(--cc-text-3)}
+.cc-app[data-appearance] .cc-dashboard-entry{color:var(--cc-text)}
+.cc-app[data-appearance] .cc-dashboard-coverage{border-left-color:var(--cc-pink)}
 /* Heat changes intensity within the selected palette. */
 :root[data-accent-heat=hot] .cc-app[data-appearance=caribbean]{--cc-pink:#30f0d7;--cc-pink-strong:#30f0d7;--cc-pink-bright:#a6fff0;--cc-ocean:#4c9dff}
 :root[data-accent-heat=hot] .cc-app[data-appearance=rose]{--cc-pink:#ff9bc9;--cc-pink-strong:#ff9bc9;--cc-pink-bright:#ffdaeb;--cc-ocean:#bbabff}
