@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { accountCoach, accountCoachPhoto, type AccountIdentity } from './accountSession';
 import './account-coach.css';
+import { personalAssistantLabel } from './assistantBrand';
 import { AccountPilotWorkspace } from './AccountPilotWorkspace';
 
 type Row = Record<string, unknown>;
@@ -34,7 +35,7 @@ function grants(value:unknown,identity:AccountIdentity,owned=false):Grant[] {
 }
 const activeGrant = (grant:Grant) => grant.revoked===null && grant.created<=Date.now()/1000 && grant.expires>Date.now()/1000;
 
-export function AccountCoachView({identity,onPersonal}:{identity:AccountIdentity;onPersonal:()=>void}) {
+export function AccountCoachView({identity,onPersonal,assistantName='Cupcake'}:{identity:AccountIdentity;onPersonal:()=>void;assistantName?:string}) {
   const [received,setReceived]=useState<Grant[]>([]),[selected,setSelected]=useState<Grant|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState('');
   const [days,setDays]=useState<7|30>(7),[end,setEnd]=useState(today);
@@ -55,7 +56,7 @@ export function AccountCoachView({identity,onPersonal}:{identity:AccountIdentity
   },[selected]);
   const period=useMemo(()=>periodFor(end,days),[end,days]);
   return <section className="cc-coach" aria-label="Authorized reports">
-    <div className="cc-coach-context"><div><span className="cc-eyebrow">AUTHORIZED VIEW</span><h2>{selected?`Report — ${label(selected.ownerDisplayName)}`:'Reports shared with you'}</h2><p>Signed in as {identity.name||identity.email}. Your personal Cupcake stays separate from these authorized views.</p></div><button className="cc-secondary" onClick={onPersonal}>MyCupcake — {identity.name||identity.email}</button></div>
+    <div className="cc-coach-context"><div><span className="cc-eyebrow">AUTHORIZED VIEW</span><h2>{selected?`Report — ${label(selected.ownerDisplayName)}`:'Reports shared with you'}</h2><p>Signed in as {identity.name||identity.email}. Your personal {assistantName} stays separate from these authorized views.</p></div><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>
     <AccountPilotWorkspace identity={identity} onSharingChanged={()=>void reload()}/>
     <div className="cc-coach-controls"><label className="cc-label">Whose data<select aria-label="Authorized owner" value={selected?.id||''} disabled={loading} onChange={event=>setSelected(received.find(grant=>grant.id===event.target.value&&activeGrant(grant))||null)}><option value="">Choose an authorized owner</option>{received.map(grant=><option key={grant.id} value={grant.id}>{label(grant.ownerDisplayName)} · {grant.scopes.map(scopeLabel).join(' + ')}</option>)}</select></label><button className="cc-text-button" onClick={()=>void reload()} disabled={loading}>Reload authorizations</button></div>
     {loading&&<p role="status">Checking active authorizations…</p>}{error&&<p role="alert">{error}</p>}

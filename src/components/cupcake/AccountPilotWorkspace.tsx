@@ -8,14 +8,14 @@ type Relationship={id:string;coach_account_id:string;coach_name:string;member_ac
 type Workspace={coach_enabled:boolean;invitations_supported:boolean;relationships:Relationship[];limits:{max_clients:number;max_pending_invitations:number}};
 const failure=(reason:unknown)=>reason instanceof Error?reason.message:'The pilot request could not be confirmed.';
 const date=(seconds:number)=>new Date(seconds*1000).toLocaleString();
-const preset=(persona:Persona)=>persona==='cupcake'?'Cupcake · Caribbean':'Matthieu · Soft rose';
+const preset=(persona:Persona)=>persona==='cupcake'?'Cupcake · Caribbean':'Matthieu · Violet';
 const invitationState=(invitation:Invitation)=>invitation.status==='pending'&&invitation.expires_at<=Date.now()/1000?'expired':invitation.status;
 const otherName=(relationship:Relationship,identity:AccountIdentity)=>relationship.coach_account_id===identity.account_id?relationship.member_name:relationship.coach_name;
 
 export function AccountPilotWorkspace({identity,onSharingChanged}:{identity:AccountIdentity;onSharingChanged:()=>void}) {
   const [view,setView]=useState<'clients'|'sharing'|null>(null);
   return <section className="cc-card cc-pilot-workspace" aria-label="Clients and sharing">
-    <h3>Your connections</h3><p>Keep your personal Cupcake and coaching workspace together. An invitation creates a connection; access to your data always needs a separate permission.</p>
+    <h3>Your connections</h3><p>Keep your personal space and coaching workspace together. An invitation creates a connection; access to your data always needs a separate permission.</p>
     <div className="cc-invitation-actions"><button className="cc-secondary" aria-expanded={view==='clients'} onClick={()=>setView(view==='clients'?null:'clients')}>My clients & invitations</button><button className="cc-secondary" aria-expanded={view==='sharing'} onClick={()=>setView(view==='sharing'?null:'sharing')}>Sharing controls</button></div>
     {view==='clients'&&<CoachInvitations identity={identity}/>}
     {view==='sharing'&&<SharingControls identity={identity} onChanged={onSharingChanged}/>}
@@ -65,7 +65,7 @@ function CoachInvitations({identity}:{identity:AccountIdentity}) {
       {clients.length?<ul className="cc-connection-list">{clients.map(relationship=><li key={relationship.id}><strong>{relationship.member_name}</strong><span>{relationship.member_email_hint} · Connected</span><span>{relationship.grants.some(grant=>grant.owner_id===relationship.member_account_id&&grant.status==='active'&&grant.expires_at>Date.now()/1000)?'A client-authorized report may be available above.':'No active client sharing. A connection alone does not include a report.'}</span></li>)}</ul>:<p>No clients connected yet. You can invite a new person or someone who already has their own Cupcake account.</p>}
       <form onSubmit={event=>void create(event)} className="cc-invitation-form"><h4>Create an invitation</h4>
         <label className="cc-label">Client email<input type="email" autoComplete="off" required maxLength={254} value={email} onChange={event=>setEmail(event.target.value)} disabled={busy}/></label>
-        <label className="cc-label">Suggested assistant<select aria-label="Suggested assistant" value={persona} onChange={event=>setPersona(event.target.value as Persona)} disabled={busy}><option value="cupcake">Cupcake · Caribbean</option><option value="matthieu">Matthieu · Soft rose</option></select></label>
+        <label className="cc-label">Suggested assistant<select aria-label="Suggested assistant" value={persona} onChange={event=>setPersona(event.target.value as Persona)} disabled={busy}><option value="cupcake">Cupcake · Caribbean</option><option value="matthieu">Matthieu · Violet</option></select></label>
         <p className="cc-muted cc-small">Preview: {preset(persona)}. The recipient confirms their choice; an existing account keeps its saved assistant.</p>
         <label className="cc-label">Invitation expires in<select aria-label="Invitation expires in" value={days} onChange={event=>setDays(Number(event.target.value))} disabled={busy}>{[1,7,14].map(value=><option key={value} value={value}>{value} {value===1?'day':'days'}</option>)}</select></label>
         <p>No data is shared by creating or accepting an invitation. You copy the link yourself; Cupcake does not send an email.</p>

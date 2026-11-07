@@ -3,6 +3,7 @@ import { accountControl, initializeSessionBoundary, invalidateSession, restoreSe
 import './account-session.css';
 import { AccountInvitationEntry } from './AccountInvitationEntry';
 import { takeInvitationFragment } from './accountInvitationFragment';
+import { assistantIcon, personalAssistantLabel, publicAssistantBrand, useAssistantDocumentBrand } from './assistantBrand';
 
 let entryInvitation=takeInvitationFragment();
 
@@ -13,6 +14,8 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [remember, setRemember] = useState(false);
   const [recovering, setRecovering] = useState(false), [recovery, setRecovery] = useState(''), [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const brand = publicAssistantBrand();
+  useAssistantDocumentBrand(brand.name, brand.persona, !session.identity && invitation === null);
   useEffect(() => {
     if (!session.identity) return;
     setEmail(''); setPassword(''); setRecovery(''); setNewPassword(''); setRemember(false); setRecovering(false); setError('');
@@ -37,9 +40,9 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   };
   if(invitation!==null)return <AccountInvitationEntry token={invitation} identity={session.identity} checking={session.checking} onClose={()=>setInvitation(null)}/>;
   if (session.identity) return <div key={`${session.identity.account_id}:${session.generation}`}>{children(session.identity)}</div>;
-  return <main className="cc-app cc-account-gate"><form className="cc-unlock" onSubmit={event => void submit(event)}>
-    <img src="/cupcake-avatar.jpg" alt="Cupcake"/><span className="cc-eyebrow">YOUR PRIVATE CUPCAKE</span>
-    <h1>{recovering ? 'Recover your account' : 'Sign in to Cupcake'}</h1>
+  return <main className="cc-app cc-account-gate" data-appearance={brand.appearance}><form className="cc-unlock" onSubmit={event => void submit(event)}>
+    <img src={assistantIcon(brand.persona)} alt={brand.name}/><span className="cc-eyebrow">YOUR PRIVATE {brand.name.toUpperCase()}</span>
+    <h1>{recovering ? 'Recover your account' : `Sign in to ${brand.name}`}</h1>
     <p>Your identity comes from your account. Your assistant’s name and appearance are separate choices.</p>
     <label className="cc-label">Email<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} disabled={busy||session.checking}/></label>
     {recovering ? <><label className="cc-label">Recovery code<input autoComplete="off" required value={recovery} onChange={e=>setRecovery(e.target.value)} disabled={busy}/></label><label className="cc-label">New password<input type="password" autoComplete="new-password" required value={newPassword} onChange={e=>setNewPassword(e.target.value)} disabled={busy}/></label></>
@@ -54,7 +57,7 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   </form></main>;
 }
 
-export function AccountControls({ identity }: { identity: AccountIdentity }) {
+export function AccountControls({ identity, assistantName = 'Cupcake' }: { identity: AccountIdentity; assistantName?: string }) {
   const [current, setCurrent] = useState(''), [next, setNext] = useState(''), [code, setCode] = useState('');
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const perform = async (route: 'password' | 'recovery/issue' | 'sign-out' | 'sign-out-all') => {
@@ -65,7 +68,7 @@ export function AccountControls({ identity }: { identity: AccountIdentity }) {
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The account change was not confirmed.'); }
     finally { setCurrent(''); setNext(''); setBusy(false); }
   };
-  return <section className="cc-account-controls" aria-label="Your account"><h3>MyCupcake — {identity.name||identity.email}</h3><p>{identity.email}</p>
+  return <section className="cc-account-controls" aria-label="Your account"><h3>{personalAssistantLabel(assistantName, identity.name||identity.email)}</h3><p>{identity.email}</p>
     <form onSubmit={event=>{event.preventDefault();void perform('password');}}>
       <label className="cc-label">Current password<input type="password" autoComplete="current-password" value={current} onChange={e=>setCurrent(e.target.value)} disabled={busy}/></label>
       <label className="cc-label">New password<input type="password" autoComplete="new-password" value={next} onChange={e=>setNext(e.target.value)} disabled={busy}/></label>
