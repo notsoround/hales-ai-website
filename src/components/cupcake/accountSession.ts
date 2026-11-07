@@ -69,6 +69,16 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       throw Error('Your session expired or changed. Sign in again.');
     }
     if (response.status === 409 && result?.error === 'persona_conflict') throw new AccountRequestError('Your assistant preferences changed elsewhere.', 'persona_conflict');
+    const invitationErrors: Record<string,string> = {
+      invitation_unavailable:'This invitation is unavailable. It may have expired, been revoked or already been accepted.',
+      invitation_conflict:'A pending invitation already exists, or this request changed. Check your invitations before trying again.',
+      invitation_limit:'Your pilot invitation or client limit has been reached.',
+      coach_not_enabled:'Invitation management is available only to enabled pilot coaches.',
+      invitation_sign_in_required:'This email already has an account. Sign in with its own password, then accept the invitation.',
+      invitation_account_mismatch:'This invitation is for a different account. Sign in with the intended email.',
+      disclosure_required:'Read and accept the pilot disclosure before continuing.',
+    };
+    if (!response.ok && typeof result?.error === 'string' && invitationErrors[result.error]) throw new AccountRequestError(invitationErrors[result.error],result.error);
     if (!response.ok || !result || result.ok === false) throw Error(response.status === 503 ? ACCOUNT_UNAVAILABLE
       : response.status === 429 ? 'Too many attempts. Please try again later.'
       : response.status === 401 ? 'Check your sign-in details and try again.'
@@ -151,11 +161,22 @@ async function accountJSON<T>(route: string, body: Record<string, unknown>, snap
   return result;
 }
 
-type CoachRoute = 'grants/received' | 'grants/list' | 'grants/revoke' | 'report' | 'meal-list' | 'meal-photo-url';
-const COACH_ROUTES = new Set<CoachRoute>(['grants/received','grants/list','grants/revoke','report','meal-list','meal-photo-url']);
+type CoachRoute = 'grants/received' | 'grants/list' | 'grants/revoke' | 'report' | 'meal-list' | 'meal-photo-url' | 'workspace' | 'invitations/create' | 'invitations/list' | 'invitations/revoke';
+const COACH_ROUTES = new Set<CoachRoute>(['grants/received','grants/list','grants/revoke','report','meal-list','meal-photo-url','workspace','invitations/create','invitations/list','invitations/revoke']);
 export async function accountCoach<T>(route: CoachRoute, body: Record<string, unknown>): Promise<T> {
   if (!COACH_ROUTES.has(route)) throw Error(ACCOUNT_UNAVAILABLE);
   return accountJSON<T>('coach/' + route, body, state);
+}
+export async function accountInvitation<T>(route:'preview'|'redeem',body:Record<string,unknown>):Promise<T> {
+  if(!['preview','redeem'].includes(route))throw Error(ACCOUNT_UNAVAILABLE);
+  return send<T>('invitations/'+route,body,state.generation);
+}
+export async function acceptAccountInvitation<T>(body:Record<string,unknown>):Promise<T> {
+  return accountJSON<T>('invitations/accept',body,state);
+}
+export async function accountSharing<T>(route:'relationships'|'grant'|'revoke',body:Record<string,unknown>):Promise<T> {
+  if(!['relationships','grant','revoke'].includes(route))throw Error(ACCOUNT_UNAVAILABLE);
+  return accountJSON<T>('sharing/'+route,body,state);
 }
 /** The signed path is never an img src: cookies, context and its echo are required. */
 export async function accountCoachPhoto(path: string): Promise<Blob> {

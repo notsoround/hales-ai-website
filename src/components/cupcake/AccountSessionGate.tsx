@@ -1,9 +1,15 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { accountControl, initializeSessionBoundary, invalidateSession, restoreSession, sessionSnapshot, signIn, subscribeSession, verifySession, type AccountIdentity } from './accountSession';
 import './account-session.css';
+import { AccountInvitationEntry } from './AccountInvitationEntry';
+import { takeInvitationFragment } from './accountInvitationFragment';
+
+let entryInvitation=takeInvitationFragment();
 
 export function AccountSessionGate({ children }: { children: (identity: AccountIdentity) => ReactNode }) {
   const session = useSyncExternalStore(subscribeSession, sessionSnapshot);
+  const [invitation,setInvitation]=useState(entryInvitation);
+  useEffect(()=>{entryInvitation=null;},[]);
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [remember, setRemember] = useState(false);
   const [recovering, setRecovering] = useState(false), [recovery, setRecovery] = useState(''), [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -29,6 +35,7 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Sign-in could not finish.'); }
     finally { setBusy(false); setPassword(''); setNewPassword(''); setRecovery(''); }
   };
+  if(invitation!==null)return <AccountInvitationEntry token={invitation} identity={session.identity} checking={session.checking} onClose={()=>setInvitation(null)}/>;
   if (session.identity) return <div key={`${session.identity.account_id}:${session.generation}`}>{children(session.identity)}</div>;
   return <main className="cc-app cc-account-gate"><form className="cc-unlock" onSubmit={event => void submit(event)}>
     <img src="/cupcake-avatar.jpg" alt="Cupcake"/><span className="cc-eyebrow">YOUR PRIVATE CUPCAKE</span>
