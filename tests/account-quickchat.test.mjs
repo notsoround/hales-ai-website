@@ -14,6 +14,8 @@ const A='acc_synthetic_a',B='acc_synthetic_b',OLD_A='00000000-0000-4000-8000-000
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const old=(id,who)=>({id,title:who+' private saved conversation',turns:[{id:id+'-turn',text:who+' saved private question',status:'completed',retryAfter:0,response:{ok:true,reply:who+' saved private answer',model:'synthetic-local'}}]});
 const histories=new Map([[A,new Map([[OLD_A,old(OLD_A,'A')]])],[B,new Map([[OLD_B,old(OLD_B,'B')]])]]);
+const GUARDED='00000000-0000-4000-8000-000000000203';
+histories.get(A).set(GUARDED,{id:GUARDED,title:'Synthetic limited conversation',turns:[{id:GUARDED+'-turn',text:'Synthetic preserved oversized request',status:'failed',retryAfter:0,error:'request_budget_exceeded'}]});
 const requests=[];let complete=false,failBegin=false;
 async function syntheticQuickChatServer(owner,body){
   requests.push({owner,body:structuredClone(body)});const ok=value=>({status:200,value:{ok:true,...structuredClone(value)}});
@@ -59,6 +61,7 @@ try{
   await saved.selectOption(newId);await page.getByText('A completed simulated reply',{exact:true}).waitFor();await safe(page);
   console.log('PASS: A/B private server history and browser drafts stay isolated across same-tab identity switches');
 
+  await saved.selectOption(GUARDED);await page.getByText('This conversation is too large for the pilot reply limit. Your message is saved. Start a shorter conversation.',{exact:true}).waitFor();await page.getByText('Synthetic preserved oversized request',{exact:false}).waitFor();
   await page.getByRole('button',{name:'New',exact:true}).click();failBegin=true;await composer.fill('Unavailable synthetic request');await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByRole('alert').filter({hasText:'This feature is not available for account sign-in yet.'}).waitFor();
   assert.equal(await composer.inputValue(),'Unavailable synthetic request');assert.equal(await page.getByText('A completed simulated reply',{exact:true}).count(),0);assert.equal(requests.filter(r=>r.body.action==='quick_chat_begin'&&r.body.text==='Unavailable synthetic request').length,1);
   const before=requests.length;const rejections=await page.evaluate(async()=>{const results=[];for(const action of ['quick_chat_complete','quick_chat_fail'])try{await window.accountFixture.request({action});results.push(false);}catch{results.push(true);}return results;});assert.deepEqual(rejections,[true,true]);assert.equal(requests.length,before);

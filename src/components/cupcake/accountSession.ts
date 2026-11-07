@@ -69,6 +69,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       throw Error('Your session expired or changed. Sign in again.');
     }
     if (response.status === 409 && result?.error === 'persona_conflict') throw new AccountRequestError('Your assistant preferences changed elsewhere.', 'persona_conflict');
+    if (response.status === 409 && result?.error === 'plan_conflict') throw new AccountRequestError('Your saved meal plan changed elsewhere. Your draft is kept; reload the saved version before saving.', 'plan_conflict');
     if (response.status === 503 && result?.error === 'health_intake_not_ready') throw new AccountRequestError('Apple Health connections are not available for this account yet. No upload has been confirmed.', 'health_intake_not_ready');
     const invitationErrors: Record<string,string> = {
       invitation_unavailable:'This invitation is unavailable. It may have expired, been revoked or already been accepted.',
