@@ -1,3 +1,4 @@
+import { privateFetch as fetch } from './accountMode';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Quote } from 'lucide-react';
 import type { DashboardOutcome } from './dashboardModel';

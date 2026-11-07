@@ -1,3 +1,7 @@
+import { AccountControls, AccountSessionGate } from '../../../../components/cupcake/AccountSessionGate';
+import { accountControl, type AccountIdentity } from '../../../../components/cupcake/accountSession';
+import { ACCOUNT_SESSIONS, ACCOUNT_UNAVAILABLE, privateFetch as fetch } from '../../../../components/cupcake/accountMode';
+import { personalStorage } from '../../../../components/cupcake/personalStorage';
 import {loadWeightPage,weightProvenanceLabel,type WeightRecord} from '../../../../components/cupcake/weightApi';
 import type {Body} from '../../../../components/cupcake/robyn/viewerApi';
 import {weightTime} from '../../../../components/cupcake/weightHistoryModel';
@@ -216,13 +220,13 @@ function photoConsumedAt(createdAt?: string) {
 }
 function foodReviewFirst() {
   try {
-    if (typeof sessionStorage === 'undefined' || sessionStorage.getItem('cupcake-food-review') !== '1') return false;
-    sessionStorage.removeItem('cupcake-food-review');
+    if (typeof sessionStorage === 'undefined' || personalStorage('sessionStorage').getItem('cupcake-food-review') !== '1') return false;
+    personalStorage('sessionStorage').removeItem('cupcake-food-review');
     return true;
   } catch { return false; }
 }
 
-const CupcakeGPT: React.FC = () => {
+const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdentity}) => {
   useCupcakeViewport();
   const [tab, setTabState] = useState<TabKey>(() => tabFromSearch(location.search));
   const appearance = useAssistantAppearance();
@@ -238,7 +242,7 @@ const CupcakeGPT: React.FC = () => {
   const pendingScroll = useRef<number | null>(null);
   const [quickAction, setQuickAction] = useState<'tip' | 'reset' | null>(null);
   const [speak, setSpeak] = useState(false);
-  const [access, setAccess] = useState<AccessGate>(() => (readPrivateAccess() ? 'opening' : 'form'));
+  const [access, setAccess] = useState<AccessGate>(() => (accountIdentity ? 'ready' : readPrivateAccess() ? 'opening' : 'form'));
   const [accentHeat, setAccentHeat] = useAccentHeat();
   const [keyInput, setKeyInput] = useState(readPrivateAccess);
   const [unlocking, setUnlocking] = useState(false);
@@ -260,7 +264,7 @@ const CupcakeGPT: React.FC = () => {
     window.scrollTo(0, 0);
   }, []);
   const openAssistantMode = (mode: AssistantMode) => setTab(mode === 'voice' ? 'talk' : mode === 'record' ? 'record' : 'chat');
-  const openTalkAbout = (entry: DashboardEntry) => { sessionStorage.setItem(TALK_SEED_KEY, JSON.stringify(talkSeedFromIntervention(entry))); setTalkContextVersion(version=>version+1); setTab('talk'); };
+  const openTalkAbout = (entry: DashboardEntry) => { personalStorage('sessionStorage').setItem(TALK_SEED_KEY, JSON.stringify(talkSeedFromIntervention(entry))); setTalkContextVersion(version=>version+1); setTab('talk'); };
   const connect = useCallback(async (key: string, restoring = false) => {
     const attempt = ++accessAttempt.current;
     setUnlocking(true); setAccessError('');
@@ -286,16 +290,18 @@ const CupcakeGPT: React.FC = () => {
   }, []);
   const unlock = (e: React.FormEvent) => { e.preventDefault(); if (keyInput.trim() && !unlocking) void connect(keyInput.trim()); };
   const finishLock = useCallback(() => {
+    if (ACCOUNT_SESSIONS) { void accountControl('sign-out',{}).catch(()=>{}); return; }
     cancelAccessAttempt();
     const cleared = clearPrivateAccess();
     setKeyInput(''); setAccess('form'); setUnlocking(false); setPersistenceNotice('');
     setAccessError(cleared ? '' : 'This browser could not remove your saved sign-in. Clear this site’s browser data to finish locking it.');
   }, [cancelAccessAttempt]);
   const lock = useCallback(() => {
-    if (!window.confirm('Lock Cupcake on this browser?')) return;
+    if (!window.confirm(ACCOUNT_SESSIONS?'Sign out of Cupcake on this browser and stop active media?':'Lock Cupcake on this browser?')) return;
     finishLock();
   }, [finishLock]);
   useEffect(() => {
+    if (ACCOUNT_SESSIONS) return;
     const saved = readPrivateAccess(); if (saved) void connect(saved, true);
     const storageChanged = (event: StorageEvent) => { if (event.storageArea === localStorage && (event.key === PRIVATE_ACCESS_STORAGE || event.key === null) && event.newValue === null) finishLock(); };
     window.addEventListener('storage', storageChanged);
@@ -334,21 +340,21 @@ const CupcakeGPT: React.FC = () => {
     document.title='Cupcake — Your private companion';
     const links:HTMLLinkElement[]=[];
     for(const [rel,href] of [['manifest','/cupcake.webmanifest'],['apple-touch-icon','/cupcake-avatar.jpg']]){const l=document.createElement('link');l.rel=rel;l.href=href;document.head.appendChild(l);links.push(l);}
-    if('serviceWorker'in navigator)void navigator.serviceWorker.register('/cupcake-sw.js',{scope:'/cupcake'}).catch(()=>{});
+    if('serviceWorker'in navigator)void navigator.serviceWorker.register('/cupcake-sw.js',{scope:'/cupcake'}).then(()=>navigator.serviceWorker.ready).then(registration=>registration.active?.postMessage({type:'cupcake-browser-mode',accountSessions:ACCOUNT_SESSIONS})).catch(()=>{});
     const before=(e:Event)=>{e.preventDefault();setInstall(e as InstallPrompt);};window.addEventListener('beforeinstallprompt',before);
     return()=>{links.forEach(l=>l.remove());window.removeEventListener('beforeinstallprompt',before);};
   },[]);
   const promptInstall = () => { if (!install) return; void install.prompt().then(() => install.userChoice).then(() => setInstall(null)); };
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app" data-appearance={appearance.appearance}><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'var(--cc-pink)'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
-  return <div className="cc-app" data-appearance={appearance.appearance}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong>{assistantName}</strong><small>Your private companion</small></div><details className="cc-settings" onKeyDown={e=>{if(e.key==='Escape'&&e.currentTarget.open){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary><div className="cc-settings-scrim" aria-hidden="true" onClick={e=>{(e.currentTarget.closest('details') as HTMLDetailsElement).open=false;}}/><div className="cc-settings-panel" role="group" aria-label="Settings"><div className="cc-settings-head"><strong>Settings</strong><button type="button" className="cc-settings-close" aria-label="Close settings" onClick={e=>{const d=e.currentTarget.closest('details') as HTMLDetailsElement;d.open=false;d.querySelector('summary')?.focus();}}><X size={20} aria-hidden="true"/></button></div><AssistantAppearanceSettings {...appearance}/><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" aria-label="Lock Cupcake" disabled={mediaBusy} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">Lock</span></button></header>
+  return <div className="cc-app" data-appearance={appearance.appearance}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong className="cc-account-identity">{accountIdentity?`MyCupcake — ${accountIdentity.name||accountIdentity.email}`:assistantName}</strong><small>Your private companion</small></div><details className="cc-settings" onKeyDown={e=>{if(e.key==='Escape'&&e.currentTarget.open){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary><div className="cc-settings-scrim" aria-hidden="true" onClick={e=>{(e.currentTarget.closest('details') as HTMLDetailsElement).open=false;}}/><div className="cc-settings-panel" role="group" aria-label="Settings"><div className="cc-settings-head"><strong>Settings</strong><button type="button" className="cc-settings-close" aria-label="Close settings" onClick={e=>{const d=e.currentTarget.closest('details') as HTMLDetailsElement;d.open=false;d.querySelector('summary')?.focus();}}><X size={20} aria-hidden="true"/></button></div><AssistantAppearanceSettings {...appearance}/>{accountIdentity&&<AccountControls identity={accountIdentity}/>}<AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p></div></details><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?"Sign out of Cupcake":"Lock Cupcake"} disabled={mediaBusy&&!accountIdentity} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
     <main className="cc-shell">
-      <AppUpdateNotice busy={mediaBusy} part="banner" />
+      <AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<p role="status" className="cc-card cc-account-staged">Account connections are being prepared. Local health, saved meals and Library reads use your account. Live voice, AI replies, private feeds and recording uploads are not available for account sign-in yet. Local recordings stay on this device.</p>}
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
       {access==='ready'&&screen==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
-      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
+      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
       {access==='ready'&&<AssistantShell open={assistantOpen} library={tab==='library'} mode={assistantMode} onMode={openAssistantMode} onOpen={()=>openAssistantMode(activity.kind==='voice'?'voice':activity.kind==='record'?'record':assistantMode)} onMinimize={()=>setTab(returnTab.current)} onLibrary={()=>setTab('library')} busy={mediaBusy} activity={activity} persona={appearance.persona} name={assistantName}>
         <div hidden={!(tab==='library'||assistantMode!=='text')}><CupcakeStudio active={tab==='library'||(assistantOpen&&assistantMode!=='text')} keepMediaOnHide contextVersion={talkContextVersion} mode={tab==='library'?'library':assistantMode==='voice'?'talk':'record'} onBusy={setMediaBusy} onActivity={setActivity}/></div>
         <div hidden={tab==='library'||assistantMode!=='text'}><div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button></div><SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy}/></SectionBoundary></div>
@@ -380,7 +386,7 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
   {!loading&&!error&&<span className="cc-weight-more">View history →</span>}</button>;
 }
 
-function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
+function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountName?:string;setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
   const [items,setItems]=useState<FeedItem[]|null>(null);
   const [err,setErr]=useState(false);
   const [selected,setSelected]=useState<DashboardEntry|null>(null);
@@ -407,14 +413,14 @@ function TodayHome({setTab,setQuickAction,openTalkAbout}:{setTab:(tab:TabKey)=>v
   const greeting=hour<5?'Up late':hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   const dateLine=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',weekday:'long',month:'long',day:'numeric'}).format(new Date());
   return <>
-    <div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, Matt.</h2><p>What are we conquering—or confessing?</p></div>
-      <div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{sessionStorage.setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setLogExerciseRequest(n=>n+1)}><Dumbbell size={18}/><span>Log exercise</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div></div>
+    <div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, {accountName||'Matt'}.</h2><p>What are we conquering—or confessing?</p></div>
+      <div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{personalStorage('sessionStorage').setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setLogExerciseRequest(n=>n+1)}><Dumbbell size={18}/><span>Log exercise</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div></div>
     <SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>
-    {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{sessionStorage.setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
+    {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{personalStorage('sessionStorage').setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
     <div className="cc-today-grid">
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
-      {err?<div className="cc-signal-error"><p role="alert">Cupcake couldn’t load your latest signals. Check your connection.</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text="Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
+      {err?<div className="cc-signal-error"><p role="alert">{ACCOUNT_SESSIONS?ACCOUNT_UNAVAILABLE:'Cupcake couldn’t load your latest signals. Check your connection.'}</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text="Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
       {!err&&timelineItems&&(exercise.status==='error'||exercise.status==='unavailable')&&<p className="cc-muted cc-small" role="status">{exercise.status==='error'?'Workouts couldn’t load, so any logged today are missing from this timeline.':'Workouts are not available from the library, so they are not shown here.'}</p>}
     </section>
     <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exercise} openLogRequest={logExerciseRequest}/></SectionBoundary>
@@ -434,7 +440,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const nutrition = useNutritionData();
   const reloadNutrition = nutrition.reload;
   const [selectedSavedMeal,setSelectedSavedMeal] = useState<string|null>(()=>new URLSearchParams(window.location.search).get('meal'));
-  const [captureOpen,setCaptureOpen] = useState(()=>{try{const open=sessionStorage.getItem('cupcake-food-capture')==='1';sessionStorage.removeItem('cupcake-food-capture');return open;}catch{return false;}});
+  const [captureOpen,setCaptureOpen] = useState(()=>{try{const open=personalStorage('sessionStorage').getItem('cupcake-food-capture')==='1';personalStorage('sessionStorage').removeItem('cupcake-food-capture');return open;}catch{return false;}});
   const captureSection = useRef<HTMLDetailsElement>(null);
   useEffect(()=>{if(captureOpen)captureSection.current?.scrollIntoView({block:'start'});},[captureOpen]);
   const [preview, setPreview] = useState<string | null>(null);
@@ -601,4 +607,4 @@ const Empty: React.FC<{ text: string }> = ({ text }) => (
 );
 
 export { SnapView };
-export default CupcakeGPT;
+export default function CupcakeEntry() { return ACCOUNT_SESSIONS ? <AccountSessionGate>{identity=><CupcakeGPT accountIdentity={identity}/>}</AccountSessionGate> : <CupcakeGPT/>; }

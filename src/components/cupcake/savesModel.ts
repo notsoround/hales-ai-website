@@ -1,3 +1,4 @@
+import { personalStorage } from './personalStorage';
 // Saves over an adjustable window (7 / 30 / 90 days) and per-day drill-down. Pure helpers; nothing invented.
 import { interventionOutcome, type DashboardOutcome } from './dashboardModel';
 import { addDays, nutritionDay } from './nutritionModel';
@@ -11,9 +12,9 @@ export type ServerOutcomes = { wins: number; losses: number; missed: number; uns
 
 const WINDOW_KEY = 'cupcake-saves-window';
 export function readSavesWindow(): SavesWindow {
-  try { const v = Number(localStorage.getItem(WINDOW_KEY)); return (SAVES_WINDOWS as readonly number[]).includes(v) ? v as SavesWindow : 7; } catch { return 7; }
+  try { const v = Number(personalStorage('localStorage').getItem(WINDOW_KEY)); return (SAVES_WINDOWS as readonly number[]).includes(v) ? v as SavesWindow : 7; } catch { return 7; }
 }
-export function writeSavesWindow(value: SavesWindow) { try { localStorage.setItem(WINDOW_KEY, String(value)); } catch { /* In-memory choice still applies. */ } }
+export function writeSavesWindow(value: SavesWindow) { try { personalStorage('localStorage').setItem(WINDOW_KEY, String(value)); } catch { /* In-memory choice still applies. */ } }
 export const windowLabel = (n: SavesWindow) => `Last ${n} days`;
 
 export function emptyCounts(): OutcomeCounts { return { win: 0, loss: 0, missed: 0, unscored: 0 }; }

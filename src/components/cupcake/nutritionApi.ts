@@ -1,3 +1,4 @@
+import { ACCOUNT_SESSIONS, privateFetch as fetch } from './accountMode';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { libraryRequest } from './library';
 import { privateAccessHeaders } from './privateAccess';
@@ -78,9 +79,10 @@ export async function loadNutritionHistory(request = libraryRequest, readLedger 
       if (cursor) seen.add(cursor);
     } while (cursor);
   };
-  await Promise.all([archiveLoad().catch(e => { archiveError = e instanceof Error ? e.message : 'Saved food photos could not load.'; }), ledgerLoad().catch(e => { ledgerError = e instanceof Error ? e.message : 'Older Food ledger could not load.'; })]);
+  await Promise.all([archiveLoad().catch(e => { archiveError = e instanceof Error ? e.message : 'Saved food photos could not load.'; }), (ACCOUNT_SESSIONS ? Promise.resolve() : ledgerLoad()).catch(e => { ledgerError = e instanceof Error ? e.message : 'Older Food ledger could not load.'; })]);
   const error = [archiveError, ledgerError].filter(Boolean).join(' ');
-  return { history: mergeFoodHistory(archive, entries, !error), error };
+  const history = mergeFoodHistory(archive, entries, !error);
+  return { history: ACCOUNT_SESSIONS ? {...history, scope:'owned_local_saved_meals', coverageNote:'Saved meals from your account only. Private Food Sheet history is unavailable for account sign-in.'} : history, error };
 }
 
 export function useNutritionData() {

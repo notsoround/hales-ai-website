@@ -1,5 +1,7 @@
 import { confirmedLibraryRequest } from './libraryApproval';
 import { privateAccessHeaders } from './privateAccess';
+import { ACCOUNT_SESSIONS } from './accountMode';
+import { accountData } from './accountSession';
 
 export type Source = { id?: string; documentId?: string; title?: string; text?: string; url?: string; startSeconds?: number | null; sourceApp?: string };
 export type Exchange = { role: string; text?: string; content?: string; model?: string; createdAt?: string; sources?: Source[] };
@@ -24,6 +26,7 @@ export type Project = { id: string; name: string; description?: string; status?:
 export type ImportCandidate = { title: string; text: string; sourceApp: string };
 export const accessHeaders = privateAccessHeaders;
 export async function libraryRequest<T>(body: Record<string, unknown>, options?: { foodGesture?: boolean }): Promise<T> {
+  if (ACCOUNT_SESSIONS) return accountData<T>(body);
   const send = async (payload: Record<string, unknown>): Promise<Record<string, unknown>> => {
   const response = await fetch('https://automate.hales.ai/cupcake-library', {
     method: 'POST', headers: { ...accessHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload),

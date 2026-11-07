@@ -1,3 +1,4 @@
+import { privateFetch as fetch } from './accountMode';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, CreditCard, Droplet, Dumbbell, Moon, Phone, PhoneMissed, Quote, Scale, Smartphone, Utensils } from 'lucide-react';
 import type { DashboardOutcome } from './dashboardModel';

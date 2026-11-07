@@ -1,22 +1,63 @@
-export type Draft = { id: string; title: string; startedAt: number; mime: string; complete: boolean; recordingId?: string; blob?: Blob };
-function database(): Promise<IDBDatabase> {
+import { assertStorageScope, captureStorageScope, type StorageScope } from './personalStorage';
+
+export type Draft = { id: string; title: string; startedAt: number; mime: string; complete: boolean; recordingId?: string; blob?: Blob; storageScope?: string };
+function checkDraft(draft: Draft, scope: StorageScope) {
+  assertStorageScope(scope);
+  if (draft.storageScope !== undefined && draft.storageScope !== scope.namespace) throw Error('This recording belongs to another browser account.');
+}
+function database(scope: StorageScope): Promise<IDBDatabase> {
+  assertStorageScope(scope);
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('cupcake-recorder', 1);
+    const request = indexedDB.open(scope.namespace + 'cupcake-recorder', 1);
     request.onupgradeneeded = () => { request.result.createObjectStore('drafts', { keyPath: 'id' }); request.result.createObjectStore('chunks', { keyPath: 'id' }); };
-    request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+    request.onsuccess = () => { try { assertStorageScope(scope); resolve(request.result); } catch (error) { request.result.close(); reject(error); } };
+    request.onerror = () => reject(request.error);
   });
 }
-export async function putDraft(draft: Draft) { const db = await database(); return new Promise<void>((resolve, reject) => { const tx = db.transaction('drafts', 'readwrite'); tx.objectStore('drafts').put(draft); tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = () => { db.close(); reject(tx.error); }; }); }
-export async function putChunk(draftId: string, index: number, blob: Blob) { const db = await database(); return new Promise<void>((resolve, reject) => { const tx = db.transaction('chunks', 'readwrite'); tx.objectStore('chunks').put({ id: `${draftId}:${index}`, draftId, index, blob }); tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = () => { db.close(); reject(tx.error); }; }); }
-export async function drafts(): Promise<Draft[]> { const db = await database(); return new Promise((resolve, reject) => { const r = db.transaction('drafts').objectStore('drafts').getAll(); r.onsuccess = () => { db.close(); resolve(r.result); }; r.onerror = () => { db.close(); reject(r.error); }; }); }
-export async function draftBlob(d: Draft) {
-  if (d.blob) return d.blob;
-  const db = await database();
-  return new Promise<Blob>((resolve,reject)=>{
-    const chunks:{index:number;blob:Blob}[]=[];
-    const r=db.transaction('chunks').objectStore('chunks').openCursor(IDBKeyRange.bound(`${d.id}:`,`${d.id}:\uffff`));
-    r.onsuccess=()=>{const c=r.result;if(c){chunks.push({index:c.value.index,blob:c.value.blob});c.continue();}else{db.close();resolve(new Blob(chunks.sort((a,b)=>a.index-b.index).map(c=>c.blob),{type:d.mime}));}};
-    r.onerror=()=>{db.close();reject(r.error);};
+async function write(stores: string[], scope: StorageScope, operation: (tx: IDBTransaction) => void) {
+  const db = await database(scope);
+  return new Promise<void>((resolve, reject) => {
+    try {
+      assertStorageScope(scope);
+      const tx = db.transaction(stores, 'readwrite'); operation(tx);
+      tx.oncomplete = () => { db.close(); try { assertStorageScope(scope); resolve(); } catch (error) { reject(error); } };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    } catch (error) { db.close(); reject(error); }
   });
 }
-export async function deleteDraft(id: string) { const db = await database(); return new Promise<void>((resolve, reject) => { const tx = db.transaction(['drafts', 'chunks'], 'readwrite'); tx.objectStore('drafts').delete(id); const c = tx.objectStore('chunks').openCursor(); c.onsuccess = () => { const v = c.result; if (v) { if (v.value.draftId === id) v.delete(); v.continue(); } }; tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = () => { db.close(); reject(tx.error); }; }); }
+export async function putDraft(draft: Draft, scope = captureStorageScope()) {
+  checkDraft(draft, scope);
+  // Carry the captured owner through delayed recording stop/import/upload work.
+  // Flag-off legacy drafts retain their original shape and database.
+  if (scope.namespace) draft.storageScope = scope.namespace;
+  return write(['drafts'], scope, tx => { tx.objectStore('drafts').put(draft); });
+}
+export async function putChunk(draftId: string, index: number, blob: Blob, scope = captureStorageScope()) {
+  return write(['chunks'], scope, tx => { tx.objectStore('chunks').put({ id: `${draftId}:${index}`, draftId, index, blob }); });
+}
+export async function drafts(scope = captureStorageScope()): Promise<Draft[]> {
+  const db = await database(scope);
+  return new Promise((resolve, reject) => {
+    const r = db.transaction('drafts').objectStore('drafts').getAll();
+    r.onsuccess = () => { db.close(); try { assertStorageScope(scope); r.result.forEach(d => checkDraft(d, scope)); resolve(r.result); } catch (error) { reject(error); } };
+    r.onerror = () => { db.close(); reject(r.error); };
+  });
+}
+export async function draftBlob(draft: Draft, scope = captureStorageScope()) {
+  checkDraft(draft, scope);
+  if (draft.blob) return draft.blob;
+  const db = await database(scope);
+  return new Promise<Blob>((resolve, reject) => {
+    const chunks: { index: number; blob: Blob }[] = [];
+    const r = db.transaction('chunks').objectStore('chunks').openCursor(IDBKeyRange.bound(`${draft.id}:`, `${draft.id}:\uffff`));
+    r.onsuccess = () => { const cursor = r.result; if (cursor) { chunks.push(cursor.value); cursor.continue(); } else { db.close(); try { assertStorageScope(scope); resolve(new Blob(chunks.sort((a,b) => a.index-b.index).map(c => c.blob), { type:draft.mime })); } catch (error) { reject(error); } } };
+    r.onerror = () => { db.close(); reject(r.error); };
+  });
+}
+export async function deleteDraft(id: string, scope = captureStorageScope()) {
+  return write(['drafts','chunks'], scope, tx => {
+    tx.objectStore('drafts').delete(id);
+    const cursor = tx.objectStore('chunks').openCursor();
+    cursor.onsuccess = () => { const row = cursor.result; if (row) { if (row.value.draftId === id) row.delete(); row.continue(); } };
+  });
+}

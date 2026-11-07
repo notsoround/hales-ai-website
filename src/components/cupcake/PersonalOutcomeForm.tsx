@@ -1,3 +1,4 @@
+import { personalStorage } from './personalStorage';
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDateFields, type CalendarDate } from './CalendarDateFields';
 import { libraryRequest } from './library';
@@ -59,8 +60,9 @@ function trapDialogKey(event: TrapEvent, dialog: HTMLElement | null, blocked: bo
 }
 
 export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersonalOutcome) => void }) {
+  const outcomeStorage=useRef(personalStorage('sessionStorage')).current;
   const [recovery] = useState(() => {
-    try { return readPendingOutcome(sessionStorage); }
+    try { return readPendingOutcome(outcomeStorage); }
     catch { return { pending: null, error: 'Browser storage is unavailable. Keep this draft open and allow storage before saving an outcome.' }; }
   });
   const [open, setOpen] = useState(!!recovery.pending || !!recovery.error);
@@ -128,11 +130,11 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
     try {
       const id = pending?.id || crypto.randomUUID();
       const request: OutcomeRequest = pending || { action: 'outcome_record', id, date: day, title: title.trim(), outcome: outcome as 'win' | 'loss', note: note.trim(), source: { type: 'owner-request', reference: `cupcake-web:${id}`, description: 'Explicitly recorded by the owner in Cupcake’s personal wins and setbacks form.' }, metrics: {} };
-      keepPendingOutcome(sessionStorage, request);
+      keepPendingOutcome(outcomeStorage, request);
       setPending(request);
       const result = await libraryRequest<{ entry: SavedPersonalOutcome; replayed: boolean; libraryIndexed: boolean }>(request);
       if (result.entry?.id !== request.id || result.entry.date !== request.date || result.entry.outcome !== request.outcome) throw new Error('The saved result was not confirmed. Retry this same entry.');
-      clearPendingOutcome(sessionStorage, request.id);
+      clearPendingOutcome(outcomeStorage, request.id);
       setPending(null); setTitle(''); setNote(''); setOutcome(''); setConfirmed(false); setDate(chicagoDate());
       returnFocus.current = true;
       setOpen(false);
@@ -140,8 +142,8 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
     } catch (e) {
       if (e instanceof LibraryApprovalCancelled && !pending) {
         try {
-          const held = readPendingOutcome(sessionStorage).pending;
-          if (held) clearPendingOutcome(sessionStorage, held.id);
+          const held = readPendingOutcome(outcomeStorage).pending;
+          if (held) clearPendingOutcome(outcomeStorage, held.id);
           setPending(null); setConfirmed(false);
         } catch { setError('Nothing was approved, but retry details could not be cleared. Keep this tab open and retry once storage is available.'); return; }
       }
