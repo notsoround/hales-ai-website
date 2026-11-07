@@ -1,3 +1,4 @@
+import { matchesPersonalStorageKey } from './personalStorage';
 import { useEffect, useState } from 'react';
 import { ACCENT_HEAT_ATTRIBUTE, ACCENT_HEAT_STORAGE_KEY, loadAccentHeat, normalizeAccentHeat, saveAccentHeat, type AccentHeat } from './accentHeat';
 
@@ -10,7 +11,7 @@ export function useAccentHeat(): [AccentHeat, (heat: AccentHeat) => void] {
     return () => root.removeAttribute(ACCENT_HEAT_ATTRIBUTE);
   }, [heat]);
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => { if (event.key === null || event.key === ACCENT_HEAT_STORAGE_KEY) setHeat(loadAccentHeat()); };
+    const onStorage = (event: StorageEvent) => { if (matchesPersonalStorageKey(event.key,ACCENT_HEAT_STORAGE_KEY)) setHeat(loadAccentHeat()); };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);

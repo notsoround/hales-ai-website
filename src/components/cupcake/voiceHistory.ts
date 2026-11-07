@@ -1,3 +1,4 @@
+import { personalStorage } from './personalStorage.ts';
 export type TalkLine = { role: 'You' | 'Cupcake'; text: string };
 export type StartingContext = {title:string;lines:{role:'user'|'assistant';text:string}[];source?:{kind:'intervention'|'talk';id:string}};
 export type SavedTalk = { id: string; title: string; startedAt: string; endedAt: string; lines: TalkLine[]; archived?: boolean; documentId?: string; startingContext?:StartingContext };
@@ -49,10 +50,10 @@ export async function closeVoiceTransport(transport:{leave:()=>unknown;destroy:(
   await settleVoiceOperation(()=>destroyed,limit);
   return confirmed;
 }
-export function readTalks(): SavedTalk[] { try { const value = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } }
-export function saveTalk(talk: SavedTalk) { const safe = {...talk,title:clean(talk.title,120),lines:talk.lines.map(x=>({...x}))}; const all=[safe,...readTalks().filter(x=>x.id!==safe.id)]; try { localStorage.setItem(KEY,JSON.stringify(all)); } catch { /* Private-library import remains the durable path. */ } return all; }
-export function persistTalk(talk:SavedTalk){const talks=saveTalk(talk);let persisted=false;try{const found=JSON.parse(localStorage.getItem(KEY)||'[]').find((x:{id?:unknown})=>x?.id===talk.id);persisted=JSON.stringify(found)===JSON.stringify(talks.find(x=>x.id===talk.id));}catch{/* The in-memory copy remains reviewable. */}return {talks,persisted};}
-export function archiveTalk(id: string, archived = true) { const all=readTalks().map(x=>x.id===id?{...x,archived}:x);try{localStorage.setItem(KEY,JSON.stringify(all));}catch{/* Private-library copy remains available. */}return all; }
+export function readTalks(storage = personalStorage('localStorage')): SavedTalk[] { try { const value = JSON.parse(storage.getItem(KEY) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } }
+export function saveTalk(talk: SavedTalk, storage = personalStorage('localStorage')) { const safe = {...talk,title:clean(talk.title,120),lines:talk.lines.map(x=>({...x}))}; const all=[safe,...readTalks(storage).filter(x=>x.id!==safe.id)]; try { storage.setItem(KEY,JSON.stringify(all)); } catch { /* Private-library import remains the durable path. */ } return all; }
+export function persistTalk(talk:SavedTalk, storage = personalStorage('localStorage')){const talks=saveTalk(talk,storage);let persisted=false;try{const found=JSON.parse(storage.getItem(KEY)||'[]').find((x:{id?:unknown})=>x?.id===talk.id);persisted=JSON.stringify(found)===JSON.stringify(talks.find(x=>x.id===talk.id));}catch{/* The in-memory copy remains reviewable. */}return {talks,persisted};}
+export function archiveTalk(id: string, archived = true, storage = personalStorage('localStorage')) { const all=readTalks(storage).map(x=>x.id===id?{...x,archived}:x);try{storage.setItem(KEY,JSON.stringify(all));}catch{/* Private-library copy remains available. */}return all; }
 export function validStartingContext(value:unknown):value is StartingContext {
  const c=value as StartingContext;
  return !!c&&typeof c==='object'&&!Array.isArray(c)&&Object.keys(c).every(k=>['title','lines','source'].includes(k))&&typeof c.title==='string'&&!!c.title.trim()&&c.title.length<=120&&Array.isArray(c.lines)&&c.lines.length>0&&c.lines.length<=40&&c.lines.every(l=>l&&Object.keys(l).every(k=>['role','text'].includes(k))&&['user','assistant'].includes(l.role)&&typeof l.text==='string'&&!!l.text.trim()&&l.text.length<=2000)&&c.lines.reduce((n,l)=>n+l.text.length,0)<=12000&&(c.source===undefined||(!!c.source&&!Array.isArray(c.source)&&Object.keys(c.source).every(k=>['kind','id'].includes(k))&&['intervention','talk'].includes(c.source.kind)&&typeof c.source.id==='string'&&!!c.source.id.trim()&&c.source.id.length<=200));

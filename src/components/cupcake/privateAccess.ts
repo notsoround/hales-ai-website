@@ -1,3 +1,4 @@
+import { ACCOUNT_SESSIONS } from './accountMode';
 // Only a password entered by the owner belongs here; never import a build-time key.
 export const PRIVATE_ACCESS_STORAGE = 'cupcake-private-access';
 let memoryKey = '';
@@ -10,10 +11,11 @@ function storedKey(storage: Storage | null): string {
 }
 function removeKey(storage: Storage | null): boolean {
   if (!storage) return true;
-  try { storage.removeItem(PRIVATE_ACCESS_STORAGE); return !storage.getItem(PRIVATE_ACCESS_STORAGE); } catch { return false; }
+  try { storage.removeItem(PRIVATE_ACCESS_STORAGE); return ACCOUNT_SESSIONS || !storage.getItem(PRIVATE_ACCESS_STORAGE); } catch { return false; }
 }
 
 export function readPrivateAccess(): string {
+  if (ACCOUNT_SESSIONS) return '';
   memoryKey = storedKey(browserStorage('localStorage')) || storedKey(browserStorage('sessionStorage')) || memoryKey;
   return memoryKey;
 }
@@ -21,6 +23,7 @@ export function readPrivateAccess(): string {
 // Call only after the private API has accepted the password. Legacy tab sessions
 // are migrated at that point; unavailable storage still permits this open page.
 export function savePrivateAccess(key: string): boolean {
+  if (ACCOUNT_SESSIONS) return false;
   memoryKey = key.trim();
   const local = browserStorage('localStorage');
   try {
@@ -41,4 +44,4 @@ export function clearPrivateAccess(): boolean {
   return localCleared && sessionCleared;
 }
 
-export const privateAccessHeaders = () => ({ 'X-Cupcake-Key': readPrivateAccess() });
+export const privateAccessHeaders = (): Record<string,string> => ACCOUNT_SESSIONS ? {} : { 'X-Cupcake-Key': readPrivateAccess() };

@@ -1,3 +1,4 @@
+import { personalNamespace, personalStorage } from './personalStorage';
 export type ChatReply = {ok:true;reply:string;model:string;sources?:{title?:string;url?:string}[];libraryUnavailable?:boolean;recordsUnavailable?:boolean;unavailableSources?:string[]};
 /** Plain-words notice naming what the answer could not read, or null when nothing was missing. */
 export function unavailableNotice(r:Pick<ChatReply,'libraryUnavailable'|'recordsUnavailable'|'unavailableSources'>):string|null{
@@ -12,9 +13,12 @@ const answerPrefix = 'cupcake-quick-chat-answer:';
 const beginPrefix = 'cupcake-quick-chat-begin:';
 const answers = new Map<string,ReceivedAnswer>();
 const begins = new Map<string,PendingBegin>();
+let memoryScope = '';
+function scopeMemory() { const scope = personalNamespace(); if (scope !== memoryScope) { answers.clear(); begins.clear(); memoryScope = scope; } }
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('cupcake-account-session-change',()=>{answers.clear();begins.clear();memoryScope='';});
 export const recoveryEvent = 'cupcake-quick-chat-recovery-changed';
-export const readChatStorage = (key:string) => {try{return sessionStorage.getItem(key)}catch{return null}};
-export const writeChatStorage = (key:string,value:string|null) => {try{if(value===null)sessionStorage.removeItem(key);else sessionStorage.setItem(key,value);return true}catch{return false}};
+export const readChatStorage = (key:string) => {try{return personalStorage('sessionStorage').getItem(key)}catch{return null}};
+export const writeChatStorage = (key:string,value:string|null) => {try{if(value===null)personalStorage('sessionStorage').removeItem(key);else personalStorage('sessionStorage').setItem(key,value);return true}catch{return false}};
 const answerId = (answer:ReceivedAnswer) => answerPrefix+answer.threadId+':'+answer.turnId+':'+answer.attemptId;
 function isAnswer(value:unknown):value is ReceivedAnswer {
   if(!value||typeof value!=='object')return false;
@@ -22,14 +26,15 @@ function isAnswer(value:unknown):value is ReceivedAnswer {
   return typeof p.threadId==='string'&&typeof p.turnId==='string'&&typeof p.attemptId==='string'&&p.response?.ok===true&&typeof p.response.reply==='string'&&typeof p.response.model==='string';
 }
 export function receivedAnswers():ReceivedAnswer[] {
+  scopeMemory();
   // Read the former single-answer slot once, retaining it until successful save.
   const legacy=readChatStorage('cupcake-quick-chat-unsaved-answer');
   try{const p=JSON.parse(legacy||'null');if(isAnswer(p))answers.set(answerId(p),p)}catch{/* A malformed draft cannot hide other received answers. */}
   try {
-    for(let i=0;i<sessionStorage.length;i++) {
-      const key=sessionStorage.key(i);
+    for(let i=0;i<personalStorage('sessionStorage').length;i++) {
+      const key=personalStorage('sessionStorage').key(i);
       if(key?.startsWith(answerPrefix)) {
-        try {const p=JSON.parse(sessionStorage.getItem(key)||'null');if(isAnswer(p))answers.set(answerId(p),p)}
+        try {const p=JSON.parse(personalStorage('sessionStorage').getItem(key)||'null');if(isAnswer(p))answers.set(answerId(p),p)}
         catch {/* Keep other answers available. */}
       }
     }
@@ -37,26 +42,31 @@ export function receivedAnswers():ReceivedAnswer[] {
   return [...answers.values()];
 }
 export function rememberAnswer(answer:ReceivedAnswer) {
+  scopeMemory();
   answers.set(answerId(answer),answer);
   const persisted=writeChatStorage(answerId(answer),JSON.stringify(answer));
   window.dispatchEvent(new Event(recoveryEvent));
   return persisted;
 }
 export function forgetAnswer(answer:ReceivedAnswer) {
+  scopeMemory();
   answers.delete(answerId(answer));
   writeChatStorage(answerId(answer),null);
   try{const old=JSON.parse(readChatStorage('cupcake-quick-chat-unsaved-answer')||'null');if(isAnswer(old)&&answerId(old)===answerId(answer))writeChatStorage('cupcake-quick-chat-unsaved-answer',null)}catch{/* Ignore malformed legacy data. */}
   window.dispatchEvent(new Event(recoveryEvent));
 }
 export function rememberBegin(begin:PendingBegin) {
+  scopeMemory();
   begins.set(begin.threadId,begin);
   writeChatStorage(beginPrefix+begin.threadId,JSON.stringify(begin));
 }
 export function pendingBegin(threadId:string):PendingBegin|null {
+  scopeMemory();
   if(begins.has(threadId))return begins.get(threadId)||null;
   try{const p=JSON.parse(readChatStorage(beginPrefix+threadId)||'null');if(p&&p.threadId===threadId&&typeof p.turnId==='string'&&typeof p.text==='string')return p}catch{/* The server remains the source of saved turn identities. */}
   return null;
 }
 export function forgetBegin(threadId:string) {
+  scopeMemory();
   begins.delete(threadId);writeChatStorage(beginPrefix+threadId,null);
 }

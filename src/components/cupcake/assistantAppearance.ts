@@ -1,3 +1,4 @@
+import { matchesPersonalStorageKey, personalStorage } from './personalStorage';
 import { useCallback, useEffect, useState } from 'react';
 
 export type Appearance = 'caribbean' | 'rose';
@@ -19,7 +20,7 @@ const cleanName = (name: string) => Array.from(name).filter(char => char.charCod
 
 function readPreferences(): Preferences {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    const value: unknown = JSON.parse(personalStorage('localStorage').getItem(STORAGE_KEY) || 'null');
     if (!value || typeof value !== 'object') return defaults;
     const saved = value as Partial<Preferences>;
     const persona: Persona = saved.persona === 'matthieu' ? 'matthieu' : 'cupcake';
@@ -35,12 +36,12 @@ function readPreferences(): Preferences {
 export function useAssistantAppearance(): AssistantAppearanceState {
   const [preferences, setPreferences] = useState<Preferences>(readPreferences);
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences)); }
+    try { personalStorage('localStorage').setItem(STORAGE_KEY, JSON.stringify(preferences)); }
     catch { /* Appearance remains usable for this session if browser storage is unavailable. */ }
   }, [preferences]);
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY || event.key === null) setPreferences(readPreferences());
+      if (matchesPersonalStorageKey(event.key,STORAGE_KEY)) setPreferences(readPreferences());
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);

@@ -1,3 +1,4 @@
+import { personalStorage } from './personalStorage';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import { Headphones, Library, MessageCircle, Mic, Minus, X } from 'lucide-react';
 import { AssistantPortrait } from './AssistantPersona';
@@ -10,11 +11,11 @@ const positionKey = 'cupcake-assistant-position-v1';
 const hiddenKey = 'cupcake-assistant-hidden-v1';
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 const readPosition = (): Position => {
-  try { const p = JSON.parse(localStorage.getItem(positionKey) || 'null'); if (p && ['left', 'right'].includes(p.side) && Number.isFinite(p.ratio)) return { side: p.side, ratio: clamp(p.ratio, 0, 1) }; } catch { /* Device storage is optional. */ }
+  try { const p = JSON.parse(personalStorage('localStorage').getItem(positionKey) || 'null'); if (p && ['left', 'right'].includes(p.side) && Number.isFinite(p.ratio)) return { side: p.side, ratio: clamp(p.ratio, 0, 1) }; } catch { /* Device storage is optional. */ }
   return { side: 'right', ratio: .72 };
 };
-const readHidden = () => { try { return localStorage.getItem(hiddenKey) === '1'; } catch { return false; } };
-const save = (key: string, value: string) => { try { localStorage.setItem(key, value); } catch { /* Still usable for this visit. */ } };
+const readHidden = () => { try { return personalStorage('localStorage').getItem(hiddenKey) === '1'; } catch { return false; } };
+const save = (key: string, value: string) => { try { personalStorage('localStorage').setItem(key, value); } catch { /* Still usable for this visit. */ } };
 const modes = [{ key: 'text', label: 'Text', Icon: MessageCircle }, { key: 'voice', label: 'Live voice', Icon: Headphones }, { key: 'record', label: 'Record', Icon: Mic }] as const;
 
 export function AssistantShell({ open, library, mode, onMode, onOpen, onMinimize, onLibrary, busy, activity, persona, name, children }: {

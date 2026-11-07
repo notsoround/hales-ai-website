@@ -1,3 +1,4 @@
+import { personalStorage } from './personalStorage';
 export type MicFailure = { name?: string; message?: string };
 
 export function microphoneMessage(error: MicFailure) {
@@ -25,8 +26,8 @@ export function microphoneConstraints(deviceId?: string): MediaStreamConstraints
   return { audio: deviceId ? { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true } : true };
 }
 
-export function readInputDevice() { try { return localStorage.getItem('cupcake-voice-input') || ''; } catch { return ''; } }
-export function saveInputDevice(deviceId: string) { try { localStorage.setItem('cupcake-voice-input', deviceId); } catch { /* Selection still works for this page. */ } }
+export function readInputDevice() { try { return personalStorage('localStorage').getItem('cupcake-voice-input') || ''; } catch { return ''; } }
+export function saveInputDevice(deviceId: string) { try { personalStorage('localStorage').setItem('cupcake-voice-input', deviceId); } catch { /* Selection still works for this page. */ } }
 
 export function hasAudibleSignal(samples: Uint8Array, threshold = 0.003) {
   const rms = Math.sqrt(samples.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / Math.max(1, samples.length));

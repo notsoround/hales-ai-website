@@ -1,3 +1,4 @@
+import { personalStorage } from './personalStorage.ts';
 import {sameStartingContext, validStartingContext, type StartingContext, type SavedTalk, type TalkLine} from './voiceHistory.ts';
 
 type Checkpoint = {startingContext?:StartingContext;action:'talk_checkpoint';sessionId:string;version:number;title:string;lines:(TalkLine&{transcriptType:'final'})[];final:boolean};
@@ -18,7 +19,7 @@ const remoteTime=(seconds:unknown)=>{
  try{return date.toISOString()}catch{return ''}
 };
 
-export function talkDeviceStorage():StorageLike|null {try{return window.localStorage}catch{return null}}
+export function talkDeviceStorage():StorageLike|null {try{return personalStorage('localStorage')}catch{return null}}
 export function remoteTalkSummary(t:RemoteTalk):SavedTalk {
  return {startingContext:t.startingContext,id:t.id,title:t.title,startedAt:remoteTime(t.createdAt),endedAt:remoteTime(t.updatedAt),lines:[],documentId:t.documentId};
 }

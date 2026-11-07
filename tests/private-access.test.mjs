@@ -12,7 +12,7 @@ function storage() {
   return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
 }
 function client(localStorage = storage(), sessionStorage = storage()) {
-  const context = { exports: {}, window: { localStorage, sessionStorage } };
+  const context = { exports: {}, require: () => ({ ACCOUNT_SESSIONS: false }), window: { localStorage, sessionStorage } };
   vm.runInNewContext(source, context);
   return context.exports;
 }
