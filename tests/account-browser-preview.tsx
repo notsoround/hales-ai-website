@@ -89,6 +89,13 @@ window.fetch=async(input,init)=>{
   if(route==='session')return response(200,{ok:true,identity:owner});
   if(route==='recovery/issue')return response(200,{ok:true,recovery_code:'synthetic-one-time-recovery'});
   if(route==='password'){fixture.serverOwner(null);return response(200,{ok:true});}
+  if(route.startsWith('health/')) {
+    if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
+    const remote=(window as unknown as {syntheticHealthServer?:(owner:string,route:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticHealthServer;
+    if(!remote)throw Error('No synthetic health server for '+route);
+    const result=await remote(owner.account_id,route,body);
+    return response(result.status,{...result.value,identity:fixture.wrongEcho?(owner===A?B:A):owner});
+  }
   if(route!=='data')throw Error('Unknown synthetic account route '+route);
   if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
   if(fixture.delay&&body.action==='fetch'&&body.id==='deferred-test')await new Promise<void>(resolve=>{fixture.release=resolve;});

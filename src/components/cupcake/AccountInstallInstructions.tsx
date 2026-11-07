@@ -1,0 +1,14 @@
+import { ACCOUNT_INSTALL_URL } from './accountInstall';
+
+export function AccountInstallInstructions() {
+  return <section className="cc-account-controls" aria-label="Add to iPhone Home Screen">
+    <h3>Matthieu on your iPhone</h3>
+    <p><a className="cc-text-button" href={ACCOUNT_INSTALL_URL}>Open the Matthieu install page</a> in Safari.</p>
+    <ol style={{ listStyle: 'decimal', paddingLeft: 20 }}>
+      <li>Tap Safari’s Share button (in the Page Menu if needed).</li>
+      <li>Choose Add to Home Screen. If shown, leave Open as Web App on, then tap Add.</li>
+      <li>Open Matthieu from your Home Screen. Sign in to your account if asked.</li>
+    </ol>
+    <p className="cc-muted cc-small">An internet connection is required. Adding the icon does not connect Apple Health. System audio sharing is not available for account sign-in; imported recordings stay on this device.</p>
+  </section>;
+}

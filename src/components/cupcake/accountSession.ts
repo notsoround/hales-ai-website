@@ -69,6 +69,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       throw Error('Your session expired or changed. Sign in again.');
     }
     if (response.status === 409 && result?.error === 'persona_conflict') throw new AccountRequestError('Your assistant preferences changed elsewhere.', 'persona_conflict');
+    if (response.status === 503 && result?.error === 'health_intake_not_ready') throw new AccountRequestError('Apple Health connections are not available for this account yet. No upload has been confirmed.', 'health_intake_not_ready');
     const invitationErrors: Record<string,string> = {
       invitation_unavailable:'This invitation is unavailable. It may have expired, been revoked or already been accepted.',
       invitation_conflict:'A pending invitation already exists, or this request changed. Check your invitations before trying again.',
@@ -177,6 +178,12 @@ export async function acceptAccountInvitation<T>(body:Record<string,unknown>):Pr
 export async function accountSharing<T>(route:'relationships'|'grant'|'revoke',body:Record<string,unknown>):Promise<T> {
   if(!['relationships','grant','revoke'].includes(route))throw Error(ACCOUNT_UNAVAILABLE);
   return accountJSON<T>('sharing/'+route,body,state);
+}
+type HealthRoute = 'devices/create' | 'devices/list' | 'devices/revoke' | 'sync';
+const HEALTH_ROUTES = new Set<HealthRoute>(['devices/create','devices/list','devices/revoke','sync']);
+export async function accountHealth<T>(route: HealthRoute, body: Record<string, unknown>): Promise<T> {
+  if (!HEALTH_ROUTES.has(route)) throw Error(ACCOUNT_UNAVAILABLE);
+  return accountJSON<T>('health/' + route, body, state);
 }
 /** The signed path is never an img src: cookies, context and its echo are required. */
 export async function accountCoachPhoto(path: string): Promise<Blob> {

@@ -45,7 +45,7 @@ try{
   assert.equal(await account.getByText('PRIVATE MATT LEGACY TELEMETRY',{exact:true}).count(),0);
   assert.equal(await account.evaluate(()=>window.accountFixture.legacyReads),0);
   assert.deepEqual(await account.evaluate(()=>window.entryRegistrations),[]);
-  assert.equal(await account.locator('link[rel="manifest"]').count(),0);
+  assert.equal(await account.locator('link[rel="manifest"]').getAttribute('href'),'/matthieu-account.webmanifest');
   assert.equal(await legacy.locator('link[rel="manifest"]').getAttribute('href'),'/cupcake.webmanifest');
   assert.ok(requests.length>0);assert.ok(requests.every(r=>r.headers['x-cupcake-key']===LEGACY));
   assert.equal(await account.evaluate(async()=>{const mode=await import('/src/components/cupcake/accountMode.ts');return mode.ACCOUNT_SESSIONS;}),true);
@@ -54,8 +54,8 @@ try{
   assert.deepEqual(mapped,['/cupcake/account?tab=snap&meal=own#photo','/cupcake/account?tab=library&document=own','https://example.invalid/cupcake?tab=library']);
   await account.getByRole('navigation',{name:'Cupcake',exact:true}).getByRole('button',{name:'Library',exact:true}).click();
   assert.match(new URL(account.url()).pathname,/^\/cupcake\/account$/);await account.goBack();assert.equal(new URL(account.url()).pathname,'/cupcake/account');
-  await account.locator('summary[aria-label="Settings"]').click();await account.getByText(/Account app installation and system audio sharing are not available yet/).waitFor();await account.getByRole('button',{name:'Close settings'}).click();
-  console.log('PASS: actual App routing keeps legacy telemetry/key and account context separate in concurrent tabs, deep links and staged PWA are explicit');
+  await account.locator('summary[aria-label="Settings"]').click();await account.getByRole('heading',{name:'Matthieu on your iPhone',exact:true}).waitFor();await account.getByText(/System audio sharing is not available for account sign-in/).waitFor();await account.getByRole('button',{name:'Close settings'}).click();
+  console.log('PASS: actual App routing keeps legacy telemetry/key and account context separate in concurrent tabs, deep links and account installation');
 
   await context.exposeFunction('syntheticQuickChatServer',async(_owner,body)=>({status:200,value:body.action==='quick_chat_list'?{threads:[{id:THREAD,title:'Owned source link'}]}:{thread:{id:THREAD,title:'Owned source link',turns:[{id:THREAD+'-turn',text:'Own original',status:'completed',retryAfter:0,response:{ok:true,reply:'Owned source response',model:'synthetic',sources:[{title:'Owned original',url:'https://hales.ai/cupcake?tab=library&document=own-original'}]}}]}}}));
   await account.goto(base+'/cupcake/account/?tab=chat&thread='+THREAD);await account.getByText('Owned source response',{exact:true}).waitFor();
