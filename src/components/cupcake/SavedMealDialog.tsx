@@ -20,6 +20,9 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const historical = meals.find(m => m.id === mealId && m.source === 'food_sheet');
   const legacy = historical && !historical.id.startsWith('meal_') ? historical : undefined;
+  const currentMeal = meal?.id === mealId ? meal : null;
+  const manual = currentMeal?.source === 'manual-entry' || !!currentMeal?.manualLoggedAt;
+  const noPhoto = manual || currentMeal?.imageStored === false;
   useEffect(() => {
     let current = true;
     setMeal(null); setError('');
@@ -31,7 +34,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
   }, [mealId, retry, legacy, historical]);
   useEffect(() => {
     setPhoto(''); setPhotoError(''); setPhotoBusy(false);
-    if (!mealId || legacy) return;
+    if (!mealId || legacy || !currentMeal || noPhoto) return;
     let current = true; let objectUrl = '';
     setPhotoBusy(true); setPhotoError('');
     void libraryRequest<{ photo: { dataUrl: string } }>({ action: 'food_photo', mealId })
@@ -44,9 +47,8 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
       }).catch(e => { if (current) setPhotoError(e instanceof Error ? e.message : 'Photo unavailable.'); })
       .finally(() => { if (current) setPhotoBusy(false); });
     return () => { current = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [mealId, legacy, photoRetry]);
+  }, [mealId, legacy, photoRetry, currentMeal, noPhoto]);
   const adjacent = mealNeighbors(meals, mealId || '');
-  const currentMeal = meal?.id === mealId ? meal : null;
   return <MealDialog open={!!mealId} onClose={onClose} returnFocus={returnFocus}>
     <nav className="cc-meal-navigation" aria-label="Browse saved meals">
       <button className="cc-secondary" disabled={!adjacent.previous} onClick={() => adjacent.previous && onSelect(adjacent.previous.id)}><ArrowLeft size={16}/>Previous meal</button>
@@ -58,10 +60,11 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
       <p><strong>{currentMeal.consumedAt ? `Eaten ${mealTimeLabel(currentMeal.consumedAt)}` : historical?.date ? `Eaten ${dayLabel(historical.date)} · time not recorded` : 'Eaten time not recorded'}</strong><br/><small className="cc-muted">America/Chicago · {currentMeal.sheetLoggedAt ? 'In your food log' : 'Not in calorie totals yet'}</small></p>
       {currentMeal.photoTakenAt && currentMeal.photoTakenAt !== currentMeal.consumedAt && <p className="cc-muted cc-small">Photo file time: {mealTimeLabel(currentMeal.photoTakenAt)}</p>}
       <div className="cc-meal-macros">
-        {[['Est. calories', currentMeal.total?.calories, 'kcal'], ['Protein', currentMeal.total?.protein_g, 'g'], ['Total carbs', currentMeal.total?.carbs_g, 'g'], ['Sugar', currentMeal.total?.sugar_g, 'g']].map(([label, value, unit]) => <div key={String(label)}><small>{label}</small><strong>{value == null ? 'Unknown' : `${Number(value).toLocaleString()} ${unit}`}</strong></div>)}
+        {[[manual ? 'Calories (entered)' : 'Est. calories', currentMeal.total?.calories, 'kcal'], ['Protein', currentMeal.total?.protein_g, 'g'], ['Total carbs', currentMeal.total?.carbs_g, 'g'], ['Sugar', currentMeal.total?.sugar_g, 'g'], ...(manual ? [['Fat', currentMeal.total?.fat_g, 'g'], ['Fiber', currentMeal.total?.fiber_g, 'g']] : [])].map(([label, value, unit]) => <div key={String(label)}><small>{label}</small><strong>{value == null ? 'Unknown' : `${Number(value).toLocaleString()} ${unit}`}</strong></div>)}
       </div>
       {currentMeal.calorieRange && <p className="cc-muted">Estimated range: {currentMeal.calorieRange.low}–{currentMeal.calorieRange.high} kcal.</p>}
-      {currentMeal.totalIsPartial && <p className="cc-error">Partial estimate: some nutrition is missing. This is not a complete meal total.</p>}
+      {currentMeal.totalIsPartial && <p className="cc-error">{manual ? 'Partial entry' : 'Partial estimate'}: some nutrition is missing. This is not a complete meal total.</p>}
+      {manual && <p className="cc-muted">Manually entered meal · no photo. Nutrition values were entered by you; missing values remain unknown.</p>}
       {legacy && <p className="cc-muted cc-small">This older food-log entry has no linked original photo.</p>}
       {photoBusy && <p role="status">Opening private photo…</p>}
       {photoError && <div role="alert"><p className="cc-error">{photoError}</p><button className="cc-secondary" onClick={() => setPhotoRetry(n => n + 1)}>Retry photo</button></div>}
@@ -77,10 +80,10 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
           hasNext={!!adjacent.next}
         />
       )}
-      <details className="cc-meal-estimate-details"><summary>Estimate details &amp; sources</summary>
+      <details className="cc-meal-estimate-details"><summary>{manual ? 'Entry details & sources' : 'Estimate details & sources'}</summary>
         {[...(currentMeal.lookupWarnings || []), ...(currentMeal.warnings || [])].map(warning => <p className="cc-muted" key={warning}>{warning}</p>)}
         {currentMeal.items?.map(item => <div className="cc-meal-estimate-item" key={item.id}><strong>{item.name}</strong><p>{item.nutrition?.calories == null ? 'Calories unknown' : `${item.nutrition.calories} kcal`}{item.quantity != null ? ` · ${item.quantity} ${item.unit || 'portion(s)'}` : ''}</p><small>{item.provenance || 'Estimate provenance unavailable'}{item.calculation ? ` · ${item.calculation}` : ''}{item.portionAssumption ? ` · ${item.portionAssumption}` : ''}{item.variantWarning ? ` · ${item.variantWarning}` : ''}</small>{item.sourceCitations?.filter(source => /^https?:\/\//.test(source.url)).map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a>)}</div>)}
-        <p className="cc-muted cc-small">{historical ? 'Nutrition comes from the saved food-log estimate.' : 'Nutrition is estimated from the saved food photo and identified portions.'}</p>
+        <p className="cc-muted cc-small">{manual ? 'Owner-entered nutrition, saved with your explicit eaten confirmation and actual meal time.' : historical ? 'Nutrition comes from the saved food-log estimate.' : 'Nutrition is estimated from the saved food photo and identified portions.'}</p>
       </details>
     </>}
   </MealDialog>;
