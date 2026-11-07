@@ -1,3 +1,4 @@
+import { cupcakeHref } from './accountMode';
 import { useState } from 'react';
 import AnswerText from './AnswerText';
 import { ArrowLeft, Check, Copy, Download, FileText, Loader2, Send } from 'lucide-react';
@@ -6,7 +7,7 @@ import { ReadAloudButton } from './ReadAloudButton';
 
 export function SourceList({ sources }: { sources?: Source[] }) {
   if (!sources?.length) return null;
-  return <details className="cc-sources"><summary>{sources.length} retrieved passage{sources.length===1?'':'s'} · {new Set(sources.map(s=>s.documentId||s.id||s.url||s.title)).size} source document(s) · open originals</summary><ul>{sources.map((s, i) => <li key={i}>{s.url?.startsWith('https://hales.ai/cupcake?')?<a href={s.url} target="_blank" rel="noopener noreferrer">{sourceText({ ...s, url: undefined })} ↗</a>:sourceText({ ...s, url: undefined })}{s.text && <blockquote>{s.text}</blockquote>}</li>)}</ul></details>;
+  return <details className="cc-sources"><summary>{sources.length} retrieved passage{sources.length===1?'':'s'} · {new Set(sources.map(s=>s.documentId||s.id||s.url||s.title)).size} source document(s) · open originals</summary><ul>{sources.map((s, i) => <li key={i}>{s.url?.startsWith('https://hales.ai/cupcake?')?<a href={cupcakeHref(s.url)} target="_blank" rel="noopener noreferrer">{sourceText({ ...s, url: undefined })} ↗</a>:sourceText({ ...s, url: undefined })}{s.text && <blockquote>{s.text}</blockquote>}</li>)}</ul></details>;
 }
 export function AnalysisCard({ analysis }: { analysis: Analysis }) {
   const [copied, setCopied] = useState(false); const [error, setError] = useState('');

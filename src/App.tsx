@@ -5,6 +5,7 @@ import { GetStarted } from './components/GetStarted';
 import { LearnMore } from './components/LearnMore';
 import { ChatInterface } from './components/ChatInterface';
 import HalesExperience from './components/experience/HalesExperience';
+import { ACCOUNT_ENTRY_REQUESTED, ACCOUNT_SESSIONS, isAccountEntryPath } from './components/cupcake/accountMode';
 
 // Lazy load the pages
 const AboutUs = lazy(() => import('./pages/about-us/page'));
@@ -35,6 +36,7 @@ type PageKey =
   | 'contact-us'
   | 'elite-ops'
   | 'cupcake'
+  | 'cupcake-account'
   | 'cupcake-sandbox'
   | `cupcake-sandbox-${string}`
   | 'not-found';
@@ -49,6 +51,7 @@ function pathnameToPage(pathname: string): PageKey {
     '/contact-us': 'contact-us',
     '/elite-ops': 'elite-ops',
     '/cupcake': 'cupcake',
+    '/cupcake/account': 'cupcake-account',
     '/cupcake/sandbox': 'cupcake-sandbox',
   };
   if (routes[clean]) return routes[clean];
@@ -62,6 +65,7 @@ function pathnameToPage(pathname: string): PageKey {
 
 function pageToPathname(page: PageKey): string {
   if (page === 'home') return '/';
+  if (page === 'cupcake-account') return '/cupcake/account';
   if (page === 'cupcake-sandbox') return '/cupcake/sandbox';
   if (page.startsWith('cupcake-sandbox-')) {
     return `/cupcake/sandbox/${page.replace('cupcake-sandbox-', '')}`;
@@ -75,6 +79,10 @@ function App() {
 
   // Navigate with URL update (so direct links like /cupcake/sandbox/... work)
   const setCurrentPage = (page: PageKey) => {
+    if (isAccountEntryPath(pageToPathname(page)) !== ACCOUNT_ENTRY_REQUESTED) {
+      window.location.assign(pageToPathname(page));
+      return;
+    }
     window.history.pushState({ page }, '', pageToPathname(page));
     setCurrentPageState(page);
   };
@@ -82,6 +90,10 @@ function App() {
   // Handle browser back/forward
   useEffect(() => {
     const handlePopState = () => {
+      if (isAccountEntryPath(window.location.pathname) !== ACCOUNT_ENTRY_REQUESTED) {
+        window.location.reload();
+        return;
+      }
       setCurrentPageState(pathnameToPage(window.location.pathname));
     };
     window.addEventListener('popstate', handlePopState);
@@ -142,6 +154,10 @@ function App() {
             <EliteOps />
           </Suspense>
         );
+      case 'cupcake-account': {
+        if (!ACCOUNT_SESSIONS) return <main className="min-h-screen p-8 text-white"><h1>Account sign-in is not enabled</h1><p>Your saved data stays unchanged.</p><a href="/cupcake">Open private Cupcake</a></main>;
+        return <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Cupcake...</div>}><CupcakeDashboard /></Suspense>;
+      }
       case "cupcake":
         return (
           <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Cupcake...</div>}>

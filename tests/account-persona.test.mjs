@@ -8,7 +8,7 @@ import { createServer } from 'vite';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||path.join(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));
 const cacheDir=mkdtempSync(path.join(tmpdir(),'cupcake-persona-vite-'));
-const server=await createServer({cacheDir,plugins:[{name:'synthetic-persona-root',configureServer(server){server.middlewares.use((req,_res,next)=>{if(req.url?.split('?')[0]==='/cupcake')req.url='/tests/account-browser-preview.html';next();});}}],define:{'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS':'"true"'},
+const server=await createServer({cacheDir,plugins:[{name:'synthetic-persona-root',configureServer(server){server.middlewares.use((req,_res,next)=>{if(['/cupcake/account','/cupcake/account/'].includes(req.url?.split('?')[0]))req.url='/tests/account-browser-preview.html';next();});}}],define:{'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS':'"true"'},
   server:{host:'127.0.0.1',port:0,hmr:false,fs:{allow:[process.cwd(),realpathSync('node_modules')]}}});
 await server.listen();
 const base=`http://127.0.0.1:${server.httpServer.address().port}`;
@@ -45,7 +45,7 @@ async function open(context){
   await context.exposeFunction('syntheticPersonaServer',syntheticPersonaServer);
   const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());
   await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
-  await page.goto(base+'/tests/account-browser-preview.html');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();return page;
+  await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();return page;
 }
 async function login(page,who){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic '+who.toUpperCase(),{exact:true}).first().waitFor();}
 async function settings(page){await page.locator('summary[aria-label="Settings"]').click();}

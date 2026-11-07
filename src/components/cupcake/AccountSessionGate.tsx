@@ -1,6 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { accountControl, initializeSessionBoundary, invalidateSession, restoreSession, sessionSnapshot, signIn, subscribeSession, verifySession, type AccountIdentity } from './accountSession';
-import { clearPrivateAccess } from './privateAccess';
 import './account-session.css';
 
 export function AccountSessionGate({ children }: { children: (identity: AccountIdentity) => ReactNode }) {
@@ -13,11 +12,8 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
     setEmail(''); setPassword(''); setRecovery(''); setNewPassword(''); setRemember(false); setRecovering(false); setError('');
   }, [session.identity]);
   useEffect(() => {
-    clearPrivateAccess();
-    // Mark account mode before sign-in too. The worker cannot bind OS-shared
-    // audio to a trusted cookie identity and must keep that path closed.
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/cupcake-sw.js',{scope:'/cupcake'})
-      .then(()=>navigator.serviceWorker.ready).then(registration=>registration.active?.postMessage({type:'cupcake-browser-mode',accountSessions:true})).catch(()=>{});
+    // Account storage/transports cannot read the separate legacy access key.
+    // Leave it intact for Matt's concurrently open private Cupcake entry.
     const stop = initializeSessionBoundary();
     void restoreSession();
     const check = () => { void verifySession(); };

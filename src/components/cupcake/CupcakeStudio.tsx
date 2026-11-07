@@ -1,5 +1,5 @@
 import { captureStorageScope, personalStorage } from './personalStorage';
-import { ACCOUNT_SESSIONS, ACCOUNT_UNAVAILABLE, privateFetch as fetch } from './accountMode';
+import { ACCOUNT_SESSIONS, ACCOUNT_UNAVAILABLE, cupcakeHref, privateFetch as fetch } from './accountMode';
 import {TalkCheckpointRecovery, remoteTalkSummary, talkDeviceStorage, type RemoteTalk, type RemoteTalkSession} from './talkCheckpoints';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DailyCall } from '@daily-co/daily-js';
@@ -286,7 +286,7 @@ export default function CupcakeStudio({ mode, onBusy, onActivity, keepMediaOnHid
       <h2 className="cc-talk-heading">{callSeed?'Talk to Cupcake about this call':'Talk to Cupcake'}</h2>
       <div className="cc-action-row"><button className="cc-primary" onClick={()=>voice==='idle'?void startVoice(callSeed||undefined):void endVoice()} disabled={recording||busy||micTesting}>{voice==='idle'?<Headphones size={20}/>:<Square size={18}/>} {voice==='idle'?(callSeed?'Talk to Cupcake about this call':'Talk to Cupcake'):voice==='connecting'?'Cancel connection':'End conversation'}</button>{voice==='live'&&<button className="cc-secondary" onClick={()=>{call.current?.setLocalAudio(muted);setMuted(!muted);}}>{muted?'Unmute':'Mute'}</button>}{voice==='live'&&<button className="cc-text-button" onClick={()=>players.current.forEach(p=>void p.play().then(()=>call.current?.sendAppMessage('playable')).catch(()=>setError('Audio is still blocked. Allow sound for hales.ai, then tap Resume audio.')))}>Resume audio</button>}</div>
       <p className="cc-muted cc-small cc-mic-line" role="status">{speaking?'Cupcake is speaking.':micTesting?'Testing microphone…':voice==='live'?(muted?'Microphone muted.':'Microphone live.'):voice==='connecting'?'Microphone connecting…':'Microphone off until you start.'}</p>
-      <a className="cc-text-button" href="/cupcake?tab=library&view=messages">Browse saved Telegram and WhatsApp messages →</a>
+      <a className="cc-text-button" href={cupcakeHref("/cupcake?tab=library&view=messages")}>Browse saved Telegram and WhatsApp messages →</a>
       <details className="cc-fold"><summary>Voice settings</summary>
         <VoiceInputCheck deviceId={inputDevice} disabled={voice!=='idle'||recording||busy} onTesting={setMicTesting} onDevice={id=>{setInputDevice(id);saveInputDevice(id);}}/>
         <button className="cc-text-button" onClick={()=>{try{for(const item of checkpointRecovery.current!.pending())void flushTalk(item.id)}catch(e){setCheckpointStatus(String(e))}}}>Retry transcript sync</button>

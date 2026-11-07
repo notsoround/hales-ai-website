@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- Development-only root fixture, not a refresh boundary. */
 import { createRoot } from 'react-dom/client';
-import Cupcake from '../src/pages/cupcake/sandbox/cupcakegpt/page';
+import App from '../src/App';
 import { libraryRequest } from '../src/components/cupcake/library';
 import { personalNamespace, personalStorage, captureStorageScope } from '../src/components/cupcake/personalStorage';
 import { drafts, putDraft, putChunk, draftBlob } from '../src/components/cupcake/storage';
@@ -48,7 +48,6 @@ const fixture = {
   async staleWrite(){let rejected=0;try{this.heldStore!.setItem('late-secret','late A');}catch{rejected++;}try{await putChunk('late-A',0,new Blob(['A']),this.heldScope!);}catch{rejected++;}try{await draftBlob({id:'A',title:'A',startedAt:1,mime:'audio/webm',complete:true,blob:new Blob(['A']),storageScope:this.heldScope!.namespace});}catch{rejected++;}return rejected;},
 };
 (window as unknown as {accountFixture:typeof fixture}).accountFixture=fixture;
-history.replaceState({},'',`/cupcake${location.search}`);
 if(!sessionStorage.getItem('synthetic-legacy-seeded')) {
   localStorage.setItem('cupcake-private-access','synthetic-legacy-key');sessionStorage.setItem('cupcake-private-access','synthetic-legacy-key');
   localStorage.setItem('cupcake-assistant-appearance-v1',JSON.stringify({appearance:'rose',persona:'matthieu',name:'LEGACY PRIVATE NAME'}));
@@ -137,4 +136,4 @@ class SyntheticRecorder {
   stop(){if(this.state==='inactive')return;this.state='inactive';fixture.recorderStops++;clearInterval(this.timer);setTimeout(()=>this.onstop?.(),20);}
 }
 Object.defineProperty(window,'MediaRecorder',{value:SyntheticRecorder});
-createRoot(document.getElementById('root')!).render(<Cupcake/>);
+createRoot(document.getElementById('root')!).render(<App/>);

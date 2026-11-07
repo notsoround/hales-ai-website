@@ -8,14 +8,14 @@ import { createServer } from 'vite';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||path.join(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));
 const cacheDir=mkdtempSync(path.join(tmpdir(),'cupcake-account-vite-'));
-const server=await createServer({cacheDir,plugins:[{name:'synthetic-account-root',configureServer(server){server.middlewares.use((req,_res,next)=>{if(req.url?.split('?')[0]==='/cupcake')req.url='/tests/account-browser-preview.html';next();});}}],define:{'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS':'"true"'},
+const server=await createServer({cacheDir,plugins:[{name:'synthetic-account-root',configureServer(server){server.middlewares.use((req,_res,next)=>{if(['/cupcake/account','/cupcake/account/'].includes(req.url?.split('?')[0]))req.url='/tests/account-browser-preview.html';next();});}}],define:{'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS':'"true"'},
   server:{host:'127.0.0.1',port:0,hmr:false,fs:{allow:[process.cwd(),realpathSync('node_modules')]}}});
 await server.listen();
 const base=`http://127.0.0.1:${server.httpServer.address().port}`;
 const browser=await chromium.launch({headless:true});
 let checks=0;
 const fixture=(page,fn,arg)=>page.evaluate(fn,arg);
-async function open(context){const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());await page.goto(base+'/tests/account-browser-preview.html');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();return page;}
+async function open(context){const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();return page;}
 async function login(page,who,remember=false){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');if(remember)await page.getByLabel('Remember me on this device').check();await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic '+who.toUpperCase(),{exact:true}).first().waitFor();}
 async function logout(page){const minimize=page.getByRole('button',{name:'Minimize assistant'});if(await minimize.isVisible())await minimize.click();await page.getByRole('button',{name:'Sign out of Cupcake'}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.getByRole('button',{name:'Sign in',exact:true}).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
 async function nav(page,label){await page.getByRole('navigation',{name:'Cupcake',exact:true}).getByRole('button',{name:label,exact:true}).click();}
@@ -77,7 +77,7 @@ try {
   await page.screenshot({path:'output/account-preview/account-controls-1280.png'});
   await page.getByLabel('Current password',{exact:true}).fill('Synthetic password 123!');await page.getByLabel('New password',{exact:true}).fill('Synthetic next password 123!');await page.getByRole('button',{name:'Change password',exact:true}).click();
   await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(page,'a');
-  const sibling=await context.newPage();await sibling.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());await sibling.goto(base+'/tests/account-browser-preview.html');await sibling.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();
+  const sibling=await context.newPage();await sibling.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());await sibling.goto(base+'/cupcake/account');await sibling.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();
   await page.locator('summary[aria-label="Settings"]').click();await page.getByRole('button',{name:'Sign out all devices',exact:true}).click();
   await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await sibling.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();
   await page.getByRole('button',{name:'Use a recovery code'}).click();await page.getByLabel('Email',{exact:true}).fill('a@example.invalid');await page.getByLabel('Recovery code',{exact:true}).fill('synthetic-one-time-recovery');await page.getByLabel('New password',{exact:true}).fill('Synthetic recovered password 123!');await page.getByRole('button',{name:'Reset password',exact:true}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();
@@ -85,7 +85,8 @@ try {
   // The worker has no trusted cookie principal; it must never assign a shared
   // file to the active account or import an old unscoped recorder database.
   await login(page,'b');
-  await page.waitForFunction(async()=>{const value=await caches.match('/cupcake-browser-mode');return value&&(await value.text())==='account';});
+  // Simulate a legacy worker already installed before the account tab opened.
+  await page.evaluate(async()=>{const registration=await navigator.serviceWorker.register('/cupcake-sw.js',{scope:'/cupcake'});if(!registration.active)await new Promise(resolve=>{const worker=registration.installing||registration.waiting;worker.addEventListener('statechange',()=>{if(worker.state==='activated')resolve();});});});
   await page.reload();await page.getByText('MyCupcake — Synthetic B',{exact:true}).first().waitFor();
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
   const shared=await page.evaluate(async()=>{const form=new FormData();form.set('audio',new File(['synthetic share'],'synthetic.webm',{type:'audio/webm'}));return (await fetch('/cupcake/share',{method:'POST',body:form})).status;});
