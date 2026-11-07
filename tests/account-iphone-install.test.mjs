@@ -41,13 +41,13 @@ async function syntheticHealthServer(owner,route,body){
   }
   throw Error('Unexpected synthetic health route '+route);
 }
-async function open(){
+async function open(entry='/cupcake/account?assistant=matthieu'){
   const context=await browser.newContext({viewport:{width:390,height:844}});
   await context.route('**/*',route=>{const url=new URL(route.request().url());if(url.origin===base)return route.continue();outside.push(url.href);return route.abort();});
   await context.exposeFunction('syntheticHealthServer',syntheticHealthServer);
   await context.addInitScript(()=>{window.installRegistrations=[];if('serviceWorker'in navigator){const register=navigator.serviceWorker.register.bind(navigator.serviceWorker);navigator.serviceWorker.register=(...args)=>{window.installRegistrations.push(args[0]);return register(...args);};}});
   const page=await context.newPage();page.setDefaultTimeout(10000);page.on('console',message=>logs.push(message.text()));page.on('dialog',dialog=>dialog.accept());
-  await page.goto(base+'/cupcake/account?assistant=matthieu');await page.getByRole('heading',{name:'Sign in to Matthieu',exact:true}).waitFor();return {context,page};
+  await page.goto(base+entry);await page.getByRole('heading',{name:entry.includes('assistant=matthieu')?'Sign in to Matthieu':'Sign in to Cupcake',exact:true}).waitFor();return {context,page};
 }
 async function login(page){await page.getByLabel('Email',{exact:true}).fill('a@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();}
 async function settings(page){await page.locator('summary[aria-label="Settings"]').click();await page.getByRole('button',{name:'Create Apple Health connection',exact:true}).waitFor();}
@@ -71,6 +71,21 @@ async function safe(page){
   await noCredentialSaved(page);
 }
 try{
+  const matt=await open('/cupcake/account');
+  const defaultAccountMetadata=async()=>{
+    assert.equal(await matt.page.locator('link[rel="manifest"]').count(),0);
+    assert.equal(await matt.page.locator('meta[name="apple-mobile-web-app-title"]').count(),0);
+    assert.equal(await matt.page.locator('meta[name="apple-mobile-web-app-capable"]').count(),0);
+    assert.equal(await matt.page.locator('link[rel="apple-touch-icon"]').getAttribute('href'),'/cupcake-avatar.jpg');
+    assert.equal(await matt.page.title(),'Cupcake — Your private companion');
+    assert.deepEqual(await matt.page.evaluate(()=>window.installRegistrations),[]);
+  };
+  await defaultAccountMetadata();await login(matt.page);await defaultAccountMetadata();
+  await matt.page.reload();await matt.page.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();await defaultAccountMetadata();
+  await settings(matt.page);assert.equal(await matt.page.getByRole('link',{name:'Add Matthieu to iPhone',exact:true}).getAttribute('href'),'/cupcake/account?assistant=matthieu');
+  await defaultAccountMetadata();await safe(matt.page);await matt.context.close();
+  console.log('PASS: default Matt/Cupcake account keeps its existing title/icon and no Matthieu install metadata before sign-in, after sign-in and after reload');
+
   const {context,page}=await open();await metadata(page);
   const manifest=await page.evaluate(async()=>{const response=await fetch('/matthieu-account.webmanifest');return {status:response.status,value:await response.json()};});
   assert.equal(manifest.status,200);assert.equal(manifest.value.id,'/cupcake/account?assistant=matthieu');assert.equal(manifest.value.start_url,'/cupcake/account?assistant=matthieu');assert.equal(manifest.value.scope,'/cupcake/account');assert.equal(manifest.value.name,'Matthieu');assert.equal(manifest.value.short_name,'Matthieu');assert.equal(manifest.value.display,'standalone');assert.equal(manifest.value.share_target,undefined);assert.ok(manifest.value.icons.some(icon=>icon.src==='/matthieu-avatar.png'&&icon.type==='image/png'));
@@ -106,4 +121,4 @@ try{
   assert.deepEqual(outside,[]);assert.ok(requests.every(row=>['health/devices/create','health/devices/list','health/devices/revoke','health/sync'].includes(row.route)));
   console.log('PASS: wrong account echo locks before exposing a credential; all traffic is synthetic and no upload route is called');
 }finally{await browser.close();await server.close();rmSync(cacheDir,{recursive:true,force:true});}
-console.log('PASS: 5 synthetic iPhone installation and Apple Health Settings scenarios');
+console.log('PASS: 6 synthetic iPhone installation and Apple Health Settings scenarios');

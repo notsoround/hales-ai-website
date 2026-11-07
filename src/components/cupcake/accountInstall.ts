@@ -5,10 +5,13 @@ import { ACCOUNT_SESSIONS } from './accountMode';
 export const ACCOUNT_INSTALL_URL = '/cupcake/account?assistant=matthieu';
 export const ACCOUNT_INSTALL_MANIFEST = '/matthieu-account.webmanifest';
 export const ACCOUNT_INSTALL_ICON = '/matthieu-avatar.png';
+/** Opt-in branding must not replace Matt's ordinary Cupcake account installation. */
+export const isMatthieuAccountInstall = () => ACCOUNT_SESSIONS
+  && new URLSearchParams(window.location.search).get('assistant') === 'matthieu';
 
 export function useAccountInstallMetadata() {
   useLayoutEffect(() => {
-    if (!ACCOUNT_SESSIONS) return;
+    if (!isMatthieuAccountInstall()) return;
     const cleanups: (() => void)[] = [];
     const manifest = document.createElement('link');
     manifest.rel = 'manifest'; manifest.href = ACCOUNT_INSTALL_MANIFEST;
