@@ -12,6 +12,7 @@ import { pendingReset, savePendingReset } from '../src/components/cupcake/quickR
 import { keepPendingOutcome, readPendingOutcome } from '../src/components/cupcake/personalOutcomeDraft';
 import { ACCOUNT_SESSIONS } from '../src/components/cupcake/accountMode';
 import { accountCoachPhoto } from '../src/components/cupcake/accountSession';
+import { feedRequest } from '../src/components/cupcake/feedApi';
 import '../src/index.css';
 
 if (!import.meta.env.DEV || !ACCOUNT_SESSIONS) throw Error('Synthetic account preview requires a local opt-in test build.');
@@ -41,6 +42,7 @@ const fixture = {
     answers:receivedAnswers(),pending:pendingBegin('pending'),drafts:await drafts(),chat:readChatStorage('cupcake-quick-chat-draft')};},
   request:libraryRequest,
   photo:accountCoachPhoto,
+  feed:feedRequest,
   heldStore:null as Storage|null,heldScope:null as ReturnType<typeof captureStorageScope>|null,
   holdScope(){this.heldStore=personalStorage('localStorage');this.heldScope=captureStorageScope();},
   async staleWrite(){let rejected=0;try{this.heldStore!.setItem('late-secret','late A');}catch{rejected++;}try{await putChunk('late-A',0,new Blob(['A']),this.heldScope!);}catch{rejected++;}try{await draftBlob({id:'A',title:'A',startedAt:1,mime:'audio/webm',complete:true,blob:new Blob(['A']),storageScope:this.heldScope!.namespace});}catch{rejected++;}return rejected;},
@@ -85,6 +87,18 @@ window.fetch=async(input,init)=>{
   if(fixture.delay&&body.action==='fetch'&&body.id==='deferred-test')await new Promise<void>(resolve=>{fixture.release=resolve;});
   const identity=fixture.wrongEcho?(owner===A?B:A):owner;
   const ok=(value:object)=>response(200,{ok:true,...value,identity});
+  if(typeof body.action==='string'&&body.action.startsWith('quick_chat_')) {
+    const remote=(window as unknown as {syntheticQuickChatServer?:(owner:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticQuickChatServer;
+    if(remote){const result=await remote(owner.account_id,body);return response(result.status,{...result.value,identity});}
+    if(body.action==='quick_chat_list')return ok({threads:[]});
+    return response(503,{ok:false,error:'account_action_not_ready',identity});
+  }
+  if(['feed_get','outcome_list','exercise_list','exercise_log','exercise_delete'].includes(body.action)) {
+    const remote=(window as unknown as {syntheticFeedServer?:(owner:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticFeedServer;
+    if(remote){const result=await remote(owner.account_id,body);return response(result.status,{...result.value,identity});}
+    if(body.action==='feed_get')return ok({items:[],nextCursor:null,totals:{calories:null,spendUsd:null},daily:[],personalOutcomes:null,
+      outcomes:{wins:null,losses:null,missed:null,unscored:null,interventions:null},coverage:{start:body.start||'1970-01-01',end:body.end||'2026-11-06',source:'owned-local-ledgers',complete:false,localComplete:false,notes:['Saved local evidence only. External feeds are unavailable in this synthetic preview.']}});
+  }
   if(['persona_get','persona_save'].includes(body.action)) {
     // A test may provide a shared in-memory server across separate browser
     // contexts. The ordinary boundary fixture keeps its simulated server local.

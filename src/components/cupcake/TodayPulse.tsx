@@ -1,15 +1,14 @@
-import { privateFetch as fetch } from './accountMode';
+import { ACCOUNT_SESSIONS } from './accountMode';
+import { feedRequest } from './feedApi';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, CreditCard, Droplet, Dumbbell, Moon, Phone, PhoneMissed, Quote, Scale, Smartphone, Utensils } from 'lucide-react';
 import type { DashboardOutcome } from './dashboardModel';
 import { nutritionDays, nutritionDay } from './nutritionModel';
 import type { useNutritionData } from './nutritionApi';
-import { privateAccessHeaders } from './privateAccess';
 import { ToneIcon } from './design/ToneIcon';
 import { todayKcalBit } from './dataState';
 import { OUTCOME_LABEL, dayHeading, freshness, lastNDays, latestQuote, savesWeek, timelineRow, type PulseItem, type QuoteMoment, type Tone } from './pulseModel';
 
-const API = 'https://automate.hales.ai/webhook';
 const WEEKDAY = (date: string) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'narrow' }).format(new Date(`${date}T12:00:00Z`));
 const OUTCOME_CLASS: Record<DashboardOutcome, string> = { win: 'is-win', loss: 'is-loss', missed: 'is-missed', unscored: 'is-unscored' };
 
@@ -24,8 +23,7 @@ function useWeekCalls() {
   const load = useCallback(() => {
     const id = ++request.current, days = lastNDays(7);
     setError(false);
-    fetch(`${API}/cupcake-feed?start=${days[0]}&end=${days[6]}`, { headers: privateAccessHeaders(), cache: 'no-store' })
-      .then(r => { if (!r.ok) throw Error(String(r.status)); return r.json(); })
+    feedRequest({start:days[0],end:days[6]})
       .then((d: { items?: PulseItem[] }) => { if (id === request.current) setItems((d.items || []).filter(i => i && i.type === 'intervention')); })
       .catch(() => { if (id === request.current) setError(true); });
   }, []);
@@ -38,10 +36,10 @@ type Nutrition = ReturnType<typeof useNutritionData>;
 export function SavesHero({ todayItems, nutrition, onOpenWins, onTalkAbout }: { todayItems: PulseItem[] | null; nutrition: Nutrition; onOpenWins: () => void; onTalkAbout: (item: PulseItem) => void }) {
   const week = useWeekCalls();
   const today = nutritionDay();
-  const s = week.items ? savesWeek(week.items) : null;
+  const s = !ACCOUNT_SESSIONS && week.items ? savesWeek(week.items) : null;
   const quote = week.items ? latestQuote(week.items) : null;
   const food = nutrition.history ? nutritionDays(nutrition.history.meals, [today], nutrition.settings)[0] : null;
-  const spentToday = todayItems ? todayItems.filter(i => i.type === 'transaction' && i.date === today && typeof i.amount === 'number' && ['USD', '$'].includes(String(i.currency || '').toUpperCase())).reduce((t, i) => t + (i.amount as number), 0) : null;
+  const spentToday = !ACCOUNT_SESSIONS && todayItems ? todayItems.filter(i => i.type === 'transaction' && i.date === today && typeof i.amount === 'number' && ['USD', '$'].includes(String(i.currency || '').toUpperCase())).reduce((t, i) => t + (i.amount as number), 0) : null;
   const todayBits = [
     s ? { k: 'saves', v: String(s.todayWins), l: s.todayWins === 1 ? 'save' : 'saves' } : null,
     spentToday !== null ? { k: 'spent', v: `$${spentToday.toFixed(2)}`, l: 'spent' } : null,
@@ -50,7 +48,7 @@ export function SavesHero({ todayItems, nutrition, onOpenWins, onTalkAbout }: { 
   return <div className="cc-pulse">
     <section className="cc-saves" aria-labelledby="cc-saves-title">
       <div className="cc-saves-head"><h3 id="cc-saves-title" className="cc-card-title"><ToneIcon tone="wins" />Saves · last 7 days</h3><button type="button" className="cc-text-button" onClick={onOpenWins}>Wins &amp; losses<ArrowRight size={16} /></button></div>
-      {week.error ? <div className="cc-saves-error" role="alert"><p>Couldn’t load this week’s calls.</p><button type="button" className="cc-secondary" onClick={week.reload}>Retry</button></div>
+      {ACCOUNT_SESSIONS ? <p className="cc-muted">Phone purchase-call outcomes are not connected to account sign-in.</p> : week.error ? <div className="cc-saves-error" role="alert"><p>Couldn’t load this week’s calls.</p><button type="button" className="cc-secondary" onClick={week.reload}>Retry</button></div>
         : !s ? <div className="cc-saves-skeleton" aria-busy="true" aria-label="Loading saves"><i /><i /><i /></div>
         : s.calls === 0 ? <div className="cc-saves-empty"><strong>No calls this week</strong><p>Your card swipes. She calls. Every time you resist, it lands here as a save.</p></div>
         : <>

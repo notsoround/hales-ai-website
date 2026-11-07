@@ -1,10 +1,11 @@
-import { privateFetch as fetch } from './accountMode';
+import { ACCOUNT_SESSIONS } from './accountMode';
+import { feedRequest, phoneOutcomesAvailable, type FeedData } from './feedApi';
+import { todayKcalBit } from './dataState';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Quote } from 'lucide-react';
 import type { DashboardOutcome } from './dashboardModel';
 import { nutritionDays, nutritionDay } from './nutritionModel';
 import type { useNutritionData } from './nutritionApi';
-import { privateAccessHeaders } from './privateAccess';
 import { ToneIcon } from './design/ToneIcon';
 import { OUTCOME_LABEL, dayHeading, itemClock, latestQuote, type PulseItem, type QuoteMoment } from './pulseModel';
 import { OutcomeChip, Timeline } from './TodayPulse';
@@ -12,11 +13,10 @@ import { SignalSheet } from './SignalSheet';
 import { KCAL_SOURCE, SAVES_WINDOWS, calendarWeeks, callsOn, countOutcomes, dayCells, dominant, quotedCalls, rangeTitle, readSavesWindow, savesRate, spendSourceLabel, sumDaily, weekBuckets, windowCounts, windowDays, windowLabel, writeSavesWindow, type DailyTotals, type DayCell, type OutcomeCounts, type SavesWindow, type ServerOutcomes } from './savesModel';
 import './saves.css';
 
-const API = 'https://automate.hales.ai/webhook';
 const OUTCOME_CLASS: Record<DashboardOutcome, string> = { win: 'is-win', loss: 'is-loss', missed: 'is-missed', unscored: 'is-unscored' };
 const WEEKDAY = (date: string) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'narrow' }).format(new Date(`${date}T12:00:00Z`));
 const DAYNUM = (date: string) => String(Number(date.slice(8, 10)));
-type WindowData = { items: PulseItem[]; outcomes: ServerOutcomes | null; daily: DailyTotals[]; spendSource: string };
+type WindowData = { items: PulseItem[]; outcomes: ServerOutcomes | null; personalOutcomes:FeedData['personalOutcomes']; daily: DailyTotals[]; spendSource: string };
 
 /** Everything in the selected window from the feed's ranged query. The server counts outcomes over the whole window. */
 function useWindow(n: SavesWindow) {
@@ -28,10 +28,9 @@ function useWindow(n: SavesWindow) {
     const hit = cache.current.get(key);
     if (hit && !force) { setData(hit); return; }
     setData(null);
-    fetch(`${API}/cupcake-feed?start=${days[0]}&end=${days[days.length - 1]}`, { headers: privateAccessHeaders(), cache: 'no-store' })
-      .then(r => { if (!r.ok) throw Error(String(r.status)); return r.json(); })
-      .then((d: { items?: PulseItem[]; outcomes?: ServerOutcomes; daily?: DailyTotals[]; coverage?: { spendSource?: string } }) => {
-        const value: WindowData = { items: (d.items || []).filter(Boolean), outcomes: d.outcomes || null, daily: Array.isArray(d.daily) ? d.daily : [], spendSource: String(d.coverage?.spendSource || '') };
+    feedRequest({start:days[0],end:days[days.length-1]})
+      .then(d => {
+        const value: WindowData = { items:d.items, outcomes:phoneOutcomesAvailable(d.outcomes)?d.outcomes as ServerOutcomes:null, personalOutcomes:d.personalOutcomes, daily:Array.isArray(d.daily)?d.daily:[],spendSource:String(d.coverage?.spendSource||'') };
         cache.current.set(key, value);
         if (id === request.current) setData(value);
       })
@@ -54,21 +53,24 @@ export function SavesHero({ todayItems, nutrition, onOpenWins, onTalkAbout, onOp
   const calls = counts ? counts.win + counts.loss + counts.missed + counts.unscored : 0;
   const rate = counts ? savesRate(counts) : null;
   const quote = w.data ? latestQuote(w.data.items.filter(i => i.type === 'intervention')) : null;
-  const todayWins = cells ? cells[cells.length - 1]?.outcomes.filter(o => o === 'win').length || 0 : null;
+  const todayWins = !ACCOUNT_SESSIONS && cells ? cells[cells.length - 1]?.outcomes.filter(o => o === 'win').length || 0 : null;
   const food = nutrition.history ? nutritionDays(nutrition.history.meals, [today], nutrition.settings)[0] : null;
-  const spentToday = todayItems ? todayItems.filter(i => i.type === 'transaction' && i.date === today && typeof i.amount === 'number' && ['USD', '$'].includes(String(i.currency || '').toUpperCase())).reduce((t, i) => t + (i.amount as number), 0) : null;
+  const spentToday = !ACCOUNT_SESSIONS && todayItems ? todayItems.filter(i => i.type === 'transaction' && i.date === today && typeof i.amount === 'number' && ['USD', '$'].includes(String(i.currency || '').toUpperCase())).reduce((t, i) => t + (i.amount as number), 0) : null;
   const todayBits = [
     todayWins !== null ? { k: 'saves', v: String(todayWins), l: todayWins === 1 ? 'save' : 'saves' } : null,
     spentToday !== null ? { k: 'spent', v: `$${spentToday.toFixed(2)}`, l: 'spent' } : null,
-    food && food.meals.length ? { k: 'kcal', v: Math.round(food.calories).toLocaleString('en-US'), l: 'kcal eaten' } : null,
+    todayKcalBit(food) ? {k:'kcal', ...todayKcalBit(food)!} : null,
   ].filter((b): b is { k: string; v: string; l: string } => !!b);
   const choose = (n: SavesWindow) => { setWin(n); writeSavesWindow(n); };
   const open = (dates: string[]) => setOpenDates(dates);
   return <div className="cc-pulse">
     <section className={`cc-saves cc-saves-w${win}`} aria-labelledby="cc-saves-title">
-      <div className="cc-saves-head"><h3 id="cc-saves-title" className="cc-card-title"><ToneIcon tone="wins" />Saves</h3><button type="button" className="cc-text-button" onClick={onOpenWins}>Wins &amp; losses<ArrowRight size={16} /></button></div>
+      <div className="cc-saves-head"><h3 id="cc-saves-title" className="cc-card-title"><ToneIcon tone="wins" />{ACCOUNT_SESSIONS?'Personal wins & losses':'Saves'}</h3><button type="button" className="cc-text-button" onClick={onOpenWins}>Wins &amp; losses<ArrowRight size={16} /></button></div>
       <div className="cc-sw-switch" role="radiogroup" aria-label="Saves window">{SAVES_WINDOWS.map(n => <button key={n} type="button" role="radio" aria-checked={win === n} onClick={() => choose(n)}>{n} days</button>)}</div>
-      {w.error ? <div className="cc-saves-error" role="alert"><p>Couldn’t load calls for the last {win} days.</p><button type="button" className="cc-secondary" onClick={w.reload}>Retry</button></div>
+      {ACCOUNT_SESSIONS && w.data && !w.error ? <div className="cc-account-outcome-summary">
+        {w.data.personalOutcomes ? <><div className="cc-saves-number"><strong>{w.data.personalOutcomes.wins}</strong><span>personal wins · {windowLabel(win).toLowerCase()}</span></div><p>{w.data.personalOutcomes.losses} personal losses · {w.data.personalOutcomes.unscored} unscored</p></> : <p>Personal outcomes unavailable for this window.</p>}
+        <p className="cc-muted cc-small">Phone purchase-call outcomes are not connected to account sign-in. Personal outcomes are counted separately.</p>
+      </div> : w.error ? <div className="cc-saves-error" role="alert"><p>Couldn’t load {ACCOUNT_SESSIONS?'personal outcomes':'calls'} for the last {win} days.</p><button type="button" className="cc-secondary" onClick={w.reload}>Retry</button></div>
         : !counts || !cells ? <div className="cc-saves-skeleton" aria-busy="true" aria-label="Loading saves"><i /><i /><i /></div>
         : calls === 0 ? <div className="cc-saves-empty"><strong>No calls in the last {win} days</strong><p>Your card swipes. She calls. Every time you resist, it lands here as a save.</p></div>
         : <>

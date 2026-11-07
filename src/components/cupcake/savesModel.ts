@@ -7,7 +7,7 @@ import { lastNDays, ownerQuote, callPlace, type PulseItem } from './pulseModel';
 export const SAVES_WINDOWS = [7, 30, 90] as const;
 export type SavesWindow = (typeof SAVES_WINDOWS)[number];
 export type OutcomeCounts = { win: number; loss: number; missed: number; unscored: number };
-export type DailyTotals = { date: string; calories?: number; spendUsd?: number; foodCount?: number; transactionCount?: number };
+export type DailyTotals = { date: string; calories?: number | null; spendUsd?: number | null; foodCount?: number | null; transactionCount?: number | null };
 export type ServerOutcomes = { wins: number; losses: number; missed: number; unscored: number; interventions?: number };
 
 const WINDOW_KEY = 'cupcake-saves-window';
@@ -73,7 +73,7 @@ export function rangeTitle(dates: string[], today = nutritionDay()): string {
 export function sumDaily(daily: DailyTotals[] | null | undefined, dates: string[], key: 'calories' | 'spendUsd'): number | null {
   if (!daily?.length) return null;
   const set = new Set(dates), rows = daily.filter(d => set.has(d.date));
-  if (!rows.length) return null;
+  if (!rows.length || rows.some(row => row[key] === null)) return null;
   return rows.reduce((t, d) => t + (typeof d[key] === 'number' ? d[key] as number : 0), 0);
 }
 export function quotedCalls(calls: PulseItem[]) {

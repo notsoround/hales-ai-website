@@ -1,4 +1,4 @@
-export type DashboardMetricDay = { date: string; calories: number; spend: number };
+export type DashboardMetricDay = { date: string; calories: number | null; spend: number | null };
 export type DatedEntry = { date: string; type: string; currency?: string | null };
 export type DashboardOutcome = 'win' | 'loss' | 'missed' | 'unscored';
 type OutcomeEntry = DatedEntry & { details?: { outcome?: unknown; boughtAnyway?: unknown; missed?: unknown; ownerUpdated?: unknown; ownerPurchaseChoice?: unknown } };
@@ -85,13 +85,13 @@ export function interventionGroups<T extends OutcomeEntry>(entries: T[]) {
 }
 
 export function metricScales(series: DashboardMetricDay[]) {
-  const calorieMax = Math.max(0, ...series.map(day => Math.max(0, day.calories)));
-  const spendMax = Math.max(0, ...series.map(day => Math.max(0, day.spend)));
+  const calorieMax = Math.max(0, ...series.flatMap(day => day.calories === null ? [] : [day.calories]));
+  const spendMax = Math.max(0, ...series.flatMap(day => day.spend === null ? [] : [day.spend]));
   return {
     calorieMax,
     spendMax,
-    caloriePercent: (value: number) => calorieMax > 0 && value > 0 ? Math.min(100, value / calorieMax * 100) : 0,
-    spendPercent: (value: number) => spendMax > 0 && value > 0 ? Math.min(100, value / spendMax * 100) : 0,
+    caloriePercent: (value: number | null) => value !== null && calorieMax > 0 && value > 0 ? Math.min(100, value / calorieMax * 100) : 0,
+    spendPercent: (value: number | null) => value !== null && spendMax > 0 && value > 0 ? Math.min(100, value / spendMax * 100) : 0,
   };
 }
 
