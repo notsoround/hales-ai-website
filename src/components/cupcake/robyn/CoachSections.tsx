@@ -312,12 +312,14 @@ export function WorkoutGrid({ coach, days, onDay }: { coach: Coach; days: Day[];
 export function MealPlanCard({ coach }: { coach: Coach }) {
   const mp = coach.meal_plan;
   if (!mp) return null;
-  const total = mp.meals.reduce((a, m) => a + m.kcal, 0);
+  const known = mp.meals.filter((m): m is typeof m & { kcal: number } => typeof m.kcal === 'number' && Number.isFinite(m.kcal) && m.kcal >= 0);
+  const total = known.reduce((a, m) => a + m.kcal, 0), partial = known.length < mp.meals.length;
+  const max = Math.max(1, ...known.map(meal => meal.kcal));
   return (
-    <Card title={mp.title ?? 'Meal plan · reference day'} kicker="Nutrition plan" tone="food" sample={coach.sample} aside={<span className="rv-next">{fmt(total)} kcal</span>}>
+    <Card title={mp.title ?? 'Meal plan · reference day'} kicker="Nutrition plan" tone="food" sample={coach.sample} aside={<span className="rv-next">{known.length ? `${fmt(total)} ${partial ? 'known kcal · partial' : 'kcal'}` : 'Calories unknown'}</span>}>
       <ol className="rv-mealplan">{mp.meals.map(m => (
-        <li key={m.name}><div className="rv-mp-head"><strong>{m.name}</strong><span>{fmt(m.kcal)} kcal</span></div>
-          <div className="rv-mp-bar"><span style={{ width: `${(100 * m.kcal) / Math.max(...mp.meals.map(x => x.kcal))}%` }} /></div>
+        <li key={m.name}><div className="rv-mp-head"><strong>{m.name}</strong><span>{typeof m.kcal === 'number' && Number.isFinite(m.kcal) && m.kcal >= 0 ? `${fmt(m.kcal)} kcal` : 'Calories unknown'}</span></div>
+          {typeof m.kcal === 'number' && Number.isFinite(m.kcal) && m.kcal >= 0 && <div className="rv-mp-bar"><span style={{ width: `${(100 * m.kcal) / max}%` }} /></div>}
           {m.items.length > 0 && <p>{m.items.join(' · ')}</p>}</li>))}</ol>
       {mp.notes && mp.notes.length > 0 && <div className="rv-mp-notes"><div className="rv-label">Notes from Robyn</div><ul>{mp.notes.map(n => <li key={n}>{n}</li>)}</ul></div>}
       {mp.groceries && <p className="rv-foot">{mp.groceries}</p>}

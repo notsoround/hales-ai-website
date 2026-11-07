@@ -48,7 +48,7 @@ export type Coach = { ok: true; has_data: boolean; sample?: boolean; timezone: s
   program: { name: string; start: string; end: string; coach?: string } | null;
   targets: Partial<Record<'kcal' | 'protein_g' | 'fat_g' | 'carbs_g' | 'steps' | 'water_fl_oz', number>> | null;
   workout_template: { days: Partial<Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', WorkoutItem[]>> } | null;
-  meal_plan: { title?: string; meals: { name: string; kcal: number; items: string[] }[]; notes?: string[]; groceries?: string } | null;
+  meal_plan: { title?: string; meals: { name: string; kcal?: number | null; items: string[] }[]; notes?: string[]; groceries?: string } | null;
   profile?: { height_in?: number; sex?: string; age?: number } | null;
   checkins: Checkin[]; derived: { count: number; first: string | null; latest: string | null; next_due: string | null;
     deltas: Partial<Record<CoreField, { first: { date: string; value: number }; latest: { date: string; value: number }; change: number }>> };
