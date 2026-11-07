@@ -42,6 +42,7 @@ import { libraryRequest } from '../../../../components/cupcake/library';
 import { LibraryApprovalCancelled } from '../../../../components/cupcake/libraryApproval';
 import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
 import { SavedMealDialog } from '../../../../components/cupcake/SavedMealDialog';
+import { AccountManualMeal } from '../../../../components/cupcake/AccountManualMeal';
 import { NutritionTodayCard, NutritionWorkspace } from '../../../../components/cupcake/NutritionWorkspace';
 import { useNutritionData } from '../../../../components/cupcake/nutritionApi';
 import { MealDialog } from '../../../../components/cupcake/MealDialog';
@@ -550,6 +551,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </div>
       {reviewFirst && mealQueue}
       {ACCOUNT_SESSIONS ? <div className="cc-card cc-food-capture-panel"><strong>Food photo analysis unavailable</strong><p className="cc-muted">New food photos and re-estimating saved photos are not available for account sign-in yet. Your saved meals, photos and nutrition settings are still available.</p></div> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
+      {ACCOUNT_SESSIONS && <AccountManualMeal onSaved={()=>void loadRecentMeals()}/>}
       <NutritionWorkspace {...nutrition} onOpenMeal={setSelectedSavedMeal} onSaveSettings={nutrition.saveSettings} onRetry={()=>void nutrition.reload()} onOpenCapture={ACCOUNT_SESSIONS ? undefined : ()=>{setCaptureOpen(true); requestAnimationFrame(()=>captureSection.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>
       <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)}/>
       {!reviewFirst && mealQueue}

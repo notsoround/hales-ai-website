@@ -1,8 +1,8 @@
 export const NUTRITION_TIME_ZONE = 'America/Chicago';
 export type NutritionScale = 'day' | 'week' | 'month' | 'year';
 export type FoodHistoryMeal = {
-  id: string; description: string; consumedAt?: string | null; date?: string; source?: 'food_sheet'; createdAt?: string; photoTakenAt?: string;
-  sheetLoggedAt?: string | null; countedInTotals?: boolean; total?: { calories?: number | null; protein_g?: number | null; carbs_g?: number | null; fat_g?: number | null; sugar_g?: number | null };
+  id: string; description: string; consumedAt?: string | null; date?: string; source?: 'food_sheet' | 'manual-entry'; createdAt?: string; photoTakenAt?: string;
+  sheetLoggedAt?: string | null; countedInTotals?: boolean; total?: { calories?: number | null; protein_g?: number | null; carbs_g?: number | null; fat_g?: number | null; sugar_g?: number | null; fiber_g?: number | null };
   totalIsPartial?: boolean; calorieRange?: { low: number; high: number } | null; imageStored?: boolean;
 };
 export type NutritionHistory = { meals: FoodHistoryMeal[]; complete: boolean; pendingCount: number; undatedLoggedCount: number; unknownTimeCount?: number; scope?: string; coverageNote?: string };
