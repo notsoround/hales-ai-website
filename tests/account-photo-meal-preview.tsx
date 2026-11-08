@@ -9,6 +9,7 @@ import '../src/index.css';
 import '../src/components/cupcake/design/tokens.css';
 import '../src/components/cupcake/design/cupcake-theme.css';
 import '../src/components/cupcake/pulse.css';
+import '../src/components/cupcake/assistant-appearance.css';
 
 if (!import.meta.env.DEV) throw Error('Synthetic photo preview is development only.');
 let owner = 'A';
