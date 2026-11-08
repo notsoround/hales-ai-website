@@ -4,6 +4,7 @@ import './account-session.css';
 import { AccountInvitationEntry } from './AccountInvitationEntry';
 import { takeInvitationFragment } from './accountInvitationFragment';
 import { assistantIcon, personalAssistantLabel, publicAssistantBrand, useAssistantDocumentBrand } from './assistantBrand';
+import { AccountSelfExport } from './AccountSelfExport';
 
 let entryInvitation=takeInvitationFragment();
 
@@ -68,7 +69,7 @@ export function AccountControls({ identity, assistantName = 'Cupcake' }: { ident
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The account change was not confirmed.'); }
     finally { setCurrent(''); setNext(''); setBusy(false); }
   };
-  return <section className="cc-account-controls" aria-label="Your account"><h3>{personalAssistantLabel(assistantName, identity.name||identity.email)}</h3><p>{identity.email}</p>
+  return <><section className="cc-account-controls" aria-label="Your account"><h3>{personalAssistantLabel(assistantName, identity.name||identity.email)}</h3><p>{identity.email}</p>
     <form onSubmit={event=>{event.preventDefault();void perform('password');}}>
       <label className="cc-label">Current password<input type="password" autoComplete="current-password" value={current} onChange={e=>setCurrent(e.target.value)} disabled={busy}/></label>
       <label className="cc-label">New password<input type="password" autoComplete="new-password" value={next} onChange={e=>setNext(e.target.value)} disabled={busy}/></label>
@@ -79,5 +80,5 @@ export function AccountControls({ identity, assistantName = 'Cupcake' }: { ident
     {message&&<p role="status">{message}</p>}
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out')}>Sign out</button>
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out-all')}>Sign out all devices</button>
-  </section>;
+  </section><AccountSelfExport/></>;
 }
