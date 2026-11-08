@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AccountRequestError, accountData, assertGeneration, sessionSnapshot, subscribeSession } from './accountSession';
 import { saveFile } from './library';
 import { exportSectionCodes, useAccountExportBundle, type ExportSection } from './accountExportBundle';
+import { AccountOriginalDownloads } from './AccountOriginalDownloads';
 
 const sections = {
   profile: 'Account profile', health: 'Health records', activity: 'Activity', food: 'Meals and food settings',
@@ -110,7 +111,7 @@ export function AccountSelfExport() {
       </fieldset>
     </details>
     <label className="cc-account-check"><input type="checkbox" checked={includeOriginals} disabled={locked} onChange={event => chooseOriginals(event.target.checked)}/>Include original photos and audio</label>
-    <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download. Very large audio collections may exceed this ZIP option’s size limit.</p>
+    <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download. For large audio collections, use Download originals individually below.</p>
     <p className="cc-muted cc-small">{selected.length ? 'You can include every supported section in one preparation.' : 'Choose at least one section to prepare your download.'}</p>
     <button type="button" className="cc-secondary" disabled={locked || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : bundle.terminal ? 'Prepare a new download' : 'Prepare my download'}</button>
     {(error || bundle.error) && <p role="alert">{error || bundle.error}</p>}
@@ -147,5 +148,6 @@ export function AccountSelfExport() {
       {prepared ? <><button type="button" className="cc-primary" onClick={download}>Download JSON file</button><button type="button" className="cc-text-button" onClick={() => setPrepared(null)}>Clear prepared file</button></>
         : <><button type="button" className="cc-primary" disabled={bundle.busy} onClick={() => void bundle.download()}>{bundle.phase === 'downloading' ? 'Verifying ZIP…' : 'Download ZIP file'}</button><button type="button" className="cc-text-button" disabled={bundle.busy} onClick={() => bundle.clear()}>Clear prepared ZIP</button></>}
     </div>}
+    <AccountOriginalDownloads/>
   </section>;
 }
