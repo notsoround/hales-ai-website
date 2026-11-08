@@ -6,13 +6,25 @@ import { takeInvitationFragment } from './accountInvitationFragment';
 import { assistantIcon, personalAssistantLabel, publicAssistantBrand, useAssistantDocumentBrand } from './assistantBrand';
 import { AccountSelfExport } from './AccountSelfExport';
 import { AccountClosureControls, AccountClosureRecovery } from './AccountClosureControls';
+import { clearNativeConnectionRequest, takeNativeConnectionRequest } from './nativeConnectionRequest';
+import { NativeConnectionAuthorize } from './NativeConnectionAuthorize';
+import { NativeInstallationControls } from './NativeInstallationControls';
+import { clearNativeHealthConnectionRequest, takeNativeHealthConnectionRequest } from './nativeHealthConnectionRequest';
+import { NativeHealthConnectionAuthorize } from './NativeHealthConnectionAuthorize';
 
+let entryNativeHealthConnection=takeNativeHealthConnectionRequest();
+let entryNativeConnection=takeNativeConnectionRequest();
 let entryInvitation=takeInvitationFragment();
 
 export function AccountSessionGate({ children }: { children: (identity: AccountIdentity) => ReactNode }) {
   const session = useSyncExternalStore(subscribeSession, sessionSnapshot);
   const [invitation,setInvitation]=useState(entryInvitation);
+  const [nativeConnection,setNativeConnection]=useState(entryNativeConnection);
+  const [nativeHealthConnection,setNativeHealthConnection]=useState(entryNativeHealthConnection);
   useEffect(()=>{entryInvitation=null;},[]);
+  useEffect(()=>{entryNativeConnection=null;},[]);
+  useEffect(()=>{entryNativeHealthConnection=null;},[]);
+  const closeNativeRequest=()=>{clearNativeHealthConnectionRequest();clearNativeConnectionRequest();setNativeHealthConnection(null);setNativeConnection(null);};
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [remember, setRemember] = useState(false);
   const [recovering, setRecovering] = useState(false), [recovery, setRecovery] = useState(''), [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -41,11 +53,15 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
     finally { setBusy(false); setPassword(''); setNewPassword(''); setRecovery(''); }
   };
   if(invitation!==null)return <AccountInvitationEntry token={invitation} identity={session.identity} checking={session.checking} onClose={()=>setInvitation(null)}/>;
+  if (nativeHealthConnection && (session.identity || nativeHealthConnection.error)) return <NativeHealthConnectionAuthorize key={`${session.identity?.account_id || 'unsigned'}:${session.generation}`} pending={nativeHealthConnection} identity={session.identity} appearance={brand.appearance} onClose={closeNativeRequest}/>;
+  if (nativeConnection && (session.identity || nativeConnection.error)) return <NativeConnectionAuthorize key={`${session.identity?.account_id || 'unsigned'}:${session.generation}`} pending={nativeConnection} identity={session.identity} appearance={brand.appearance} onClose={closeNativeRequest}/>;
   if (session.identity) return <div key={`${session.identity.account_id}:${session.generation}`}>{children(session.identity)}</div>;
   return <main className="cc-app cc-account-gate" data-appearance={brand.appearance}><form className="cc-unlock" onSubmit={event => void submit(event)}>
     <img src={assistantIcon(brand.persona)} alt={brand.name}/><span className="cc-eyebrow">YOUR PRIVATE {brand.name.toUpperCase()}</span>
     <h1>{recovering ? 'Recover your account' : `Sign in to ${brand.name}`}</h1>
     <p>Your identity comes from your account. Your assistant’s name and appearance are separate choices.</p>
+    {nativeConnection && <p role="status">Sign in to review the Android app connection. Nothing connects until you approve it.</p>}
+    {nativeHealthConnection && <p role="status">Sign in to choose which health types the Android app may upload. Nothing uploads until you approve it.</p>}
     <label className="cc-label">Email<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} disabled={busy||session.checking}/></label>
     {recovering ? <><label className="cc-label">Recovery code<input autoComplete="off" required value={recovery} onChange={e=>setRecovery(e.target.value)} disabled={busy}/></label><label className="cc-label">New password<input type="password" autoComplete="new-password" required value={newPassword} onChange={e=>setNewPassword(e.target.value)} disabled={busy}/></label></>
       : <><label className="cc-label">Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} disabled={busy||session.checking}/></label><label className="cc-account-check"><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/>Remember me on this device</label></>}
@@ -81,5 +97,5 @@ export function AccountControls({ identity, assistantName = 'Cupcake', includePr
     {message&&<p role="status">{message}</p>}
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out')}>Sign out</button>
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out-all')}>Sign out all devices</button>
-  </section>{includePrivacy&&<><AccountSelfExport/><AccountClosureControls owner={identity.account_id}/></>}</>;
+  </section><NativeInstallationControls/>{includePrivacy&&<><AccountSelfExport/><AccountClosureControls owner={identity.account_id}/></>}</>;
 }

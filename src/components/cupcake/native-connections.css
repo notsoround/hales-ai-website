@@ -1,0 +1,6 @@
+.cc-native-connect .cc-unlock p{overflow-wrap:anywhere}
+.cc-native-connect .cc-unlock>.cc-secondary{margin-top:16px;width:100%}
+.cc-native-app-controls>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600}
+.cc-native-app-controls ul{padding:0;list-style:none}
+.cc-native-app-controls li{padding:16px 0;border-top:1px solid var(--cc-border,#ffffff25)}
+.cc-native-app-controls li p{margin:8px 0}

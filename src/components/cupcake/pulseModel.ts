@@ -139,7 +139,7 @@ export function displaySummary(summary: unknown): string {
   return summary.split(/\r?\n/).filter(line => !/^\s*Cupcake(?:PhoneOutcome|PurchaseChoice):v\d+\b/.test(line)).join('\n').trim();
 }
 
-const KIND_LABEL: Record<string, string> = { exercise: 'Workout', intervention: 'Phone call', transaction: 'Purchase', food: 'Meal', activity: 'Weight', glucose: 'Glucose reading', sleep: 'Sleep', phone_usage: 'Phone use', phone_activity: 'Phone activity' };
+const KIND_LABEL: Record<string, string> = { exercise: 'Workout', intervention: 'Phone call', transaction: 'Purchase', food: 'Meal', activity: 'Weight', glucose: 'Glucose reading', sleep: 'Sleep', phone_usage: 'Phone use', phone_activity: 'Phone activity', native_health: 'Android health sync' };
 /** "Phone call · Sat Oct 31, 2:57 PM" in Matt's time (America/Chicago). The time appears only when the source recorded one. */
 export function signalHeading(item: Pick<PulseItem, 'type' | 'date' | 'details'>, clock: string): string {
   const missed = item.type === 'intervention' && (item.details?.missed === true || /no[_ -]?answer|missed|voicemail/i.test(String(item.details?.outcome || '')));
