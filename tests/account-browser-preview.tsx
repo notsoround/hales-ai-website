@@ -74,6 +74,19 @@ window.fetch=async(input,init)=>{
     const result=await remote(owner?.account_id||null,route,body);
     return response(result.status,{...result.value,...(route==='invitations/accept'||route.startsWith('sharing/')?{identity:owner}:{})});
   }
+  if(route.startsWith('privacy/close/')) {
+    const owner=current(), status=route==='privacy/close/status';
+    if(owner&&headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
+    if(!status&&!owner)return response(401,{ok:false,error:'unauthenticated'});
+    const remote=(window as unknown as {syntheticClosureServer?:(owner:string|null,route:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>;closeOwner?:boolean;dropResponse?:boolean}>}).syntheticClosureServer;
+    if(!remote)throw Error('No synthetic closure server');
+    const stored=owner?JSON.parse(localStorage.getItem('cupcake-account-closure-v1:'+encodeURIComponent(owner.account_id))||'null'):null;
+    if(!status&&(stored?.request_id!==body.request_id||stored?.receipt_token!==body.receipt_token))throw Error('Synthetic closure intent was not saved before sending');
+    const result=await remote(owner?.account_id||null,route,body);
+    if(result.closeOwner&&current()?.account_id===owner?.account_id)fixture.serverOwner(null);
+    if(result.dropResponse)throw TypeError('Synthetic response lost after server commit');
+    return response(result.status,result.value);
+  }
   if(['password','recovery/issue','sign-out-all','sign-out'].includes(route)&&headers['x-cupcake-account-context']&&headers['x-cupcake-account-context']!==current()?.account_id)return response(409,{ok:false,error:'account_context_changed'});
   if(route==='sign-in'){const owner=body.email===A.email?A:body.email===B.email?B:null;if(!owner||body.password!=='Synthetic password 123!')return response(401,{ok:false});if(fixture.failSignIn){fixture.failSignIn=false;return response(503,{ok:false,error:'synthetic_sign_in_unavailable'});}fixture.serverOwner(owner.account_id);return response(200,{ok:true,identity:owner});}
   if(route==='recovery/redeem'){fixture.serverOwner(null);return response(200,{ok:true});}
