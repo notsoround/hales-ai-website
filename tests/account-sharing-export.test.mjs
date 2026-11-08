@@ -38,6 +38,7 @@ const tableNames = {
   library: ['documents', 'overlays', 'analyses', 'decisions', 'projects'],
   recordings: ['recordings', 'account_audio_transcription_requests', 'documents'], voice: ['account_voice_sessions', 'documents'],
   sharing: ['coach_invitations', 'coach_memberships', 'coach_grants', 'coach_membership_grants'],
+  source_history: ['source_event_receipts', 'source_event_versions', 'source_event_heads', 'source_event_indexed'],
 };
 const sections = Object.keys(tableNames), legacySections = sections.slice(0, 13);
 const columns = {
@@ -172,7 +173,7 @@ async function settings(page) {
 async function sharingOnly(page) {
   await ui(page).getByText('Choose sections · all selected', { exact: true }).click();
   assert.equal(await ui(page).getByRole('checkbox', { name: 'Invitations and sharing', exact: true }).isChecked(), true);
-  assert.equal(await ui(page).getByRole('checkbox', { checked: true }).count(), 14);
+  assert.equal(await ui(page).getByRole('checkbox', { checked: true }).count(), sections.length);
   await ui(page).getByRole('button', { name: 'Clear selection', exact: true }).click();
   await ui(page).getByRole('checkbox', { name: 'Invitations and sharing', exact: true }).check();
 }
@@ -216,7 +217,7 @@ try {
   assert.equal(file.data.sharing.coach_grants[0].revoked, 1780500000); assert.deepEqual(JSON.parse(file.data.sharing.coach_grants[0].scopes), ['health_report']);
   for (const rows of Object.values(file.data.sharing)) for (const row of rows) assert.ok(!['email', 'token_hash', 'request_id', 'password', 'owner_id'].some(key => key in row));
   await safe(json); await json.context.close();
-  console.log('PASS: sharing is the default fourteenth choice; explicit JSON keeps exact historical metadata, nulls and scopes, without credentials or report content.');
+  console.log('PASS: sharing remains selected by default; explicit JSON keeps exact historical metadata, nulls and scopes, without credentials or report content.');
 
   for (const current of ['jsonUnavailable', 'jsonEmpty', 'jsonUnknownSection']) {
     mode = current; const test = await open(), q = test.page; await login(q); await settings(q); await sharingOnly(q); await prepare(q);
