@@ -278,11 +278,11 @@ export async function accountNativeHealth<T = unknown>(route:'authorize'|'connec
   if (!['authorize','connections/list','connections/revoke','sync','batch'].includes(route)) throw Error(ACCOUNT_UNAVAILABLE);
   return accountJSON<T>('native/health/' + route, body, state);
 }
-type HealthRoute = 'devices/create' | 'devices/list' | 'devices/revoke' | 'sync';
-const HEALTH_ROUTES = new Set<HealthRoute>(['devices/create','devices/list','devices/revoke','sync']);
-export async function accountHealth<T>(route: HealthRoute, body: Record<string, unknown>): Promise<T> {
+type HealthRoute = 'devices/create' | 'devices/list' | 'devices/revoke' | 'sync' | 'cgm/latest';
+const HEALTH_ROUTES = new Set<HealthRoute>(['devices/create','devices/list','devices/revoke','sync','cgm/latest']);
+export async function accountHealth<T>(route: HealthRoute, body: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   if (!HEALTH_ROUTES.has(route)) throw Error(ACCOUNT_UNAVAILABLE);
-  return accountJSON<T>('health/' + route, body, state);
+  return accountJSON<T>('health/' + route, body, state, signal);
 }
 /** The signed path is never an img src: cookies, context and its echo are required. */
 export async function accountCoachPhoto(path: string): Promise<Blob> {

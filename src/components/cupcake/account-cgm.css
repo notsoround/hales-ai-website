@@ -1,0 +1,7 @@
+.cc-cgm{min-width:0;overflow-wrap:anywhere}
+.cc-cgm-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cc-cgm .cc-card-title{display:flex;align-items:center;gap:8px;margin:0;font-size:18px}.cc-cgm .cc-card-title svg{flex:none}
+.cc-cgm p{margin:6px 0}.cc-cgm .cc-cgm-freshness{font-size:14px;font-weight:600;color:var(--cc-text,#f5eef4)}
+.cc-cgm-value{font-variant-numeric:tabular-nums}.cc-cgm-value strong{font-size:30px;line-height:1.2}.cc-cgm-value span{font-size:14px;color:var(--cc-muted,#b8aebc)}
+.cc-cgm button,.cc-cgm summary{min-height:44px;max-width:100%;white-space:normal}.cc-cgm summary{display:list-item;cursor:pointer;padding:10px 0;font-size:14px}
+.cc-cgm dl{display:grid;gap:10px;margin:4px 0 12px}.cc-cgm dt{font-size:12px;color:var(--cc-muted,#b8aebc)}.cc-cgm dd{margin:2px 0 0;font-size:14px}
