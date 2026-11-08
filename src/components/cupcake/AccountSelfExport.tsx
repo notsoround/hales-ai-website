@@ -97,7 +97,7 @@ export function AccountSelfExport() {
   const originals = bundle.job?.state === 'ready' ? bundle.job.manifest?.originals : undefined;
   const coverage = file?.coverage;
   const failedMessage = bundle.job?.error && ['export_raw_limit','export_zip_limit','export_record_too_large','export_resource_limit'].includes(bundle.job.error)
-    ? 'These records exceed the current ZIP preparation allowance. No partial ZIP is available.'
+    ? includeOriginals ? 'This selection exceeds the ZIP preparation limit. No partial file was created. Choose fewer sections and prepare a new download.' : 'These records exceed the current ZIP preparation allowance. No partial ZIP is available.'
     : 'This ZIP could not be prepared. No partial ZIP is available. You can prepare a new download.';
   return <section className="cc-account-controls" aria-label="Download your data">
     <h3>Download your data</h3>
@@ -110,7 +110,7 @@ export function AccountSelfExport() {
       </fieldset>
     </details>
     <label className="cc-account-check"><input type="checkbox" checked={includeOriginals} disabled={locked} onChange={event => chooseOriginals(event.target.checked)}/>Include original photos and audio</label>
-    <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download.</p>
+    <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download. Very large audio collections may exceed this ZIP option’s size limit.</p>
     <p className="cc-muted cc-small">{selected.length ? 'You can include every supported section in one preparation.' : 'Choose at least one section to prepare your download.'}</p>
     <button type="button" className="cc-secondary" disabled={locked || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : bundle.terminal ? 'Prepare a new download' : 'Prepare my download'}</button>
     {(error || bundle.error) && <p role="alert">{error || bundle.error}</p>}
