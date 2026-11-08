@@ -4,6 +4,7 @@ import { AccountRequestError } from './accountSession';
 import { personalStorage } from './personalStorage';
 import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, rebasePlanDraft, samePlan, PLAN_DRAFT_KEY, type MealPlan, type PlanDraft, type PlanIntent } from './foodPlanModel';
 import './account-food-plan.css';
+import { checkGroceryItem, groceryItems } from './groceryChecklist';
 
 export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'groceries'; onPlan: () => void }) {
   const [storage] = useState(() => personalStorage('sessionStorage'));
@@ -18,6 +19,7 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
   const generation = useRef(0), inFlight = useRef(false);
   const value = draftPlan(base, draft), dirty = !!pending || !samePlan(value, base || { meals: [] });
   const validation = planDraftError(draft, value);
+  const groceries = groceryItems(draft.groceries);
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -107,9 +109,15 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
           <button type="button" className="cc-secondary" disabled={draft.meals.length >= 10} onClick={() => edit({ ...draft, meals: [...draft.meals, { original: null, name: '', items: '', kcal: '' }] })}>Add planned meal</button>
           <p className="cc-muted cc-small">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
         </> : <>
+          <div className="cc-grocery-checklist" aria-label="Grocery checklist">
+            <div className="cc-heading-row"><strong>Shopping checklist</strong><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
+            <p className="cc-muted cc-small">Check off items, then Save plan &amp; groceries. Checking an item does not log a meal or place an order.</p>
+            {groceries.map(item => <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>)}
+            {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}
+          </div>
           <label>Grocery notes<textarea rows={10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
           {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={onPlan}>Create your meal plan first</button></p>}
-          <p className="cc-muted cc-small">Keep the items, quantities and shopping notes you need here. Nothing is ordered.</p>
+          <p className="cc-muted cc-small">Full grocery text is kept here, including headings and other notes. Checkmarks save as Markdown checkboxes; only the item you toggle changes.</p>
         </>}
       </fieldset>
       {dirty && validation && !pending && <p className="cc-muted cc-small">{validation}</p>}

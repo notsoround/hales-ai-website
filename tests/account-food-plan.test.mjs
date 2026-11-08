@@ -47,6 +47,44 @@ async function safe(page) {
   for (const row of snapshot.requests.filter(row => row.body.action.startsWith('coach_plan_'))) { assert.equal(row.headers['x-cupcake-key'], undefined); assert.equal(row.headers['x-cupcake-account-context'], row.owner === 'A' ? 'acc_plan_a' : 'acc_plan_b'); assert.equal(row.body.owner_id, undefined); }
 }
 try {
+  const checklist = await server.ssrLoadModule('/src/components/cupcake/groceryChecklist.ts');
+  const rawGroceries = '# Produce\r\n- [ ] Eggs — 12\r\n* Milk\r\nBananas\r\n- [X] Oats\r\n\r\nNotes:\r\n> Keep this note\r\n```\r\nuntouched code\r\n```\r\n| store | aisle |\r\n';
+  const checkedEggs = rawGroceries.replace('- [ ] Eggs', '- [x] Eggs');
+  assert.equal(checklist.checkGroceryItem(rawGroceries, 1, true), checkedEggs);
+  assert.equal(checklist.checkGroceryItem(checkedEggs, 1, false), rawGroceries);
+  assert.equal(checklist.checkGroceryItem(rawGroceries, 9, true), rawGroceries);
+  assert.equal(checklist.groceryItems(rawGroceries).length, 4);
+  const groceryPlan = { meals: [{ name: 'Reference', items: ['Preserved food'], provenance: { original: true } }], groceries: rawGroceries, custom: { keep: 'all extra fields' } };
+  reset(groceryPlan); const checks = await open(), g = checks.page; await tab(g, 'Groceries');
+  await g.getByRole('checkbox', { name: 'Eggs — 12', exact: true }).check();
+  await g.getByText('Unsaved changes · draft kept in this browser tab', { exact: true }).waitFor();
+  assert.equal(calls.filter(call => call.body.action === 'coach_plan_set').length, 0);
+  assert.equal(await g.getByRole('checkbox', { name: 'Oats', exact: true }).isChecked(), true);
+  await g.reload(); await tab(g, 'Groceries'); await g.getByRole('checkbox', { name: 'Eggs — 12', exact: true }).waitFor();
+  assert.equal(await g.getByRole('checkbox', { name: 'Eggs — 12', exact: true }).isChecked(), true);
+  assert.equal(calls.filter(call => call.body.action === 'coach_plan_set').length, 0);
+  behavior = 'holdReadback'; await save(g).click();
+  for (let n = 0; n < 30 && behavior === 'holdReadback'; n++) await g.waitForTimeout(20);
+  assert.equal(await g.getByRole('checkbox', { name: 'Milk', exact: true }).isDisabled(), true);
+  assert.equal(await g.getByText('Plan and groceries saved to your account.', { exact: false }).count(), 0);
+  release(); await saved(g); assert.deepEqual(plans.A, { ...groceryPlan, groceries: checkedEggs });
+  await g.reload(); await tab(g, 'Groceries'); await g.getByRole('checkbox', { name: 'Eggs — 12', exact: true }).waitFor();
+  assert.equal(await g.getByRole('checkbox', { name: 'Eggs — 12', exact: true }).isChecked(), true);
+  assert.equal(await g.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await g.setViewportSize({ width: 1280, height: 900 }); assert.equal(await g.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  const changed = { ...structuredClone(plans.A), title: 'New device title' }; plans.A = changed;
+  await g.getByRole('checkbox', { name: 'Milk', exact: true }).check(); await save(g).click();
+  await g.getByText('Latest saved version · draft kept', { exact: true }).waitFor();
+  assert.deepEqual(plans.A, changed); assert.equal(await g.getByRole('checkbox', { name: 'Milk', exact: true }).isChecked(), true);
+  await g.getByRole('button', { name: 'Keep my draft for a new save', exact: true }).click();
+  behavior = 'holdWrite'; await save(g).click();
+  for (let n = 0; n < 30 && behavior === 'holdWrite'; n++) await g.waitForTimeout(20);
+  await g.evaluate(() => window.planFixture.switchOwner('B')); release(); await tab(g, 'Groceries');
+  await g.getByLabel('Grocery notes').waitFor(); assert.equal(await g.getByRole('checkbox').count(), 0);
+  assert.equal(await g.getByText('Plan and groceries saved to your account.', { exact: false }).count(), 0); assert.equal(plans.B, null);
+  await safe(g); assert.deepEqual(checks.errors, []); await checks.context.close();
+  console.log('PASS: grocery checkboxes preserve full CRLF/unknown text and extras; unsaved/reload/confirmed CAS save; stale conflict and late owner isolation; mobile/desktop');
+
   reset(); const first = await open(), p = first.page;
   assert.equal(await p.getByRole('button', { name: 'Add meal', exact: true }).isVisible(), true); assert.equal(calls.length, 0);
   await tab(p, 'Groceries'); await p.getByLabel('Grocery notes', { exact: true }).fill('Synthetic oats — 1 bag\nSynthetic fruit — 3');
