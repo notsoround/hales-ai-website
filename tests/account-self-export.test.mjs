@@ -105,7 +105,7 @@ try {
   for (const failure of ['oversized','notReady','wrongExportOwner','badCoverage','globalSnapshotClaim','missingSnapshot','duplicateSnapshot','badSnapshotTime','nullSnapshot','legacyWithRecordings']) {
     mode = failure; const test = await open(), q = test.page; await login(q, 'a'); await settings(q); await prepare(q); await exportUI(q).getByRole('alert').waitFor();
     assert.equal(await exportUI(q).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); assert.equal(test.downloads.length, 0);
-    if (failure === 'oversized') await exportUI(q).getByText('Your data exceeds the current download limit. No partial file was created.', { exact: true }).waitFor();
+    if (failure === 'oversized') { await exportUI(q).getByText('Your data exceeds the current download limit. No partial file was created.', { exact: true }).waitFor(); assert.equal(await exportUI(q).locator('.cc-export-picker').evaluate(element => element.open), true); await exportUI(q).getByText('A section that exceeds the limit cannot be downloaded yet.', { exact: false }).waitFor(); }
     if (failure === 'notReady') await exportUI(q).getByText('Your data download is not available yet. Try again later.', { exact: true }).waitFor();
     await safe(q); assert.deepEqual(test.errors, []); await test.context.close();
   }

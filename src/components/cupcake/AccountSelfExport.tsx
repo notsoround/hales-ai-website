@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { accountData, assertGeneration, sessionSnapshot } from './accountSession';
+import { AccountRequestError, accountData, assertGeneration, sessionSnapshot } from './accountSession';
 import { saveFile } from './library';
 
 const sections = {
@@ -39,25 +39,30 @@ export function AccountSelfExport() {
   const [selected, setSelected] = useState<Section[]>(sectionCodes);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [tooLarge, setTooLarge] = useState(false);
+  const picker = useRef<HTMLDetailsElement>(null);
   const mounted = useRef(true), inFlight = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const choose = (next: Section[]) => {
     if (inFlight.current) return;
-    setSelected(sectionCodes.filter(section => next.includes(section))); setPrepared(null); setError(''); setNotice('');
+    setSelected(sectionCodes.filter(section => next.includes(section))); setPrepared(null); setError(''); setNotice(''); setTooLarge(false);
   };
   const prepare = async () => {
     if (inFlight.current || !selected.length) return;
     const session = sessionSnapshot();
     if (!session.identity) return;
     const requested = [...selected];
-    inFlight.current = true; setBusy(true); setPrepared(null); setError(''); setNotice('');
+    inFlight.current = true; setBusy(true); setPrepared(null); setError(''); setNotice(''); setTooLarge(false);
     try {
       const result = await accountData<Result>({ action: 'account_self_export', sections: requested });
       assertGeneration(session.generation);
       if (!mounted.current) return;
       const file = verifiedExport(result, session.identity.account_id, requested);
       setPrepared({ file, filename: result.filename, generation: session.generation });
-    } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : 'The download could not be prepared. Try again.'); }
+    } catch (cause) { if (mounted.current) {
+      setError(cause instanceof Error ? cause.message : 'The download could not be prepared. Try again.');
+      if (cause instanceof AccountRequestError && cause.code === 'export_too_large') { setTooLarge(true); if (picker.current) picker.current.open = true; }
+    } }
     finally { inFlight.current = false; if (mounted.current) setBusy(false); }
   };
   const download = () => {
@@ -73,7 +78,7 @@ export function AccountSelfExport() {
     <h3>Download your data</h3>
     <p>Make a JSON copy of supported records saved in your account. Review its coverage before downloading.</p>
     <p className="cc-muted cc-small">This covers part of your data. Connected services and original files are outside this download. Keep the file private.</p>
-    <details className="cc-export-picker"><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
+    <details className="cc-export-picker" ref={picker}><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
       <fieldset disabled={busy} className="cc-export-sections"><legend>Include these records</legend>
         <div className="cc-export-choices"><button type="button" className="cc-text-button" onClick={() => choose(sectionCodes)}>Select all</button><button type="button" className="cc-text-button" onClick={() => choose([])}>Clear selection</button></div>
         {sectionCodes.map(section => <label className="cc-account-check" key={section}><input type="checkbox" checked={selected.includes(section)} onChange={event => choose(event.target.checked ? [...selected, section] : selected.filter(current => current !== section))}/>{sections[section]}</label>)}
@@ -82,6 +87,7 @@ export function AccountSelfExport() {
     <p className="cc-muted cc-small">{selected.length ? 'For a smaller file, choose fewer sections.' : 'Choose at least one section to prepare your download.'}</p>
     <button type="button" className="cc-secondary" disabled={busy || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : 'Prepare my download'}</button>
     {error && <p role="alert">{error}</p>}
+    {tooLarge && <p className="cc-muted cc-small">Choose fewer sections above and download them separately. A section that exceeds the limit cannot be downloaded yet.</p>}
     {notice && <p role="status">{notice}</p>}
     {prepared && <div>
       <p role="status">Your file is ready. Prepared {new Date(prepared.file.generatedAt).toLocaleString()}.</p>
