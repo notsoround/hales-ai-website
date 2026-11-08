@@ -14,7 +14,7 @@ await server.listen();
 const base = server.resolvedUrls.local[0], checks = [], screenshots = [];
 const fixture = page => page.evaluate(() => ({ ...window.assistantFixture, releaseMicrophone: undefined }));
 const tick = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const nav = page => page.getByRole('navigation', { name: 'Cupcake', exact: true });
+const nav = page => page.locator('.cc-nav');
 const panel = page => page.locator('#cupcake-assistant');
 async function measure(page, label, width) {
   await page.evaluate(() => document.fonts.ready);
@@ -146,6 +146,7 @@ try {
 
       if (config.width === 1280) {
         await page.locator('.cc-settings > summary').click();
+        await page.locator('.cc-settings-group > summary').filter({ hasText: /^Appearance$/ }).click();
         const appearance = page.getByRole('combobox', { name: 'Assistant appearance' });
         assert.equal(await appearance.inputValue(), 'caribbean');
         await appearance.selectOption('rose');
@@ -164,6 +165,7 @@ try {
         assert.equal(await page.locator('.cc-app').getAttribute('data-appearance'), 'caribbean');
         await page.getByRole('button', { name: 'Minimize assistant', exact: true }).click();
         await page.locator('.cc-settings > summary').click();
+        await page.locator('.cc-settings-group > summary').filter({ hasText: /^Appearance$/ }).click();
         await page.locator('.cc-assistant-persona-options button').filter({ hasText: 'Cupcake' }).click();
         await page.getByRole('textbox', { name: 'Assistant name', exact: true }).fill('Cupcake');
         await page.getByRole('button', { name: 'Close settings', exact: true }).click();

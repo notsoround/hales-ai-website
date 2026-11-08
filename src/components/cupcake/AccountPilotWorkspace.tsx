@@ -15,10 +15,13 @@ const otherName=(relationship:Relationship,identity:AccountIdentity)=>relationsh
 export function AccountPilotWorkspace({identity,onSharingChanged}:{identity:AccountIdentity;onSharingChanged:()=>void}) {
   const [view,setView]=useState<'clients'|'sharing'|null>(null);
   return <section className="cc-card cc-pilot-workspace" aria-label="Clients and sharing">
-    <h3>Your connections</h3><p>Keep your personal space and coaching workspace together. An invitation creates a connection; access to your data always needs a separate permission.</p>
+    <details className="cc-pilot-disclosure">
+    <summary><span><strong>Your connections</strong><small>Clients, invitations and sharing</small></span></summary>
+    <p>Keep your personal space and coaching workspace together. An invitation creates a connection; access to your data always needs a separate permission.</p>
     <div className="cc-invitation-actions"><button className="cc-secondary" aria-expanded={view==='clients'} onClick={()=>setView(view==='clients'?null:'clients')}>My clients & invitations</button><button className="cc-secondary" aria-expanded={view==='sharing'} onClick={()=>setView(view==='sharing'?null:'sharing')}>Sharing controls</button></div>
     {view==='clients'&&<CoachInvitations identity={identity}/>}
     {view==='sharing'&&<SharingControls identity={identity} onChanged={onSharingChanged}/>}
+    </details>
   </section>;
 }
 

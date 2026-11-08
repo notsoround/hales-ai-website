@@ -71,6 +71,7 @@ try {
       assert.equal(await page.getByRole('dialog', { name: 'Settings', exact: true }).getAttribute('aria-modal'), 'true');
       await page.keyboard.press('Escape'); await returned(page);
       await page.locator('.cc-account-note > summary').click(); await page.getByRole('button', { name: 'Open Reports', exact: true }).click();
+      await page.locator('.cc-pilot-disclosure > summary').click();
       await page.getByRole('button', { name: 'Sharing controls', exact: true }).waitFor();
       const snapshot = await page.evaluate(() => ({ requests: window.accountFixture.requests, blocked: window.accountFixture.blocked }));
       assert.equal(snapshot.requests.some(row => ['password', 'recovery/issue', 'sign-out', 'sign-out-all'].includes(row.route) || row.route.startsWith('privacy/close/') || row.route.endsWith('/create') || row.body.action === 'account_self_export' || row.body.action === 'persona_save'), false);
