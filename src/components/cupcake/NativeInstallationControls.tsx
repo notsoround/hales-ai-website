@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { accountNative } from './accountSession';
 import { NATIVE_CLIENT } from './nativeConnectionRequest';
 import './native-connections.css';
+import { NativeHealthControls } from './NativeHealthControls';
 
 type Installation = { installation_id: string; client_id: string; epoch: number; created: number; refreshed: number; idle_expires: number; absolute_expires: number; revoked: number | null; scope: 'native:profile'; status: 'active' | 'expired' | 'revoked' };
 function installationList(result: unknown): Installation[] {
@@ -15,6 +16,7 @@ function installationList(result: unknown): Installation[] {
   return rows;
 }
 export function NativeInstallationControls() {
+  const [healthRevision, setHealthRevision] = useState(0);
   const [rows, setRows] = useState<Installation[] | null>(null), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const load = async () => {
     if (busy) return; setBusy(true); setMessage('');
@@ -32,12 +34,13 @@ export function NativeInstallationControls() {
       setRows(saved);
       setMessage('This app connection is disconnected. Your saved account data is kept.');
     } catch { setMessage('Disconnection could not be confirmed. Reload the list before trying again.'); setRows(null); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setHealthRevision(value => value + 1); }
   };
   return <details className="cc-account-controls cc-native-app-controls"><summary>Android app connections</summary>
-    <p>The Android preview can confirm your name and email. Health upload is not yet available. Disconnecting stops this app’s account access and keeps saved history.</p>
+    <p>The Android preview can confirm your name and email. Health uploads require a separate approval. Disconnecting stops this app’s account access and uploads, and keeps saved history.</p>
     <button type="button" className="cc-secondary" disabled={busy} onClick={() => void load()}>{busy ? 'Checking…' : rows === null ? 'Load connected apps' : 'Refresh connected apps'}</button>
     {rows && (rows.length ? <ul>{rows.map(row => <li key={row.installation_id}><strong>Cupcake Android preview</strong><p>{row.status === 'active' ? 'Connected' : row.status === 'expired' ? 'Expired' : 'Disconnected'} · {row.installation_id.slice(-8)}</p><p className="cc-small">Last connected {new Date(row.refreshed * 1000).toLocaleString()}</p>{row.status === 'active' && <button type="button" className="cc-secondary" disabled={busy} aria-label={`Disconnect Android app ${row.installation_id.slice(-8)}`} onClick={() => void revoke(row.installation_id)}>Disconnect this app</button>}</li>)}</ul> : <p>No Android apps are connected to this account.</p>)}
     {message && <p role="status">{message}</p>}
+    <NativeHealthControls key={healthRevision}/>
   </details>;
 }

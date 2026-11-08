@@ -111,6 +111,7 @@ export function AccountSelfExport() {
     <h3>Download your data</h3>
     <p>Copy supported records saved in your account. Larger histories are automatically prepared as a ZIP with all selected supported records. Review the coverage before downloading.</p>
     <p className="cc-muted cc-small">This covers part of your data. You can include saved originals below. Connected-service copies and other excluded data remain outside this download. Keep the file private.</p>
+    <p className="cc-muted cc-small">Android preview health batches are not included in this download yet. View their saved originals in Settings → Account &amp; security → Android app connections → Android health uploads.</p>
     <details className="cc-export-picker" ref={picker}><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
       <fieldset disabled={locked} className="cc-export-sections"><legend>Include these records</legend>
         <div className="cc-export-choices"><button type="button" className="cc-text-button" onClick={() => choose(sectionCodes)}>Select all</button><button type="button" className="cc-text-button" onClick={() => choose([])}>Clear selection</button></div>

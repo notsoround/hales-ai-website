@@ -25,7 +25,7 @@ export function NativeConnectionAuthorize({ pending, identity, appearance, onClo
     {pending.error ? <p role="alert">{pending.error}</p> : !identity ? <p>Sign in to confirm which account the app should connect to.</p> : <>
       <p>Connect the Cupcake Android preview to <strong>{identity.name || identity.email}</strong> ({identity.email}).</p>
       <p className="cc-small">Connection request: <strong>{pending.request?.installation_id.slice(-8)}</strong>. Compare this with the request in your Android app.</p>
-      <p>The app can confirm your account name and email. Health uploads are not available in this preview. This does not share data with a coach or give the app access to your health history, Library or AI allowance.</p>
+      <p>This connection lets the app confirm your account name and email. Health uploads require a separate approval. This does not share data with a coach or give the app access to your health history, Library or AI allowance.</p>
       {expired ? <p role="alert">This connection request expired. Start again from the Android app.</p> : callback ? <>
         <p role="status">Approved. Return to the same Android app before this approval expires to finish connecting.</p>
         <a className="cc-primary" href={callback} referrerPolicy="no-referrer">Return to Android app</a>

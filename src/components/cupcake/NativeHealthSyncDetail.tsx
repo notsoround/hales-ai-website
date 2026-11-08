@@ -72,6 +72,7 @@ function detail(value: unknown): Detail {
       || new Set(value.recordingMethods).size !== value.recordingMethods.length
       || ![null,'Source-reported sleep estimate','Manually entered sleep','Sleep basis unknown'].includes(value.sleepLabel as string | null)) throw Error('Unconfirmed sync detail');
   if ((receipt.estimated_sleep === true && value.sleepLabel !== 'Source-reported sleep estimate')
+      || (receipt.estimated_sleep === false && value.sleepLabel !== 'Manually entered sleep')
       || (!receipt.types.some(row => row.type === 'sleep' && row.record_count > 0) && value.sleepLabel !== null)) throw Error('Unconfirmed sleep label');
   return { receipt, sourcePackages:value.sourcePackages, recordingMethods:value.recordingMethods,
            observationWindow:observationWindow(value.observationWindow), sleepLabel:value.sleepLabel as string | null };

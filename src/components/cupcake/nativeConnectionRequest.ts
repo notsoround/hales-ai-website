@@ -29,13 +29,13 @@ export function takeNativeConnectionRequest(): PendingNativeConnection | null {
   if (!query.has('native_connect')) return null;
   const invalid = (): PendingNativeConnection => ({ request: null, createdAt: Date.now(), error: 'This app connection request is invalid or expired. Start again from the Android app.' });
   const fragment = location.hash.slice(1);
+  if (fragment) history.replaceState(history.state, '', location.pathname + location.search);
   try {
-    if (query.getAll('native_connect').length !== 1 || query.get('native_connect') !== '1') {
+    if (query.has('native_health_connect') || query.getAll('native_connect').length !== 1 || query.get('native_connect') !== '1') {
       sessionStorage.removeItem(KEY); return invalid();
     }
     if (fragment) {
       // Strip the public request from the address before any sign-in navigation.
-      history.replaceState(history.state, '', location.pathname + location.search);
       sessionStorage.removeItem(KEY);
       const params = new URLSearchParams(fragment);
       if ([...params.keys()].length !== FIELDS.length || FIELDS.some(key => params.getAll(key).length !== 1)) return invalid();

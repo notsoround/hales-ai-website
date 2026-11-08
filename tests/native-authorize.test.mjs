@@ -19,7 +19,7 @@ try {for(const engine of ['chromium','webkit']){const browser=await playwright[e
   const {context,page:p}=await open(browser);
   await p.getByRole('status').filter({hasText:'Sign in to review the Android app connection.'}).waitFor();assert.equal(await count(p),0);assert.equal(new URL(p.url()).hash,'');
   await p.reload();await p.getByLabel('Email',{exact:true}).fill('client@example.invalid');await p.getByLabel('Password',{exact:true}).fill('Synthetic password only');await p.getByRole('button',{name:'Sign in',exact:true}).click();
-  await p.getByRole('heading',{name:'Connect your Android app',exact:true}).waitFor();assert.equal(await count(p),0);await p.getByText(/Health uploads are not available/).waitFor();checks++;
+  await p.getByRole('heading',{name:'Connect your Android app',exact:true}).waitFor();assert.equal(await count(p),0);await p.getByText(/Health uploads require a separate approval/).waitFor();checks++;
   for(const width of [320,390,1280]){await p.setViewportSize({width,height:844});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);}
   await p.evaluate(()=>{window.nativeFixture.mode='hold';});await connect(p).click();assert.equal(await connect(p).count(),0);await p.getByRole('button',{name:'Confirming…',exact:true}).waitFor();
   assert.equal(await count(p),1);await p.evaluate(()=>window.nativeFixture.release());const callback=p.getByRole('link',{name:'Return to Android app',exact:true});await callback.waitFor();
