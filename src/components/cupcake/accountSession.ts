@@ -75,6 +75,10 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (response.status === 503 && result?.error === 'health_intake_not_ready') throw new AccountRequestError('Apple Health connections are not available for this account yet. No upload has been confirmed.', 'health_intake_not_ready');
     if (response.status === 503 && result?.error === 'export_not_ready') throw new AccountRequestError('Your data download is not available yet. Try again later.', 'export_not_ready');
     if (response.status === 413 && result?.error === 'export_too_large') throw new AccountRequestError('Your data exceeds the current download limit. No partial file was created.', 'export_too_large');
+    if (['exports/originals','exports/original-link'].includes(route) && !response.ok) {
+      const messages: Record<string,string> = { original_stream_limit:'Another original download is still active. Wait for it to finish, then try this file again.', original_inventory_limit:'The original-file list exceeds the current service allowance. No partial list was returned.', original_link_limit:'Original downloads are busy. Try this file again shortly.', original_unavailable:'This saved original is unavailable. Refresh the list to check its current status.', original_changed:'This original changed since the list was loaded. Refresh the list before downloading it.' };
+      throw new AccountRequestError(messages[result?.error] || 'The original-file request could not be confirmed. Refresh the list and try again.', typeof result?.error === 'string' ? result.error : 'original_request_failed');
+    }
     if (route.startsWith('exports/') && !response.ok && typeof result?.error === 'string') {
       const messages: Record<string,string> = { export_not_found:'This saved preparation is unavailable for this sign-in. Start a new preparation when you are ready.', export_expired:'This prepared ZIP has expired. Start a new preparation.', export_owner_busy:'A download is already being prepared for your account. Check its saved status.', export_busy:'Download preparation is busy. Check status or try again later.', export_request_conflict:'This saved preparation no longer matches this sign-in or selection.', export_storage_limit:'Download preparation has reached its temporary storage limit. Try again later.', export_job_limit:'Several downloads were prepared recently. Try again after they expire.' };
       throw new AccountRequestError(messages[result.error] || 'The ZIP request could not be confirmed. Check the saved status before starting another preparation.', result.error);
@@ -195,9 +199,9 @@ export async function accountVoice<T>(route: 'config'|'list'|'start'|'recover'|'
   return accountJSON<T>('voice/' + route, body, snapshot);
 }
 
-/** Fixed export routes; no server-returned address is ever fetched. */
-export async function accountExport<T>(route:'prepare'|'status', body:Record<string,unknown>, snapshot = state, signal?:AbortSignal):Promise<T> {
-  if (!['prepare','status'].includes(route)) throw Error(ACCOUNT_UNAVAILABLE);
+/** Fixed export API routes. Original links are separately checked before native download. */
+export async function accountExport<T>(route:'prepare'|'status'|'originals'|'original-link', body:Record<string,unknown>, snapshot = state, signal?:AbortSignal):Promise<T> {
+  if (!['prepare','status','originals','original-link'].includes(route)) throw Error(ACCOUNT_UNAVAILABLE);
   return accountJSON<T>('exports/' + route, body, snapshot, signal);
 }
 
