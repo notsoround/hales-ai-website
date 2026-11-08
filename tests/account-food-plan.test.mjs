@@ -54,6 +54,42 @@ try {
   assert.equal(checklist.checkGroceryItem(checkedEggs, 1, false), rawGroceries);
   assert.equal(checklist.checkGroceryItem(rawGroceries, 9, true), rawGroceries);
   assert.equal(checklist.groceryItems(rawGroceries).length, 4);
+  assert.deepEqual(checklist.missingGroceryItems(rawGroceries, [' eggs — 12 ', 'MILK', 'Bananas', 'Oats', 'Milk — 2 litres', 'Spinach', ' spinach ', '']), ['Milk — 2 litres', 'Spinach']);
+  assert.equal(checklist.appendGroceryItems(rawGroceries, ['Oats', 'Milk — 2 litres', 'Spinach']), rawGroceries + '- [ ] Milk — 2 litres\r\n- [ ] Spinach');
+  assert.equal(checklist.appendGroceryItems(rawGroceries, ['Oats']), rawGroceries);
+  assert.throws(() => checklist.appendGroceryItems('Notes:\n```\nkept original', ['Spinach']), /unfinished code block/);
+  assert.throws(() => checklist.appendGroceryItems('x'.repeat(10000), ['Spinach']), /limit/);
+  const shoppingPlan = { title: 'Synthetic weekly plan', meals: [{ name: 'Breakfast', items: ['Oats', 'Milk', 'Bananas', 'Bananas'], kcal: null, provenance: 'keep' }, { name: 'Dinner', items: ['Spinach', 'Milk — 2 litres'], kcal: 0 }], groceries: rawGroceries, custom: { original: true } };
+  reset(shoppingPlan); const shopping = await open(), s = shopping.page; await tab(s, 'Groceries');
+  await s.getByRole('button', { name: 'Choose meal plan items', exact: true }).click();
+  const choices = s.getByRole('group', { name: 'Meal plan items to add', exact: true });
+  assert.equal(await choices.getByRole('checkbox').count(), 2);
+  assert.equal(await choices.getByRole('checkbox', { name: 'Spinach', exact: true }).isChecked(), true);
+  await choices.getByRole('button', { name: 'Clear selection', exact: true }).click();
+  assert.equal(await choices.getByRole('button', { name: 'Add 0 items to grocery draft', exact: true }).isDisabled(), true);
+  await choices.getByRole('button', { name: 'Select all', exact: true }).click();
+  await choices.getByRole('checkbox', { name: 'Milk — 2 litres', exact: true }).uncheck();
+  for (const width of [320, 390, 1280]) {
+    await s.setViewportSize({ width, height: 900 });
+    for (const theme of ['caribbean', 'rose']) {
+      await s.evaluate(value => document.querySelector('.cc-app').setAttribute('data-appearance', value), theme);
+      assert.equal(await s.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    }
+  }
+  await choices.getByRole('button', { name: 'Add 1 item to grocery draft', exact: true }).click();
+  assert.equal(await choices.count(), 0);
+  assert.equal(await s.getByLabel('Grocery notes').inputValue(), rawGroceries.replace(/\r\n/g, '\n') + '- [ ] Spinach');
+  assert.equal(await s.getByRole('checkbox', { name: 'Oats', exact: true }).isChecked(), true);
+  assert.equal(calls.some(call => call.body.action === 'coach_plan_set'), false);
+  await s.reload(); await tab(s, 'Groceries');
+  await s.getByRole('checkbox', { name: 'Spinach', exact: true }).waitFor();
+  await s.getByRole('button', { name: 'Choose meal plan items', exact: true }).click();
+  assert.equal(await s.getByRole('group', { name: 'Meal plan items to add', exact: true }).getByRole('checkbox').count(), 1);
+  await s.getByRole('button', { name: 'Close meal plan items', exact: true }).click();
+  await save(s).click(); await saved(s);
+  assert.deepEqual(plans.A, { ...shoppingPlan, groceries: rawGroceries + '- [ ] Spinach' });
+  await safe(s); assert.deepEqual(shopping.errors, []); await shopping.context.close();
+  console.log('PASS: meal-plan grocery selection, exact-text dedup, distinct quantities, unchanged checked/CRLF notes and extras, draft reload, explicit confirmed save, both themes/320/390/1280; no food writes');
   const groceryPlan = { meals: [{ name: 'Reference', items: ['Preserved food'], provenance: { original: true } }], groceries: rawGroceries, custom: { keep: 'all extra fields' } };
   reset(groceryPlan); const checks = await open(), g = checks.page; await tab(g, 'Groceries');
   await g.getByRole('checkbox', { name: 'Eggs — 12', exact: true }).check();
