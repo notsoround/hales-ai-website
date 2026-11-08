@@ -90,7 +90,7 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
   };
   return <section className="cc-food-plan" aria-label={section === 'plan' ? 'Meal plan workspace' : 'Grocery workspace'}>
     <div className="cc-heading-row"><h3>{section === 'plan' ? 'Your meal plan' : 'Your groceries'}</h3><button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Reload saved plan</button></div>
-    <p className="cc-muted">{section === 'plan' ? 'Plan meals in your own words. This reference plan is separate from meals you actually ate.' : 'Keep your shopping notes with this meal plan. Enter items and quantities yourself; nothing is inferred or ordered.'}</p>
+    <p className="cc-muted">{section === 'plan' ? 'Plan meals in your own words. This reference plan is separate from meals you actually ate.' : 'Keep your grocery list and shopping notes with your meal plan.'}</p>
     {!loaded && !error && <p role="status">Loading your saved plan…</p>}
     {error && <p role="alert" className="cc-error">{error}</p>}
     {notice && <p role="status" className="cc-muted">{notice}</p>}
@@ -111,13 +111,13 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
         </> : <>
           <div className="cc-grocery-checklist" aria-label="Grocery checklist">
             <div className="cc-heading-row"><strong>Shopping checklist</strong><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
-            <p className="cc-muted cc-small">Check off items, then Save plan &amp; groceries. Checking an item does not log a meal or place an order.</p>
+            <p className="cc-muted cc-small">Check off items as you shop, then Save plan &amp; groceries.</p>
             {groceries.map(item => <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>)}
             {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}
           </div>
           <label>Grocery notes<textarea rows={10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
           {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={onPlan}>Create your meal plan first</button></p>}
-          <p className="cc-muted cc-small">Full grocery text is kept here, including headings and other notes. Checkmarks save as Markdown checkboxes; only the item you toggle changes.</p>
+          <p className="cc-muted cc-small">Add or edit items in Grocery notes. Your other notes are kept.</p>
         </>}
       </fieldset>
       {dirty && validation && !pending && <p className="cc-muted cc-small">{validation}</p>}
