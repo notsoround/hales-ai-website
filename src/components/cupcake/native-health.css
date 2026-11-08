@@ -1,0 +1,37 @@
+.cc-native-health-consent .cc-unlock{max-width:520px}
+.cc-native-health-consent p,.cc-native-health-controls p,.cc-native-health-detail p{overflow-wrap:anywhere;line-height:1.6}
+.cc-native-health-consent .cc-unlock>.cc-secondary{margin-top:16px;width:100%}
+.cc-native-health-consent .cc-primary{max-width:100%;white-space:normal;text-align:center;min-height:44px}
+.cc-native-health-choices{border:1px solid var(--cc-border,#ffffff25);border-radius:12px;margin:20px 0;padding:8px 14px 14px;min-width:0;text-align:left}
+.cc-native-health-choices legend{padding:0 5px;font-size:14px;font-weight:600}
+.cc-native-health-choices label{display:flex;align-items:center;gap:12px;min-height:48px;cursor:pointer;line-height:1.4}
+.cc-native-health-choices input{width:20px;height:20px;flex:0 0 20px;accent-color:var(--cc-pink,#ae78ff)}
+.cc-native-health-choices:disabled label{cursor:default}
+.cc-native-health-controls,.cc-native-health-detail{min-width:0;max-width:100%}
+.cc-native-health-controls>summary,.cc-native-health-receipts>details>summary,.cc-native-health-proof>summary,.cc-native-health-raw>summary{min-height:44px;cursor:pointer;align-content:center;overflow-wrap:anywhere}
+.cc-native-health-controls>summary{font-weight:600}
+.cc-native-health-controls h4{margin:22px 0 12px;font-size:16px}
+.cc-native-health-actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+.cc-native-health-controls button,.cc-native-health-detail button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.cc-native-health-note{font-size:13px;color:var(--cc-text-2,#c4bed1);line-height:1.6}
+.cc-native-health-connections,.cc-native-health-type-results{padding:0;list-style:none;display:grid;gap:12px}
+.cc-native-health-connections>li{border:1px solid var(--cc-border,#ffffff25);border-radius:12px;padding:14px;min-width:0;overflow-wrap:anywhere}
+.cc-native-health-connections>li p{margin:8px 0}
+.cc-native-health-facts{display:grid;gap:12px;margin:14px 0}
+.cc-native-health-facts>div{min-width:0}
+.cc-native-health-facts dt{font-size:13px;color:var(--cc-text-2,#c4bed1);line-height:1.5}
+.cc-native-health-facts dd{margin:4px 0 0;font-size:14px;line-height:1.55;overflow-wrap:anywhere}
+.cc-native-health-type-results>li{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;border-bottom:1px solid var(--cc-border,#ffffff25);padding:10px 0;font-size:14px;line-height:1.5}
+.cc-native-health-type-results>li span{color:var(--cc-text-2,#c4bed1)}
+.cc-native-health-receipts>details{border-top:1px solid var(--cc-border,#ffffff25);padding:10px 0}
+.cc-native-health-receipts>details>summary{padding:6px 0}
+.cc-native-health-receipts>details>summary strong,.cc-native-health-receipts>details>summary span{display:block;font-size:14px;line-height:1.5}
+.cc-native-health-receipts>details>summary span{font-size:13px;color:var(--cc-text-2,#c4bed1);margin-top:4px}
+.cc-native-health-detail{padding:8px 0}
+.cc-native-health-proof,.cc-native-health-raw{margin:14px 0;border-top:1px solid var(--cc-border,#ffffff25);padding-top:6px}
+.cc-native-health-proof>summary,.cc-native-health-raw>summary{font-size:14px;font-weight:600}
+.cc-native-health-detail code{font-size:12px;white-space:normal;overflow-wrap:anywhere}
+.cc-native-health-sources ul{padding-left:20px;line-height:1.7;overflow-wrap:anywhere}
+.cc-native-health-raw pre{box-sizing:border-box;max-width:100%;max-height:min(60dvh,520px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;border:1px solid var(--cc-border,#ffffff25);border-radius:10px;background:var(--cc-surface-2,#ffffff08);font-size:12px;line-height:1.6}
+.cc-native-health-consent :focus-visible,.cc-native-health-controls :focus-visible,.cc-native-health-detail :focus-visible{outline:3px solid var(--cc-pink,#ae78ff);outline-offset:3px}
+@media(max-width:480px){.cc-native-health-actions>button{flex:1 1 100%}.cc-native-health-connections>li{padding:12px}.cc-native-health-type-results>li{display:grid;justify-content:start}.cc-native-health-consent .cc-account-gate{padding-inline:16px}}
