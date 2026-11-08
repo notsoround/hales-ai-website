@@ -81,7 +81,7 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
     catch { setError('The browser could not clear this draft. Try again.'); }
   };
   const keepDraft = () => {
-    if (latest === undefined || !window.confirm('Keep your meal and grocery edits for a new save over the latest version? Review both sections first. Other saved plan fields will be preserved.')) return;
+    if (latest === undefined || !window.confirm('Keep your meal and grocery edits for a new save over the latest version? Review both sections first.')) return;
     const rebased = rebasePlanDraft(base, draft, latest);
     try { storage.setItem(PLAN_DRAFT_KEY, JSON.stringify({ base: latest, draft: rebased, pending: null })); setBase(latest); setDraft(rebased); setPending(null); setLatest(undefined); setNotice('Draft kept against the latest version. Review it, then explicitly save.'); setError(''); }
     catch { setError('The browser could not keep this draft. Try again.'); }
@@ -105,11 +105,11 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
             <label>Meal {index + 1} planned calories (optional)<input type="number" inputMode="decimal" min={0} max={20000} step="any" placeholder="Unknown" value={meal.kcal} onChange={event => edit({ ...draft, meals: draft.meals.map((item, at) => at === index ? { ...item, kcal: event.target.value } : item) })}/></label>
           </article>)}
           <button type="button" className="cc-secondary" disabled={draft.meals.length >= 10} onClick={() => edit({ ...draft, meals: [...draft.meals, { original: null, name: '', items: '', kcal: '' }] })}>Add planned meal</button>
-          <p className="cc-muted cc-small">Up to 10 meals. Optional calories are owner-entered reference values; unknown stays blank. Existing plan notes and other saved fields are preserved.</p>
+          <p className="cc-muted cc-small">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
         </> : <>
           <label>Grocery notes<textarea rows={10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
           {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={onPlan}>Create your meal plan first</button></p>}
-          <p className="cc-muted cc-small">This is your account’s saved grocery text. Store alerts, purchases and private legacy grocery lists are separate.</p>
+          <p className="cc-muted cc-small">Keep the items, quantities and shopping notes you need here. Nothing is ordered.</p>
         </>}
       </fieldset>
       {dirty && validation && !pending && <p className="cc-muted cc-small">{validation}</p>}

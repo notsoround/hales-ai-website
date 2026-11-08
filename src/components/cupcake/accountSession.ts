@@ -71,6 +71,8 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (response.status === 409 && result?.error === 'persona_conflict') throw new AccountRequestError('Your assistant preferences changed elsewhere.', 'persona_conflict');
     if (response.status === 409 && result?.error === 'plan_conflict') throw new AccountRequestError('Your saved meal plan changed elsewhere. Your draft is kept; reload the saved version before saving.', 'plan_conflict');
     if (response.status === 503 && result?.error === 'health_intake_not_ready') throw new AccountRequestError('Apple Health connections are not available for this account yet. No upload has been confirmed.', 'health_intake_not_ready');
+    if (response.status === 503 && result?.error === 'export_not_ready') throw new AccountRequestError('Your data download is not available yet. Try again later.', 'export_not_ready');
+    if (response.status === 413 && result?.error === 'export_too_large') throw new AccountRequestError('Your data exceeds the current download limit. No partial file was created.', 'export_too_large');
     const invitationErrors: Record<string,string> = {
       invitation_unavailable:'This invitation is unavailable. It may have expired, been revoked or already been accepted.',
       invitation_conflict:'A pending invitation already exists, or this request changed. Check your invitations before trying again.',
@@ -139,7 +141,7 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '
   + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save feed_get '
   + 'receipt_list receipt_get receipt_confirm_match reconcile_list reconcile_resolve reconcile_settings '
-  + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel').split(' '));
+  + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export').split(' '));
 export async function accountData<T>(body: Record<string, unknown>): Promise<T> {
   const snapshot = state;
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');

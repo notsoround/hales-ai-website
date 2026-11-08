@@ -101,6 +101,11 @@ window.fetch=async(input,init)=>{
   if(fixture.delay&&body.action==='fetch'&&body.id==='deferred-test')await new Promise<void>(resolve=>{fixture.release=resolve;});
   const identity=fixture.wrongEcho?(owner===A?B:A):owner;
   const ok=(value:object)=>response(200,{ok:true,...value,identity});
+  if(body.action==='account_self_export') {
+    const remote=(window as unknown as {syntheticExportServer?:(owner:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticExportServer;
+    if(!remote)throw Error('No synthetic export server');
+    const result=await remote(owner.account_id,body);return response(result.status,{...result.value,identity});
+  }
   if(typeof body.action==='string'&&body.action.startsWith('quick_chat_')) {
     const remote=(window as unknown as {syntheticQuickChatServer?:(owner:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticQuickChatServer;
     if(remote){const result=await remote(owner.account_id,body);return response(result.status,{...result.value,identity});}
