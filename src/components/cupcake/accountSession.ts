@@ -270,6 +270,10 @@ export async function accountSharing<T>(route:'relationships'|'grant'|'revoke',b
   if(!['relationships','grant','revoke'].includes(route))throw Error(ACCOUNT_UNAVAILABLE);
   return accountJSON<T>('sharing/'+route,body,state);
 }
+export async function accountNative<T = unknown>(route:'authorize'|'installations/list'|'installations/revoke', body:Record<string,unknown>):Promise<T> {
+  if (!['authorize','installations/list','installations/revoke'].includes(route)) throw Error(ACCOUNT_UNAVAILABLE);
+  return accountJSON<T>('native/' + route, body, state);
+}
 type HealthRoute = 'devices/create' | 'devices/list' | 'devices/revoke' | 'sync';
 const HEALTH_ROUTES = new Set<HealthRoute>(['devices/create','devices/list','devices/revoke','sync']);
 export async function accountHealth<T>(route: HealthRoute, body: Record<string, unknown>): Promise<T> {
