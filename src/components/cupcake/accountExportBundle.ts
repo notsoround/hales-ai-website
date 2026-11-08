@@ -12,14 +12,17 @@ const tables:Record<ExportSection,readonly string[]> = {
 };
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/, SHA = /^[a-f0-9]{64}$/;
 const storageKey = (owner:string) => 'cupcake-account-export-intent-v1:' + encodeURIComponent(owner);
-export type ExportIntent = {request_id:string;sections:ExportSection[]};
+export type ExportIntent = {request_id:string;sections:ExportSection[];include_originals?:true};
 type Chunk = {member:string;rowCount:number;bytes:number;sha256:string};
 type Source = {code:'library'|'recordings';source:string;status:'included'|'unavailable';consistentSnapshot:boolean;readAt:string|null};
-export type BundleCoverage = {scope:'owned-local-structured-data';consistentSnapshot:boolean;consistency:'per-database'|'single-database';sourceSnapshots:Source[];selectedSections:ExportSection[];
+export type BundleCoverage = {scope:'owned-local-structured-data'|'owned-local-structured-data-and-selected-originals';consistentSnapshot:boolean;consistency:'per-database'|'single-database';sourceSnapshots:Source[];selectedSections:ExportSection[];
   sections:Partial<Record<ExportSection,{status:'included'|'unavailable';reason?:string;tables:Record<string,{rowCount:number;columns:string[];jsonColumns:string[];chunks:Chunk[]}>}>>;
   excluded:{section:string;reason:string;note:string}[];notes:string[];noRowTruncation:true};
-export type BundleManifest = {format:'cupcake.account.structured-bundle.v1';generatedAt:string;accountId:string;completePrivacyExport:false;recordBytes:number;coverage:BundleCoverage};
-export type BundleStatus = {id:string;requestId:string;state:'building'|'ready'|'failed'|'expired';createdAt:string;expiresAt:string;selectedSections:ExportSection[];error:string|null;filename:string;mimeType:'application/zip';bytes:number|null;sha256:string|null;manifest:BundleManifest|null;ok:true};
+type OriginalKind = 'meal_photo'|'receipt_photo'|'recording_audio';
+type OriginalFile = {kind:OriginalKind;sourceId:string;member:string|null;mimeType:string|null;bytes:number|null;sha256:string|null;status:'included'|'unavailable';reason?:string};
+type OriginalCoverage = {requested:boolean;status:'included'|'partial'|'not_requested'|'unavailable';files:OriginalFile[];includedBytes:number;unavailableCount:number;sectionFailures:{section:'food'|'finance'|'recordings';reason:string}[]};
+export type BundleManifest = {format:'cupcake.account.structured-bundle.v1';generatedAt:string;accountId:string;completePrivacyExport:false;recordBytes:number;coverage:BundleCoverage;originals?:OriginalCoverage};
+export type BundleStatus = {id:string;requestId:string;state:'building'|'ready'|'failed'|'expired';createdAt:string;expiresAt:string;selectedSections:ExportSection[];includeOriginals?:boolean;error:string|null;filename:string;mimeType:'application/zip';bytes:number|null;sha256:string|null;manifest:BundleManifest|null;ok:true};
 const validSections = (value:unknown):value is ExportSection[] => Array.isArray(value) && value.length > 0 && value.length <= exportSectionCodes.length && new Set(value).size === value.length && value.every(code => exportSectionCodes.includes(code));
 const sameSections = (a:ExportSection[],b:ExportSection[]) => a.length === b.length && a.every(section => b.includes(section));
 const plain = (value:unknown):value is Record<string,unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -32,6 +35,7 @@ export function verifyBundleStatus(input:unknown, owner:string, intent:ExportInt
   if (!plain(job) || job.ok !== true || job.id !== intent.request_id || job.requestId !== intent.request_id || !UUID.test(job.id)
       || !['building','ready','failed','expired'].includes(job.state) || !instant(job.createdAt) || !instant(job.expiresAt)
       || !validSections(job.selectedSections) || !sameSections(job.selectedSections,intent.sections)
+      || (job.includeOriginals !== undefined && typeof job.includeOriginals !== 'boolean') || (job.includeOriginals === true) !== (intent.include_originals === true)
       || job.filename !== 'cupcake-structured-data-' + intent.request_id + '.zip' || job.mimeType !== 'application/zip'
       || (job.error !== null && typeof job.error !== 'string')) throw invalid();
   if (job.state !== 'ready') {
@@ -42,11 +46,11 @@ export function verifyBundleStatus(input:unknown, owner:string, intent:ExportInt
   const manifest = job.manifest;
   if (!plain(manifest) || manifest.format !== 'cupcake.account.structured-bundle.v1' || manifest.accountId !== owner || manifest.completePrivacyExport !== false || !instant(manifest.generatedAt) || !count(manifest.recordBytes) || manifest.recordBytes > 512 * 1024 * 1024) throw invalid();
   const coverage = manifest.coverage;
-  if (!plain(coverage) || coverage.scope !== 'owned-local-structured-data' || coverage.noRowTruncation !== true || !validSections(coverage.selectedSections)
+  if (!plain(coverage) || coverage.scope !== (intent.include_originals ? 'owned-local-structured-data-and-selected-originals' : 'owned-local-structured-data') || coverage.noRowTruncation !== true || !validSections(coverage.selectedSections)
       || !sameSections(coverage.selectedSections,intent.sections) || !plain(coverage.sections) || Object.keys(coverage.sections).length !== intent.sections.length
       || Object.keys(coverage.sections).some(section => !intent.sections.includes(section as ExportSection))
       || !Array.isArray(coverage.excluded) || !coverage.excluded.every(entry => plain(entry) && typeof entry.section === 'string' && typeof entry.reason === 'string' && typeof entry.note === 'string')
-      || !['binary_originals','external_sources','auxiliary_history','authentication_and_operations','other_accounts_and_shared_reports'].every(code => coverage.excluded.some(entry => entry.section === code))
+      || !['external_sources','auxiliary_history','authentication_and_operations','other_accounts_and_shared_reports',...(intent.include_originals ? [] : ['binary_originals'])].every(code => coverage.excluded.some(entry => entry.section === code))
       || !Array.isArray(coverage.notes) || coverage.notes.some(note => typeof note !== 'string')) throw invalid();
   const multi = intent.sections.includes('recordings'), snapshots = coverage.sourceSnapshots;
   if (coverage.consistentSnapshot !== !multi || coverage.consistency !== (multi ? 'per-database' : 'single-database') || !Array.isArray(snapshots) || snapshots.length !== (multi ? 2 : 1)
@@ -72,6 +76,37 @@ export function verifyBundleStatus(input:unknown, owner:string, intent:ExportInt
     }
   }
   if (members.size >= 2048 || rawBytes !== manifest.recordBytes) throw invalid();
+  if (intent.include_originals) {
+    const originals = manifest.originals;
+    if (!plain(originals) || originals.requested !== true || !['included','partial','unavailable'].includes(originals.status)
+        || !Array.isArray(originals.files) || !Array.isArray(originals.sectionFailures) || !count(originals.includedBytes) || !count(originals.unavailableCount)) throw invalid();
+    const kindSection:Record<OriginalKind,ExportSection> = {meal_photo:'food',receipt_photo:'finance',recording_audio:'recordings'};
+    const originalMembers = new Map<string,OriginalFile>(), references = new Set<string>();let unavailable = originals.sectionFailures.length;
+    const failedSections = new Set<string>();
+    for (const failure of originals.sectionFailures) {
+      if (!plain(failure) || !['food','finance','recordings'].includes(failure.section) || !intent.sections.includes(failure.section)
+          || typeof failure.reason !== 'string' || !failure.reason || failedSections.has(failure.section)) throw invalid();
+      failedSections.add(failure.section);
+    }
+    for (const original of originals.files) {
+      if (!plain(original) || !Object.prototype.hasOwnProperty.call(kindSection,original.kind) || !intent.sections.includes(kindSection[original.kind])
+          || typeof original.sourceId !== 'string' || !original.sourceId || original.sourceId.length > 1024 || references.has(original.kind + ':' + original.sourceId)) throw invalid();
+      references.add(original.kind + ':' + original.sourceId);
+      if (original.status === 'unavailable') {
+        if (original.member !== null || original.bytes !== null || original.sha256 !== null || (original.mimeType !== null && typeof original.mimeType !== 'string') || typeof original.reason !== 'string' || !original.reason) throw invalid();
+        unavailable++;continue;
+      }
+      if (original.status !== 'included' || typeof original.member !== 'string' || !new RegExp('^originals/' + original.kind + '/[a-f0-9]{64}\\.(jpg|png|webp|audio)$').test(original.member)
+          || (original.kind === 'recording_audio' ? original.mimeType !== null && (typeof original.mimeType !== 'string' || !original.mimeType) : !['image/jpeg','image/png','image/webp'].includes(original.mimeType || ''))
+          || !count(original.bytes) || !original.bytes || typeof original.sha256 !== 'string' || !SHA.test(original.sha256) || members.has(original.member)) throw invalid();
+      const previous = originalMembers.get(original.member);
+      if (previous && (previous.bytes !== original.bytes || previous.sha256 !== original.sha256 || previous.mimeType !== original.mimeType || previous.kind !== original.kind)) throw invalid();
+      originalMembers.set(original.member,original);
+    }
+    const includedBytes = [...originalMembers.values()].reduce((sum,file) => sum + file.bytes!,0);
+    const expectedStatus = unavailable ? originalMembers.size ? 'partial' : 'unavailable' : 'included';
+    if (unavailable !== originals.unavailableCount || includedBytes !== originals.includedBytes || originals.status !== expectedStatus || includedBytes + rawBytes > 512 * 1024 * 1024 || members.size + originalMembers.size >= 2048) throw invalid();
+  } else if (manifest.originals?.requested === true) throw invalid();
   return job;
 }
 
@@ -89,7 +124,7 @@ function pause(milliseconds:number,signal:AbortSignal) {
   });
 }
 
-export function useAccountExportBundle(onRecoverSections:(sections:ExportSection[])=>void) {
+export function useAccountExportBundle(onRecoverSections:(sections:ExportSection[])=>void,onRecoverOriginals:(include:boolean)=>void) {
   const session = useSyncExternalStore(subscribeSession,sessionSnapshot), owner = session.identity?.account_id, generation = session.generation;
   const [intent,setIntent] = useState<ExportIntent|null>(null), [job,setJob] = useState<BundleStatus|null>(null);
   const [phase,setPhase] = useState<'idle'|'preparing'|'checking'|'waiting'|'downloading'>('idle');
@@ -102,7 +137,7 @@ export function useAccountExportBundle(onRecoverSections:(sections:ExportSection
     const active = () => {assertGeneration(snapshot.generation);if (operation.current !== token || current.signal.aborted) throw new DOMException('Cancelled.','AbortError');};
     setPhase(prepare?'preparing':'checking');setJob(null);setError('');setNotice('');setUnavailable(false);
     try {
-      let value = await accountExport<unknown>(prepare?'prepare':'status',prepare?{request_id:candidate.request_id,sections:candidate.sections}:{request_id:candidate.request_id},snapshot,current.signal);
+      let value = await accountExport<unknown>(prepare?'prepare':'status',prepare?candidate:{request_id:candidate.request_id},snapshot,current.signal);
       const deadline = Date.now() + 70000;let delay = 1000;
       while (true) {
         active();const verified = verifyBundleStatus(value,snapshot.identity.account_id,candidate);setJob(verified);
@@ -120,25 +155,26 @@ export function useAccountExportBundle(onRecoverSections:(sections:ExportSection
   },[]);
   useEffect(() => {
     cancel();saved.current = null;setIntent(null);setJob(null);setPhase('idle');setError('');setNotice('');setUnavailable(false);
+    onRecoverOriginals(false);
     if (owner) {
       try {
         const raw = sessionStorage.getItem(storageKey(owner));if (raw && raw.length <= 4096) {
           const candidate = JSON.parse(raw) as ExportIntent;
-          if (!plain(candidate) || Object.keys(candidate).sort().join(',') !== 'request_id,sections' || !UUID.test(candidate.request_id) || !validSections(candidate.sections)) throw invalid();
-          saved.current = candidate;setIntent(candidate);onRecoverSections(candidate.sections);void run(candidate);
+          if (!plain(candidate) || !['request_id,sections','include_originals,request_id,sections'].includes(Object.keys(candidate).sort().join(',')) || (candidate.include_originals !== undefined && candidate.include_originals !== true) || !UUID.test(candidate.request_id) || !validSections(candidate.sections)) throw invalid();
+          saved.current = candidate;setIntent(candidate);onRecoverSections(candidate.sections);onRecoverOriginals(candidate.include_originals === true);void run(candidate);
         }
       } catch {setError('The saved preparation request could not be read. You can prepare a new download.');}
     }
     return cancel;
-  },[owner,generation,onRecoverSections,run,cancel]);
+  },[owner,generation,onRecoverSections,onRecoverOriginals,run,cancel]);
   const clear = () => {
     cancel();persist(null,sessionSnapshot());saved.current = null;
     setIntent(null);setJob(null);setPhase('idle');setError('');setNotice('');setUnavailable(false);
   };
-  const start = async (sections:ExportSection[]) => {
+  const start = async (sections:ExportSection[],includeOriginals=false) => {
     if (flight.current || saved.current) return;
     const snapshot = sessionSnapshot();if (!snapshot.identity) return;
-    const candidate = {request_id:crypto.randomUUID(),sections:[...sections]};persist(candidate,snapshot);
+    const candidate:ExportIntent = {request_id:crypto.randomUUID(),sections:[...sections],...(includeOriginals ? {include_originals:true} : {})};persist(candidate,snapshot);
     saved.current = candidate;setIntent(candidate);setJob(null);await run(candidate,true);
   };
   const download = async () => {

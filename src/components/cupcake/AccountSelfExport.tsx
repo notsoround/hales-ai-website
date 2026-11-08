@@ -38,7 +38,8 @@ function verifiedExport(result: Result, accountId: string, requested: Section[])
 
 export function AccountSelfExport() {
   const [selected, setSelected] = useState<Section[]>(sectionCodes);
-  const bundle = useAccountExportBundle(setSelected);
+  const [includeOriginals, setIncludeOriginals] = useState(false);
+  const bundle = useAccountExportBundle(setSelected,setIncludeOriginals);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const picker = useRef<HTMLDetailsElement>(null);
@@ -55,6 +56,11 @@ export function AccountSelfExport() {
     if (bundle.intent) bundle.clear();
     setSelected(sectionCodes.filter(section => next.includes(section))); setPrepared(null); setError(''); setNotice('');
   };
+  const chooseOriginals = (include:boolean) => {
+    if (inFlight.current || locked) return;
+    if (bundle.intent) bundle.clear();
+    setIncludeOriginals(include);setPrepared(null);setError('');setNotice('');
+  };
   const prepare = async () => {
     if (inFlight.current || locked || !selected.length) return;
     const session = sessionSnapshot();
@@ -64,6 +70,7 @@ export function AccountSelfExport() {
     const current = new AbortController();requestAbort.current?.abort();requestAbort.current = current;
     try {
       if (bundle.intent) bundle.clear();
+      if (includeOriginals) {await bundle.start(requested,true);return;}
       const result = await accountData<Result>({ action: 'account_self_export', sections: requested },current.signal);
       assertGeneration(session.generation);
       if (!mounted.current) return;
@@ -87,6 +94,7 @@ export function AccountSelfExport() {
     } catch (cause) { setPrepared(null); setError(cause instanceof Error ? cause.message : 'The download could not start. Try again.'); }
   };
   const file = prepared?.file || (bundle.job?.state === 'ready' ? bundle.job.manifest : null);
+  const originals = bundle.job?.state === 'ready' ? bundle.job.manifest?.originals : undefined;
   const coverage = file?.coverage;
   const failedMessage = bundle.job?.error && ['export_raw_limit','export_zip_limit','export_record_too_large','export_resource_limit'].includes(bundle.job.error)
     ? 'These records exceed the current ZIP preparation allowance. No partial ZIP is available.'
@@ -94,13 +102,15 @@ export function AccountSelfExport() {
   return <section className="cc-account-controls" aria-label="Download your data">
     <h3>Download your data</h3>
     <p>Copy supported records saved in your account. Larger histories are automatically prepared as a ZIP with all selected supported records. Review the coverage before downloading.</p>
-    <p className="cc-muted cc-small">This covers part of your data. Connected services and original files are outside this download. Keep the file private.</p>
+    <p className="cc-muted cc-small">This covers part of your data. You can include saved originals below. Connected-service copies and other excluded data remain outside this download. Keep the file private.</p>
     <details className="cc-export-picker" ref={picker}><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
       <fieldset disabled={locked} className="cc-export-sections"><legend>Include these records</legend>
         <div className="cc-export-choices"><button type="button" className="cc-text-button" onClick={() => choose(sectionCodes)}>Select all</button><button type="button" className="cc-text-button" onClick={() => choose([])}>Clear selection</button></div>
         {sectionCodes.map(section => <label className="cc-account-check" key={section}><input type="checkbox" checked={selected.includes(section)} onChange={event => choose(event.target.checked ? [...selected, section] : selected.filter(current => current !== section))}/>{sections[section]}</label>)}
       </fieldset>
     </details>
+    <label className="cc-account-check"><input type="checkbox" checked={includeOriginals} disabled={locked} onChange={event => chooseOriginals(event.target.checked)}/>Include original photos and audio</label>
+    <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download.</p>
     <p className="cc-muted cc-small">{selected.length ? 'You can include every supported section in one preparation.' : 'Choose at least one section to prepare your download.'}</p>
     <button type="button" className="cc-secondary" disabled={locked || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : bundle.terminal ? 'Prepare a new download' : 'Prepare my download'}</button>
     {(error || bundle.error) && <p role="alert">{error || bundle.error}</p>}
@@ -116,7 +126,15 @@ export function AccountSelfExport() {
     </div>}
     {file && coverage && <div>
       <p role="status">{prepared ? 'Your file is ready.' : 'Your ZIP is ready.'} Prepared {new Date(file.generatedAt).toLocaleString()}.</p>
-      {!prepared && bundle.job && <p className="cc-muted cc-small">The ZIP contains structured record files and a coverage manifest. It expires {new Date(bundle.job.expiresAt).toLocaleString()}. Original files and connected-service copies are excluded.</p>}
+      {!prepared && bundle.job && <p className="cc-muted cc-small">The ZIP contains structured record files{originals?.requested ? ', verified saved originals' : ''} and a coverage manifest. It expires {new Date(bundle.job.expiresAt).toLocaleString()}. {originals?.requested ? 'Connected-service copies remain excluded.' : 'Original files and connected-service copies are excluded.'}</p>}
+      {originals?.requested && <div>
+        <p role="status"><strong>Original files:</strong> {originals.files.filter(file => file.status === 'included').length.toLocaleString()} included{originals.unavailableCount ? ` · ${originals.unavailableCount.toLocaleString()} unavailable` : ''}.</p>
+        <p className="cc-muted cc-small">Files were verified while preparing this ZIP, separately from the saved-record snapshots.{originals.unavailableCount ? ' This ZIP does not contain every requested original.' : ''}</p>
+        {originals.unavailableCount > 0 && <details><summary>Unavailable originals</summary><ul>
+          {originals.sectionFailures.map(failure => <li key={failure.section}>{sections[failure.section]}: originals could not be read for this section.</li>)}
+          {originals.files.filter(file => file.status === 'unavailable').map(file => <li key={file.kind + ':' + file.sourceId}>{file.kind === 'meal_photo' ? 'Meal photo' : file.kind === 'receipt_photo' ? 'Receipt photo' : 'Recording audio'}: the saved original could not be verified. Its reference is retained in the manifest.</li>)}
+        </ul></details>}
+      </div>}
       {coverage.consistentSnapshot === false && <div className="cc-export-consistency">
         <p className="cc-muted cc-small">Each available saved store was read consistently; the Library and recording archive may reflect slightly different moments.</p>
         <ul aria-label="Saved store read times">{coverage.sourceSnapshots?.map(source => <li key={source.code}>{source.source}: {source.status === 'included' ? `read ${new Date(source.readAt!).toLocaleString()}` : 'Unavailable for this account'}</li>)}</ul>
