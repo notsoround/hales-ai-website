@@ -1,0 +1,16 @@
+.cc-account-photo { display: grid; gap: 1rem; min-width: 0; }
+.cc-account-photo h3,.cc-account-photo h4 { font-weight: 700; font-size: 1.1rem; }
+.cc-account-photo label { display: grid; gap: .5rem; }
+.cc-account-photo textarea { width: 100%; min-width: 0; border: 1px solid var(--cc-border); border-radius: 1rem; background: var(--cc-surface); color: inherit; padding: .8rem; font-size: 16px; }
+.cc-account-photo .cc-account-photo-option { display: flex; align-items: flex-start; gap: .6rem; }
+.cc-account-photo-option input { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--cc-pink,#ae78ff); flex: 0 0 auto; }
+.cc-account-photo-progress { display: grid; gap: .8rem; }
+.cc-account-photo-progress img { max-width: 100%; width: 13rem; max-height: 13rem; object-fit: cover; border-radius: 1rem; }
+.cc-account-photo details button { display: flex; text-align: left; margin-top: .7rem; }
+@media(max-width:480px) { .cc-account-photo .cc-snap-actions { display: grid; grid-template-columns: 1fr; } .cc-account-photo .cc-snap-actions button { width: 100%; white-space: normal; } }
+
+.cc-account-photo button { min-height: 44px; }
+.cc-account-photo :is(button,textarea,input):focus-visible { outline: 2px solid var(--cc-pink,#ae78ff); outline-offset: 3px; }
+
+.cc-account-photo-adjustments > div { display: grid; gap: .8rem; padding-top: 1rem; }
+.cc-account-photo summary { cursor: pointer; padding: .5rem 0; min-height: 44px; }

@@ -24,8 +24,8 @@ async function open(entry) {
 async function snapshot(page) { return page.evaluate(() => ({ requests: window.mediaFixture.requests, blocked: window.mediaFixture.blocked, mediaRequests: window.mediaFixture.mediaRequests, inputClicks: window.mediaFixture.inputClicks })); }
 try {
   const { context, page } = await open('/cupcake/account');
-  await page.getByText('Food photo analysis unavailable', { exact: true }).waitFor();
-  assert.equal(await page.locator('input[type=file]').count(), 0);
+  await page.getByRole('heading', { name: 'Log a food photo', exact: true }).waitFor();
+  assert.equal(await page.locator('input[type=file]').count(), 2);
   assert.equal(await page.getByRole('button', { name: /Take photo|Choose existing photo|Add food photo/ }).count(), 0);
   await page.locator('.cc-nutrition-timeline-item button').filter({ hasText: 'Synthetic saved lunch' }).click();
   const saved = page.getByRole('dialog');
@@ -59,7 +59,7 @@ try {
   assert.ok(account.requests.some(request => request.action === 'receipt_get' && request.includeImage));
   assert.ok(account.requests.some(request => request.action === 'receipt_confirm_match'));
   await context.close();
-  console.log('PASS: account Food/Receipts show limits before capture; saved meals/photos/receipts and confirmation transport remain available');
+  console.log('PASS: account photo capture is explicit and does not use legacy paid actions; receipt limits, saved originals and confirmation transport remain available');
 
   const legacy = await open('/cupcake');
   await legacy.page.getByText('Log a food photo', { exact: true }).click();
