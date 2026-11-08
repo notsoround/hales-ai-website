@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccountRequestError, accountData, assertGeneration, sessionSnapshot, subscribeSession } from './accountSession';
 import { saveFile } from './library';
-import { exportSectionCodes, useAccountExportBundle, validExportSources, type ExportSection, type ExportSourceSnapshot } from './accountExportBundle';
+import { exportSectionCodes, useAccountExportBundle, validExportSources, validNativeHealthRows, type ExportSection, type ExportSourceSnapshot } from './accountExportBundle';
 import { AccountOriginalDownloads } from './AccountOriginalDownloads';
 
 const sections = {
@@ -11,6 +11,7 @@ const sections = {
   recordings: 'Saved recordings and transcripts', voice: 'Saved voice conversations',
   sharing: 'Invitations and sharing',
   source_history: 'Saved source-event history',
+  native_health: 'Android health history',
 } as const;
 type Section = ExportSection;
 const sectionCodes = [...exportSectionCodes];
@@ -20,7 +21,7 @@ type Coverage = { scope: 'owned-local-structured-data'; consistentSnapshot: bool
 type ExportFile = { format: 'cupcake.account.local-export.v1' | 'cupcake.account.local-export.v2' | 'cupcake.account.local-export.v3'; generatedAt: string; accountId: string; completePrivacyExport: false; coverage: Coverage; data: Record<string, Record<string, Record<string, unknown>[]>> };
 type Result = { export: ExportFile; filename: string; mimeType: string };
 type Prepared = { file: ExportFile; filename: string; generation: number };
-function verifiedExport(result: Result, accountId: string, requested: Section[]): Prepared['file'] {
+async function verifiedExport(result: Result, accountId: string, requested: Section[]): Promise<Prepared['file']> {
   const file = result.export;
   if (!file || !['cupcake.account.local-export.v1', 'cupcake.account.local-export.v2', 'cupcake.account.local-export.v3'].includes(file.format) || file.accountId !== accountId || file.completePrivacyExport !== false || !Number.isFinite(Date.parse(file.generatedAt)) || result.mimeType !== 'application/json' || !/^cupcake-local-data-[A-Za-z0-9_-]+\.json$/.test(result.filename) || file.coverage?.scope !== 'owned-local-structured-data' || !Array.isArray(file.coverage.selectedSections) || !Array.isArray(file.coverage.excluded) || !Array.isArray(file.coverage.notes) || !file.data || typeof file.data !== 'object') throw Error('The download could not be verified. No file was created. Try again.');
   if (file.format === 'cupcake.account.local-export.v1') {
@@ -32,7 +33,7 @@ function verifiedExport(result: Result, accountId: string, requested: Section[])
   if (selected.length !== requested.length || new Set(selected).size !== selected.length || selected.some(section => !requested.includes(section)) || Object.keys(file.coverage.sections || {}).some(section => !requested.includes(section as Section)) || Object.keys(file.data).some(section => !requested.includes(section as Section))) throw Error('The download coverage does not match your selection. No file was created.');
   for (const section of selected) {
     const entry = file.coverage.sections?.[section];
-    if (!entry || !['included', 'unavailable'].includes(entry.status) || !entry.tables || typeof entry.tables !== 'object' || Object.values(entry.tables).some(table => !Number.isSafeInteger(table.rowCount) || table.rowCount < 0)) throw Error('The download coverage could not be verified. No file was created.');
+    if (!entry || !['included', 'unavailable'].includes(entry.status) || !entry.tables || typeof entry.tables !== 'object' || Array.isArray(entry.tables) || Object.values(entry.tables).some(table => !Number.isSafeInteger(table.rowCount) || table.rowCount < 0)) throw Error('The download coverage could not be verified. No file was created.');
     if (section === 'source_history') {
       const data = file.data[section], tables = ['source_event_receipts','source_event_versions','source_event_heads','source_event_indexed'];
       if (entry.status === 'unavailable' ? Object.keys(entry.tables).length !== 0 || data !== undefined
@@ -40,6 +41,9 @@ function verifiedExport(result: Result, accountId: string, requested: Section[])
           || tables.some(table => !entry.tables[table] || !Array.isArray(data[table]) || data[table].length !== entry.tables[table].rowCount)
           || Object.keys(data).some(table => !tables.includes(table))) throw Error('The download coverage could not be verified. No file was created.');
     }
+    if (section === 'native_health' && (entry.status === 'unavailable'
+      ? typeof entry.reason !== 'string' || !entry.reason.trim() || Object.keys(entry.tables).length !== 0 || file.data[section] !== undefined
+      : !await validNativeHealthRows(entry.tables,file.data[section]))) throw Error('The Android health download could not be verified. No file was created.');
   }
   return file;
 }
@@ -82,7 +86,9 @@ export function AccountSelfExport() {
       const result = await accountData<Result>({ action: 'account_self_export', sections: requested },current.signal);
       assertGeneration(session.generation);
       if (!mounted.current) return;
-      const file = verifiedExport(result, session.identity.account_id, requested);
+      const file = await verifiedExport(result, session.identity.account_id, requested);
+      assertGeneration(session.generation);
+      if (!mounted.current || current.signal.aborted) return;
       setPrepared({ file, filename: result.filename, generation: session.generation });
     } catch (cause) { if (mounted.current && sessionSnapshot().generation === session.generation && !current.signal.aborted) {
       if (cause instanceof AccountRequestError && cause.code === 'export_too_large') {
@@ -111,7 +117,6 @@ export function AccountSelfExport() {
     <h3>Download your data</h3>
     <p>Copy supported records saved in your account. Larger histories are automatically prepared as a ZIP with all selected supported records. Review the coverage before downloading.</p>
     <p className="cc-muted cc-small">This covers part of your data. You can include saved originals below. Connected-service copies and other excluded data remain outside this download. Keep the file private.</p>
-    <p className="cc-muted cc-small">Android preview health batches are not included in this download yet. View their saved originals in Settings → Account &amp; security → Android app connections → Android health uploads.</p>
     <details className="cc-export-picker" ref={picker}><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
       <fieldset disabled={locked} className="cc-export-sections"><legend>Include these records</legend>
         <div className="cc-export-choices"><button type="button" className="cc-text-button" onClick={() => choose(sectionCodes)}>Select all</button><button type="button" className="cc-text-button" onClick={() => choose([])}>Clear selection</button></div>
@@ -120,6 +125,7 @@ export function AccountSelfExport() {
     </details>
     {selected.includes('sharing') && <p className="cc-muted cc-small">Invitations and sharing includes your connection and permission history, including expired or revoked permissions. Shared report contents and other people’s health records are excluded.</p>}
     {selected.includes('source_history') && <p className="cc-muted cc-small">Saved source-event history includes retained original event versions. Other sources and connected-service copies remain excluded.</p>}
+    {selected.includes('native_health') && <p className="cc-muted cc-small">Android health history includes saved original upload bytes and record versions as verified byte chunks. Source, estimate and requested-window labels stay intact. This does not include every health metric or your complete history.</p>}
     <label className="cc-account-check"><input type="checkbox" checked={includeOriginals} disabled={locked} onChange={event => chooseOriginals(event.target.checked)}/>Include original photos and audio</label>
     <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download. For large audio collections, use Download originals individually below.</p>
     <p className="cc-muted cc-small">{selected.length ? 'You can include every supported section in one preparation.' : 'Choose at least one section to prepare your download.'}</p>

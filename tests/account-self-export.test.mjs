@@ -4,13 +4,14 @@ import { homedir, tmpdir } from 'node:os';
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createServer } from 'vite';
+import { emptyNativeData, nativeMetadata } from './native-health-export-fixture.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || path.join(homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));
 const cacheDir = mkdtempSync(path.join(tmpdir(), 'cupcake-self-export-'));
 const server = await createServer({ cacheDir, plugins: [{ name: 'synthetic-self-export-root', configureServer(server) { server.middlewares.use((req, _res, next) => { if (req.url?.split('?')[0] === '/cupcake/account') req.url = '/tests/account-browser-preview.html'; next(); }); } }], define: { 'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS': '"true"' }, server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), realpathSync('node_modules')] } } });
 await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing','source_history'];
+const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing','source_history','native_health'];
 let mode = 'normal', release = () => {}, requests = [];
 function result(owner, selected = sectionCodes) {
   const sections = Object.fromEntries(selected.map(section => [section, { status: section === 'finance' ? 'unavailable' : 'included', ...(section === 'finance' ? { reason: 'owned_schema_unavailable' } : {}), tables: section === 'food' ? { saved_meals: { rowCount: 1, columns: ['description', 'total'], jsonColumns: ['total'] } } : {} }]));
@@ -20,6 +21,7 @@ function result(owner, selected = sectionCodes) {
     sections.source_history.tables = Object.fromEntries(sourceTables.map(table => [table, { rowCount: 0, columns: ['id'], jsonColumns: [] }]));
     data.source_history = Object.fromEntries(sourceTables.map(table => [table, []]));
   }
+  if (selected.includes('native_health')) { data.native_health = emptyNativeData(); sections.native_health.tables = nativeMetadata(data.native_health); }
   const omitted = sectionCodes.filter(section => !selected.includes(section)).map(section => ({ section, reason: 'not_selected', note: 'This supported section was not selected.' }));
   return { export: { format: selected.includes('source_history') ? 'cupcake.account.local-export.v3' : selected.includes('recordings') ? 'cupcake.account.local-export.v2' : 'cupcake.account.local-export.v1', generatedAt: '2026-11-08T00:00:00Z', accountId: owner, completePrivacyExport: false, coverage: { scope: 'owned-local-structured-data', consistentSnapshot: !selected.includes('recordings') && !selected.includes('source_history'), ...(selected.includes('recordings') || selected.includes('source_history') ? { consistency: 'per-database', sourceSnapshots: [{ code: 'library', source: 'Saved account data', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:00Z' }, ...(selected.includes('recordings') ? [{ code: 'recordings', source: 'Saved recording archive', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:01Z' }] : []), ...(selected.includes('source_history') ? [{ code: 'source_events', source: 'Saved source-event journal', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:02Z' }] : [])] } : {}), selectedSections: selected, sections, excluded: [{ section: 'binary_originals', reason: 'not_in_json_export', note: 'Original photos, audio and files are not included.' }, { section: 'authentication_and_operations', reason: 'excluded_credentials_and_operational_data', note: 'Passwords, access credentials and service operations are not included.' }, ...omitted], notes: ['Synthetic allowlisted local records only.'] }, data }, filename: 'cupcake-local-data-20261108T000000Z.json', mimeType: 'application/json' };
 }
@@ -143,6 +145,7 @@ try {
   await exportUI(v).getByRole('checkbox', { name: 'Saved recordings and transcripts', exact: true }).uncheck();
   await exportUI(v).getByRole('checkbox', { name: 'Invitations and sharing', exact: true }).uncheck();
   await exportUI(v).getByRole('checkbox', { name: 'Saved source-event history', exact: true }).uncheck();
+  await exportUI(v).getByRole('checkbox', { name: 'Android health history', exact: true }).uncheck();
   await prepare(v); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
   const legacyEvent = v.waitForEvent('download'); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).click();
   const legacyFile = JSON.parse(readFileSync(await (await legacyEvent).path(), 'utf8'));

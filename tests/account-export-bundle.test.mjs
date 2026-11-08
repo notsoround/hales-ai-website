@@ -6,6 +6,7 @@ import { homedir, tmpdir } from 'node:os';
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createServer } from 'vite';
+import { nativeColumns, emptyNativeData, nativeMetadata } from './native-health-export-fixture.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||path.join(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));
 const cacheDir=mkdtempSync(path.join(tmpdir(),'cupcake-export-bundle-browser-'));
@@ -13,7 +14,7 @@ const server=await createServer({cacheDir,plugins:[{name:'synthetic-bundle-root'
 await server.listen();const base=`http://127.0.0.1:${server.httpServer.address().port}`;
 const browser=await chromium.launch({headless:true});
 const A='acc_synthetic_a',B='acc_synthetic_b';
-const tableNames={profile:['accounts'],health:['weight_batches','weight_versions','weight_clients','weight_adjustments','weight_manual_requests','health_manual_observations','body_checkins'],activity:['personal_outcomes','exercise_entries'],food:['food_meals','food_items','food_nutrition_settings'],plans:['coach_plan'],phone:['phone_daily_uploads','phone_daily_heads','ringconn_night_snapshots','ringconn_night_heads'],apple_health:['health_device_grants','health_auto_export_batches','health_auto_export_points'],chat:['quick_chat_threads','quick_chat_turns','quick_chat_attempts'],preferences:['account_personas'],finance:['receipts','receipt_candidate_sets','receipt_matches','recon_events','recon_links','recon_coverage'],library:['documents','overlays','analyses','decisions','projects'],recordings:['recordings','account_audio_transcription_requests','documents'],voice:['account_voice_sessions','documents'],sharing:['coach_invitations','coach_memberships','coach_grants','coach_membership_grants'],source_history:['source_event_receipts','source_event_versions','source_event_heads','source_event_indexed']};
+const tableNames={profile:['accounts'],health:['weight_batches','weight_versions','weight_clients','weight_adjustments','weight_manual_requests','health_manual_observations','body_checkins'],activity:['personal_outcomes','exercise_entries'],food:['food_meals','food_items','food_nutrition_settings'],plans:['coach_plan'],phone:['phone_daily_uploads','phone_daily_heads','ringconn_night_snapshots','ringconn_night_heads'],apple_health:['health_device_grants','health_auto_export_batches','health_auto_export_points'],chat:['quick_chat_threads','quick_chat_turns','quick_chat_attempts'],preferences:['account_personas'],finance:['receipts','receipt_candidate_sets','receipt_matches','recon_events','recon_links','recon_coverage'],library:['documents','overlays','analyses','decisions','projects'],recordings:['recordings','account_audio_transcription_requests','documents'],voice:['account_voice_sessions','documents'],sharing:['coach_invitations','coach_memberships','coach_grants','coach_membership_grants'],source_history:['source_event_receipts','source_event_versions','source_event_heads','source_event_indexed'],native_health:Object.keys(nativeColumns)};
 const sections=Object.keys(tableNames),calls=[],jobs=new Map();let mode='normal',release;
 const python=`import base64,hashlib,io,json,sys,zipfile
 p=json.loads(sys.argv[1]);output={}
@@ -23,7 +24,7 @@ for owner,with_originals in [(owner,option) for owner in p['owners'] for option 
   for section,tables in p['tables'].items():
    coverage[section]={'status':'included','tables':{}}
    for table in tables:
-    chunks=[];rows=0;columns=['id'];json_columns=[]
+    chunks=[];rows=0;columns=p['native_columns'].get(table,['id']);json_columns=['types_json'] if table=='native_health_connections' else ['receipt'] if table=='native_health_batches' else []
     if table=='food_meals':
      columns=['id','body'];json_columns=['body'];lines=[];size=0
      for index in range(20137):
@@ -46,16 +47,16 @@ for owner,with_originals in [(owner,option) for owner in p['owners'] for option 
   z.writestr('manifest.json',json.dumps(manifest,separators=(',',':')))
  data=raw.getvalue();output[owner+(':originals' if with_originals else '')]={'manifest':manifest,'base64':base64.b64encode(data).decode(),'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data)}
 print(json.dumps(output))`;
-const archives=JSON.parse(execFileSync('python3',['-c',python,JSON.stringify({owners:[A,B],tables:tableNames})],{maxBuffer:4*1024*1024}).toString());
+const archives=JSON.parse(execFileSync('python3',['-c',python,JSON.stringify({owners:[A,B],tables:tableNames,native_columns:nativeColumns})],{maxBuffer:4*1024*1024}).toString());
 for(const archive of Object.values(archives)){archive.data=Buffer.from(archive.base64,'base64');assert.equal(archive.sha256,createHash('sha256').update(archive.data).digest('hex'));assert.ok(archive.manifest.recordBytes>8*1024*1024);}
 const archiveFor=(owner,originals=false)=>archives[owner+(originals?':originals':'')];
 function status(owner,id,state='ready') {
  const originals=jobs.get(owner+':'+id)?.originals===true,archive=archiveFor(owner,originals);return {ok:true,id,requestId:id,state,createdAt:'2026-11-08T12:00:00Z',expiresAt:new Date(Date.now()+3600000).toISOString(),selectedSections:sections,...(originals?{includeOriginals:true}:{}),error:state==='expired'?'export_expired':state==='failed'?'export_raw_limit':null,filename:`cupcake-structured-data-${id}.zip`,mimeType:'application/zip',bytes:state==='ready'?archive.bytes:null,sha256:state==='ready'?archive.sha256:null,manifest:state==='ready'?structuredClone(archive.manifest):null};
 }
 function small(owner,chosen) {
- const coverage={scope:'owned-local-structured-data',consistentSnapshot:!chosen.includes('recordings')&&!chosen.includes('source_history'),selectedSections:chosen,sections:Object.fromEntries(chosen.map(section=>[section,{status:'included',tables:section==='source_history'?Object.fromEntries(tableNames.source_history.map(table=>[table,{rowCount:0,columns:['id'],jsonColumns:[]}])):{}}])),excluded:[],notes:[]};
+ const coverage={scope:'owned-local-structured-data',consistentSnapshot:!chosen.includes('recordings')&&!chosen.includes('source_history'),selectedSections:chosen,sections:Object.fromEntries(chosen.map(section=>[section,{status:'included',tables:section==='native_health'?nativeMetadata(emptyNativeData()):section==='source_history'?Object.fromEntries(tableNames.source_history.map(table=>[table,{rowCount:0,columns:['id'],jsonColumns:[]}])):{}}])),excluded:[],notes:[]};
  if(chosen.includes('recordings')||chosen.includes('source_history'))Object.assign(coverage,{consistency:'per-database',sourceSnapshots:archives[owner].manifest.coverage.sourceSnapshots});
- return {ok:true,export:{format:chosen.includes('source_history')?'cupcake.account.local-export.v3':chosen.includes('recordings')?'cupcake.account.local-export.v2':'cupcake.account.local-export.v1',generatedAt:'2026-11-08T12:00:00Z',accountId:owner,completePrivacyExport:false,coverage,data:Object.fromEntries(chosen.map(section=>[section,section==='source_history'?Object.fromEntries(tableNames.source_history.map(table=>[table,[]])):{}]))},filename:'cupcake-local-data-20261108T120000Z.json',mimeType:'application/json'};
+ return {ok:true,export:{format:chosen.includes('source_history')?'cupcake.account.local-export.v3':chosen.includes('recordings')?'cupcake.account.local-export.v2':'cupcake.account.local-export.v1',generatedAt:'2026-11-08T12:00:00Z',accountId:owner,completePrivacyExport:false,coverage,data:Object.fromEntries(chosen.map(section=>[section,section==='native_health'?emptyNativeData():section==='source_history'?Object.fromEntries(tableNames.source_history.map(table=>[table,[]])):{}]))},filename:'cupcake-local-data-20261108T120000Z.json',mimeType:'application/json'};
 }
 async function jsonServer(owner,body){calls.push({owner,route:'data',body});return mode==='small'?{status:200,value:small(owner,body.sections)}:{status:413,value:{ok:false,error:'export_too_large'}};}
 async function bundleServer(owner,route,body) {
@@ -124,7 +125,7 @@ try {
  const counts=JSON.parse(execFileSync('python3',['-c',"import json,sys,zipfile;z=zipfile.ZipFile(sys.argv[1]);m=json.loads(z.read('manifest.json'));t=m['coverage']['sections']['food']['tables']['food_meals'];rows=[json.loads(line) for c in t['chunks'] for line in z.read(c['member']).splitlines()];print(json.dumps({'count':len(rows),'last':rows[-1]['id'],'values':json.loads(rows[0]['body']),'owner':m['accountId']}))",await downloaded.path()]).toString());
  assert.equal(counts.count,20137);assert.equal(counts.last,'meal_00020136');assert.equal(counts.values.unknown,null);assert.equal(counts.values.known,0);assert.equal(counts.owner,A);
  for(const width of [320,1280]){await p.setViewportSize({width,height:900});const size=await ui(p).evaluate(el=>({width:el.scrollWidth,client:el.clientWidth,page:document.documentElement.scrollWidth,viewport:innerWidth}));assert.ok(size.width<=size.client);assert.ok(size.page<=size.viewport);}
- await safe(main);await main.context.close();console.log('PASS: JSON 413 automatically prepares all 15 sections; real20,137-record ZIP >8MiB raw, explicit verified download, exact counts/null/zero/hash and responsive coverage');
+ await safe(main);await main.context.close();console.log('PASS: JSON 413 automatically prepares all 16 sections; real20,137-record ZIP >8MiB raw, explicit verified download, exact counts/null/zero/hash and responsive coverage');
  for(const failure of ['wrongManifest','badMember','badCount','badConsistency']){mode=failure;const test=await open(),q=test.page;await login(q);await settings(q);await prepare(q);await ui(q).getByRole('alert').waitFor();assert.equal(await zip(q).count(),0);assert.equal(test.downloads.length,0);await safe(test);await test.context.close();}
  console.log('PASS: wrongowner, unsafe member paths, inconsistent counts and false cross-store consistency never expose a download');
  for(const failure of ['wrongBinaryOwner','wrongRequest','wrongSHA','badLength','corrupt','truncated']){mode='normal';const test=await open(),q=test.page;await login(q);await settings(q);await prepare(q);await zip(q).waitFor();mode=failure;await zip(q).click();await ui(q).getByRole('alert').waitFor();assert.equal(test.downloads.length,0);await safe(test);await test.context.close();}
