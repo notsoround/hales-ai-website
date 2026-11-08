@@ -49,10 +49,12 @@ function identity(value: unknown): AccountIdentity {
       || typeof row.email !== 'string' || typeof row.name !== 'string') throw Error('Cupcake did not confirm your account identity.');
   return Object.freeze({ account_id: row.account_id, email: row.email, name: row.name });
 }
-async function send<T>(route: string, body: Record<string, unknown> | undefined, generation: number, expectedAccount?: string): Promise<T> {
+async function send<T>(route: string, body: Record<string, unknown> | undefined, generation: number, expectedAccount?: string, signal?: AbortSignal): Promise<T> {
   if (!ACCOUNT_SESSIONS) throw Error('Account sign-in is disabled in this build.');
   assertGeneration(generation);
   const controller = new AbortController(); requests.add(controller);
+  const abort = () => controller.abort();
+  signal?.addEventListener('abort', abort, { once:true }); if (signal?.aborted) controller.abort();
   const timer = setTimeout(() => controller.abort(), 60000);
   try {
     const response = await fetch('https://automate.hales.ai/api/account/' + route, {
@@ -73,6 +75,10 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (response.status === 503 && result?.error === 'health_intake_not_ready') throw new AccountRequestError('Apple Health connections are not available for this account yet. No upload has been confirmed.', 'health_intake_not_ready');
     if (response.status === 503 && result?.error === 'export_not_ready') throw new AccountRequestError('Your data download is not available yet. Try again later.', 'export_not_ready');
     if (response.status === 413 && result?.error === 'export_too_large') throw new AccountRequestError('Your data exceeds the current download limit. No partial file was created.', 'export_too_large');
+    if (route.startsWith('exports/') && !response.ok && typeof result?.error === 'string') {
+      const messages: Record<string,string> = { export_not_found:'This saved preparation is unavailable for this sign-in. Start a new preparation when you are ready.', export_expired:'This prepared ZIP has expired. Start a new preparation.', export_owner_busy:'A download is already being prepared for your account. Check its saved status.', export_busy:'Download preparation is busy. Check status or try again later.', export_request_conflict:'This saved preparation no longer matches this sign-in or selection.', export_storage_limit:'Download preparation has reached its temporary storage limit. Try again later.', export_job_limit:'Several downloads were prepared recently. Try again after they expire.' };
+      throw new AccountRequestError(messages[result.error] || 'The ZIP request could not be confirmed. Check the saved status before starting another preparation.', result.error);
+    }
     if (route.startsWith('voice/') && !response.ok && typeof result?.error === 'string') throw new AccountRequestError('Your voice request could not be confirmed.', result.error);
     if (!response.ok && typeof result?.error === 'string' && (result.error.startsWith('recording_summary_') || result.error === 'account_recording_summary_not_ready')) throw new AccountRequestError('The saved transcript summary is unavailable. Your original and transcript are kept.', result.error);
     const photoErrors: Record<string, string> = {
@@ -104,7 +110,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       : result?.error === 'observation_conflict' ? 'That request ID already belongs to a saved original.'
       : 'Cupcake could not complete that request. Check your details and try again.');
     return result as T;
-  } finally { clearTimeout(timer); requests.delete(controller); }
+  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); requests.delete(controller); }
 }
 export async function restoreSession() {
   transition(null, '', true);
@@ -156,16 +162,16 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save feed_get '
   + 'receipt_list receipt_get receipt_confirm_match reconcile_list reconcile_resolve reconcile_settings '
   + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export food_photo_status food_photo_retry recording_summary_get recording_summary_begin').split(' '));
-export async function accountData<T>(body: Record<string, unknown>): Promise<T> {
+export async function accountData<T>(body: Record<string, unknown>, signal?:AbortSignal): Promise<T> {
   const snapshot = state;
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');
   if (typeof body.action !== 'string' || !DATA_ACTIONS.has(body.action)) throw Error(ACCOUNT_UNAVAILABLE);
-  return accountJSON<T>('data', body, snapshot);
+  return accountJSON<T>('data', body, snapshot, signal);
 }
-async function accountJSON<T>(route: string, body: Record<string, unknown>, snapshot: Session): Promise<T> {
+async function accountJSON<T>(route: string, body: Record<string, unknown>, snapshot: Session, signal?: AbortSignal): Promise<T> {
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');
   if (['owner_id','ownerId','accountId','account_id','role','actor','reportOwnerId','report_owner_id'].some(key => key in body)) throw Error('Request fields cannot choose an account.');
-  const result = await send<T & {identity:unknown}>(route, body, snapshot.generation, snapshot.identity.account_id);
+  const result = await send<T & {identity:unknown}>(route, body, snapshot.generation, snapshot.identity.account_id, signal);
   // The server compares this expectation to the cookie principal before any
   // read/write, then adds the authenticated identity last in its response.
   let verified: AccountIdentity;
@@ -187,6 +193,53 @@ export async function accountFoodPhoto<T>(body: Record<string, unknown>): Promis
 export async function accountVoice<T>(route: 'config'|'list'|'start'|'recover'|'status'|'end', body: Record<string, unknown>, snapshot = state): Promise<T> {
   if (!['config','list','start','recover','status','end'].includes(route)) throw Error(ACCOUNT_UNAVAILABLE);
   return accountJSON<T>('voice/' + route, body, snapshot);
+}
+
+/** Fixed export routes; no server-returned address is ever fetched. */
+export async function accountExport<T>(route:'prepare'|'status', body:Record<string,unknown>, snapshot = state, signal?:AbortSignal):Promise<T> {
+  if (!['prepare','status'].includes(route)) throw Error(ACCOUNT_UNAVAILABLE);
+  return accountJSON<T>('exports/' + route, body, snapshot, signal);
+}
+
+export async function accountExportDownload(requestId:string, expected:{bytes:number;sha256:string}, snapshot = state, signal?:AbortSignal):Promise<Blob> {
+  if (!ACCOUNT_SESSIONS || !snapshot.identity) throw Error('Sign in before downloading your data.');
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(requestId) || !Number.isSafeInteger(expected.bytes) || expected.bytes <= 0 || expected.bytes > 128 * 1024 * 1024 || !/^[a-f0-9]{64}$/.test(expected.sha256)) throw Error('The ZIP details could not be verified. No file was created.');
+  assertGeneration(snapshot.generation);
+  const controller = new AbortController(); requests.add(controller);
+  const abort = () => controller.abort(); signal?.addEventListener('abort', abort, {once:true}); if (signal?.aborted) controller.abort();
+  const timer = setTimeout(abort, 120000);
+  try {
+    const response = await fetch('https://automate.hales.ai/api/account/exports/download', {method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,
+      headers:{'Content-Type':'application/json','X-Cupcake-Request':'account','X-Cupcake-Account-Context':snapshot.identity.account_id},body:JSON.stringify({request_id:requestId})});
+    assertGeneration(snapshot.generation);
+    if (!response.ok) {
+      const failure = await response.json().catch(() => null); assertGeneration(snapshot.generation);
+      if (response.status === 401 || (response.status === 409 && failure?.error === 'account_context_changed')) invalidateSession('Your session expired or changed. Sign in again.');
+      throw new AccountRequestError('The ZIP is unavailable or this sign-in has expired. Check its status before downloading again.', typeof failure?.error === 'string' ? failure.error : 'export_download_unavailable');
+    }
+    if (response.headers.get('X-Cupcake-Account-Context') !== snapshot.identity.account_id || response.headers.get('X-Cupcake-Export-Request') !== requestId
+        || response.headers.get('X-Cupcake-Export-SHA256') !== expected.sha256 || response.headers.get('Content-Type')?.split(';')[0].trim() !== 'application/zip'
+        || !/^\d+$/.test(response.headers.get('Content-Length') || '') || Number(response.headers.get('Content-Length')) !== expected.bytes || !response.body) throw Error('The ZIP response could not be verified. No file was created.');
+    let bytes:Uint8Array;
+    try {bytes = new Uint8Array(expected.bytes);} catch {throw Error('This browser could not hold the ZIP for verification. No file was created.');}
+    const reader = response.body.getReader(); let received = 0;
+    try {
+      while (true) {
+        const part = await reader.read(); assertGeneration(snapshot.generation);
+        if (signal?.aborted || controller.signal.aborted) throw new DOMException('Download cancelled.', 'AbortError');
+        if (part.done) break;
+        received += part.value.byteLength;
+        if (received > expected.bytes) throw Error('The ZIP size did not match. No file was created.');
+        bytes.set(part.value, received - part.value.byteLength);
+      }
+    } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+    if (received !== expected.bytes || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 3 || bytes[3] !== 4) throw Error('The ZIP was incomplete. No file was created. Check status and retry the download.');
+    const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), value => value.toString(16).padStart(2,'0')).join('');
+    assertGeneration(snapshot.generation);
+    if (signal?.aborted || controller.signal.aborted) throw new DOMException('Download cancelled.', 'AbortError');
+    if (digest !== expected.sha256) throw Error('The ZIP integrity check failed. No file was created. Check status and retry the download.');
+    return new Blob([bytes], {type:'application/zip'});
+  } finally { controller.abort(); clearTimeout(timer); signal?.removeEventListener('abort', abort); requests.delete(controller); }
 }
 
 type CoachRoute = 'grants/received' | 'grants/list' | 'grants/revoke' | 'report' | 'meal-list' | 'meal-photo-url' | 'workspace' | 'invitations/create' | 'invitations/list' | 'invitations/revoke';
