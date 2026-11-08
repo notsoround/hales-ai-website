@@ -28,6 +28,7 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
   const slots = []; let cursor = 0, pendingEffects = [], dirty = true, tree;
   const useMemo = (factory, deps) => { const i = cursor++; if (!slots[i] || !sameDeps(slots[i].deps, deps)) slots[i] = { value: factory(), deps }; return slots[i].value; };
   const hooks = {
+    useId() { const i = cursor++; if (!slots[i]) slots[i] = { value: `fixture-id-${i}` }; return slots[i].value; },
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, update => { const value = typeof update === 'function' ? update(slots[i].value) : update; if (!Object.is(value, slots[i].value)) { slots[i].value = value; dirty = true; } }]; },
     useRef(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: { current: initial } }; return slots[i].value; },
     useMemo,
@@ -40,6 +41,7 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
     location: { search: '', href: 'https://fixture.invalid/cupcake' }, history: { replaceState() {} },
     require(name) {
       if (name === 'react') return hooks;
+      if (name === './accountMode') return { ACCOUNT_SESSIONS: false };
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node, Fragment: 'fragment' };
       if (name === 'lucide-react') return new Proxy({}, { get: () => emptyComponent });
       if (name === './dashboardModel') return dashboardModel;
