@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const CUPCAKE_VIEWPORT = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+const CUPCAKE_VIEWPORT = 'width=device-width, initial-scale=1';
 
 /** Cupcake's phone viewport policy; restore the public site's policy on exit. */
 export function useCupcakeViewport() {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Download, ExternalLink, Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
 import { libraryRequest, saveFile, safeFilename, type Source } from './library';
+import { ACCOUNT_SESSIONS } from './accountMode';
 import { ReadAloudButton } from './ReadAloudButton';
 import './planning.css';
 
@@ -34,6 +35,7 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
   const [generating, setGenerating] = useState(false);
   const [savingDecision, setSavingDecision] = useState(false);
   const [error, setError] = useState('');
+  const [decisionsLoaded, setDecisionsLoaded] = useState(false);
   const [notice, setNotice] = useState('');
   const requestGeneration = useRef(0);
 
@@ -43,8 +45,22 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
 
   const refresh = useCallback(async (nextDate = date) => {
     const generation = ++requestGeneration.current;
-    setLoading(true); setError(''); setNotice(''); setCandidates(null); setSelectedIds([]); setCloseout(null);
+    setLoading(true); setError(''); setNotice(''); setCandidates(null); setSelectedIds([]); setCloseout(null); setDecisionsLoaded(false);
     try {
+      if (ACCOUNT_SESSIONS) {
+        const [saved, decisions] = await Promise.allSettled([
+          libraryRequest<{ analyses?: Closeout[]; closeouts?: Closeout[] }>({ action: 'analysis_list' }),
+          libraryRequest<{ decisions: Decision[] }>({ action: 'decision_list' }),
+        ]);
+        if (generation !== requestGeneration.current) return;
+        const failures: string[] = [];
+        if (saved.status === 'fulfilled') setSavedCloseouts((saved.value.closeouts || saved.value.analyses || []).filter(item => item.mode === 'closeout'));
+        else failures.push('Saved closeouts could not be loaded. ' + asError(saved.reason));
+        if (decisions.status === 'fulfilled') { setDecisions(decisions.value.decisions || []); setDecisionsLoaded(true); }
+        else failures.push('Saved decisions could not be loaded. ' + asError(decisions.reason));
+        setError(failures.join(' '));
+        return;
+      }
       const [preview, saved, decisionResponse] = await Promise.all([
         libraryRequest<{ candidates: Candidate[]; date: string; note?: string }>({ action: 'closeout_preview', date: nextDate }),
         libraryRequest<{ analyses?: Closeout[]; closeouts?: Closeout[] }>({ action: 'analysis_list', mode: 'closeout' }),
@@ -53,7 +69,7 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
       if (generation !== requestGeneration.current) return;
       setCandidates(preview.candidates || []);
       setSavedCloseouts((saved.closeouts || saved.analyses || []).filter(item => item.mode === 'closeout'));
-      setDecisions(decisionResponse.decisions || []);
+      setDecisions(decisionResponse.decisions || []); setDecisionsLoaded(true);
     } catch (e) {
       if (generation === requestGeneration.current) setError(asError(e));
     } finally { if (generation === requestGeneration.current) setLoading(false); }
@@ -70,7 +86,7 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
   }
 
   async function generateCloseout() {
-    if (!selectedIds.length || busy) return;
+    if (ACCOUNT_SESSIONS || !selectedIds.length || busy) return;
     setGenerating(true); setError(''); setNotice('');
     try {
       const response = await libraryRequest<{ closeout: Closeout }>({ action: 'closeout_generate', date, documentIds: selectedIds.slice(0, MAX_SOURCES) });
@@ -83,12 +99,12 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
   async function reloadCloseout(id: string) {
     if (busy) return;
     setLoading(true); setError('');
-    try { const response = await libraryRequest<{ analysis?: Closeout; closeout?: Closeout }>({ action: 'analysis_get', id, mode: 'closeout' }); setCloseout(response.closeout || response.analysis || null); }
+    try { const response = await libraryRequest<{ analysis?: Closeout; closeout?: Closeout }>({ action: 'analysis_get', id, ...(!ACCOUNT_SESSIONS ? { mode: 'closeout' } : {}) }); setCloseout(response.closeout || response.analysis || null); }
     catch (e) { setError(asError(e)); } finally { setLoading(false); }
   }
 
   async function saveDecision(status: DecisionStatus = 'open', existing?: Decision) {
-    const text = (existing?.text ?? decisionText).trim(); if (!text || busy) return;
+    const text = (existing?.text ?? decisionText).trim(); if (ACCOUNT_SESSIONS || !text || busy) return;
     setSavingDecision(true); setError(''); setNotice('');
     try {
       const response = await libraryRequest<{ decision: Decision }>({ action: 'decision_save', id: existing?.id, text, type: existing?.type || decisionType, status, sourceIds: existing?.sourceIds || decisionSources });
@@ -112,13 +128,13 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
 
   return <div className="cc-planning-workspace">
     <div className="cc-heading-row"><div><span className="cc-eyebrow">TODAY REVIEW</span><h2>Review your day.</h2></div><button className="cc-secondary" aria-label="Refresh today review" disabled={busy} onClick={() => void refresh()}><RefreshCw className={loading ? 'cc-spin' : ''} size={18} /></button></div>
-    <p className="cc-muted">Select the sources for this day, review each closeout stage, and record the decisions you want to keep.</p>
+    <p className="cc-muted">{ACCOUNT_SESSIONS ? 'Review saved closeouts and decisions from this account. New closeouts and decision changes are not available for account sign-in yet.' : 'Select the sources for this day, review each closeout stage, and record the decisions you want to keep.'}</p>
     {error && <div role="alert" className="cc-error">{error}<button onClick={() => setError('')} aria-label="Dismiss planning error"><X size={16} /></button></div>}
     {notice && <div className="cc-notice" role="status"><Check size={18} />{notice}<button onClick={() => setNotice('')} aria-label="Dismiss confirmation"><X size={16} /></button></div>}
 
-    <section className="cc-card cc-planning-card"><div className="cc-heading-row"><div><span className="cc-eyebrow">DAILY CLOSEOUT</span><h3>What happened on</h3></div><label className="cc-date-label"><span className="sr-only">Closeout date</span><input type="date" value={date} disabled={busy} onChange={event => changeDate(event.target.value)} /></label></div>
-      <p className="cc-muted cc-small">Candidates are matched by upload/import date. Meeting date is not used here.</p>
-      {loading && !candidates ? <p className="cc-thinking"><Loader2 className="cc-spin" size={17} />Finding conversations for this date…</p> : candidates?.length ? <>
+    <section className="cc-card cc-planning-card"><div className="cc-heading-row"><div><span className="cc-eyebrow">DAILY CLOSEOUT</span><h3>What happened on</h3></div><label className="cc-date-label"><span className="sr-only">Closeout date</span><input type="date" value={date} disabled={busy || ACCOUNT_SESSIONS} onChange={event => changeDate(event.target.value)} /></label></div>
+      <p className="cc-muted cc-small">{ACCOUNT_SESSIONS ? 'Selecting sources and generating a new daily closeout are not available for account sign-in yet. Saved closeouts remain available below.' : 'Candidates are matched by upload/import date. Meeting date is not used here.'}</p>
+      {ACCOUNT_SESSIONS ? null : loading && !candidates ? <p className="cc-thinking"><Loader2 className="cc-spin" size={17} />Finding conversations for this date…</p> : candidates?.length ? <>
         <div className="cc-planning-candidates">{candidates.map(candidate => { const chosen = selectedIds.includes(candidate.id); return <label className={`cc-planning-candidate ${chosen ? 'is-selected' : ''}`} key={candidate.id}><input type="checkbox" disabled={busy} checked={chosen} onChange={() => toggleSource(candidate.id, 'closeout')} /><span><strong>{candidate.title}</strong><small>{candidate.kind || 'Conversation'} · {new Date(candidate.createdAt).toLocaleString()}</small>{chosen && <em className="cc-selected-flag">Selected</em>}</span></label>; })}</div>
         <div className="cc-action-row"><span className="cc-muted cc-small">{selectedIds.length}/{MAX_SOURCES} selected</span><button type="button" className="cc-text-button" disabled={busy} onClick={() => setSelectedIds(candidates.slice(0, MAX_SOURCES).map(candidate => candidate.id))}>Select all from this day</button><button type="button" className="cc-text-button" disabled={busy || !selectedIds.length} onClick={() => setSelectedIds([])}>Clear</button><button className="cc-primary" disabled={!selectedIds.length || busy} onClick={() => void generateCloseout()}>{generating ? <Loader2 className="cc-spin" size={17} /> : <Sparkles size={17} />}Generate closeout</button></div>
       </> : <p className="cc-muted">No uploaded or imported conversations match this date. Choose another day or add a source first.</p>}
@@ -128,8 +144,8 @@ export default function PlanningWorkspace({ active, onWork }: { active: boolean;
 
     {savedCloseouts.length > 0 && <section className="cc-card"><div className="cc-heading-row"><h3>Saved closeouts</h3><span className="cc-muted cc-small">Reload a prior synthesis</span></div><div className="cc-planning-saved">{savedCloseouts.map(saved => <button key={saved.id || `${saved.date}-${saved.createdAt}`} disabled={busy} onClick={() => saved.id && void reloadCloseout(saved.id)}><strong>{saved.date}</strong><span>{saved.reply.slice(0, 100)}{saved.reply.length > 100 ? '…' : ''}</span></button>)}</div></section>}
 
-    <section className="cc-card cc-planning-decisions"><span className="cc-eyebrow">REVIEWED DECISIONS</span><h3>What are you carrying forward?</h3><p className="cc-muted">Cupcake will not turn suggestions into commitments. Write and review each item yourself.</p><label className="cc-label">Decision, commitment, question, or priority<textarea disabled={busy} value={decisionText} maxLength={2000} rows={3} onChange={event => setDecisionText(event.target.value)} placeholder="I will… / We decided… / I need to answer…" /></label><label className="cc-label">Decision type<select disabled={busy} aria-label="Decision type" value={decisionType} onChange={event => setDecisionType(event.target.value as DecisionType)}>{decisionTypes.map(type => <option key={type} value={type}>{type}</option>)}</select></label><div className="cc-action-row"><button className="cc-primary" disabled={!decisionText.trim() || busy} onClick={() => void saveDecision()}>{savingDecision ? <Loader2 className="cc-spin" size={17} /> : <Check size={17} />}Save decision</button></div>{candidates?.length ? <div className="cc-planning-source-picker"><span className="cc-muted cc-small">Link sources (optional)</span>{candidates.map(candidate => <label key={`decision-${candidate.id}`}><input type="checkbox" disabled={busy} checked={decisionSources.includes(candidate.id)} onChange={() => toggleSource(candidate.id, 'decision')} />{candidate.title}</label>)}</div> : null}
-      <div className="cc-planning-decision-list">{decisions.length ? decisions.map(decision => <article key={decision.id || decision.text}><div><span className="cc-kind">{decision.type} · {decision.status}</span><p>{decision.text}</p></div><div className="cc-action-row"><button className="cc-text-button" disabled={busy || decision.status === 'done'} onClick={() => void saveDecision('done', decision)}>Done</button><button className="cc-text-button" disabled={busy || decision.status === 'dismissed'} onClick={() => void saveDecision('dismissed', decision)}>Dismiss</button>{decision.status !== 'open' && <button className="cc-text-button" disabled={busy} onClick={() => void saveDecision('open', decision)}>Reopen</button>}</div></article>) : <p className="cc-muted">No saved decisions yet.</p>}</div>
+    <section className="cc-card cc-planning-decisions"><span className="cc-eyebrow">REVIEWED DECISIONS</span><h3>What are you carrying forward?</h3><p className="cc-muted">{ACCOUNT_SESSIONS ? 'Saved decisions are read-only for account sign-in. Creating, completing and dismissing decisions are not available yet.' : 'Cupcake will not turn suggestions into commitments. Write and review each item yourself.'}</p><label className="cc-label">Decision, commitment, question, or priority<textarea disabled={busy || ACCOUNT_SESSIONS} value={decisionText} maxLength={2000} rows={3} onChange={event => setDecisionText(event.target.value)} placeholder="I will… / We decided… / I need to answer…" /></label><label className="cc-label">Decision type<select disabled={busy || ACCOUNT_SESSIONS} aria-label="Decision type" value={decisionType} onChange={event => setDecisionType(event.target.value as DecisionType)}>{decisionTypes.map(type => <option key={type} value={type}>{type}</option>)}</select></label><div className="cc-action-row"><button className="cc-primary" disabled={ACCOUNT_SESSIONS || !decisionText.trim() || busy} onClick={() => void saveDecision()}>{savingDecision ? <Loader2 className="cc-spin" size={17} /> : <Check size={17} />}Save decision</button></div>{candidates?.length ? <div className="cc-planning-source-picker"><span className="cc-muted cc-small">Link sources (optional)</span>{candidates.map(candidate => <label key={`decision-${candidate.id}`}><input type="checkbox" disabled={busy} checked={decisionSources.includes(candidate.id)} onChange={() => toggleSource(candidate.id, 'decision')} />{candidate.title}</label>)}</div> : null}
+      <div className="cc-planning-decision-list">{decisions.length ? decisions.map(decision => <article key={decision.id || decision.text}><div><span className="cc-kind">{decision.type} · {decision.status}</span><p>{decision.text}</p></div><div className="cc-action-row"><button className="cc-text-button" disabled={ACCOUNT_SESSIONS || busy || decision.status === 'done'} onClick={() => void saveDecision('done', decision)}>Done</button><button className="cc-text-button" disabled={ACCOUNT_SESSIONS || busy || decision.status === 'dismissed'} onClick={() => void saveDecision('dismissed', decision)}>Dismiss</button>{decision.status !== 'open' && <button className="cc-text-button" disabled={ACCOUNT_SESSIONS || busy} onClick={() => void saveDecision('open', decision)}>Reopen</button>}</div></article>) : <p className="cc-muted">{loading ? 'Loading saved decisions…' : decisionsLoaded ? 'No saved decisions yet.' : 'Saved decisions could not be loaded. Refresh to try again.'}</p>}</div>
     </section>
   </div>;
 }
