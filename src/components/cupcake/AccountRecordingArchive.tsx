@@ -39,7 +39,7 @@ export default function AccountRecordingArchive({active, version, requested}: {a
   useEffect(() => { if (requested) void open(requested.id, 'play'); }, [requested, open]);
   function close() { stopAudio(); setUrl(''); setOpened(null); }
   return <section aria-label="Account audio archive" className="cc-fold">
-    <h3>Saved audio</h3><p className="cc-muted">Your latest 100 saved originals. Transcribe a complete clip up to three minutes, then summarize its saved transcript when available. Live voice is not included yet.</p>
+    <h3>Saved audio</h3><p className="cc-muted">Your latest 100 saved originals. Transcribe a complete clip up to ten minutes, then summarize its saved transcript when available. Live voice is not included yet.</p>
     <button className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Refresh saved audio</button>
     <p role="status" className="cc-muted">{message}</p>
     {rows.map(row => <article className="cc-card" key={`${row.id}:${row.originalSha256}`}><strong>{row.title}</strong><p className="cc-muted">{new Date(row.createdAt).toLocaleDateString()} · {(row.totalBytes / (1024 * 1024)).toFixed(1)} MiB · Original saved</p><div className="cc-action-row"><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'play')}>Listen to saved audio</button><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'download')}>Download saved original</button></div><AccountRecordingTranscription recording={row} active={active}/><AccountRecordingSummary recording={row} active={active} onListen={() => void open(row.id, 'play')}/></article>)}
