@@ -23,6 +23,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
   const currentMeal = meal?.id === mealId ? meal : null;
   const manual = currentMeal?.source === 'manual-entry' || !!currentMeal?.manualLoggedAt;
   const noPhoto = manual || currentMeal?.imageStored === false;
+  const logged = !!currentMeal && currentMeal.countedInTotals !== false && (!!currentMeal.sheetLoggedAt || (currentMeal.source === 'account-photo-estimate' && currentMeal.logDestination === 'account-local' && !!currentMeal.accountLoggedAt && currentMeal.logState === 'logged' && currentMeal.countedInTotals === true && !!currentMeal.consumedAt && Number.isFinite(Date.parse(currentMeal.consumedAt))));
   useEffect(() => {
     let current = true;
     setMeal(null); setError('');
@@ -57,7 +58,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
     </nav>
     {error ? <div role="alert"><p className="cc-error">{error}</p><button className="cc-secondary" onClick={() => setRetry(n => n + 1)}>Retry</button></div> : !currentMeal ? <p role="status">Loading saved meal…</p> : <>
       <h3>{currentMeal.description || 'Food photo'}</h3>
-      <p><strong>{currentMeal.consumedAt ? `Eaten ${mealTimeLabel(currentMeal.consumedAt)}` : historical?.date ? `Eaten ${dayLabel(historical.date)} · time not recorded` : 'Eaten time not recorded'}</strong><br/><small className="cc-muted">America/Chicago · {currentMeal.sheetLoggedAt ? 'In your food log' : 'Not in calorie totals yet'}</small></p>
+      <p><strong>{currentMeal.consumedAt ? `Eaten ${mealTimeLabel(currentMeal.consumedAt)}` : historical?.date ? `Eaten ${dayLabel(historical.date)} · time not recorded` : 'Eaten time not recorded'}</strong><br/><small className="cc-muted">America/Chicago · {logged ? 'In your food log' : 'Not in calorie totals yet'}</small></p>
       {currentMeal.photoTakenAt && currentMeal.photoTakenAt !== currentMeal.consumedAt && <p className="cc-muted cc-small">Photo file time: {mealTimeLabel(currentMeal.photoTakenAt)}</p>}
       <div className="cc-meal-macros">
         {[[manual ? 'Calories (entered)' : 'Est. calories', currentMeal.total?.calories, 'kcal'], ['Protein', currentMeal.total?.protein_g, 'g'], ['Total carbs', currentMeal.total?.carbs_g, 'g'], ['Sugar', currentMeal.total?.sugar_g, 'g'], ...(manual ? [['Fat', currentMeal.total?.fat_g, 'g'], ['Fiber', currentMeal.total?.fiber_g, 'g']] : [])].map(([label, value, unit]) => <div key={String(label)}><small>{label}</small><strong>{value == null ? 'Unknown' : `${Number(value).toLocaleString()} ${unit}`}</strong></div>)}
