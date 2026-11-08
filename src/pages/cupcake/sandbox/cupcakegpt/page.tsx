@@ -6,6 +6,7 @@ import { accountControl, type AccountIdentity } from '../../../../components/cup
 import { useAccountInstallMetadata } from '../../../../components/cupcake/accountInstall';
 import { AccountInstallInstructions } from '../../../../components/cupcake/AccountInstallInstructions';
 import { AccountAppleHealth } from '../../../../components/cupcake/AccountAppleHealth';
+import AccountHealthSyncCard from '../../../../components/cupcake/AccountHealthSyncCard';
 import { ACCOUNT_SESSIONS, ACCOUNT_UNAVAILABLE, CUPCAKE_ENTRY, privateFetch as fetch } from '../../../../components/cupcake/accountMode';
 import { personalStorage } from '../../../../components/cupcake/personalStorage';
 import {loadWeightPage,weightProvenanceLabel,type WeightRecord} from '../../../../components/cupcake/weightApi';
@@ -426,6 +427,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
     <SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{personalStorage('sessionStorage').setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
     <div className="cc-today-grid">
+    {ACCOUNT_SESSIONS&&<SectionBoundary label="Apple Health uploads"><AccountHealthSyncCard/></SectionBoundary>}
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
       {err?<div className="cc-signal-error"><p role="alert">{ACCOUNT_SESSIONS?ACCOUNT_UNAVAILABLE:'Cupcake couldn’t load your latest signals. Check your connection.'}</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text={ACCOUNT_SESSIONS?"No saved account entries returned for today. See coverage below for sources that are unavailable.":"Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."}/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}

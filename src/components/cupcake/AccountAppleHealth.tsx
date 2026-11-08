@@ -73,7 +73,7 @@ export function AccountAppleHealth() {
     finally { setBusy(false); }
   };
 
-  return <section className="cc-account-controls" aria-label="Apple Health connection">
+  return <section id="account-health-connection" tabIndex={-1} className="cc-account-controls" aria-label="Apple Health connection">
     <h3>Apple Health connection</h3>
     <p>Connect Health Auto Export with a separate upload credential for this account. Adding Matthieu to your Home Screen does not grant access to Apple Health.</p>
     <button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Check connection</button>
