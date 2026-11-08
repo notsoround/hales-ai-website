@@ -75,7 +75,7 @@
 .cc-app[data-appearance] :is(.cc-nutrition-gap,.cc-nutrition-settings,.cc-nutrition-meal-nav,.cc-nutrition-today-balance,.cc-nutrition-empty){border-color:var(--cc-border)}
 .cc-app[data-appearance] .cc-nutrition-settings input{background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}
 .cc-app[data-appearance] .cc-nutrition-settings form button{background:var(--cc-accent-wash);color:var(--cc-pink-bright);border-color:color-mix(in srgb,var(--cc-pink) 40%,var(--cc-border))}
-.cc-app[data-appearance] .cc-nutrition-macros span{background:var(--ds-food-tint);color:var(--ds-food-ink)}
+.cc-app[data-appearance] .cc-nutrition-macros>span{background:var(--ds-food-tint);color:var(--ds-food-ink)}
 .cc-app[data-appearance] :is(.cc-food-default,.cc-food-capture,.cc-food-result){background:var(--cc-surface-2);border-color:var(--cc-border)}
 .cc-app[data-appearance] :is(.cc-food-capture small,.cc-snap-recent-item small,.cc-snap-items small,.cc-meal-breakdown small){color:var(--cc-text-3)}
 .cc-app[data-appearance] :is(.cc-food-note,.cc-food-result input:not([type=checkbox])){background:var(--cc-surface-2);color:var(--cc-text);border-color:var(--cc-border)}

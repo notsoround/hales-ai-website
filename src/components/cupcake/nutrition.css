@@ -3,5 +3,20 @@
 /* Phone tap targets: 44px disclosure rows; inline text links keep their line height but get a 44px hit area. */
 @media(max-width:600px){.cc-nutrition-method summary{min-height:44px;display:flex;align-items:center}.cc-nutrition-inline{position:relative}.cc-nutrition-inline::after{content:'';position:absolute;inset:-10px -4px}}
 
-.cc-nutrition-macros { display:flex; gap:8px; margin-top:8px; }
-.cc-nutrition-macros span { padding:4px 10px; background:rgba(251,207,232,0.1); border-radius:8px; font-size:13px; font-weight:600; color:#ffc5df; }
+.cc-nutrition-macros { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; min-width:0; }
+.cc-nutrition-macros>span { display:grid; gap:4px; min-width:0; padding:8px 10px; background:var(--cc-accent-wash,#ffffff0a); border-radius:8px; font-size:13px; color:var(--cc-text,#f5eef4); overflow-wrap:anywhere; }
+.cc-app .cc-nutrition-macros>span>b { font-size:12px; font-weight:550; color:var(--cc-text-2,#c4bed1); }
+.cc-nutrition-macros>span>span { font-size:14px; }
+.cc-nutrition-macros>span>small { font-size:12px; }
+.cc-nutrition-view-options{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.cc-nutrition-view-options button{padding:10px 14px;border:1px solid var(--cc-border,#ffffff25);border-radius:12px;background:transparent;color:var(--cc-text-2,#c4bed1);font-size:14px}
+.cc-nutrition-view-options button[aria-pressed=true]{background:var(--cc-accent-wash,#ffffff0a);border-color:var(--cc-pink-bright,#efbbd1);color:var(--cc-text,#f5eef4)}
+.cc-nutrition-day-list{display:grid;gap:8px}
+.cc-nutrition-day-list button{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 18px;align-items:center;gap:10px;min-width:0;min-height:76px;padding:14px;border:1px solid var(--cc-border,#ffffff25);border-radius:14px;background:var(--cc-surface,#ffffff03);color:var(--cc-text,#f5eef4);text-align:left}
+.cc-nutrition-day-list button>span{display:grid;gap:5px;min-width:0;overflow-wrap:anywhere}
+.cc-nutrition-day-list button>span:nth-child(2){text-align:right}
+.cc-nutrition-day-list strong{font-size:16px;font-weight:600}
+.cc-nutrition-day-list small{font-size:13px;line-height:1.45;color:var(--cc-text-2,#c4bed1)}
+.cc-nutrition-day-list button.is-today{border-color:var(--cc-pink-bright,#efbbd1);background:var(--cc-accent-wash,#ffffff0a)}
+.cc-nutrition-day-list button:disabled{opacity:.65}
+@media(max-width:600px){.cc-nutrition-today-values{grid-template-columns:minmax(0,1fr)}.cc-nutrition-today-balance{padding:16px 0 0;border-left:0;border-top:1px solid var(--cc-border,#ffffff19)}.cc-nutrition-today-values span,.cc-nutrition-today-values small,.cc-nutrition-today .cc-nutrition-note{font-size:13px}.cc-nutrition-today .cc-nutrition-link{font-size:13px!important}.cc-nutrition-last strong{font-size:14px}.cc-nutrition-last small{font-size:12px}.cc-nutrition-overview{grid-template-columns:minmax(0,1fr)}.cc-nutrition-overview>div+div{border-left:0;border-top:1px solid var(--cc-border,#ffffff15)}.cc-nutrition-overview>div>span,.cc-nutrition-overview p,.cc-nutrition-overview small{font-size:13px}.cc-nutrition-coverage{font-size:12px}.cc-nutrition-meal-time,.cc-nutrition-meal-name small,.cc-nutrition-gap{font-size:12px}.cc-nutrition-settings label,.cc-nutrition-settings>small{font-size:13px}.cc-nutrition-workspace .cc-nutrition-primary{font-size:13px!important}}
