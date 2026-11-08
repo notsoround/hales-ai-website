@@ -119,6 +119,8 @@
 .cc-app .cc-timeline li.cc-tl-is-glucose { --tone: var(--ds-glucose); } .cc-app .cc-timeline li.cc-tl-is-sleep { --tone: var(--ds-sleep); } .cc-app .cc-timeline li.cc-tl-is-phone { --tone: var(--ds-summary); }
 .cc-app .cc-timeline li.cc-tl-is-body { --tone: var(--ds-body); }
 .cc-app .cc-timeline li.cc-tl-is-exercise { --tone: var(--ds-exercise); }
+.cc-app .cc-timeline-entries { max-height: 20rem; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
+.cc-app .cc-timeline-entries:focus-visible { outline-offset: -3px; border-radius: 10px; }
 .cc-app .cc-timeline-all { width: 100%; margin-top: 12px; min-height: 44px; }
 @media (max-width: 600px) {
   .cc-app .cc-saves, .cc-app .cc-quote { padding: 18px; border-radius: 22px; }

@@ -1,6 +1,6 @@
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { feedRequest } from './feedApi';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, CreditCard, Droplet, Dumbbell, Moon, Phone, PhoneMissed, Quote, Scale, Smartphone, Utensils } from 'lucide-react';
 import type { DashboardOutcome } from './dashboardModel';
 import { nutritionDays, nutritionDay } from './nutritionModel';
@@ -78,13 +78,16 @@ function QuoteCard({ moment, onTalkAbout }: { moment: QuoteMoment; onTalkAbout: 
 
 const TONE_ICON: Record<Tone, typeof Phone> = { call: Phone, missed: PhoneMissed, spend: CreditCard, food: Utensils, body: Scale, glucose: Droplet, sleep: Moon, phone: Smartphone, exercise: Dumbbell };
 
-export function Timeline({ items, onOpen, max = 8, onAll, formatClock }: { items: PulseItem[]; onOpen: (item: PulseItem, index: number) => void; max?: number; onAll: () => void; formatClock?: (item: PulseItem) => string }) {
-  const rows = items.slice(0, max).map((item, i) => { const row = timelineRow(item, i, items); const clock = formatClock?.(item); return clock ? { ...row, clock } : row; });
+export function Timeline({ items, onOpen, max = 3, onAll, formatClock }: { items: PulseItem[]; onOpen: (item: PulseItem, index: number) => void; max?: number; onAll: () => void; formatClock?: (item: PulseItem) => string }) {
+  const [expanded, setExpanded] = useState(false);
+  const entriesId = useId(), entriesRef = useRef<HTMLDivElement>(null);
+  const rows = (expanded ? items : items.slice(0, max)).map((item, i) => { const row = timelineRow(item, i, items); const clock = formatClock?.(item); return clock ? { ...row, clock } : row; });
   const groups: Array<{ date: string; rows: typeof rows }> = [];
   rows.forEach(r => { const g = groups[groups.length - 1]; if (g && g.date === r.item.date) g.rows.push(r); else groups.push({ date: r.item.date, rows: [r] }); });
   const fresh = freshness(items);
   return <div className="cc-timeline">
     {fresh.length > 0 && <p className="cc-freshness" aria-label="Latest from each source">{fresh.map(f => <span key={f.label}>{f.label} <b>{f.ago}</b></span>)}</p>}
+    <div ref={entriesRef} id={entriesId} className="cc-timeline-entries" role="region" aria-label="Recent signals" tabIndex={0}>
     {groups.map(g => <section key={g.date} className="cc-timeline-day" aria-label={dayHeading(g.date)}>
       <h4>{dayHeading(g.date)}</h4>
       <ol>{g.rows.map(r => { const Icon = TONE_ICON[r.tone]; return <li key={r.key} className={`cc-tl-is-${r.tone}`}><button type="button" onClick={() => onOpen(r.item, items.indexOf(r.item))} aria-label={`Open ${r.title}`}>
@@ -94,6 +97,8 @@ export function Timeline({ items, onOpen, max = 8, onAll, formatClock }: { items
         <span className="cc-tl-value">{r.outcome ? <OutcomeChip outcome={r.outcome} /> : r.value}</span>
       </button></li>; })}</ol>
     </section>)}
-    {items.length > max && <button type="button" className="cc-secondary cc-timeline-all" onClick={onAll}>See all {items.length} signals</button>}
+    </div>
+    {items.length > max && <button type="button" className="cc-secondary cc-timeline-all" aria-expanded={expanded} aria-controls={entriesId} onClick={() => { setExpanded(value => !value); if (entriesRef.current) entriesRef.current.scrollTop = 0; }}>{expanded ? `Show latest ${max}` : `Show all ${items.length} signals`}</button>}
+    {expanded && <button type="button" className="cc-text-button" onClick={onAll}>Open full history<ArrowRight size={16}/></button>}
   </div>;
 }
