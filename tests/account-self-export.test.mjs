@@ -102,14 +102,13 @@ try {
   console.log('PASS: explicit prepare/download in actual Settings, coverage/omissions, JSON export-only file with unknown/zero intact, no auto-fetch/download or legacy key');
   console.log('PASS: all selected by default; empty selection disabled; frozen subset request; changed selection clears prepared file; JSON/coverage match only chosen records');
 
-  for (const failure of ['oversized','notReady','wrongExportOwner','badCoverage','globalSnapshotClaim','missingSnapshot','duplicateSnapshot','badSnapshotTime','nullSnapshot','legacyWithRecordings']) {
+  for (const failure of ['notReady','wrongExportOwner','badCoverage','globalSnapshotClaim','missingSnapshot','duplicateSnapshot','badSnapshotTime','nullSnapshot','legacyWithRecordings']) {
     mode = failure; const test = await open(), q = test.page; await login(q, 'a'); await settings(q); await prepare(q); await exportUI(q).getByRole('alert').waitFor();
     assert.equal(await exportUI(q).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); assert.equal(test.downloads.length, 0);
-    if (failure === 'oversized') { await exportUI(q).getByText('Your data exceeds the current download limit. No partial file was created.', { exact: true }).waitFor(); assert.equal(await exportUI(q).locator('.cc-export-picker').evaluate(element => element.open), true); await exportUI(q).getByText('A section that exceeds the limit cannot be downloaded yet.', { exact: false }).waitFor(); }
     if (failure === 'notReady') await exportUI(q).getByText('Your data download is not available yet. Try again later.', { exact: true }).waitFor();
     await safe(q); assert.deepEqual(test.errors, []); await test.context.close();
   }
-  console.log('PASS: oversized/unavailable/mismatched-owner/malformed-coverage responses never create a download');
+  console.log('PASS: unavailable/mismatched-owner/malformed-coverage responses never create a download');
 
   mode = 'unselectedData'; const unexpected = await open(), u = unexpected.page; await login(u, 'a'); await settings(u);
   await exportUI(u).getByText('Choose sections · all selected', { exact: true }).click(); await exportUI(u).getByRole('button', { name: 'Clear selection', exact: true }).click(); await exportUI(u).getByRole('checkbox', { name: 'Account profile', exact: true }).check();

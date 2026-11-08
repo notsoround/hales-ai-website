@@ -92,6 +92,26 @@ window.fetch=async(input,init)=>{
   if(route==='recovery/redeem'){fixture.serverOwner(null);return response(200,{ok:true});}
   if(route.startsWith('sign-out')){if(fixture.failLogout)return response(503,{ok:false});fixture.serverOwner(null);return response(200,{ok:true});}
   const owner=current();if(!owner)return response(401,{ok:false,error:'unauthenticated'});
+  if(route.startsWith('exports/')) {
+    if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
+    const remote=(window as unknown as {syntheticExportBundleServer?:(owner:string,route:string,body:Record<string,unknown>)=>Promise<{status:number;value?:Record<string,unknown>;bytes?:number[];headers?:Record<string,string>;dropResponse?:boolean;delayBody?:boolean}>}).syntheticExportBundleServer;
+    if(!remote)return response(503,{ok:false,error:'account_export_not_ready'});
+    if(route==='exports/prepare') {
+      const intent=JSON.parse(sessionStorage.getItem('cupcake-account-export-intent-v1:'+encodeURIComponent(owner.account_id))||'null');
+      if(intent?.request_id!==body.request_id||JSON.stringify(intent?.sections)!==JSON.stringify(body.sections))throw Error('Export intent was not saved before preparation');
+    }
+    const result=await remote(owner.account_id,route,body);
+    if(result.dropResponse)throw TypeError('Synthetic preparation response lost after server commit');
+    if(result.bytes) {
+      const bytes=new Uint8Array(result.bytes);
+      if(result.delayBody) {
+        let delivered=false;
+        return new Response(new ReadableStream({async pull(stream){if(!delivered){stream.enqueue(bytes.slice(0,32));delivered=true;await new Promise(resolve=>setTimeout(resolve,500));}else{stream.enqueue(bytes.slice(32));stream.close();}}}),{status:result.status,headers:result.headers});
+      }
+      return new Response(bytes,{status:result.status,headers:result.headers});
+    }
+    return response(result.status,{...result.value,identity:fixture.wrongEcho?(owner===A?B:A):owner});
+  }
   if(route.startsWith('coach/')) {
     if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
     const remote=(window as unknown as {syntheticCoachServer?:(owner:string,route:string,body:Record<string,unknown>,query:string)=>Promise<{status:number;value?:Record<string,unknown>;bytes?:number[];echo?:string}>}).syntheticCoachServer;

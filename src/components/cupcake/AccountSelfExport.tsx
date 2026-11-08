@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccountRequestError, accountData, assertGeneration, sessionSnapshot } from './accountSession';
+import { AccountRequestError, accountData, assertGeneration, sessionSnapshot, subscribeSession } from './accountSession';
 import { saveFile } from './library';
+import { exportSectionCodes, useAccountExportBundle, type ExportSection } from './accountExportBundle';
 
 const sections = {
   profile: 'Account profile', health: 'Health records', activity: 'Activity', food: 'Meals and food settings',
@@ -8,8 +9,8 @@ const sections = {
   preferences: 'Assistant preferences', finance: 'Financial records', library: 'Library records',
   recordings: 'Saved recordings and transcripts', voice: 'Saved voice conversations',
 } as const;
-type Section = keyof typeof sections;
-const sectionCodes = Object.keys(sections) as Section[];
+type Section = ExportSection;
+const sectionCodes = [...exportSectionCodes];
 type SourceSnapshot = { code: 'library' | 'recordings'; source: string; status: 'included' | 'unavailable'; consistentSnapshot: boolean; readAt: string | null };
 type Coverage = { scope: 'owned-local-structured-data'; consistentSnapshot: boolean; consistency?: 'per-database'; sourceSnapshots?: SourceSnapshot[]; selectedSections: Section[];
   sections: Partial<Record<Section, { status: 'included' | 'unavailable'; reason?: string; tables: Record<string, { rowCount: number; columns: string[]; jsonColumns: string[] }> }>>;
@@ -37,33 +38,44 @@ function verifiedExport(result: Result, accountId: string, requested: Section[])
 
 export function AccountSelfExport() {
   const [selected, setSelected] = useState<Section[]>(sectionCodes);
+  const bundle = useAccountExportBundle(setSelected);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
-  const [tooLarge, setTooLarge] = useState(false);
   const picker = useRef<HTMLDetailsElement>(null);
-  const mounted = useRef(true), inFlight = useRef(false);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const mounted = useRef(true), inFlight = useRef(false), requestAbort = useRef<AbortController|null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    const stop = subscribeSession(() => {requestAbort.current?.abort();inFlight.current = false;setPrepared(null);setBusy(false);setError('');setNotice('');});
+    return () => { mounted.current = false;requestAbort.current?.abort();stop(); };
+  }, []);
+  const pending = !!bundle.intent && !bundle.terminal && bundle.job?.state !== 'ready';
+  const locked = busy || bundle.busy || pending;
   const choose = (next: Section[]) => {
-    if (inFlight.current) return;
-    setSelected(sectionCodes.filter(section => next.includes(section))); setPrepared(null); setError(''); setNotice(''); setTooLarge(false);
+    if (inFlight.current || locked) return;
+    if (bundle.intent) bundle.clear();
+    setSelected(sectionCodes.filter(section => next.includes(section))); setPrepared(null); setError(''); setNotice('');
   };
   const prepare = async () => {
-    if (inFlight.current || !selected.length) return;
+    if (inFlight.current || locked || !selected.length) return;
     const session = sessionSnapshot();
     if (!session.identity) return;
     const requested = [...selected];
-    inFlight.current = true; setBusy(true); setPrepared(null); setError(''); setNotice(''); setTooLarge(false);
+    inFlight.current = true; setBusy(true); setPrepared(null); setError(''); setNotice('');
+    const current = new AbortController();requestAbort.current?.abort();requestAbort.current = current;
     try {
-      const result = await accountData<Result>({ action: 'account_self_export', sections: requested });
+      if (bundle.intent) bundle.clear();
+      const result = await accountData<Result>({ action: 'account_self_export', sections: requested },current.signal);
       assertGeneration(session.generation);
       if (!mounted.current) return;
       const file = verifiedExport(result, session.identity.account_id, requested);
       setPrepared({ file, filename: result.filename, generation: session.generation });
-    } catch (cause) { if (mounted.current) {
-      setError(cause instanceof Error ? cause.message : 'The download could not be prepared. Try again.');
-      if (cause instanceof AccountRequestError && cause.code === 'export_too_large') { setTooLarge(true); if (picker.current) picker.current.open = true; }
+    } catch (cause) { if (mounted.current && sessionSnapshot().generation === session.generation && !current.signal.aborted) {
+      if (cause instanceof AccountRequestError && cause.code === 'export_too_large') {
+        try { await bundle.start(requested); }
+        catch (failure) {if (mounted.current && sessionSnapshot().generation === session.generation) setError(failure instanceof Error ? failure.message : 'The ZIP could not be prepared. Check its saved status.');}
+      } else setError(cause instanceof Error ? cause.message : 'The download could not be prepared. Try again.');
     } }
-    finally { inFlight.current = false; if (mounted.current) setBusy(false); }
+    finally { if (requestAbort.current === current) {inFlight.current = false; if (mounted.current) setBusy(false);} }
   };
   const download = () => {
     if (!prepared) return;
@@ -74,34 +86,48 @@ export function AccountSelfExport() {
       setPrepared(null); setNotice('Download requested. Check your browser’s downloads.');
     } catch (cause) { setPrepared(null); setError(cause instanceof Error ? cause.message : 'The download could not start. Try again.'); }
   };
+  const file = prepared?.file || (bundle.job?.state === 'ready' ? bundle.job.manifest : null);
+  const coverage = file?.coverage;
+  const failedMessage = bundle.job?.error && ['export_raw_limit','export_zip_limit','export_record_too_large','export_resource_limit'].includes(bundle.job.error)
+    ? 'These records exceed the current ZIP preparation allowance. No partial ZIP is available.'
+    : 'This ZIP could not be prepared. No partial ZIP is available. You can prepare a new download.';
   return <section className="cc-account-controls" aria-label="Download your data">
     <h3>Download your data</h3>
-    <p>Make a JSON copy of supported records saved in your account. Review its coverage before downloading.</p>
+    <p>Copy supported records saved in your account. Larger histories are automatically prepared as a ZIP with all selected supported records. Review the coverage before downloading.</p>
     <p className="cc-muted cc-small">This covers part of your data. Connected services and original files are outside this download. Keep the file private.</p>
     <details className="cc-export-picker" ref={picker}><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
-      <fieldset disabled={busy} className="cc-export-sections"><legend>Include these records</legend>
+      <fieldset disabled={locked} className="cc-export-sections"><legend>Include these records</legend>
         <div className="cc-export-choices"><button type="button" className="cc-text-button" onClick={() => choose(sectionCodes)}>Select all</button><button type="button" className="cc-text-button" onClick={() => choose([])}>Clear selection</button></div>
         {sectionCodes.map(section => <label className="cc-account-check" key={section}><input type="checkbox" checked={selected.includes(section)} onChange={event => choose(event.target.checked ? [...selected, section] : selected.filter(current => current !== section))}/>{sections[section]}</label>)}
       </fieldset>
     </details>
-    <p className="cc-muted cc-small">{selected.length ? 'For a smaller file, choose fewer sections.' : 'Choose at least one section to prepare your download.'}</p>
-    <button type="button" className="cc-secondary" disabled={busy || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : 'Prepare my download'}</button>
-    {error && <p role="alert">{error}</p>}
-    {tooLarge && <p className="cc-muted cc-small">Choose fewer sections above and download them separately. A section that exceeds the limit cannot be downloaded yet.</p>}
+    <p className="cc-muted cc-small">{selected.length ? 'You can include every supported section in one preparation.' : 'Choose at least one section to prepare your download.'}</p>
+    <button type="button" className="cc-secondary" disabled={locked || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : bundle.terminal ? 'Prepare a new download' : 'Prepare my download'}</button>
+    {(error || bundle.error) && <p role="alert">{error || bundle.error}</p>}
     {notice && <p role="status">{notice}</p>}
-    {prepared && <div>
-      <p role="status">Your file is ready. Prepared {new Date(prepared.file.generatedAt).toLocaleString()}.</p>
-      {prepared.file.format === 'cupcake.account.local-export.v2' && <div className="cc-export-consistency">
+    {bundle.notice && <p role="status">{bundle.notice}</p>}
+    {bundle.intent && <div aria-busy={bundle.busy}>
+      {bundle.busy && <p role="status">{bundle.phase === 'downloading' ? 'Downloading and verifying your ZIP…' : bundle.phase === 'preparing' ? 'Preparing a ZIP for your selected records…' : 'Checking your saved ZIP preparation…'}</p>}
+      {!bundle.busy && bundle.job?.state === 'building' && <p role="status">Your ZIP is still being prepared. Check the saved status shortly.</p>}
+      {!bundle.busy && !bundle.job && !bundle.terminal && <p>Your browser remembers a preparation request. Check its status to recover it.</p>}
+      {bundle.job?.state === 'failed' && <p role="status">{failedMessage}</p>}
+      {bundle.job?.state === 'expired' && <p role="status">This prepared ZIP has expired. You can prepare a new download.</p>}
+      <button type="button" className="cc-text-button" disabled={bundle.busy || busy} onClick={() => void bundle.check()}>Check saved status</button>
+    </div>}
+    {file && coverage && <div>
+      <p role="status">{prepared ? 'Your file is ready.' : 'Your ZIP is ready.'} Prepared {new Date(file.generatedAt).toLocaleString()}.</p>
+      {!prepared && bundle.job && <p className="cc-muted cc-small">The ZIP contains structured record files and a coverage manifest. It expires {new Date(bundle.job.expiresAt).toLocaleString()}. Original files and connected-service copies are excluded.</p>}
+      {coverage.consistentSnapshot === false && <div className="cc-export-consistency">
         <p className="cc-muted cc-small">Each available saved store was read consistently; the Library and recording archive may reflect slightly different moments.</p>
-        <ul aria-label="Saved store read times">{prepared.file.coverage.sourceSnapshots?.map(source => <li key={source.code}>{source.source}: {source.status === 'included' ? `read ${new Date(source.readAt!).toLocaleString()}` : 'Unavailable for this account'}</li>)}</ul>
+        <ul aria-label="Saved store read times">{coverage.sourceSnapshots?.map(source => <li key={source.code}>{source.source}: {source.status === 'included' ? `read ${new Date(source.readAt!).toLocaleString()}` : 'Unavailable for this account'}</li>)}</ul>
       </div>}
-      <ul aria-label="Download coverage">{prepared.file.coverage.selectedSections.map(section => {
-        const entry = prepared.file.coverage.sections[section]!, count = Object.values(entry.tables).reduce((sum, table) => sum + table.rowCount, 0);
+      <ul aria-label="Download coverage">{coverage.selectedSections.map(section => {
+        const entry = coverage.sections[section]!, count = Object.values(entry.tables).reduce((sum, table) => sum + table.rowCount, 0);
         return <li key={section}><strong>{sections[section]}:</strong> {entry.status === 'included' ? `${count.toLocaleString()} saved record${count === 1 ? '' : 's'}` : 'Unavailable for this account'}</li>;
       })}</ul>
-      <details><summary>What this download leaves out</summary><ul>{prepared.file.coverage.excluded.map((entry, index) => <li key={index}>{entry.section in sections && <strong>{sections[entry.section as Section]}: </strong>}{entry.note}</li>)}</ul></details>
-      <button type="button" className="cc-primary" onClick={download}>Download JSON file</button>
-      <button type="button" className="cc-text-button" onClick={() => setPrepared(null)}>Clear prepared file</button>
+      <details><summary>What this download leaves out</summary><ul>{coverage.excluded.map((entry, index) => <li key={index}>{entry.section in sections && <strong>{sections[entry.section as Section]}: </strong>}{entry.note}</li>)}</ul></details>
+      {prepared ? <><button type="button" className="cc-primary" onClick={download}>Download JSON file</button><button type="button" className="cc-text-button" onClick={() => setPrepared(null)}>Clear prepared file</button></>
+        : <><button type="button" className="cc-primary" disabled={bundle.busy} onClick={() => void bundle.download()}>{bundle.phase === 'downloading' ? 'Verifying ZIP…' : 'Download ZIP file'}</button><button type="button" className="cc-text-button" disabled={bundle.busy} onClick={() => bundle.clear()}>Clear prepared ZIP</button></>}
     </div>}
   </section>;
 }
