@@ -37,6 +37,10 @@ window.fetch=async(input,init)=>{
   if(headers['x-cupcake-account-context']!==identity.account_id)return Response.json({ok:false,error:'account_context_changed'},{status:409});
   const part=init?.body instanceof Blob, body=part?{}:JSON.parse(String(init?.body||'{}'));
   fixture.requests.push({owner:captured,route,body,bytes:part?(init.body as Blob).size:0,headers});
+  if(route==='recordings/transcribe') {
+    const key='cupcake-account-v1:'+encodeURIComponent(identity.account_id)+':audio-transcription-v1:'+body.recording_id;
+    if(localStorage.getItem(key)!==JSON.stringify(body))throw Error('Synthetic transcription request was not saved before sending');
+  }
   if(fixture.behavior==='off')return Response.json({ok:false,error:'recording_archive_not_ready'},{status:503});
   const response=(value:object)=>Response.json({ok:true,...value,identity:fixture.behavior==='wrongEcho'?owners.B:identity});
   const remote=(window as unknown as {syntheticAudioServer:(owner:string,route:string,body:Record<string,unknown>,query:string,bytes:number[])=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticAudioServer;

@@ -15,7 +15,7 @@ const tabs = ['All context', 'Channel messages', 'Projects', 'Review your day', 
 type View = typeof tabs[number];
 const viewKeys: Record<View,string> = {'All context':'context','Channel messages':'messages','Projects':'projects','Review your day':'planning','Receipts':'receipts','Saved thinking':'thinking','Connections':'connections'};
 function initialView(): View { const key=new URLSearchParams(location.search).get('view'); return tabs.find(t=>viewKeys[t]===key)||'All context'; }
-const statusName = (s: string) => s === 'ready' ? 'Ready' : s === 'stored' ? 'Original saved' : s === 'failed' ? 'Needs attention' : s === 'uploading' ? 'Uploading' : 'Processing';
+const statusName = (s: string) => s === 'ready' ? 'Ready' : s === 'transcribed' ? 'Transcript saved' : s === 'stored' ? 'Original saved' : s === 'failed' ? 'Needs attention' : s === 'uploading' ? 'Uploading' : 'Processing';
 function clipText(value: string, max: number) {
   const clean = value.replace(/\s+/g, ' ').trim();
   if (clean.length <= max) return clean;
@@ -74,7 +74,7 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
   useEffect(() => { if (active) void refresh(); }, [active, refresh]);
   useEffect(()=>{if(!active||!initialAnalysis.current)return;const id=initialAnalysis.current;initialAnalysis.current=null;void libraryRequest<{analysis:Analysis}>({action:'analysis_get',id}).then(d=>setOpenedAnalysis(d.analysis)).catch(e=>setError(e.message));},[active]);
   useEffect(()=>{if(!active||!initialDocument.current)return;const id=initialDocument.current;initialDocument.current=null;if(id.startsWith('rec_')){onOpenRecording(id.slice(4));return;}void libraryRequest<{document:Conversation}>({action:'fetch',id}).then(d=>setSelected(d.document)).catch(e=>setError(e.message));},[active,onOpenRecording]);
-  useEffect(() => { if (!active || !documents?.some(d => !['ready', 'failed', 'stored'].includes(d.status))) return; const timer = setInterval(() => void refresh(true), 8000); return () => clearInterval(timer); }, [active, documents, refresh]);
+  useEffect(() => { if (!active || !documents?.some(d => !['ready', 'failed', 'stored', 'transcribed'].includes(d.status))) return; const timer = setInterval(() => void refresh(true), 8000); return () => clearInterval(timer); }, [active, documents, refresh]);
   useEffect(() => {
     if (!active){channelGeneration.current++;channelFlight.current=false;setChannelLoading(false);return;}
     if (view === 'Channel messages') void refreshChannels();

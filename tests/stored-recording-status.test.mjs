@@ -17,11 +17,13 @@ function module(name,append=''){
   return context.exports;
 }
 const panel=module('ConversationPanel.tsx').default;
-const render=status=>text(panel({record:{id:'a'.repeat(32),title:'Synthetic audio',createdAt:'2026-11-07T12:00:00Z',status},onClose(){},onAsk:async()=>{},asking:false}));
+const render=(status,transcript)=>text(panel({record:{id:'a'.repeat(32),title:'Synthetic audio',createdAt:'2026-11-07T12:00:00Z',status,transcript},onClose(){},onAsk:async()=>{},asking:false}));
 const stored=render('stored');assert.match(stored,/Original audio saved/);assert.match(stored,/Transcription and summaries have not been started/);assert.match(stored,/has no transcript to ask about/);assert.match(stored,/has not been transcribed/);assert.doesNotMatch(stored,/Preparing your transcript|Processing continues|Commitments will appear after processing/);
 assert.match(render('transcribing'),/Preparing your transcript/);assert.match(render('transcribing'),/Processing continues/);assert.match(render('failed'),/Processing needs attention/);assert.doesNotMatch(render('ready'),/Preparing your transcript|Original audio saved/);
+const transcribed=render('transcribed','Synthetic saved speech-to-text');assert.match(transcribed,/Transcript saved/);assert.match(transcribed,/Synthetic saved speech-to-text/);assert.match(transcribed,/Speech-to-text may contain errors/);assert.match(transcribed,/No commitments have been extracted/);assert.doesNotMatch(transcribed,/Preparing your transcript|Processing continues|Commitments will appear after processing|Questions become available after transcription finishes/);assert.match(render('transcribed',''),/No speech text was returned/);
 const label=module('LibraryWorkspace.tsx','\nexport {statusName};').statusName;
 assert.equal(label('stored'),'Original saved');assert.equal(label('ready'),'Ready');assert.equal(label('transcribing'),'Processing');assert.equal(label('failed'),'Needs attention');
+assert.equal(label('transcribed'),'Transcript saved');
 
 function polling(name,marker,globals){
   const file=ts.createSourceFile(name,source(name),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let callback;
@@ -30,10 +32,10 @@ function polling(name,marker,globals){
   const cleanup=vm.runInNewContext('('+callback+')()',{...globals,setInterval(){intervals++;return 1;},clearInterval(){cleared++;}});
   cleanup?.();return {intervals,cleared};
 }
-for(const status of ['stored','ready','failed','transcribing','preparing','uploading']){
-  const expected=['stored','ready','failed'].includes(status)?0:1;
+for(const status of ['stored','transcribed','ready','failed','transcribing','preparing','uploading']){
+  const expected=['stored','transcribed','ready','failed'].includes(status)?0:1;
   assert.equal(polling('CupcakeStudio.tsx','selected.status',{selected:{id:'a'.repeat(32),status}}).intervals,expected);
   assert.equal(polling('LibraryWorkspace.tsx','documents?.some',{active:true,documents:[{status}],refresh(){}}).intervals,expected);
 }
 assert.equal(polling('LibraryWorkspace.tsx','documents?.some',{active:true,documents:[{status:'stored'},{status:'transcribing'}],refresh(){}}).intervals,1);
-console.log('PASS: stored originals have honest legacy labels and stop polling; existing ready/failed/transcribing/uploading behavior remains. Synthetic render/effects only.');
+console.log('PASS: stored/transcribed originals have honest rendered labels/text and stop actual polling effects; existing ready/failed/transcribing/uploading behavior remains. Synthetic render/effects only.');
