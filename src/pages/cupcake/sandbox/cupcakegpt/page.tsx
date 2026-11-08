@@ -43,6 +43,8 @@ import { LibraryApprovalCancelled } from '../../../../components/cupcake/library
 import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
 import { SavedMealDialog } from '../../../../components/cupcake/SavedMealDialog';
 import { AccountManualMeal } from '../../../../components/cupcake/AccountManualMeal';
+import { AccountPhotoMeal } from '../../../../components/cupcake/AccountPhotoMeal';
+import { prepareFoodImage } from '../../../../components/cupcake/prepareFoodImage';
 import { AccountFoodSections } from '../../../../components/cupcake/AccountFoodSections';
 import { NutritionTodayCard, NutritionWorkspace } from '../../../../components/cupcake/NutritionWorkspace';
 import { useNutritionData } from '../../../../components/cupcake/nutritionApi';
@@ -105,21 +107,7 @@ async function loadDashboardStats(range: DashboardRange, cursor?: string): Promi
 type FeedItem = { id?: string; type: string; icon: string; title: string; body: string; date: string; time: string; ts: number; calories?: number | null; amount?: number | null; currency?: string | null; details?: { mealId?: string | null; [key: string]: unknown } };
 type FoodResult = { logError?: string; meal?: FoodMeal; duplicate?: boolean; error?: boolean; Description?: string; description?: string; Calories?: number; calories?: number; Sugar?: number; sugar_g?: number; Protein?: number; protein_g?: number; Carbs?: number; carbs_g?: number };
 
-async function prepareFoodImage(file: File) {
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPEG, PNG, or WebP image.');
-  const objectUrl = URL.createObjectURL(file);
-  try {
-    const image = new Image(); image.src = objectUrl; await image.decode();
-    const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
-    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const context = canvas.getContext('2d'); if (!context) throw new Error('This browser could not prepare the image.');
-    context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    let quality = .86; let dataUrl = canvas.toDataURL('image/jpeg', quality);
-    while (quality > .42 && (dataUrl.length > 1_700_000 || Math.ceil((dataUrl.length - dataUrl.indexOf(',') - 1) * .75) > 1_274_000)) { quality -= .08; dataUrl = canvas.toDataURL('image/jpeg', quality); }
-    if (dataUrl.length > 1_700_000 || Math.ceil((dataUrl.length - dataUrl.indexOf(',') - 1) * .75) > 1_274_000) throw new Error('This image is still too large. Crop the food photo and try again.');
-    return dataUrl;
-  } finally { URL.revokeObjectURL(objectUrl); }
-}
+
 
 const tabs = [
   {key:'feed',label:'Today',Icon:Home}, {key:'snap',label:'Food',Icon:Camera},
@@ -365,7 +353,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   if (access === 'form') return <main className="cc-app" data-appearance={appearance.appearance}><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'var(--cc-pink)'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
   return <div className="cc-app" data-appearance={appearance.appearance}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong className="cc-account-identity">{accountIdentity?personalAssistantLabel(assistantName,accountIdentity.name||accountIdentity.email):assistantName}</strong><small>Your private companion</small></div><details className="cc-settings" onKeyDown={e=>{if(e.key==='Escape'&&e.currentTarget.open){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary><div className="cc-settings-scrim" aria-hidden="true" onClick={e=>{(e.currentTarget.closest('details') as HTMLDetailsElement).open=false;}}/><div className="cc-settings-panel" role="group" aria-label="Settings"><div className="cc-settings-head"><strong>Settings</strong><button type="button" className="cc-settings-close" aria-label="Close settings" onClick={e=>{const d=e.currentTarget.closest('details') as HTMLDetailsElement;d.open=false;d.querySelector('summary')?.focus();}}><X size={20} aria-hidden="true"/></button></div><AssistantAppearanceSettings {...appearance}/>{accountIdentity&&<AccountControls identity={accountIdentity} assistantName={assistantName}/>}<AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/><AppUpdateNotice busy={mediaBusy} part="check" />{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}{ACCOUNT_SESSIONS?<><AccountInstallInstructions/><AccountAppleHealth/></>:<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}</div></details><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} disabled={mediaBusy&&!accountIdentity} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
     <main className="cc-shell">
-      <AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<p role="status" className="cc-card cc-account-staged">Account connections are being prepared. Saved health, meals, receipts, Library, local timeline and text conversations use your account. AI text replies require the account reply service. Live voice, external data refreshes and recording uploads are not available for account sign-in yet. Local recordings stay on this device.</p>}
+      <AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<p role="status" className="cc-card cc-account-staged">You’re in your private account. Manage coach reports and meal-photo sharing in Reports.</p>}
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
@@ -552,7 +540,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </div>
       <AccountFoodSections>
       {reviewFirst && mealQueue}
-      {ACCOUNT_SESSIONS ? <div className="cc-card cc-food-capture-panel"><strong>Food photo analysis unavailable</strong><p className="cc-muted">New food photos and re-estimating saved photos are not available for account sign-in yet. Your saved meals, photos and nutrition settings are still available.</p></div> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
+      {ACCOUNT_SESSIONS ? <AccountPhotoMeal onSaved={()=>void loadRecentMeals()}/> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
       {ACCOUNT_SESSIONS && <AccountManualMeal onSaved={()=>void loadRecentMeals()}/>}
       <NutritionWorkspace {...nutrition} onOpenMeal={setSelectedSavedMeal} onSaveSettings={nutrition.saveSettings} onRetry={()=>void nutrition.reload()} onOpenCapture={ACCOUNT_SESSIONS ? undefined : ()=>{setCaptureOpen(true); requestAnimationFrame(()=>captureSection.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>
       <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)}/>

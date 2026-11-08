@@ -73,6 +73,18 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (response.status === 503 && result?.error === 'health_intake_not_ready') throw new AccountRequestError('Apple Health connections are not available for this account yet. No upload has been confirmed.', 'health_intake_not_ready');
     if (response.status === 503 && result?.error === 'export_not_ready') throw new AccountRequestError('Your data download is not available yet. Try again later.', 'export_not_ready');
     if (response.status === 413 && result?.error === 'export_too_large') throw new AccountRequestError('Your data exceeds the current download limit. No partial file was created.', 'export_too_large');
+    const photoErrors: Record<string, string> = {
+      account_food_photo_not_ready: 'Photo meal logging is not available for this account yet. Your original is kept on this device.',
+      photo_request_not_found: 'No matching photo request was found.',
+      photo_request_conflict: 'This saved request belongs to different photo details. Check your food history before starting another.',
+      photo_already_saved: 'This photo already has a saved meal. Open it in your food history instead of logging it twice.',
+      photo_retry_not_allowed: 'This estimate cannot safely be repeated. Check the saved photo status; your original is kept.',
+      photo_invalid_time: 'Choose the actual meal time within the last 400 days, no later than five minutes from now.',
+      account_budget_exceeded: 'Your account’s AI allowance is currently used or reserved. The request has not been confirmed.',
+      account_budget_unavailable: 'Your account’s AI allowance is unavailable. The request has not been confirmed.',
+      account_budget_reconciliation_required: 'An earlier AI charge needs reconciliation. Your photo is kept while the allowance is checked.',
+    };
+    if (!response.ok && typeof result?.error === 'string' && photoErrors[result.error]) throw new AccountRequestError(photoErrors[result.error], result.error);
     const invitationErrors: Record<string,string> = {
       invitation_unavailable:'This invitation is unavailable. It may have expired, been revoked or already been accepted.',
       invitation_conflict:'A pending invitation already exists, or this request changed. Check your invitations before trying again.',
@@ -141,7 +153,7 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '
   + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save feed_get '
   + 'receipt_list receipt_get receipt_confirm_match reconcile_list reconcile_resolve reconcile_settings '
-  + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export').split(' '));
+  + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export food_photo_status food_photo_retry').split(' '));
 export async function accountData<T>(body: Record<string, unknown>): Promise<T> {
   const snapshot = state;
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');
@@ -163,6 +175,11 @@ async function accountJSON<T>(route: string, body: Record<string, unknown>, snap
   }
   assertGeneration(snapshot.generation);
   return result;
+}
+
+/** Dedicated bounded photo route; the ordinary data action body cap stays unchanged. */
+export async function accountFoodPhoto<T>(body: Record<string, unknown>): Promise<T> {
+  return accountJSON<T>('food/photo/analyze', body, state);
 }
 
 type CoachRoute = 'grants/received' | 'grants/list' | 'grants/revoke' | 'report' | 'meal-list' | 'meal-photo-url' | 'workspace' | 'invitations/create' | 'invitations/list' | 'invitations/revoke';
