@@ -66,6 +66,12 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     assertGeneration(generation);
     const result = await response.json().catch(() => null);
     assertGeneration(generation);
+    if (response.status === 401 && route === 'session' && !expectedAccount && !state.identity) {
+      // A first visit has no session to expire. Keep the normal sign-in screen,
+      // and do not broadcast a lock to another tab that may already be signed in.
+      transition(null);
+      throw new AccountRequestError('Sign in to continue.', 'not_signed_in');
+    }
     if ((response.status === 401 && !['sign-in','recovery/redeem'].includes(route)) || (response.status === 409 && result?.error === 'account_context_changed')) {
       invalidateSession('Your session expired or changed. Sign in again.');
       throw Error('Your session expired or changed. Sign in again.');
@@ -117,10 +123,11 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
   } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); requests.delete(controller); }
 }
 export async function restoreSession() {
+  const expectedAccount = state.identity?.account_id;
   transition(null, '', true);
   const generation = state.generation;
   try {
-    const result = await send<{ identity: unknown }>('session', undefined, generation);
+    const result = await send<{ identity: unknown }>('session', undefined, generation, expectedAccount);
     transition(identity(result.identity));
   } catch (error) {
     if (state.generation === generation) transition(null, error instanceof Error ? error.message : 'Sign in to continue.');
@@ -130,7 +137,7 @@ export async function verifySession() {
   const snapshot = state;
   if (!snapshot.identity) return;
   try {
-    const result = await send<{ identity: unknown }>('session', undefined, snapshot.generation);
+    const result = await send<{ identity: unknown }>('session', undefined, snapshot.generation, snapshot.identity.account_id);
     const verified = identity(result.identity);
     if (JSON.stringify(verified) !== JSON.stringify(snapshot.identity)) transition(verified);
   } catch { /* A 401 already locks every view; transient errors never select another owner. */ }

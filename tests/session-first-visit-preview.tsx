@@ -1,0 +1,20 @@
+import { createRoot } from 'react-dom/client';
+import { AccountSessionGate } from '../src/components/cupcake/AccountSessionGate';
+import '../src/index.css';
+if (!import.meta.env.DEV) throw Error('Synthetic preview is development only.');
+const identity = { account_id: 'acc_synthetic_a', email: 'a@example.invalid', name: 'Synthetic A' };
+let signedIn = false, wrongContext = false;
+const fixture = { expire: () => { signedIn = false; }, mismatch: () => { wrongContext = true; } };
+(window as unknown as { sessionFixture: typeof fixture }).sessionFixture = fixture;
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (input, init) => {
+  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href);
+  if (url.origin === location.origin) return nativeFetch(input, init);
+  if (!url.href.startsWith('https://automate.hales.ai/api/account/')) throw Error('External requests disabled.');
+  const route = url.pathname.split('/api/account/')[1];
+  if (route === 'sign-in') signedIn = true;
+  if (!signedIn) return Response.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
+  if (route === 'data' && wrongContext) return Response.json({ ok: false, error: 'account_context_changed' }, { status: 409 });
+  return Response.json({ ok: true, identity });
+};
+createRoot(document.getElementById('root')!).render(<AccountSessionGate>{account => <h1>Signed in: {account.name}</h1>}</AccountSessionGate>);
