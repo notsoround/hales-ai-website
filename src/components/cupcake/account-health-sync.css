@@ -1,0 +1,11 @@
+.cc-health-sync{min-width:0;overflow-wrap:anywhere}
+.cc-health-sync .cc-heading-row{margin:0 0 12px}.cc-health-sync .cc-card-title{display:flex;align-items:center;gap:8px;margin:0}.cc-health-sync .cc-card-title svg{flex:none}
+.cc-health-sync p{margin:8px 0}
+.cc-health-sync .cc-action-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.cc-health-sync button,.cc-health-sync summary{min-height:44px;max-width:100%;white-space:normal}
+.cc-health-sync-times{display:grid;gap:8px;margin:12px 0}
+.cc-health-sync-times dt{font-size:13px;color:var(--cc-muted,#bfb7c4)}
+.cc-health-sync-times dd{margin:4px 0 0;font-weight:600}
+.cc-health-sync details{margin-top:12px}.cc-health-sync summary{cursor:pointer;padding:10px 0}
+.cc-health-sync ul{padding-left:18px;margin:8px 0}.cc-health-sync li+li{margin-top:12px}
+.cc-health-sync-old{border-left:3px solid #d8af66;padding-left:12px}
