@@ -270,7 +270,7 @@ export default function CupcakeStudio({ mode, onBusy, onActivity, keepMediaOnHid
         transport.assert();
         const record=await uploadAccountRecording({draft,blob,onProgress:setUploadProgress,transport});
         await putDraft({...draft,complete:true,recordingId:record.id},storageScope);await refreshDrafts();
-        setArchiveVersion(value=>value+1);setNotice('Original audio verified and saved to your account. Your local copy is kept. Request full-clip transcription from Saved audio when available. Summaries and live voice are not included yet.');return;
+        setArchiveVersion(value=>value+1);setNotice('Original audio verified and saved to your account. Your local copy is kept. From Saved audio, transcribe the full clip and summarize its saved transcript when available. Live voice is not included yet.');return;
       }
       if(draft.recordingId){setSelected((await request(`cupcake-recording-detail?id=${encodeURIComponent(draft.recordingId)}`)).recording);return;}
       const blob=await draftBlob(draft,storageScope);

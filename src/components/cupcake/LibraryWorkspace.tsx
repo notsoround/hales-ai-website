@@ -7,6 +7,7 @@ import ReceiptWorkspace from './ReceiptWorkspace';
 import ConversationPanel, { AnalysisCard } from './ConversationPanel';
 import { libraryRequest, parseConversationImport, uploadLabel, type Analysis, type Conversation, type ImportCandidate, type Project, type Source } from './library';
 import './library-layout.css';
+import { ACCOUNT_SESSIONS } from './accountMode';
 
 type SearchResult = Source & { id: string; documentId: string; title: string; text: string; project?: string; kind?: string };
 type Connector = { id: string; name: string; createdAt?: string; expiresAt?: string | number; allowedProjects?: string[]; revoked?: boolean; lastUsedAt?: string };
@@ -73,7 +74,7 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
   }, []);
   useEffect(() => { if (active) void refresh(); }, [active, refresh]);
   useEffect(()=>{if(!active||!initialAnalysis.current)return;const id=initialAnalysis.current;initialAnalysis.current=null;void libraryRequest<{analysis:Analysis}>({action:'analysis_get',id}).then(d=>setOpenedAnalysis(d.analysis)).catch(e=>setError(e.message));},[active]);
-  useEffect(()=>{if(!active||!initialDocument.current)return;const id=initialDocument.current;initialDocument.current=null;if(id.startsWith('rec_')){onOpenRecording(id.slice(4));return;}void libraryRequest<{document:Conversation}>({action:'fetch',id}).then(d=>setSelected(d.document)).catch(e=>setError(e.message));},[active,onOpenRecording]);
+  useEffect(()=>{if(!active||!initialDocument.current)return;const id=initialDocument.current;initialDocument.current=null;if(id.startsWith('rec_')&&!ACCOUNT_SESSIONS){onOpenRecording(id.slice(4));return;}void libraryRequest<{document:Conversation}>({action:'fetch',id}).then(d=>setSelected(d.document)).catch(e=>setError(e.message));},[active,onOpenRecording]);
   useEffect(() => { if (!active || !documents?.some(d => !['ready', 'failed', 'stored', 'transcribed'].includes(d.status))) return; const timer = setInterval(() => void refresh(true), 8000); return () => clearInterval(timer); }, [active, documents, refresh]);
   useEffect(() => {
     if (!active){channelGeneration.current++;channelFlight.current=false;setChannelLoading(false);return;}
@@ -92,7 +93,7 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
     catch (e) { if (generation === searchId.current) setError((e as Error).message); } finally { if (generation === searchId.current) setSearching(false); }
   }
   async function openDocument(id: string) {
-    if (id.startsWith('rec_')) { onOpenRecording(id.slice(4)); return; }
+    if (id.startsWith('rec_') && !ACCOUNT_SESSIONS) { onOpenRecording(id.slice(4)); return; }
     setLoading(true); setError(''); setDetailError('');
     try { const d = await libraryRequest<{ document: Conversation }>({ action: 'fetch', id }); setSelected(d.document); } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
   }

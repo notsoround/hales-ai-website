@@ -1,0 +1,5 @@
+.cc-recording-summary{border-top:1px solid var(--cc-line,#302c36);margin-top:16px;padding-top:12px;min-width:0;overflow-wrap:anywhere}
+.cc-recording-summary .cc-action-row{display:flex;gap:8px;flex-wrap:wrap}
+.cc-recording-summary button,.cc-recording-summary a{min-height:44px;max-width:100%;white-space:normal}
+.cc-recording-summary-result{margin-top:16px}
+.cc-recording-summary-result pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6;margin:12px 0}
