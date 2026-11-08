@@ -35,8 +35,7 @@ async function check(page, label, width) {
     assert.ok(result.scroll <= width, `${label}: document scrollWidth ${result.scroll} > ${width}`);
     assert.ok(result.inner <= width, `${label}: layout viewport expanded to ${result.inner}`);
     assert.ok(result.scale <= 1.01, `${label}: unexpected focus zoom ${result.scale}`);
-    assert.match(result.policy, /maximum-scale=1/);
-    assert.match(result.policy, /user-scalable=no/);
+    assert.doesNotMatch(result.policy, /maximum-scale|user-scalable\s*=\s*(?:no|0)/, 'user-controlled zoom remains available');
     for (const d of result.dialogs) {
       assert.ok(d.left >= -1 && d.right <= width + 1, `${label}: dialog outside viewport`);
       assert.ok(d.scroll <= d.client + 1, `${label}: dialog scrollWidth ${d.scroll} > clientWidth ${d.client}`);
@@ -114,7 +113,7 @@ try {
           // leaving Cupcake restores the public site's original viewport.
           await page.goto(`${base}cupcake?tab=snap`);
           await page.getByRole('button', { name: 'Open Cupcake', exact: true }).waitFor();
-          assert.match(await page.locator('meta[name="viewport"]').getAttribute('content'), /maximum-scale=1/);
+          assert.doesNotMatch(await page.locator('meta[name="viewport"]').getAttribute('content'), /maximum-scale|user-scalable\s*=\s*(?:no|0)/);
           await page.evaluate(() => { history.pushState({}, '', '/'); dispatchEvent(new PopStateEvent('popstate')); });
           await page.waitForFunction(() => document.querySelector('meta[name="viewport"]')?.content === 'width=device-width, initial-scale=1.0');
         }

@@ -26,7 +26,7 @@
 /* Grid's automatic minimum otherwise expands the phone layout to fit a saved title. */
 .cc-snap-queue{grid-template-columns:minmax(0,1fr)}
 .cc-snap-recent-item{min-width:0}
-.cc-meal-dialog{overflow-wrap:anywhere;overscroll-behavior:contain;touch-action:pan-x pan-y}
+.cc-meal-dialog{overflow-wrap:anywhere;overscroll-behavior:contain;touch-action:pan-x pan-y pinch-zoom}
 .cc-meal-dialog-head h2{min-width:0}
 .cc-meal-dialog-head button{flex-shrink:0}
 /* Keep the saved-meal navigation and all input focus states within narrow phones. */
