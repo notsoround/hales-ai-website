@@ -3,3 +3,14 @@
 .cc-library-ask .cc-strategy-box{margin-top:8px}
 .cc-search-result .cc-muted{margin:8px 0 0}
 .cc-library-search .cc-secondary{flex:none;white-space:nowrap}
+.cc-library-view-navigation{margin:26px 0 20px;min-width:0}
+.cc-library-view-navigation .cc-library-tabs{margin:0;max-width:100%;overscroll-behavior-x:contain;scroll-padding-inline:3px;padding:3px 3px 10px}
+.cc-library-view-navigation .cc-library-tabs button:focus-visible,.cc-library-view-overflow button:focus-visible,.cc-library-view-panel:focus-visible{outline:2px solid var(--cc-pink-bright,#ffc5df);outline-offset:2px}
+.cc-library-view-overflow{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--cc-text-3,#bbacbd);font-size:12px}
+.cc-library-view-overflow>div{display:flex;gap:4px}
+.cc-library-view-overflow button{display:grid;place-items:center;min-width:44px;min-height:44px;padding:8px;border:1px solid var(--cc-line,#ffffff24);border-radius:11px;background:transparent;color:var(--cc-pink-bright,#ffc5df)}
+.cc-library-view-overflow button:disabled{opacity:.35}
+.cc-library-view-panel{min-width:0;overflow-wrap:anywhere}
+.cc-library-view-panel .cc-file input{overflow:hidden}
+.cc-library-key-help{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:600px){.cc-library-view-navigation{margin-top:20px}}
