@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AccountRequestError, accountExport, accountExportDownload, assertGeneration, sessionSnapshot, subscribeSession } from './accountSession';
 
-export const exportSectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice'] as const;
+export const exportSectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing'] as const;
 export type ExportSection = typeof exportSectionCodes[number];
 const tables:Record<ExportSection,readonly string[]> = {
   profile:['accounts'],health:['weight_batches','weight_versions','weight_clients','weight_adjustments','weight_manual_requests','health_manual_observations','body_checkins'],activity:['personal_outcomes','exercise_entries'],
@@ -9,6 +9,7 @@ const tables:Record<ExportSection,readonly string[]> = {
   apple_health:['health_device_grants','health_auto_export_batches','health_auto_export_points'],chat:['quick_chat_threads','quick_chat_turns','quick_chat_attempts'],preferences:['account_personas'],
   finance:['receipts','receipt_candidate_sets','receipt_matches','recon_events','recon_links','recon_coverage'],library:['documents','overlays','analyses','decisions','projects'],
   recordings:['recordings','account_audio_transcription_requests','documents'],voice:['account_voice_sessions','documents'],
+  sharing:['coach_invitations','coach_memberships','coach_grants','coach_membership_grants'],
 };
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/, SHA = /^[a-f0-9]{64}$/;
 const storageKey = (owner:string) => 'cupcake-account-export-intent-v1:' + encodeURIComponent(owner);
