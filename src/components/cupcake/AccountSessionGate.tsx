@@ -5,6 +5,7 @@ import { AccountInvitationEntry } from './AccountInvitationEntry';
 import { takeInvitationFragment } from './accountInvitationFragment';
 import { assistantIcon, personalAssistantLabel, publicAssistantBrand, useAssistantDocumentBrand } from './assistantBrand';
 import { AccountSelfExport } from './AccountSelfExport';
+import { AccountClosureControls, AccountClosureRecovery } from './AccountClosureControls';
 
 let entryInvitation=takeInvitationFragment();
 
@@ -55,7 +56,7 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
     {!session.checking&&<button type="button" className="cc-text-button" disabled={busy} onClick={()=>void restoreSession()}>Check saved session</button>}
     <p className="cc-muted cc-small">Passwords and recovery codes stay out of browser storage. Use Sign out on shared devices.</p>
     <a className="cc-text-button" href="/">← Hales.ai</a>
-  </form></main>;
+  </form><AccountClosureRecovery key={session.generation}/></main>;
 }
 
 export function AccountControls({ identity, assistantName = 'Cupcake' }: { identity: AccountIdentity; assistantName?: string }) {
@@ -80,5 +81,5 @@ export function AccountControls({ identity, assistantName = 'Cupcake' }: { ident
     {message&&<p role="status">{message}</p>}
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out')}>Sign out</button>
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out-all')}>Sign out all devices</button>
-  </section><AccountSelfExport/></>;
+  </section><AccountSelfExport/><AccountClosureControls owner={identity.account_id}/></>;
 }
