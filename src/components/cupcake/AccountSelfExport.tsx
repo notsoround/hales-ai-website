@@ -9,6 +9,7 @@ const sections = {
   plans: 'Plans and goals', phone: 'Phone activity', apple_health: 'Apple Health records', chat: 'Text conversations',
   preferences: 'Assistant preferences', finance: 'Financial records', library: 'Library records',
   recordings: 'Saved recordings and transcripts', voice: 'Saved voice conversations',
+  sharing: 'Invitations and sharing',
 } as const;
 type Section = ExportSection;
 const sectionCodes = [...exportSectionCodes];
@@ -110,6 +111,7 @@ export function AccountSelfExport() {
         {sectionCodes.map(section => <label className="cc-account-check" key={section}><input type="checkbox" checked={selected.includes(section)} onChange={event => choose(event.target.checked ? [...selected, section] : selected.filter(current => current !== section))}/>{sections[section]}</label>)}
       </fieldset>
     </details>
+    {selected.includes('sharing') && <p className="cc-muted cc-small">Invitations and sharing includes your connection and permission history, including expired or revoked permissions. Shared report contents and other people’s health records are excluded.</p>}
     <label className="cc-account-check"><input type="checkbox" checked={includeOriginals} disabled={locked} onChange={event => chooseOriginals(event.target.checked)}/>Include original photos and audio</label>
     <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download. For large audio collections, use Download originals individually below.</p>
     <p className="cc-muted cc-small">{selected.length ? 'You can include every supported section in one preparation.' : 'Choose at least one section to prepare your download.'}</p>

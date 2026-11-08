@@ -10,7 +10,7 @@ const cacheDir = mkdtempSync(path.join(tmpdir(), 'cupcake-self-export-'));
 const server = await createServer({ cacheDir, plugins: [{ name: 'synthetic-self-export-root', configureServer(server) { server.middlewares.use((req, _res, next) => { if (req.url?.split('?')[0] === '/cupcake/account') req.url = '/tests/account-browser-preview.html'; next(); }); } }], define: { 'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS': '"true"' }, server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), realpathSync('node_modules')] } } });
 await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice'];
+const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing'];
 let mode = 'normal', release = () => {}, requests = [];
 function result(owner, selected = sectionCodes) {
   const sections = Object.fromEntries(selected.map(section => [section, { status: section === 'finance' ? 'unavailable' : 'included', ...(section === 'finance' ? { reason: 'owned_schema_unavailable' } : {}), tables: section === 'food' ? { saved_meals: { rowCount: 1, columns: ['description', 'total'], jsonColumns: ['total'] } } : {} }]));
@@ -60,7 +60,7 @@ try {
   const main = await open(), p = main.page; await login(p, 'a'); await settings(p);
   assert.equal(requests.length, 0); assert.equal(main.downloads.length, 0);
   await exportUI(p).getByText('Choose sections · all selected', { exact: true }).click();
-  assert.equal(await exportUI(p).getByRole('checkbox', { checked: true }).count(), 13);
+  assert.equal(await exportUI(p).getByRole('checkbox', { checked: true }).count(), sectionCodes.length);
   for (const viewport of [{ width: 320, height: 844 }, { width: 1280, height: 900 }]) {
     await p.setViewportSize(viewport);
     const layout = await exportUI(p).locator('.cc-export-sections').evaluate(fieldset => ({ pageWidth: document.documentElement.scrollWidth, viewport: innerWidth, contentWidth: fieldset.clientWidth, scrollWidth: fieldset.scrollWidth }));
@@ -136,6 +136,7 @@ try {
   await exportUI(v).getByRole('button', { name: 'Select all', exact: true }).click();
   await exportUI(v).getByRole('checkbox', { name: 'Saved voice conversations', exact: true }).uncheck();
   await exportUI(v).getByRole('checkbox', { name: 'Saved recordings and transcripts', exact: true }).uncheck();
+  await exportUI(v).getByRole('checkbox', { name: 'Invitations and sharing', exact: true }).uncheck();
   await prepare(v); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
   const legacyEvent = v.waitForEvent('download'); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).click();
   const legacyFile = JSON.parse(readFileSync(await (await legacyEvent).path(), 'utf8'));
@@ -147,7 +148,7 @@ try {
   await exportUI(i).getByText('Choose sections · all selected', { exact: true }).click(); await exportUI(i).getByRole('button', { name: 'Clear selection', exact: true }).click(); await exportUI(i).getByRole('checkbox', { name: 'Meals and food settings', exact: true }).check();
   await prepare(i); await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
   await logout(i); await login(i, 'b'); await settings(i); assert.equal(await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); assert.equal(isolation.downloads.length, 0);
-  await exportUI(i).getByText('Choose sections · all selected', { exact: true }).click(); assert.equal(await exportUI(i).getByRole('checkbox', { checked: true }).count(), 13);
+  await exportUI(i).getByText('Choose sections · all selected', { exact: true }).click(); assert.equal(await exportUI(i).getByRole('checkbox', { checked: true }).count(), sectionCodes.length);
   mode = 'hold'; await prepare(i); await exportUI(i).getByRole('button', { name: 'Preparing your download…', exact: true }).waitFor(); await logout(i); await login(i, 'a'); release(); await settings(i);
   assert.equal(await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); assert.equal(isolation.downloads.length, 0);
   await prepare(i); await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
