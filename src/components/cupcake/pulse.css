@@ -95,6 +95,7 @@
 
 /* Timeline: grouped by day, time first, one colour per kind, value right-aligned. */
 .cc-app .cc-today-grid > .cc-signals { grid-column: 1 / -1; }
+.cc-app .cc-timeline-empty { margin: 8px 0; padding: 8px 0; color: var(--cc-text-2); font-size: 14px; line-height: 1.6; }
 .cc-app .cc-freshness { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 6px; font-size: 12px; color: var(--cc-text-3); }
 .cc-app .cc-freshness b { color: var(--cc-text-2); font-weight: 600; }
 .cc-app .cc-timeline-day h4 { margin: 14px 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cc-text-3); }

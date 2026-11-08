@@ -626,7 +626,7 @@ const WeekView: React.FC<{ onTalkAbout?: (entry: DashboardEntry) => void }> = ({
 // ---------- shared ----------
 const Spinner = () => <div className="flex justify-center py-16"><Loader2 className="animate-spin text-pink-400" size={28} /></div>;
 const Empty: React.FC<{ text: string }> = ({ text }) => (
-  <div className="text-center py-16 text-white/40 text-sm px-8">{text}</div>
+  <p className="cc-timeline-empty">{text}</p>
 );
 
 export { SnapView };
