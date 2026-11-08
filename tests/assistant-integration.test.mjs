@@ -14,7 +14,7 @@ await server.listen();
 const base = server.resolvedUrls.local[0], checks = [], screenshots = [];
 const fixture = page => page.evaluate(() => ({ ...window.assistantFixture, releaseMicrophone: undefined }));
 const tick = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const nav = page => page.getByRole('navigation', { name: 'Cupcake', exact: true });
+const nav = page => page.locator('.cc-nav');
 const panel = page => page.locator('#cupcake-assistant');
 async function measure(page, label, width) {
   await page.evaluate(() => document.fonts.ready);
