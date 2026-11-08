@@ -104,12 +104,11 @@ function CleanReport({grant,period}:{grant:Grant;period:Period}) {
 function MetricSection({title,data,coverage,provenance,children}:{title:string;data:Row|null;coverage?:Coverage;provenance:string;children:ReactNode}) {
   const source=<p className="cc-coach-provenance">{provenance}</p>;
   const query=<p className="cc-coach-coverage">{coverage?`${coverage.queryComplete===true?'Query covered the requested range':'Query was limited'} · ${number(coverage.rowsRead)} rows checked · ${number(coverage.invalidRows)} invalid rows omitted`:'Query coverage is unavailable.'}</p>;
-  return <section className={`cc-card${data?'':' cc-coach-empty'}`}><h4>{title}</h4>
-    {data?<>{source}{children}{query}</>:<>
-      <p>No local data for this period. This is unknown, not zero.</p>
-      <details className="cc-coach-evidence"><summary aria-label={`${title}: source and query coverage`}>Source and query coverage</summary>{source}{query}</details>
-    </>}
-  </section>;
+  if (!data) return <details className="cc-card cc-coach-empty cc-coach-empty-row">
+    <summary><strong>{title}</strong><span>Unknown{coverage?.queryComplete===false?' · Limited query':''}{coverage&&coverage.invalidRows>0?' · Invalid rows omitted':''}</span></summary>
+    <p>No local data for this period. This is unknown, not zero.</p>{source}{query}
+  </details>;
+  return <section className="cc-card"><h4>{title}</h4>{source}{children}{query}</section>;
 }
 function Summary({data,fields,labels}:{data:Row|null;fields:string[];labels:string[]}) {return <dl className="cc-coach-summary">{fields.map((field,index)=><div key={field}><dt>{labels[index]}</dt><dd>{number(data?.[field])}</dd></div>)}</dl>;}
 function NumbersTable({data,fields,labels,source=false}:{data:Row[];fields:string[];labels:string[];source?:boolean}) {
