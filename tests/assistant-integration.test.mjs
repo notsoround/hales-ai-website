@@ -146,6 +146,7 @@ try {
 
       if (config.width === 1280) {
         await page.locator('.cc-settings > summary').click();
+        await page.locator('.cc-settings-group > summary').filter({ hasText: /^Appearance$/ }).click();
         const appearance = page.getByRole('combobox', { name: 'Assistant appearance' });
         assert.equal(await appearance.inputValue(), 'caribbean');
         await appearance.selectOption('rose');
@@ -164,6 +165,7 @@ try {
         assert.equal(await page.locator('.cc-app').getAttribute('data-appearance'), 'caribbean');
         await page.getByRole('button', { name: 'Minimize assistant', exact: true }).click();
         await page.locator('.cc-settings > summary').click();
+        await page.locator('.cc-settings-group > summary').filter({ hasText: /^Appearance$/ }).click();
         await page.locator('.cc-assistant-persona-options button').filter({ hasText: 'Cupcake' }).click();
         await page.getByRole('textbox', { name: 'Assistant name', exact: true }).fill('Cupcake');
         await page.getByRole('button', { name: 'Close settings', exact: true }).click();
