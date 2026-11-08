@@ -8,18 +8,23 @@ APP=hales-ai-website
 NGINX_IMAGE=sha256:b76de378d57272a1dd9091a05dd548a3639dfb792ebdbf95d06704d2950afdea
 RELEASE_COMMIT=""
 PAGE_SHA256=""
+ACCOUNT_SESSIONS=""
 
-usage() { echo "usage: $0 --release-commit <origin/main sha> --page-sha256 <reviewed page sha256> [--apply]"; }
+usage() { echo "usage: $0 --release-commit <origin/main sha> --page-sha256 <reviewed page sha256> --account-sessions true|false [--apply]"; }
 APPLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release-commit) RELEASE_COMMIT="$2"; shift 2;;
     --page-sha256) PAGE_SHA256="$2"; shift 2;;
+    --account-sessions)
+      [[ $# -ge 2 && -z "$ACCOUNT_SESSIONS" ]] || { usage; exit 2; }
+      ACCOUNT_SESSIONS="$2"; shift 2;;
     --apply) APPLY=1; shift;;
     *) usage; exit 2;;
   esac
 done
 [[ "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ && "$PAGE_SHA256" =~ ^[0-9a-f]{64}$ ]] || { usage; exit 2; }
+[[ "$ACCOUNT_SESSIONS" == true || "$ACCOUNT_SESSIONS" == false ]] || { echo "--account-sessions must be explicitly true or false"; usage; exit 2; }
 
 cd "$ROOT"
 git fetch --quiet origin main
@@ -51,17 +56,22 @@ grep -Fq ChatInterface "$WORK/src/App.tsx"
 grep -Fq hales-public-chat "$WORK/src/components/ChatInterface.tsx"
 ! grep -Rqs VITE_CUPCAKEGPT_KEY "$WORK/src" "$WORK/public"
 
-(cd "$WORK" && npm ci && npx tsc --noEmit && npx eslint src/components/cupcake src/pages/cupcake/sandbox/cupcakegpt/page.tsx && npm run build)
+(cd "$WORK" && npm ci && npx tsc --noEmit && npx eslint src/components/cupcake src/pages/cupcake/sandbox/cupcakegpt/page.tsx && VITE_CUPCAKE_ACCOUNT_SESSIONS="$ACCOUNT_SESSIONS" npm run build)
 test -f "$WORK/dist/index.html"
 grep -Rqs hales-public-chat "$WORK/dist/assets"
 grep -Rqs cupcake-feed "$WORK/dist/assets"
 grep -Fq hales:sentinel-ready "$WORK/dist/lab/hal/index.html"
+if [[ "$ACCOUNT_SESSIONS" == true ]]; then
+  for control in 'Transcribe full clip' 'Save audio to account' 'Meal saved to your food log'; do
+    grep -RFqs -- "$control" "$WORK/dist/assets" || { echo "enabled account bundle is missing required control: $control"; exit 1; }
+  done
+fi
 
 cp "$WORK/ops/Dockerfile.prebuilt" "$WORK/Dockerfile.prebuilt"
 (cd "$WORK" && find dist -type f -print0 | sort -z | xargs -0 shasum -a 256 > dist.sha256)
 DIST_SHA=$(shasum -a 256 "$WORK/dist.sha256" | awk '{print $1}')
 cat > "$WORK/release.json" <<EOF
-{"releaseCommit":"$RELEASE_COMMIT","pageSha256":"$PAGE_SHA256","distManifestSha256":"$DIST_SHA","nginxImage":"$NGINX_IMAGE"}
+{"releaseCommit":"$RELEASE_COMMIT","pageSha256":"$PAGE_SHA256","distManifestSha256":"$DIST_SHA","nginxImage":"$NGINX_IMAGE","accountSessions":$ACCOUNT_SESSIONS}
 EOF
 ARTIFACT="$WORK/hales-prebuilt-$RELEASE_COMMIT.tgz"
 if tar --no-xattrs --version >/dev/null 2>&1; then
@@ -70,14 +80,15 @@ else
   (cd "$WORK" && COPYFILE_DISABLE=1 tar -czf "$ARTIFACT" dist dist.sha256 release.json nginx.conf Dockerfile.prebuilt)
 fi
 ARTIFACT_SHA=$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')
-echo "validated local release=$RELEASE_COMMIT dist_manifest=$DIST_SHA artifact=$ARTIFACT_SHA"
+echo "validated local release=$RELEASE_COMMIT account_sessions=$ACCOUNT_SESSIONS dist_manifest=$DIST_SHA artifact=$ARTIFACT_SHA"
 [[ "$APPLY" == 1 ]] || { echo "dry-run complete; add --apply to transfer and deploy"; exit 0; }
 
 REMOTE_ARTIFACT="/var/tmp/hales-prebuilt-$RELEASE_COMMIT.tgz"
 scp -q "$ARTIFACT" "$REMOTE:$REMOTE_ARTIFACT"
-ssh "$REMOTE" bash -s -- "$REMOTE_ARTIFACT" "$ARTIFACT_SHA" "$RELEASE_COMMIT" "$PAGE_SHA256" "$DIST_SHA" "$NGINX_IMAGE" <<'REMOTE_SCRIPT'
+ssh "$REMOTE" bash -s -- "$REMOTE_ARTIFACT" "$ARTIFACT_SHA" "$RELEASE_COMMIT" "$PAGE_SHA256" "$DIST_SHA" "$NGINX_IMAGE" "$ACCOUNT_SESSIONS" <<'REMOTE_SCRIPT'
 set -euo pipefail
-ARTIFACT=$1; ARTIFACT_SHA=$2; COMMIT=$3; PAGE_SHA=$4; DIST_SHA=$5; NGINX_IMAGE=$6
+ARTIFACT=$1; ARTIFACT_SHA=$2; COMMIT=$3; PAGE_SHA=$4; DIST_SHA=$5; NGINX_IMAGE=$6; ACCOUNT_SESSIONS=$7
+[[ "$ACCOUNT_SESSIONS" == true || "$ACCOUNT_SESSIONS" == false ]] || { echo "invalid expected account-session mode"; exit 2; }
 APP=hales-ai-website; CANDIDATE="${APP}:prebuilt-${COMMIT:0:12}"; CNAME="${APP}-candidate-${COMMIT:0:12}-$$"
 WORK=$(mktemp -d /var/tmp/hales-prebuilt.XXXXXX)
 OWN_CANDIDATE=0
@@ -113,9 +124,10 @@ fetch_ready http://127.0.0.1:3000/lab/hal/index.html "$WORK/rollback-hal.html"
 grep -Fq hales:sentinel-ready "$WORK/rollback-hal.html"
 [[ "$(sha256sum "$ARTIFACT" | awk '{print $1}')" == "$ARTIFACT_SHA" ]]
 tar -xzf "$ARTIFACT" -C "$WORK" --no-same-owner
-python3 - "$WORK/release.json" "$COMMIT" "$PAGE_SHA" "$DIST_SHA" "$NGINX_IMAGE" <<'PY'
+python3 - "$WORK/release.json" "$COMMIT" "$PAGE_SHA" "$DIST_SHA" "$NGINX_IMAGE" "$ACCOUNT_SESSIONS" <<'PY'
 import json,sys
-d=json.load(open(sys.argv[1])); assert d=={'releaseCommit':sys.argv[2],'pageSha256':sys.argv[3],'distManifestSha256':sys.argv[4],'nginxImage':sys.argv[5]}
+d=json.load(open(sys.argv[1])); assert type(d.get('accountSessions')) is bool
+assert d=={'releaseCommit':sys.argv[2],'pageSha256':sys.argv[3],'distManifestSha256':sys.argv[4],'nginxImage':sys.argv[5],'accountSessions':sys.argv[6]=='true'}
 PY
 (cd "$WORK" && sha256sum -c dist.sha256 >/dev/null)
 [[ "$(sha256sum "$WORK/dist.sha256" | awk '{print $1}')" == "$DIST_SHA" ]]
@@ -148,5 +160,5 @@ if ! docker run -d --name "$APP" --restart always -p 3000:3000 "$CANDIDATE" >/de
   exit 1
 fi
 docker tag "$CANDIDATE" "$APP"
-echo "deployed prebuilt release $COMMIT rollback=$ROLLBACK"
+echo "deployed prebuilt release $COMMIT account_sessions=$ACCOUNT_SESSIONS rollback=$ROLLBACK"
 REMOTE_SCRIPT
