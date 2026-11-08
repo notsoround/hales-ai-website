@@ -9,6 +9,6 @@ export function AccountInstallInstructions() {
       <li>Choose Add to Home Screen. If shown, leave Open as Web App on, then tap Add.</li>
       <li>Open Matthieu from your Home Screen. Sign in to your account if asked.</li>
     </ol>
-    <p className="cc-muted cc-small">An internet connection is required. Adding the icon does not connect Apple Health. System audio sharing is not available for account sign-in; imported recordings stay on this device.</p>
+    <p className="cc-muted cc-small">An internet connection is required. Adding the icon does not connect Apple Health. Record or import audio on this device, then choose Save audio to account to keep a private account copy. Meeting audio sharing needs a compatible desktop browser; phone-call recording is not supported.</p>
   </section>;
 }

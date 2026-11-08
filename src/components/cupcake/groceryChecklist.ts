@@ -25,3 +25,28 @@ export function checkGroceryItem(text: string, line: number, checked: boolean): 
   if (!checked) return text;
   return text.slice(0, item.insert) + (item.bullet ? '[x] ' : '- [x] ') + text.slice(item.insert);
 }
+
+const groceryKey = (label: string) => label.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** Match exact item wording only; different quantities remain distinct. */
+export function missingGroceryItems(text: string, plannedItems: readonly string[]): string[] {
+  const known = new Set(groceryItems(text).map(item => groceryKey(item.label)));
+  return plannedItems.flatMap(item => {
+    const label = item.trim(), key = groceryKey(label);
+    if (!key || known.has(key)) return [];
+    known.add(key);
+    return [label];
+  });
+}
+
+/** Append only: never rewrite notes, quantities, line endings or checked items. */
+export function appendGroceryItems(text: string, selected: readonly string[]): string {
+  const additions = missingGroceryItems(text, selected);
+  if (!additions.length) return text;
+  const newline = text.match(/\r\n|\n|\r/)?.[0] || '\n';
+  const next = text + (text && !/[\r\n]$/.test(text) ? newline : '') + additions.map(label => `- [ ] ${label}`).join(newline);
+  const visible = new Set(groceryItems(next).map(item => groceryKey(item.label)));
+  if (additions.some(label => !visible.has(groceryKey(label)))) throw Error('Close any unfinished code block in Grocery notes before adding meal items. Your notes are unchanged.');
+  if (next.length > 10000) throw Error('These items would exceed the grocery-note limit. Choose fewer items or shorten your notes.');
+  return next;
+}

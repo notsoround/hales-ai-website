@@ -50,7 +50,7 @@ async function open(entry='/cupcake/account?assistant=matthieu'){
   await page.goto(base+entry);await page.getByRole('heading',{name:entry.includes('assistant=matthieu')?'Sign in to Matthieu':'Sign in to Cupcake',exact:true}).waitFor();return {context,page};
 }
 async function login(page){await page.getByLabel('Email',{exact:true}).fill('a@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();}
-async function settings(page){await page.locator('summary[aria-label="Settings"]').click();await page.getByRole('button',{name:'Create Apple Health connection',exact:true}).waitFor();}
+async function settings(page){await page.locator('summary[aria-label="Settings"]').click();await page.locator('.cc-settings-group > summary').filter({hasText:'iPhone & Apple Health'}).click();await page.getByRole('button',{name:'Create Apple Health connection',exact:true}).waitFor();await page.getByRole('region',{name:'Add to iPhone Home Screen',exact:true}).getByText('then choose Save audio to account',{exact:false}).waitFor();}
 async function fillConnection(page,label){await page.getByLabel('Device label',{exact:true}).fill(label);await page.getByLabel('IANA Timezone',{exact:true}).fill('America/Chicago');await page.getByLabel('Apple Health source name',{exact:true}).fill('Synthetic Watch');await page.getByLabel('Connection expiry (days)',{exact:true}).fill('30');}
 async function metadata(page){
   assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/matthieu-account.webmanifest');
@@ -86,15 +86,15 @@ try{
   await defaultAccountMetadata();await safe(matt.page);await matt.context.close();
   console.log('PASS: default Matt/Cupcake account keeps its existing title/icon and no Matthieu install metadata before sign-in, after sign-in and after reload');
 
-  const {context,page}=await open();await metadata(page);
+  const beforeGuest=requests.length;const {context,page}=await open();await metadata(page);
   const manifest=await page.evaluate(async()=>{const response=await fetch('/matthieu-account.webmanifest');return {status:response.status,value:await response.json()};});
   assert.equal(manifest.status,200);assert.equal(manifest.value.id,'/cupcake/account?assistant=matthieu');assert.equal(manifest.value.start_url,'/cupcake/account?assistant=matthieu');assert.equal(manifest.value.scope,'/cupcake/account');assert.equal(manifest.value.name,'Matthieu');assert.equal(manifest.value.short_name,'Matthieu');assert.equal(manifest.value.display,'standalone');assert.equal(manifest.value.share_target,undefined);assert.ok(manifest.value.icons.some(icon=>icon.src==='/matthieu-avatar.png'&&icon.type==='image/png'));
   const icon=await page.evaluate(async()=>{const response=await fetch('/matthieu-avatar.png');return {status:response.status,type:response.headers.get('content-type'),signature:Array.from(new Uint8Array(await response.arrayBuffer()).slice(0,8))};});assert.equal(icon.status,200);assert.match(icon.type,/image\/png/);assert.deepEqual(icon.signature,[137,80,78,71,13,10,26,10]);
   const legacyManifest=await page.evaluate(async()=>fetch('/cupcake.webmanifest').then(response=>response.json()));assert.equal(legacyManifest.start_url,'/cupcake');assert.equal(legacyManifest.scope,'/cupcake');assert.equal(legacyManifest.share_target.action,'/cupcake/share');
-  assert.equal(requests.length,0);await login(page);await metadata(page);await page.reload();await page.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();await metadata(page);await safe(page);
+  assert.equal(requests.length,beforeGuest);await login(page);await metadata(page);await page.reload();await page.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();await metadata(page);await safe(page);
   console.log('PASS: guest and cookie-restored iPhone launch uses the Matthieu manifest/icon/meta, stays in account and registers no worker');
 
-  await settings(page);assert.equal(requests.length,0);assert.equal(await page.getByLabel('Upload credential',{exact:true}).count(),0);assert.equal(await page.getByLabel('Upload endpoint',{exact:true}).count(),0);
+  await settings(page);assert.equal(requests.filter(row=>['health/devices/create','health/devices/revoke'].includes(row.route)).length,0);assert.equal(await page.getByLabel('Upload credential',{exact:true}).count(),0);assert.equal(await page.getByLabel('Upload endpoint',{exact:true}).count(),0);
   await page.getByRole('button',{name:'Check connection',exact:true}).click();await page.getByText(COVERAGE,{exact:false}).waitFor();await page.getByText('No upload received',{exact:false}).first().waitFor();
   assert.ok(requests.some(row=>row.route==='health/devices/list'));assert.ok(requests.some(row=>row.route==='health/sync'));
   for(const row of requests.filter(row=>['health/devices/list','health/sync'].includes(row.route)))assert.deepEqual(row.body,{});

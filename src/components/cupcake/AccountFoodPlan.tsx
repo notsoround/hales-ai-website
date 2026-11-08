@@ -4,7 +4,7 @@ import { AccountRequestError } from './accountSession';
 import { personalStorage } from './personalStorage';
 import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, rebasePlanDraft, samePlan, PLAN_DRAFT_KEY, type MealPlan, type PlanDraft, type PlanIntent } from './foodPlanModel';
 import './account-food-plan.css';
-import { checkGroceryItem, groceryItems } from './groceryChecklist';
+import { appendGroceryItems, checkGroceryItem, groceryItems, missingGroceryItems } from './groceryChecklist';
 
 export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'groceries'; onPlan: () => void }) {
   const [storage] = useState(() => personalStorage('sessionStorage'));
@@ -15,11 +15,19 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
   const [latest, setLatest] = useState<MealPlan | null | undefined>();
   const [loaded, setLoaded] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [shoppingError, setShoppingError] = useState('');
+  const checklistHeading = useRef<HTMLHeadingElement>(null), focusChecklist = useRef(false);
+  useEffect(() => {
+    if (!choosingItems && focusChecklist.current) { focusChecklist.current = false; checklistHeading.current?.focus(); }
+  }, [choosingItems]);
   const current = useRef({ base, draft, pending }); current.current = { base, draft, pending };
   const generation = useRef(0), inFlight = useRef(false);
   const value = draftPlan(base, draft), dirty = !!pending || !samePlan(value, base || { meals: [] });
   const validation = planDraftError(draft, value);
   const groceries = groceryItems(draft.groceries);
+  const suggestions = missingGroceryItems(draft.groceries, draft.meals.flatMap(meal => groceryItems(meal.items).map(item => item.label)));
+  const selected = suggestions.filter(item => selectedItems.includes(item));
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -88,6 +96,14 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
     try { storage.setItem(PLAN_DRAFT_KEY, JSON.stringify({ base: latest, draft: rebased, pending: null })); setBase(latest); setDraft(rebased); setPending(null); setLatest(undefined); setNotice('Draft kept against the latest version. Review it, then explicitly save.'); setError(''); }
     catch { setError('The browser could not keep this draft. Try again.'); }
   };
+  const addShoppingItems = () => {
+    if (busy || pending || !selected.length) return;
+    try {
+      const groceries = appendGroceryItems(draft.groceries, selected);
+      edit({ ...draft, groceries }); focusChecklist.current = true; setChoosingItems(false); setShoppingError('');
+      setNotice(`${selected.length} ${selected.length === 1 ? 'item added' : 'items added'} to your grocery draft. Review the list, then Save plan & groceries.`);
+    } catch (cause) { setShoppingError(cause instanceof Error ? cause.message : 'These items could not be added. Your notes are unchanged.'); }
+  };
   return <section className="cc-food-plan" aria-label={section === 'plan' ? 'Meal plan workspace' : 'Grocery workspace'}>
     <div className="cc-heading-row"><h3>{section === 'plan' ? 'Your meal plan' : 'Your groceries'}</h3><button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Reload saved plan</button></div>
     <p className="cc-muted">{section === 'plan' ? 'Plan meals in your own words. This reference plan is separate from meals you actually ate.' : 'Keep your grocery list and shopping notes with your meal plan.'}</p>
@@ -109,8 +125,22 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
           <button type="button" className="cc-secondary" disabled={draft.meals.length >= 10} onClick={() => edit({ ...draft, meals: [...draft.meals, { original: null, name: '', items: '', kcal: '' }] })}>Add planned meal</button>
           <p className="cc-muted cc-small">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
         </> : <>
+          <div className="cc-card cc-shopping-builder">
+            <div><h4>Shop your meal plan</h4><p className="cc-muted cc-small">Choose the food items you still need. Your quantities, notes and checked items stay as they are.</p></div>
+            {!draft.meals.length ? <button type="button" className="cc-secondary" onClick={onPlan}>Create a meal plan</button>
+              : !suggestions.length ? <p className="cc-muted cc-small">{draft.meals.some(meal => groceryItems(meal.items).length) ? 'Your planned food items are already on this list. You can still add or edit groceries below.' : 'Add food items to your meal plan to choose groceries here.'}</p>
+                : <button type="button" className="cc-secondary" aria-expanded={choosingItems} aria-controls="cc-shopping-choices" onClick={() => { setChoosingItems(!choosingItems); setSelectedItems(suggestions); setShoppingError(''); }}>{choosingItems ? 'Close meal plan items' : 'Choose meal plan items'}</button>}
+            {choosingItems && suggestions.length > 0 && <fieldset className="cc-shopping-choices" id="cc-shopping-choices">
+              <legend>Meal plan items to add</legend>
+              <p className="cc-muted cc-small">Items already listed are skipped. Different quantities stay separate. Adding items makes a draft; it does not log food.</p>
+              <div className="cc-plan-actions"><button type="button" className="cc-text-button" onClick={() => setSelectedItems(suggestions)}>Select all</button><button type="button" className="cc-text-button" onClick={() => setSelectedItems([])}>Clear selection</button></div>
+              {suggestions.map(item => <label className="cc-grocery-item" key={item}><input type="checkbox" checked={selectedItems.includes(item)} onChange={event => setSelectedItems(event.target.checked ? [...selectedItems, item] : selectedItems.filter(value => value !== item))}/><span>{item}</span></label>)}
+              {shoppingError && <p role="alert" className="cc-error">{shoppingError}</p>}
+              <button type="button" className="cc-secondary" disabled={!selected.length} onClick={addShoppingItems}>Add {selected.length} {selected.length === 1 ? 'item' : 'items'} to grocery draft</button>
+            </fieldset>}
+          </div>
           <div className="cc-grocery-checklist" aria-label="Grocery checklist">
-            <div className="cc-heading-row"><strong>Shopping checklist</strong><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
+            <div className="cc-heading-row"><h4 ref={checklistHeading} tabIndex={-1} className="cc-shopping-heading">Shopping checklist</h4><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
             <p className="cc-muted cc-small">Check off items as you shop, then Save plan &amp; groceries.</p>
             {groceries.map(item => <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>)}
             {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}
