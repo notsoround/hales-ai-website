@@ -59,7 +59,7 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   </form><AccountClosureRecovery key={session.generation}/></main>;
 }
 
-export function AccountControls({ identity, assistantName = 'Cupcake' }: { identity: AccountIdentity; assistantName?: string }) {
+export function AccountControls({ identity, assistantName = 'Cupcake', includePrivacy = true }: { identity: AccountIdentity; assistantName?: string; includePrivacy?: boolean }) {
   const [current, setCurrent] = useState(''), [next, setNext] = useState(''), [code, setCode] = useState('');
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const perform = async (route: 'password' | 'recovery/issue' | 'sign-out' | 'sign-out-all') => {
@@ -81,5 +81,5 @@ export function AccountControls({ identity, assistantName = 'Cupcake' }: { ident
     {message&&<p role="status">{message}</p>}
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out')}>Sign out</button>
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>void perform('sign-out-all')}>Sign out all devices</button>
-  </section><AccountSelfExport/><AccountClosureControls owner={identity.account_id}/></>;
+  </section>{includePrivacy&&<><AccountSelfExport/><AccountClosureControls owner={identity.account_id}/></>}</>;
 }
