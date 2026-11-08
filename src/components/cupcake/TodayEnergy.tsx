@@ -12,6 +12,7 @@ import { RingconnUnavailableError, hoursMinutes, latestRingconnNight, nightSumma
 import { estimateExerciseBurn } from './exerciseEstimate';
 import { speechDictationSupported, startDictation, type DictationSession } from './speechDictation';
 import './energy.css';
+import AccountCGMCard from './AccountCGMCard';
 import { ToneIcon } from './design/ToneIcon';
 import { exerciseCoverageNote, exerciseStat } from './dataState';
 
@@ -36,6 +37,7 @@ export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: 
   const comparisonReady = !!nutrition.history?.complete && !nutrition.history.pendingCount && !nutrition.history.undatedLoggedCount;
   return <section className="cc-energy" aria-label="Energy today">
     <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd} now={now.getTime()}/>
+    <AccountCGMCard/>
     <LastNightCard day={day}/>
     <div className="cc-card cc-energy-curve">
       <div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="energy"/>Energy balance today</h3></div>
