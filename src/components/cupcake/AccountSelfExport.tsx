@@ -6,18 +6,26 @@ const sections = {
   profile: 'Account profile', health: 'Health records', activity: 'Activity', food: 'Meals and food settings',
   plans: 'Plans and goals', phone: 'Phone activity', apple_health: 'Apple Health records', chat: 'Text conversations',
   preferences: 'Assistant preferences', finance: 'Financial records', library: 'Library records',
+  recordings: 'Saved recordings and transcripts', voice: 'Saved voice conversations',
 } as const;
 type Section = keyof typeof sections;
 const sectionCodes = Object.keys(sections) as Section[];
-type Coverage = { scope: 'owned-local-structured-data'; consistentSnapshot: true; selectedSections: Section[];
+type SourceSnapshot = { code: 'library' | 'recordings'; source: string; status: 'included' | 'unavailable'; consistentSnapshot: boolean; readAt: string | null };
+type Coverage = { scope: 'owned-local-structured-data'; consistentSnapshot: boolean; consistency?: 'per-database'; sourceSnapshots?: SourceSnapshot[]; selectedSections: Section[];
   sections: Partial<Record<Section, { status: 'included' | 'unavailable'; reason?: string; tables: Record<string, { rowCount: number; columns: string[]; jsonColumns: string[] }> }>>;
   excluded: { section: string; reason: string; note: string }[]; notes: string[] };
-type ExportFile = { format: 'cupcake.account.local-export.v1'; generatedAt: string; accountId: string; completePrivacyExport: false; coverage: Coverage; data: Record<string, Record<string, Record<string, unknown>[]>> };
+type ExportFile = { format: 'cupcake.account.local-export.v1' | 'cupcake.account.local-export.v2'; generatedAt: string; accountId: string; completePrivacyExport: false; coverage: Coverage; data: Record<string, Record<string, Record<string, unknown>[]>> };
 type Result = { export: ExportFile; filename: string; mimeType: string };
 type Prepared = { file: ExportFile; filename: string; generation: number };
 function verifiedExport(result: Result, accountId: string, requested: Section[]): Prepared['file'] {
   const file = result.export;
-  if (!file || file.format !== 'cupcake.account.local-export.v1' || file.accountId !== accountId || file.completePrivacyExport !== false || !Number.isFinite(Date.parse(file.generatedAt)) || result.mimeType !== 'application/json' || !/^cupcake-local-data-[A-Za-z0-9_-]+\.json$/.test(result.filename) || file.coverage?.scope !== 'owned-local-structured-data' || file.coverage.consistentSnapshot !== true || !Array.isArray(file.coverage.selectedSections) || !Array.isArray(file.coverage.excluded) || !Array.isArray(file.coverage.notes) || !file.data || typeof file.data !== 'object') throw Error('The download could not be verified. No file was created. Try again.');
+  if (!file || !['cupcake.account.local-export.v1', 'cupcake.account.local-export.v2'].includes(file.format) || file.accountId !== accountId || file.completePrivacyExport !== false || !Number.isFinite(Date.parse(file.generatedAt)) || result.mimeType !== 'application/json' || !/^cupcake-local-data-[A-Za-z0-9_-]+\.json$/.test(result.filename) || file.coverage?.scope !== 'owned-local-structured-data' || !Array.isArray(file.coverage.selectedSections) || !Array.isArray(file.coverage.excluded) || !Array.isArray(file.coverage.notes) || !file.data || typeof file.data !== 'object') throw Error('The download could not be verified. No file was created. Try again.');
+  if (file.format === 'cupcake.account.local-export.v1') {
+    if (file.coverage.consistentSnapshot !== true || requested.includes('recordings')) throw Error('The download consistency could not be verified. No file was created.');
+  } else {
+    const snapshots = file.coverage.sourceSnapshots;
+    if (!requested.includes('recordings') || file.coverage.consistentSnapshot !== false || file.coverage.consistency !== 'per-database' || !Array.isArray(snapshots) || snapshots.length !== 2 || snapshots.some(item => !item || typeof item !== 'object') || new Set(snapshots.map(item => item.code)).size !== 2 || snapshots.some(item => !['library', 'recordings'].includes(item.code) || typeof item.source !== 'string' || !item.source.trim() || (item.status === 'included' ? item.consistentSnapshot !== true || !item.readAt || !Number.isFinite(Date.parse(item.readAt)) : item.status !== 'unavailable' || item.consistentSnapshot !== false || item.readAt !== null)) || snapshots.find(item => item.code === 'library')?.status !== 'included') throw Error('The download consistency could not be verified. No file was created.');
+  }
   const selected = file.coverage.selectedSections;
   if (selected.length !== requested.length || new Set(selected).size !== selected.length || selected.some(section => !requested.includes(section)) || Object.keys(file.coverage.sections || {}).some(section => !requested.includes(section as Section)) || Object.keys(file.data).some(section => !requested.includes(section as Section))) throw Error('The download coverage does not match your selection. No file was created.');
   for (const section of selected) {
@@ -77,6 +85,10 @@ export function AccountSelfExport() {
     {notice && <p role="status">{notice}</p>}
     {prepared && <div>
       <p role="status">Your file is ready. Prepared {new Date(prepared.file.generatedAt).toLocaleString()}.</p>
+      {prepared.file.format === 'cupcake.account.local-export.v2' && <div className="cc-export-consistency">
+        <p className="cc-muted cc-small">Each available saved store was read consistently; the Library and recording archive may reflect slightly different moments.</p>
+        <ul aria-label="Saved store read times">{prepared.file.coverage.sourceSnapshots?.map(source => <li key={source.code}>{source.source}: {source.status === 'included' ? `read ${new Date(source.readAt!).toLocaleString()}` : 'Unavailable for this account'}</li>)}</ul>
+      </div>}
       <ul aria-label="Download coverage">{prepared.file.coverage.selectedSections.map(section => {
         const entry = prepared.file.coverage.sections[section]!, count = Object.values(entry.tables).reduce((sum, table) => sum + table.rowCount, 0);
         return <li key={section}><strong>{sections[section]}:</strong> {entry.status === 'included' ? `${count.toLocaleString()} saved record${count === 1 ? '' : 's'}` : 'Unavailable for this account'}</li>;
