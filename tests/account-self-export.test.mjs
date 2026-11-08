@@ -10,13 +10,18 @@ const cacheDir = mkdtempSync(path.join(tmpdir(), 'cupcake-self-export-'));
 const server = await createServer({ cacheDir, plugins: [{ name: 'synthetic-self-export-root', configureServer(server) { server.middlewares.use((req, _res, next) => { if (req.url?.split('?')[0] === '/cupcake/account') req.url = '/tests/account-browser-preview.html'; next(); }); } }], define: { 'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS': '"true"' }, server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), realpathSync('node_modules')] } } });
 await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing'];
+const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing','source_history'];
 let mode = 'normal', release = () => {}, requests = [];
 function result(owner, selected = sectionCodes) {
   const sections = Object.fromEntries(selected.map(section => [section, { status: section === 'finance' ? 'unavailable' : 'included', ...(section === 'finance' ? { reason: 'owned_schema_unavailable' } : {}), tables: section === 'food' ? { saved_meals: { rowCount: 1, columns: ['description', 'total'], jsonColumns: ['total'] } } : {} }]));
   const data = Object.fromEntries(selected.filter(section => section !== 'finance').map(section => [section, section === 'food' ? { saved_meals: [{ description: owner === A ? 'Synthetic A meal' : 'Synthetic B meal', total: '{"calories":null,"protein_g":0}' }] } : {}]));
+  if (selected.includes('source_history')) {
+    const sourceTables = ['source_event_receipts','source_event_versions','source_event_heads','source_event_indexed'];
+    sections.source_history.tables = Object.fromEntries(sourceTables.map(table => [table, { rowCount: 0, columns: ['id'], jsonColumns: [] }]));
+    data.source_history = Object.fromEntries(sourceTables.map(table => [table, []]));
+  }
   const omitted = sectionCodes.filter(section => !selected.includes(section)).map(section => ({ section, reason: 'not_selected', note: 'This supported section was not selected.' }));
-  return { export: { format: selected.includes('recordings') ? 'cupcake.account.local-export.v2' : 'cupcake.account.local-export.v1', generatedAt: '2026-11-08T00:00:00Z', accountId: owner, completePrivacyExport: false, coverage: { scope: 'owned-local-structured-data', consistentSnapshot: !selected.includes('recordings'), ...(selected.includes('recordings') ? { consistency: 'per-database', sourceSnapshots: [{ code: 'library', source: 'Saved account data', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:00Z' }, { code: 'recordings', source: 'Saved recording archive', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:01Z' }] } : {}), selectedSections: selected, sections, excluded: [{ section: 'binary_originals', reason: 'not_in_json_export', note: 'Original photos, audio and files are not included.' }, { section: 'authentication_and_operations', reason: 'excluded_credentials_and_operational_data', note: 'Passwords, access credentials and service operations are not included.' }, ...omitted], notes: ['Synthetic allowlisted local records only.'] }, data }, filename: 'cupcake-local-data-20261108T000000Z.json', mimeType: 'application/json' };
+  return { export: { format: selected.includes('source_history') ? 'cupcake.account.local-export.v3' : selected.includes('recordings') ? 'cupcake.account.local-export.v2' : 'cupcake.account.local-export.v1', generatedAt: '2026-11-08T00:00:00Z', accountId: owner, completePrivacyExport: false, coverage: { scope: 'owned-local-structured-data', consistentSnapshot: !selected.includes('recordings') && !selected.includes('source_history'), ...(selected.includes('recordings') || selected.includes('source_history') ? { consistency: 'per-database', sourceSnapshots: [{ code: 'library', source: 'Saved account data', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:00Z' }, ...(selected.includes('recordings') ? [{ code: 'recordings', source: 'Saved recording archive', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:01Z' }] : []), ...(selected.includes('source_history') ? [{ code: 'source_events', source: 'Saved source-event journal', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:02Z' }] : [])] } : {}), selectedSections: selected, sections, excluded: [{ section: 'binary_originals', reason: 'not_in_json_export', note: 'Original photos, audio and files are not included.' }, { section: 'authentication_and_operations', reason: 'excluded_credentials_and_operational_data', note: 'Passwords, access credentials and service operations are not included.' }, ...omitted], notes: ['Synthetic allowlisted local records only.'] }, data }, filename: 'cupcake-local-data-20261108T000000Z.json', mimeType: 'application/json' };
 }
 async function syntheticExportServer(owner, body) {
   requests.push({ owner, body }); assert.deepEqual(Object.keys(body).sort(), ['action','sections']); assert.equal(body.action, 'account_self_export');
@@ -71,13 +76,13 @@ try {
   await prepare(p); await exportUI(p).getByText('Your file is ready.', { exact: false }).waitFor(); assert.equal(main.downloads.length, 0);
   assert.deepEqual(requests[0].body.sections, sectionCodes);
   await exportUI(p).getByText('Each available saved store was read consistently;', { exact: false }).waitFor();
-  assert.equal(await exportUI(p).getByRole('list', { name: 'Saved store read times' }).getByRole('listitem').count(), 2);
+  assert.equal(await exportUI(p).getByRole('list', { name: 'Saved store read times' }).getByRole('listitem').count(), 3);
   await exportUI(p).getByRole('list', { name: 'Download coverage', exact: true }).getByText('Meals and food settings:', { exact: false }).waitFor();
   await exportUI(p).getByText('Financial records:', { exact: false }).waitFor(); await exportUI(p).getByText('Financial records: Unavailable for this account', { exact: true }).waitFor();
   await exportUI(p).getByText('What this download leaves out', { exact: true }).click(); await exportUI(p).getByText('Original photos, audio and files are not included.', { exact: true }).waitFor();
   const downloadEvent = p.waitForEvent('download'); await exportUI(p).getByRole('button', { name: 'Download JSON file', exact: true }).click(); const download = await downloadEvent;
   assert.equal(download.suggestedFilename(), 'cupcake-local-data-20261108T000000Z.json');
-  const file = JSON.parse(readFileSync(await download.path(), 'utf8')); assert.deepEqual(file, result(A).export); assert.equal(file.identity, undefined); assert.equal(file.filename, undefined); assert.equal(file.completePrivacyExport, false); assert.equal(file.format, 'cupcake.account.local-export.v2'); assert.equal(file.coverage.consistentSnapshot, false); assert.deepEqual(JSON.parse(file.data.food.saved_meals[0].total), { calories: null, protein_g: 0 });
+  const file = JSON.parse(readFileSync(await download.path(), 'utf8')); assert.deepEqual(file, result(A).export); assert.equal(file.identity, undefined); assert.equal(file.filename, undefined); assert.equal(file.completePrivacyExport, false); assert.equal(file.format, 'cupcake.account.local-export.v3'); assert.equal(file.coverage.consistentSnapshot, false); assert.deepEqual(JSON.parse(file.data.food.saved_meals[0].total), { calories: null, protein_g: 0 });
   assert.equal(await exportUI(p).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); await exportUI(p).getByText('Download requested.', { exact: false }).waitFor();
   await prepare(p); await exportUI(p).getByRole('button', { name: 'Clear prepared file', exact: true }).click(); assert.equal(main.downloads.length, 1);
   const beforeSubset = requests.length;
@@ -137,6 +142,7 @@ try {
   await exportUI(v).getByRole('checkbox', { name: 'Saved voice conversations', exact: true }).uncheck();
   await exportUI(v).getByRole('checkbox', { name: 'Saved recordings and transcripts', exact: true }).uncheck();
   await exportUI(v).getByRole('checkbox', { name: 'Invitations and sharing', exact: true }).uncheck();
+  await exportUI(v).getByRole('checkbox', { name: 'Saved source-event history', exact: true }).uncheck();
   await prepare(v); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
   const legacyEvent = v.waitForEvent('download'); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).click();
   const legacyFile = JSON.parse(readFileSync(await (await legacyEvent).path(), 'utf8'));

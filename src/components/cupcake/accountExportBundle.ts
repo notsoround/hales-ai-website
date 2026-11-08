@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AccountRequestError, accountExport, accountExportDownload, assertGeneration, sessionSnapshot, subscribeSession } from './accountSession';
 
-export const exportSectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing'] as const;
+export const exportSectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing','source_history'] as const;
 export type ExportSection = typeof exportSectionCodes[number];
 const tables:Record<ExportSection,readonly string[]> = {
   profile:['accounts'],health:['weight_batches','weight_versions','weight_clients','weight_adjustments','weight_manual_requests','health_manual_observations','body_checkins'],activity:['personal_outcomes','exercise_entries'],
@@ -10,13 +10,14 @@ const tables:Record<ExportSection,readonly string[]> = {
   finance:['receipts','receipt_candidate_sets','receipt_matches','recon_events','recon_links','recon_coverage'],library:['documents','overlays','analyses','decisions','projects'],
   recordings:['recordings','account_audio_transcription_requests','documents'],voice:['account_voice_sessions','documents'],
   sharing:['coach_invitations','coach_memberships','coach_grants','coach_membership_grants'],
+  source_history:['source_event_receipts','source_event_versions','source_event_heads','source_event_indexed'],
 };
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/, SHA = /^[a-f0-9]{64}$/;
 const storageKey = (owner:string) => 'cupcake-account-export-intent-v1:' + encodeURIComponent(owner);
 export type ExportIntent = {request_id:string;sections:ExportSection[];include_originals?:true};
 type Chunk = {member:string;rowCount:number;bytes:number;sha256:string};
-type Source = {code:'library'|'recordings';source:string;status:'included'|'unavailable';consistentSnapshot:boolean;readAt:string|null};
-export type BundleCoverage = {scope:'owned-local-structured-data'|'owned-local-structured-data-and-selected-originals';consistentSnapshot:boolean;consistency:'per-database'|'single-database';sourceSnapshots:Source[];selectedSections:ExportSection[];
+export type ExportSourceSnapshot = {code:'library'|'recordings'|'source_events';source:string;status:'included'|'unavailable';consistentSnapshot:boolean;readAt:string|null;reason?:string};
+export type BundleCoverage = {scope:'owned-local-structured-data'|'owned-local-structured-data-and-selected-originals';consistentSnapshot:boolean;consistency:'per-database'|'single-database';sourceSnapshots:ExportSourceSnapshot[];selectedSections:ExportSection[];
   sections:Partial<Record<ExportSection,{status:'included'|'unavailable';reason?:string;tables:Record<string,{rowCount:number;columns:string[];jsonColumns:string[];chunks:Chunk[]}>}>>;
   excluded:{section:string;reason:string;note:string}[];notes:string[];noRowTruncation:true};
 type OriginalKind = 'meal_photo'|'receipt_photo'|'recording_audio';
@@ -30,6 +31,25 @@ const plain = (value:unknown):value is Record<string,unknown> => !!value && type
 const count = (value:unknown):value is number => Number.isSafeInteger(value) && Number(value) >= 0;
 const instant = (value:unknown):value is string => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const invalid = () => Error('The ZIP coverage could not be verified. No file was created. Check its status before trying again.');
+
+/** Every selected separate store must describe the same availability as its section. */
+export function validExportSources(coverage:{consistentSnapshot:boolean;consistency?:unknown;sourceSnapshots?:unknown;sections?:unknown}, selected:readonly ExportSection[]):boolean {
+  const expected = ['library',...(selected.includes('recordings') ? ['recordings'] : []),...(selected.includes('source_history') ? ['source_events'] : [])];
+  const multi = expected.length > 1, snapshots = coverage.sourceSnapshots;
+  if (coverage.consistentSnapshot !== !multi || coverage.consistency !== (multi ? 'per-database' : 'single-database') || !Array.isArray(snapshots) || snapshots.length !== expected.length
+      || new Set(snapshots.map(source => source?.code)).size !== expected.length
+      || snapshots.some(source => !plain(source) || !expected.includes(source.code as string) || typeof source.source !== 'string' || !source.source.trim()
+        || (source.status === 'included' ? source.consistentSnapshot !== true || !instant(source.readAt) : source.status !== 'unavailable' || source.consistentSnapshot !== false || source.readAt !== null))
+      || snapshots.find(source => source.code === 'library')?.status !== 'included' || !plain(coverage.sections)) return false;
+  for (const [section, code] of [['recordings','recordings'],['source_history','source_events']] as const) {
+    if (!selected.includes(section)) continue;
+    const entry = coverage.sections[section], source = snapshots.find(item => item.code === code);
+    if (!plain(entry) || !source || entry.status !== source.status) return false;
+    if (section === 'source_history' && source.status === 'unavailable'
+        && (typeof source.reason !== 'string' || !source.reason.trim() || source.reason !== entry.reason)) return false;
+  }
+  return true;
+}
 
 export function verifyBundleStatus(input:unknown, owner:string, intent:ExportIntent):BundleStatus {
   const job = input as BundleStatus;
@@ -53,12 +73,7 @@ export function verifyBundleStatus(input:unknown, owner:string, intent:ExportInt
       || !Array.isArray(coverage.excluded) || !coverage.excluded.every(entry => plain(entry) && typeof entry.section === 'string' && typeof entry.reason === 'string' && typeof entry.note === 'string')
       || !['external_sources','auxiliary_history','authentication_and_operations','other_accounts_and_shared_reports',...(intent.include_originals ? [] : ['binary_originals'])].every(code => coverage.excluded.some(entry => entry.section === code))
       || !Array.isArray(coverage.notes) || coverage.notes.some(note => typeof note !== 'string')) throw invalid();
-  const multi = intent.sections.includes('recordings'), snapshots = coverage.sourceSnapshots;
-  if (coverage.consistentSnapshot !== !multi || coverage.consistency !== (multi ? 'per-database' : 'single-database') || !Array.isArray(snapshots) || snapshots.length !== (multi ? 2 : 1)
-      || new Set(snapshots.map(source => source?.code)).size !== snapshots.length
-      || snapshots.some(source => !plain(source) || !['library','recordings'].includes(source.code) || (!multi && source.code !== 'library') || typeof source.source !== 'string' || !source.source.trim()
-        || (source.status === 'included' ? source.consistentSnapshot !== true || !instant(source.readAt) : source.status !== 'unavailable' || source.consistentSnapshot !== false || source.readAt !== null))
-      || snapshots.find(source => source.code === 'library')?.status !== 'included') throw invalid();
+  if (!validExportSources(coverage,intent.sections)) throw invalid();
   const members = new Set<string>();let rawBytes = 0;
   for (const section of intent.sections) {
     const entry = coverage.sections[section];
