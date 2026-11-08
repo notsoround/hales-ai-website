@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AccountRequestError, accountExport, accountExportDownload, assertGeneration, sessionSnapshot, subscribeSession } from './accountSession';
 
-export const exportSectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing','source_history'] as const;
+export const exportSectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice','sharing','source_history','native_health'] as const;
 export type ExportSection = typeof exportSectionCodes[number];
+export const nativeHealthExportTables = {
+  native_installations: ['installation_id','client_id','epoch','created','refreshed','idle_expires','absolute_expires','revoked'],
+  native_health_connections: ['connection_id','installation_id','epoch','connection_epoch','types_json','created','expires','revoked','last_received_at','last_observed_at'],
+  native_health_batches: ['request_id','connection_id','body_sha256','body_bytes','body_chunk_count','receipt','received'],
+  native_health_batch_chunks: ['request_id','chunk_index','byte_offset','bytes','sha256','data_base64'],
+  native_health_records: ['version_id','installation_id','record_type','source_package','record_id','version_key','source_modified','body_sha256','body_bytes','body_chunk_count','deleted','request_id','received'],
+  native_health_record_chunks: ['version_id','chunk_index','byte_offset','bytes','sha256','data_base64'],
+  native_health_heads: ['installation_id','record_type','source_package','record_id','version_id'],
+} as const;
 const tables:Record<ExportSection,readonly string[]> = {
   profile:['accounts'],health:['weight_batches','weight_versions','weight_clients','weight_adjustments','weight_manual_requests','health_manual_observations','body_checkins'],activity:['personal_outcomes','exercise_entries'],
   food:['food_meals','food_items','food_nutrition_settings'],plans:['coach_plan'],phone:['phone_daily_uploads','phone_daily_heads','ringconn_night_snapshots','ringconn_night_heads'],
@@ -11,6 +20,7 @@ const tables:Record<ExportSection,readonly string[]> = {
   recordings:['recordings','account_audio_transcription_requests','documents'],voice:['account_voice_sessions','documents'],
   sharing:['coach_invitations','coach_memberships','coach_grants','coach_membership_grants'],
   source_history:['source_event_receipts','source_event_versions','source_event_heads','source_event_indexed'],
+  native_health:Object.keys(nativeHealthExportTables),
 };
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/, SHA = /^[a-f0-9]{64}$/;
 const storageKey = (owner:string) => 'cupcake-account-export-intent-v1:' + encodeURIComponent(owner);
@@ -31,6 +41,62 @@ const plain = (value:unknown):value is Record<string,unknown> => !!value && type
 const count = (value:unknown):value is number => Number.isSafeInteger(value) && Number(value) >= 0;
 const instant = (value:unknown):value is string => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const invalid = () => Error('The ZIP coverage could not be verified. No file was created. Check its status before trying again.');
+
+/** Native bodies are byte chunks, not parsed/reformatted replacement records. */
+export function validNativeHealthMetadata(value:unknown):boolean {
+  if (!plain(value) || Object.keys(value).length !== tables.native_health.length) return false;
+  return Object.entries(nativeHealthExportTables).every(([table,columns]) => {
+    const info=value[table], jsonColumns=table === 'native_health_connections' ? ['types_json'] : table === 'native_health_batches' ? ['receipt'] : [];
+    return plain(info) && count(info.rowCount) && Array.isArray(info.columns) && JSON.stringify(info.columns) === JSON.stringify(columns)
+      && Array.isArray(info.jsonColumns) && JSON.stringify(info.jsonColumns) === JSON.stringify(jsonColumns);
+  });
+}
+
+export async function validNativeHealthRows(metadata:unknown,data:unknown):Promise<boolean> {
+  try {
+    if (!validNativeHealthMetadata(metadata) || !plain(data) || Object.keys(data).length !== tables.native_health.length) return false;
+    const rows:Record<string,Record<string,unknown>[]> = {};
+    for (const [table,columns] of Object.entries(nativeHealthExportTables)) {
+      const entries=data[table];
+      if (!Array.isArray(entries) || entries.length !== (metadata as Record<string,{rowCount:number}>)[table].rowCount
+          || entries.some(row => !plain(row) || Object.keys(row).length !== columns.length || Object.keys(row).some(column => !(columns as readonly string[]).includes(column)))) return false;
+      rows[table]=entries;
+    }
+    const digest=async (bytes:Uint8Array) => [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(byte => byte.toString(16).padStart(2,'0')).join('');
+    const bodies=async (parents:Record<string,unknown>[],chunks:Record<string,unknown>[],key:string,tombstones=false) => {
+      const validKey=(id:unknown):id is string|number => key === 'version_id' ? count(id) && id > 0 : typeof id === 'string' && !!id;
+      const ids=new Set<string|number>(), grouped=new Map<string|number,Record<string,unknown>[]>();
+      for (const chunk of chunks) {
+        const id=chunk[key];if (!validKey(id)) return false;
+        const parts=grouped.get(id) || [];parts.push(chunk);grouped.set(id,parts);
+      }
+      for (const parent of parents) {
+        const id=parent[key];if (!validKey(id) || ids.has(id) || typeof parent.body_sha256 !== 'string' || !SHA.test(parent.body_sha256) || !count(parent.body_chunk_count)) return false;
+        ids.add(id);
+        const parts=grouped.get(id) || [];
+        if (parent.body_bytes === null) {
+          if (!tombstones || parent.deleted !== 1 || parent.body_chunk_count !== 0 || parts.length || parent.body_sha256 !== await digest(new TextEncoder().encode('tombstone'))) return false;
+          continue;
+        }
+        if (!count(parent.body_bytes) || parent.body_bytes > 4*1024*1024 || parent.body_chunk_count !== Math.ceil(parent.body_bytes/(256*1024)) || parts.length !== parent.body_chunk_count) return false;
+        const body=new Uint8Array(parent.body_bytes);let offset=0;
+        for (const [index,part] of parts.entries()) {
+          if (part.chunk_index !== index || part.byte_offset !== offset || !count(part.bytes) || part.bytes !== Math.min(256*1024,body.length-offset)
+              || typeof part.sha256 !== 'string' || !SHA.test(part.sha256) || typeof part.data_base64 !== 'string' || part.data_base64.length !== Math.ceil(part.bytes/3)*4) return false;
+          const raw=atob(part.data_base64);
+          if (raw.length !== part.bytes || btoa(raw) !== part.data_base64) return false;
+          const bytes=Uint8Array.from(raw,character => character.charCodeAt(0));
+          if (await digest(bytes) !== part.sha256) return false;
+          body.set(bytes,offset);offset+=bytes.length;
+        }
+        if (offset !== body.length || await digest(body) !== parent.body_sha256) return false;
+      }
+      return [...grouped.keys()].every(id => ids.has(id));
+    };
+    return await bodies(rows.native_health_batches,rows.native_health_batch_chunks,'request_id')
+      && await bodies(rows.native_health_records,rows.native_health_record_chunks,'version_id',true);
+  } catch { return false; }
+}
 
 /** Every selected separate store must describe the same availability as its section. */
 export function validExportSources(coverage:{consistentSnapshot:boolean;consistency?:unknown;sourceSnapshots?:unknown;sections?:unknown}, selected:readonly ExportSection[]):boolean {
@@ -78,8 +144,9 @@ export function verifyBundleStatus(input:unknown, owner:string, intent:ExportInt
   for (const section of intent.sections) {
     const entry = coverage.sections[section];
     if (!plain(entry) || !['included','unavailable'].includes(entry.status) || !plain(entry.tables)) throw invalid();
-    if (entry.status === 'unavailable') { if (typeof entry.reason !== 'string' || Object.keys(entry.tables).length) throw invalid();continue; }
+    if (entry.status === 'unavailable') { if (typeof entry.reason !== 'string' || (section === 'native_health' && !entry.reason.trim()) || Object.keys(entry.tables).length) throw invalid();continue; }
     if (Object.keys(entry.tables).length !== tables[section].length || Object.keys(entry.tables).some(table => !tables[section].includes(table))) throw invalid();
+    if (section === 'native_health' && !validNativeHealthMetadata(entry.tables)) throw invalid();
     for (const [table, info] of Object.entries(entry.tables)) {
       if (!plain(info) || !count(info.rowCount) || !Array.isArray(info.columns) || !info.columns.length || new Set(info.columns).size !== info.columns.length || info.columns.some(column => typeof column !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(column))
           || !Array.isArray(info.jsonColumns) || info.jsonColumns.some(column => !info.columns.includes(column)) || !Array.isArray(info.chunks)) throw invalid();
