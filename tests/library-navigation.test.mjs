@@ -55,16 +55,20 @@ try {
           await page.keyboard.press('ArrowRight'); await page.keyboard.press('Space');
           await page.getByRole('button', { name: 'Add project', exact: true }).waitFor();
           assert.equal(new URL(page.url()).searchParams.get('view'), 'projects');
-          await page.getByRole('button', { name: 'Edit project', exact: true }).click();
-          assert.equal(await page.getByLabel('Project name', { exact: true }).inputValue(), 'Synthetic project');
+          if (entry === '/cupcake') {
+            await page.getByRole('button', { name: 'Edit project', exact: true }).click();
+            assert.equal(await page.getByLabel('Project name', { exact: true }).inputValue(), 'Synthetic project');
+          } else assert.equal(await page.getByRole('button', {name:'Edit project',exact:true}).isDisabled(), true);
           await page.getByRole('button', { name: 'Explore context', exact: false }).click();
           await relationships(page); assert.equal(await tab('All context').getAttribute('aria-selected'), 'true'); assert.equal(new URL(page.url()).searchParams.get('view'), 'context');
           // Clear the project filter, retaining the full existing artifact list.
           await page.getByRole('combobox', { name: 'Context', exact: true }).selectOption('');
           assert.equal(await page.locator('.cc-library-item').count(), 30);
           await page.getByRole('button', { name: 'Load more', exact: true }).click(); assert.equal(await page.locator('.cc-library-item').count(), 34);
-          await page.getByRole('button', { name: 'Bring a conversation', exact: true }).click(); await page.getByLabel('Title', { exact: true }).waitFor();
-          await page.getByRole('button', { name: 'Close import', exact: true }).click();
+          if (entry === '/cupcake') {
+            await page.getByRole('button', { name: 'Bring a conversation', exact: true }).click(); await page.getByLabel('Title', { exact: true }).waitFor();
+            await page.getByRole('button', { name: 'Close import', exact: true }).click();
+          } else assert.equal(await page.getByRole('button', {name:'Bring a conversation',exact:true}).isDisabled(), true);
           await page.getByLabel('Search library', { exact: true }).fill('Synthetic'); await page.getByRole('button', { name: 'Search', exact: true }).click();
           await page.getByRole('button', { name: 'Clear search', exact: true }).waitFor(); await page.getByRole('button', { name: 'Clear search', exact: true }).click();
           for (const [index, name] of tabs.entries()) {
@@ -77,7 +81,7 @@ try {
               else await panel.getByText('Receipt capture and bank search unavailable', { exact: true }).waitFor();
             }
             if (name === 'Saved thinking') await panel.getByText('Synthetic saved analysis.', { exact: true }).waitFor();
-            if (name === 'Connections') { await panel.getByRole('button', { name: 'Create 90-day access', exact: true }).waitFor(); await panel.getByRole('button', { name: 'Check access', exact: true }).waitFor(); }
+            if (name === 'Connections') { if (entry === '/cupcake') { await panel.getByRole('button', { name: 'Create 90-day access', exact: true }).waitFor(); await panel.getByRole('button', { name: 'Check access', exact: true }).waitFor(); } else await panel.getByRole('heading', {name:'Private AI connections',exact:true}).waitFor(); }
           }
           if (width < 600) {
             await page.getByText('7 views · swipe or use the arrows', { exact: true }).waitFor();

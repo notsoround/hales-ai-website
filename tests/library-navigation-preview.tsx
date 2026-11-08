@@ -7,7 +7,7 @@ import '../src/components/cupcake/studio.css';
 import '../src/components/cupcake/assistant-appearance.css';
 if (!import.meta.env.DEV) throw Error('Local fixture only.');
 const identity = { account_id: 'acc_navigation_fixture', name: 'Navigation fixture', email: 'navigation@example.invalid' };
-const fixture = { requests: [] as { route: string; action: string; context: string | null }[], recordings: [] as string[], blocked: [] as string[] };
+const fixture = { requests: [] as { route: string; action: string; context: string | null }[], recordings: [] as string[], blocked: [] as string[], failDecisions: false, failAnalyses: false };
 (window as unknown as { libraryNavigationFixture: typeof fixture }).libraryNavigationFixture = fixture;
 const nativeFetch = window.fetch;
 const documents = Array.from({ length: 34 }, (_, n) => ({ id: 'fixture_' + n, title: 'Synthetic source ' + (n + 1), status: 'ready', createdAt: '2026-11-08T06:00:00Z', kind: 'note', sourceApp: 'Local fixture', text: 'Synthetic source text.' }));
@@ -28,10 +28,15 @@ window.fetch = async (input, init) => {
     : { documents, projects: [project], browseTotal: 34, libraryTotal: 35, hasMore: false });
   if (action === 'fetch') return ok({ document: documents.find(d => d.id === body.id) || documents[0] });
   if (action === 'search') return ok({ results: [{ ...documents[0], documentId: documents[0].id, text: 'Synthetic search result.' }] });
+  if (action === 'analysis_list' && fixture.failAnalyses) throw Error('Synthetic saved-analysis read failed.');
+  if (action === 'analysis_list' && ACCOUNT_SESSIONS && 'mode' in body) throw Error('Account analysis reads reject extra mode fields.');
+  if (action === 'analysis_get') { if (ACCOUNT_SESSIONS && 'mode' in body) throw Error('Account analysis reads reject extra mode fields.'); return ok({analysis:{id:'fixture_closeout',date:'2026-11-07',mode:'closeout',reply:'Synthetic retained closeout evidence.',model:'Synthetic',sources:[{documentId:'fixture_0',title:'Synthetic original'}]}}); }
+  if (action === 'analysis_list' && ACCOUNT_SESSIONS) return ok({analyses:[{id:'fixture_closeout',date:'2026-11-07',mode:'closeout',reply:'Synthetic retained closeout evidence.',model:'Synthetic',sources:[{documentId:'fixture_0',title:'Synthetic original'}]},{id:'fixture_analysis',reply:'Synthetic saved analysis.',message:'Existing thinking',sources:[]}]});
   if (action === 'analysis_list') return ok({ analyses: [{ id: 'fixture_analysis', reply: 'Synthetic saved analysis.', message: 'Existing thinking', sources: [] }] });
   if (action === 'connector_list') return ok({ connectors: [] });
   if (action === 'closeout_preview') return ok({ candidates: [], date: '2026-11-07' });
-  if (action === 'decision_list') return ok({ decisions: [] });
+  if (action === 'decision_list' && fixture.failDecisions) throw Error('Synthetic saved-decision read failed.');
+  if (action === 'decision_list') return ok({ decisions: ACCOUNT_SESSIONS ? [{id:'fixture_decision',text:'Synthetic retained decision.',type:'decision',status:'open'}] : [] });
   if (action === 'receipt_list') return ok({ receipts: [] });
   if (action === 'ask_jobs') return ok({ jobs: [] });
   fixture.blocked.push(action); throw Error('Mutation/provider action blocked: ' + action);
