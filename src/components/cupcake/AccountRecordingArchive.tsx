@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccountRecordingClient, type ArchivedRecording } from './accountRecording';
 import { subscribeSession } from './accountSession';
+import AccountRecordingTranscription from './AccountRecordingTranscription';
 
 export default function AccountRecordingArchive({active, version, requested}: {active: boolean; version: number; requested: {id:string} | null}) {
   const [rows, setRows] = useState<ArchivedRecording[]>([]), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
@@ -37,10 +38,10 @@ export default function AccountRecordingArchive({active, version, requested}: {a
   useEffect(() => { if (requested) void open(requested.id, 'play'); }, [requested, open]);
   function close() { stopAudio(); setUrl(''); setOpened(null); }
   return <section aria-label="Account audio archive" className="cc-fold">
-    <h3>Saved audio</h3><p className="cc-muted">Your latest 100 saved originals. Transcription, summaries and live voice are not included yet.</p>
+    <h3>Saved audio</h3><p className="cc-muted">Your latest 100 saved originals. Request a transcript for a complete clip up to three minutes when available. Summaries and live voice are not included yet.</p>
     <button className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Refresh saved audio</button>
     <p role="status" className="cc-muted">{message}</p>
-    {rows.map(row => <article className="cc-card" key={row.id}><strong>{row.title}</strong><p className="cc-muted">{new Date(row.createdAt).toLocaleDateString()} · {(row.totalBytes / (1024 * 1024)).toFixed(1)} MiB · Original saved</p><div className="cc-action-row"><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'play')}>Listen to saved audio</button><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'download')}>Download saved original</button></div></article>)}
+    {rows.map(row => <article className="cc-card" key={row.id}><strong>{row.title}</strong><p className="cc-muted">{new Date(row.createdAt).toLocaleDateString()} · {(row.totalBytes / (1024 * 1024)).toFixed(1)} MiB · Original saved</p><div className="cc-action-row"><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'play')}>Listen to saved audio</button><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'download')}>Download saved original</button></div><AccountRecordingTranscription key={`${row.id}:${row.originalSha256}`} recording={row} active={active}/></article>)}
     {opened && <div className="cc-card"><strong>{opened.title}</strong><audio ref={attachAudio} controls crossOrigin="use-credentials" preload="metadata" src={url || undefined} aria-label="Saved original audio" style={{width: '100%'}} onError={() => setMessage('Playback could not continue. Open the saved audio again for a fresh link.')} /><button className="cc-text-button" onClick={close}>Close saved audio</button></div>}
   </section>;
 }
