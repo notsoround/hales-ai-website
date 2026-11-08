@@ -17,6 +17,10 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [shoppingError, setShoppingError] = useState('');
+  const checklistHeading = useRef<HTMLHeadingElement>(null), focusChecklist = useRef(false);
+  useEffect(() => {
+    if (!choosingItems && focusChecklist.current) { focusChecklist.current = false; checklistHeading.current?.focus(); }
+  }, [choosingItems]);
   const current = useRef({ base, draft, pending }); current.current = { base, draft, pending };
   const generation = useRef(0), inFlight = useRef(false);
   const value = draftPlan(base, draft), dirty = !!pending || !samePlan(value, base || { meals: [] });
@@ -96,7 +100,7 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
     if (busy || pending || !selected.length) return;
     try {
       const groceries = appendGroceryItems(draft.groceries, selected);
-      edit({ ...draft, groceries }); setChoosingItems(false); setShoppingError('');
+      edit({ ...draft, groceries }); focusChecklist.current = true; setChoosingItems(false); setShoppingError('');
       setNotice(`${selected.length} ${selected.length === 1 ? 'item added' : 'items added'} to your grocery draft. Review the list, then Save plan & groceries.`);
     } catch (cause) { setShoppingError(cause instanceof Error ? cause.message : 'These items could not be added. Your notes are unchanged.'); }
   };
@@ -136,7 +140,7 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
             </fieldset>}
           </div>
           <div className="cc-grocery-checklist" aria-label="Grocery checklist">
-            <div className="cc-heading-row"><strong>Shopping checklist</strong><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
+            <div className="cc-heading-row"><h4 ref={checklistHeading} tabIndex={-1} className="cc-shopping-heading">Shopping checklist</h4><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
             <p className="cc-muted cc-small">Check off items as you shop, then Save plan &amp; groceries.</p>
             {groceries.map(item => <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>)}
             {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}

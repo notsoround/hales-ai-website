@@ -78,6 +78,7 @@ try {
   }
   await choices.getByRole('button', { name: 'Add 1 item to grocery draft', exact: true }).click();
   assert.equal(await choices.count(), 0);
+  await s.waitForFunction(() => document.activeElement?.textContent === 'Shopping checklist');
   assert.equal(await s.getByLabel('Grocery notes').inputValue(), rawGroceries.replace(/\r\n/g, '\n') + '- [ ] Spinach');
   assert.equal(await s.getByRole('checkbox', { name: 'Oats', exact: true }).isChecked(), true);
   assert.equal(calls.some(call => call.body.action === 'coach_plan_set'), false);
