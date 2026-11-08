@@ -221,6 +221,7 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
   return <section className="cc-account-voice" aria-label="Account live voice">
     <h2 className="cc-talk-heading">Live voice with {assistantName}</h2>
     <p className="cc-muted">Talk back and forth using your microphone. Voice uses your account’s shared AI allowance alongside text, photo estimates and transcription.</p>
+    <p className="cc-muted cc-small">Starting sends your microphone audio and saved account context to the voice provider.</p>
     {config && <p className="cc-muted cc-small">Up to {config.maxSeconds} seconds per conversation. Starting reserves ${(config.reservedMicros / 1000000).toFixed(2)} of that allowance while provider usage is checked; this reservation is not an invoice.</p>}
     {!config?.available && <p role="status" className="cc-muted">{config ? `Live voice is currently unavailable. You can still use Text or Record.` : 'Checking live voice availability…'}</p>}
     <div className="cc-action-row">
