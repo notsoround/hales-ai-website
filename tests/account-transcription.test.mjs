@@ -14,7 +14,7 @@ function reset(next = 'normal') { mode = next; calls = []; saved = new Map(); re
 function audio(owner) { return { id: ids[owner], title: `Synthetic ${owner} original`, createdAt: '2026-11-07T12:00:00Z', mimeType: 'audio/webm', status: 'stored', receivedParts: [{ index: 0, size: 5 }], receivedBytes: 5, totalBytes: 5, partBytes: 1048576, originalStored: true, originalBytes: 5, originalSha256: sha[owner] }; }
 function result(row, status = row.status) {
   return { ok: true, request: { request_id: row.body.request_id, attempt: '00000000-0000-4000-8000-000000000001', recording_id: row.body.recording_id, status, error: status === 'failed' ? row.error || 'account_budget_unavailable' : null, dispatched: !['queued', 'failed'].includes(status), can_retry_unsent: status === 'failed', can_publish_saved_result: status === 'publication_pending' && mode !== 'pendingNoResult' }, originalStored: true,
-    ...(status === 'completed' ? { transcript: { text: mode === 'empty' ? '  ' : 'Synthetic saved speech-to-text only.', source: 'speech-to-text', requestedModel: 'openai/whisper-1', actualModel: null, modelVerification: 'unreported', mayContainErrors: true, durationSeconds: 14.5, originalSha256: mode === 'badHash' ? 'f'.repeat(64) : row.body.original_sha256, createdAt: '2026-11-07T12:01:00Z', emptyTranscript: mode === 'empty' } } : {}) };
+    ...(status === 'completed' ? { transcript: { text: mode === 'empty' ? '  ' : 'Synthetic saved speech-to-text only.', source: 'speech-to-text', requestedModel: 'openai/whisper-1', actualModel: null, modelVerification: 'unreported', mayContainErrors: true, durationSeconds: mode === 'fullTen' ? 600 : mode === 'badDuration' ? 600.001 : 14.5, originalSha256: mode === 'badHash' ? 'f'.repeat(64) : row.body.original_sha256, createdAt: '2026-11-07T12:01:00Z', emptyTranscript: mode === 'empty' } } : {}) };
 }
 async function remote(owner, route, body) {
   calls.push({ owner, route, body });
@@ -29,7 +29,7 @@ async function remote(owner, route, body) {
     assert.deepEqual(Object.keys(body).sort(), ['language', 'original_sha256', 'recording_id', 'request_id']); assert.equal(body.recording_id, ids[owner]); assert.equal(body.original_sha256, sha[owner]);
     if (mode === 'lostBeforeCreate') { mode = 'normal'; throw Error('Synthetic request lost before commit'); }
     if (row) assert.deepEqual(row.body, body);
-    row ||= { owner, body: structuredClone(body), status: ['pending', 'pendingNoResult'].includes(mode) ? 'publication_pending' : mode === 'failed' ? 'failed' : mode === 'uncertain' ? 'uncertain' : 'queued', reads: 0 };
+    row ||= { owner, body: structuredClone(body), status: ['pending', 'pendingNoResult'].includes(mode) ? 'publication_pending' : ['failed', 'oldLimit'].includes(mode) ? 'failed' : mode === 'uncertain' ? 'uncertain' : 'queued', reads: 0, ...(mode === 'oldLimit' ? {error: 'transcription_too_long'} : {}) };
     saved.set(owner + ':' + body.request_id, row);
     if (mode === 'lostCreate') { mode = 'normal'; throw Error('Synthetic response lost after commit'); }
     return { status: 200, value: result(row) };
@@ -37,7 +37,7 @@ async function remote(owner, route, body) {
   assert.deepEqual(Object.keys(body), ['request_id']);
   if (!row) return error(404, 'transcription_request_not_found');
   if (mode === 'hold') { mode = 'normal'; await new Promise(resolve => { release = resolve; }); }
-  if (route === 'recordings/transcription-retry') { assert.equal(row.status, 'failed'); row.status = 'queued'; row.reads = 0; }
+  if (route === 'recordings/transcription-retry') { assert.equal(row.status, 'failed'); row.status = 'queued'; row.reads = 0; if (mode === 'oldLimit') mode = 'fullTen'; }
   if (route === 'recordings/transcription-publish') { assert.equal(row.status, 'publication_pending'); row.status = 'completed'; }
   if (route === 'recordings/transcription-status' && ['queued', 'running'].includes(row.status)) {
     row.reads++; row.status = mode === 'tooLong' ? 'failed' : row.reads === 1 ? 'running' : 'completed'; if (mode === 'tooLong') row.error = 'transcription_too_long';
@@ -82,15 +82,26 @@ try {
 
   reset('failed'); const retry = await open(), r = retry.page; await start(r); await ui(r).getByRole('button', { name: 'Retry unsent transcription', exact: true }).click(); await ui(r).getByText('Transcript saved', { exact: true }).waitFor(); assert.equal(calls.filter(call => call.route === 'recordings/transcription-retry').length, 1); assert.equal(calls.filter(call => call.route === 'recordings/transcribe').length, 1); await safe(retry); await retry.context.close(); console.log('PASS: explicit unsent retry requires server authorization and preserves original intent');
 
-  for (const state of ['uncertain', 'tooLong', 'unavailable', 'badHash', 'empty', 'pendingNoResult']) {
+  reset('oldLimit'); const oldLimit = await open(), o = oldLimit.page; await start(o);
+  await ui(o).getByText('The current limit is ten minutes.', { exact: false }).waitFor();
+  assert.equal(calls.filter(call => call.route === 'recordings/transcription-retry').length, 0);
+  const oldIntent = calls.find(call => call.route === 'recordings/transcribe').body;
+  await ui(o).getByRole('button', { name: 'Retry unsent transcription', exact: true }).click();
+  await ui(o).getByText('Transcript saved', { exact: true }).waitFor();
+  await ui(o).getByText('Transcript details', { exact: true }).click(); await ui(o).getByText('Complete clip: 600.0 seconds.', { exact: false }).waitFor();
+  assert.equal(calls.filter(call => call.route === 'recordings/transcribe').length, 1);
+  assert.deepEqual(calls.filter(call => call.route === 'recordings/transcription-retry').map(call => call.body), [{ request_id: oldIntent.request_id }]);
+  await safe(oldLimit); await oldLimit.context.close(); console.log('PASS: prior unsent duration failure can be explicitly retried with the same intent; complete600s transcript and original controls retained');
+
+  for (const state of ['uncertain', 'tooLong', 'unavailable', 'badHash', 'badDuration', 'empty', 'pendingNoResult']) {
     reset(state); const test = await open(), s = test.page; await start(s);
     if (state === 'unavailable') await ui(s).getByText('Transcription is not available for this account yet.', { exact: false }).waitFor();
     else if (state === 'uncertain') await ui(s).getByText('The audio may have been sent', { exact: false }).waitFor();
-    else if (state === 'tooLong') await ui(s).getByText('This complete clip is longer than three minutes', { exact: false }).waitFor();
-    else if (state === 'badHash') { await ui(s).getByRole('alert').waitFor(); assert.equal(await ui(s).getByText('Synthetic saved speech-to-text only.', { exact: true }).count(), 0); }
+    else if (state === 'tooLong') await ui(s).getByText('This clip exceeded the duration limit when it was checked', { exact: false }).waitFor();
+    else if (state === 'badHash' || state === 'badDuration') { await ui(s).getByRole('alert').waitFor(); assert.equal(await ui(s).getByText('Synthetic saved speech-to-text only.', { exact: true }).count(), 0); }
     else if (state === 'pendingNoResult') { await ui(s).getByText('No transcript is available to save.', { exact: false }).waitFor(); assert.equal(await ui(s).getByRole('button', { name: 'Save completed transcript', exact: true }).count(), 0); }
     else await ui(s).getByText('No speech text was returned for this clip.', { exact: true }).waitFor();
-    assert.equal(await ui(s).getByRole('button', { name: 'Retry unsent transcription', exact: true }).count(), 0); assert.equal(calls.filter(call => call.route === 'recordings/transcribe').length, 1); await safe(test); await test.context.close();
+    assert.equal(await ui(s).getByRole('button', { name: 'Retry unsent transcription', exact: true }).count(), state === 'tooLong' ? 1 : 0); assert.equal(calls.filter(call => call.route === 'recordings/transcribe').length, 1); await safe(test); await test.context.close();
   }
   console.log('PASS: uncertain/overlong/unavailable/mismatched-original/empty transcript states are honest; no unsafe retry or trimming');
 

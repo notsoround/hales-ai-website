@@ -3,6 +3,8 @@ import { AccountRecordingClient, type ArchivedRecording } from './accountRecordi
 import { permanentTranscriptionFailure, requestTranscription, transcriptionError, transcriptionRecovery, TranscriptionRequestError, type TranscriptionIntent, type TranscriptionResult } from './accountTranscription';
 import './account-transcription.css';
 
+const MAX_STATUS_POLLS = 60;
+
 export default function AccountRecordingTranscription({ recording, active }: { recording: ArchivedRecording; active: boolean }) {
   const [initial] = useState(() => {
     try { const recovery = transcriptionRecovery(recording); return { recovery, intent: recovery.load(), error: '' }; }
@@ -40,14 +42,14 @@ export default function AccountRecordingTranscription({ recording, active }: { r
     } finally { inFlight.current = false; if (alive.current) setBusy(false); }
   }, [active, initial.recovery, language, missing, recording.id, recording.originalSha256]);
   useEffect(() => {
-    if (!active || busy || error || !['queued', 'running'].includes(result?.request.status || '') || polls >= 24) return;
+    if (!active || busy || error || !['queued', 'running'].includes(result?.request.status || '') || polls >= MAX_STATUS_POLLS) return;
     const timer = window.setTimeout(() => { setPolls(value => value + 1); void act('transcription-status', true); }, 2500);
     return () => window.clearTimeout(timer);
   }, [active, busy, error, result, polls, act]);
   if (recording.status !== 'stored' || !recording.originalStored || !recording.originalSha256) return null;
   const request = result?.request;
   return <section className="cc-audio-transcription" aria-label="Audio transcription">
-    <h4>Transcript</h4><p className="cc-muted cc-small">Transcribe the complete saved clip, up to three minutes. Longer clips are rejected, never trimmed. This uses your account’s shared AI allowance; the original stays unchanged.</p>
+    <h4>Transcript</h4><p className="cc-muted cc-small">Transcribe the complete saved clip, up to ten minutes. Longer clips are rejected, never trimmed. This uses your account’s shared AI allowance; the original stays unchanged.</p>
     {!intent && <><label className="cc-label">Spoken language<select aria-label="Spoken language" value={language} disabled={busy || !initial.recovery} onChange={event => setLanguage(event.target.value)}><option value="">Detect automatically</option><option value="en">English</option><option value="fr">French</option></select></label><button className="cc-secondary" disabled={!active || busy || !initial.recovery} onClick={() => void act('transcribe')}>Transcribe full clip</button></>}
     {intent && <div className="cc-action-row"><button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcription-status')}>{busy ? 'Checking transcription…' : 'Check transcription status'}</button>{missing && <button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcribe')}>Send saved transcription request</button>}</div>}
     {intent && !request && !error && <p className="cc-muted cc-small">This browser has a saved transcription request. Check its status before continuing.</p>}
@@ -55,7 +57,7 @@ export default function AccountRecordingTranscription({ recording, active }: { r
     {request && <div role="status">
       {request.status === 'queued' && <p>Transcription queued. Your original is saved.</p>}
       {request.status === 'running' && <p>Transcribing the complete clip. Your original is saved.</p>}
-      {polls >= 24 && ['queued', 'running'].includes(request.status) && <p className="cc-muted cc-small">Still waiting. Use Check transcription status later.</p>}
+      {polls >= MAX_STATUS_POLLS && ['queued', 'running'].includes(request.status) && <p className="cc-muted cc-small">Still waiting. Use Check transcription status later.</p>}
       {request.status === 'uncertain' && <p>The audio may have been sent, but no transcript was confirmed. Check status later. It will not be sent again automatically.</p>}
       {request.status === 'failed' && <p>{transcriptionError(request.error)}</p>}
       {request.status === 'publication_pending' && <p>{request.can_publish_saved_result ? 'The transcription result is waiting to be saved. Saving that result does not transcribe the audio again.' : 'The transcription response needs checking. No transcript is available to save. Your original is kept, and it will not be sent again automatically.'}</p>}
