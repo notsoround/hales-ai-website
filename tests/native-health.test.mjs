@@ -15,7 +15,7 @@ let checks=0;
 async function open(browser,url=link(),signedIn=true){const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});await context.route('**/*',r=>new URL(r.request().url()).origin===base?r.continue():r.abort());if(signedIn)await context.addInitScript(()=>sessionStorage.setItem('synthetic-native-signed-in','1'));const page=await context.newPage();page.setDefaultTimeout(9000);await page.goto(url);return{context,page};}
 const count=(p,route)=>p.evaluate(route=>window.nativeFixture.requests.filter(r=>r.route==='native/health/'+route).length,route);
 const allow=p=>p.getByRole('button',{name:'Allow selected health uploads',exact:true});
-async function permissions(page){await page.getByText('Android app connections',{exact:true}).click();await page.getByText('Android health uploads',{exact:true}).click();}
+async function permissions(page){await page.getByText('Mobile app connections',{exact:true}).click();await page.getByText('Health uploads',{exact:true}).click();}
 try{for(const engine of ['chromium','webkit']){const browser=await pw[engine].launch({headless:true});try{
   const {context,page:p}=await open(browser,link(),false);
   await p.getByRole('status').filter({hasText:'Sign in to choose which health types'}).waitFor();assert.equal(new URL(p.url()).hash,'');await p.reload();

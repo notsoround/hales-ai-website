@@ -4,6 +4,7 @@ import { NativeHealthSyncDetail, nativeHealthReceipt, type NativeHealthReceipt }
 import './native-health.css';
 
 type Connection = { connection_id: string; connection_epoch: number; installation_id: string; epoch: number;
+  source?: 'android_health_connect' | 'ios_healthkit';
   types: ('sleep' | 'heart_rate' | 'steps')[]; created: number; expires: number; revoked: number | null;
   status: 'active' | 'expired' | 'revoked'; last_received_at: number | null; last_observed_at: string | null };
 type Sync = { receipts: NativeHealthReceipt[]; available: boolean; truncated: boolean };
@@ -18,6 +19,7 @@ function connections(result: unknown): Connection[] {
   for (const row of result.connections) {
     if (!object(row) || typeof row.connection_id !== 'string' || !UUID.test(row.connection_id) || seen.has(row.connection_id)
         || typeof row.installation_id !== 'string' || !UUID.test(row.installation_id) || row.connection_epoch !== 1
+        || (row.source !== undefined && !['android_health_connect','ios_healthkit'].includes(row.source as string))
         || typeof row.epoch !== 'number' || !Number.isSafeInteger(row.epoch) || row.epoch < 1
         || !Array.isArray(row.types) || !row.types.length || row.types.length > 3 || new Set(row.types).size !== row.types.length
         || !row.types.every(type => typeof type === 'string' && ['sleep','heart_rate','steps'].includes(type))
@@ -74,9 +76,9 @@ function HealthControls() {
     } catch { setRows(null); setMessage('The permission change could not be confirmed. Reload health upload permissions before trying again.'); }
     finally { setBusy(''); }
   };
-  return <details className="cc-account-controls cc-native-health-controls"><summary>Android health uploads</summary>
-    <p>An upload permission lets your Android app send the selected Health Connect records. A saved receipt confirms that an upload reached your account.</p>
-    <p className="cc-native-health-note">Android permission is separate. Coach access is unchanged. Stopping uploads keeps saved history and does not change Android’s permissions.</p>
+  return <details className="cc-account-controls cc-native-health-controls"><summary>Health uploads</summary>
+    <p>An upload permission lets your connected Android or iPhone app send selected health records. A saved receipt confirms that an upload reached your account.</p>
+    <p className="cc-native-health-note">Phone read permission is separate. Coach access is unchanged. Stopping uploads keeps saved history and does not change your phone’s permissions.</p>
     <div className="cc-native-health-actions">
       <button type="button" className="cc-secondary" disabled={!!busy} onClick={() => void loadConnections()}>{busy === 'connections' ? 'Loading permissions…' : rows === null ? 'Load upload permissions' : 'Refresh upload permissions'}</button>
       <button type="button" className="cc-secondary" disabled={!!busy} onClick={() => void loadSync()}>{busy === 'sync' ? 'Loading saved syncs…' : saved === null ? 'Load saved health syncs' : 'Refresh saved health syncs'}</button>
@@ -84,7 +86,7 @@ function HealthControls() {
     {message && <p role="status">{message}</p>}
     {rows && <section aria-label="Health upload permissions"><h4>Upload permissions</h4>{rows.length ? <ul className="cc-native-health-connections">{rows.map(row => <li key={row.connection_id}>
       <strong>{row.status === 'active' ? 'Upload permission active' : row.status === 'expired' ? 'Upload permission expired' : 'Uploads stopped'}</strong>
-      <p>Android app {row.installation_id.slice(-8)} · health connection {row.connection_id.slice(-8)}</p>
+      <p>{row.source === 'ios_healthkit' ? 'iPhone' : 'Android'} app {row.installation_id.slice(-8)} · health connection {row.connection_id.slice(-8)}</p>
       <p>{row.types.map(type => TYPE_LABELS[type]).join(' · ')}</p>
       <dl className="cc-native-health-facts"><div><dt>Latest server receipt</dt><dd>{row.last_received_at === null ? 'No saved upload receipt' : new Date(row.last_received_at * 1000).toLocaleString()}</dd></div>
         <div><dt>Latest source observation</dt><dd>{row.last_observed_at === null ? 'No source observation confirmed' : new Date(row.last_observed_at).toLocaleString()}</dd></div>
