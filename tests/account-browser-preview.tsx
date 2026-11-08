@@ -98,7 +98,7 @@ window.fetch=async(input,init)=>{
     if(!remote)return response(503,{ok:false,error:'account_export_not_ready'});
     if(route==='exports/prepare') {
       const intent=JSON.parse(sessionStorage.getItem('cupcake-account-export-intent-v1:'+encodeURIComponent(owner.account_id))||'null');
-      if(intent?.request_id!==body.request_id||JSON.stringify(intent?.sections)!==JSON.stringify(body.sections))throw Error('Export intent was not saved before preparation');
+      if(intent?.request_id!==body.request_id||JSON.stringify(intent?.sections)!==JSON.stringify(body.sections)||(intent?.include_originals===true)!==(body.include_originals===true))throw Error('Export intent was not saved before preparation');
     }
     const result=await remote(owner.account_id,route,body);
     if(result.dropResponse)throw TypeError('Synthetic preparation response lost after server commit');
