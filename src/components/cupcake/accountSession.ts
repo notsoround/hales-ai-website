@@ -73,6 +73,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (response.status === 503 && result?.error === 'health_intake_not_ready') throw new AccountRequestError('Apple Health connections are not available for this account yet. No upload has been confirmed.', 'health_intake_not_ready');
     if (response.status === 503 && result?.error === 'export_not_ready') throw new AccountRequestError('Your data download is not available yet. Try again later.', 'export_not_ready');
     if (response.status === 413 && result?.error === 'export_too_large') throw new AccountRequestError('Your data exceeds the current download limit. No partial file was created.', 'export_too_large');
+    if (route.startsWith('voice/') && !response.ok && typeof result?.error === 'string') throw new AccountRequestError('Your voice request could not be confirmed.', result.error);
     if (!response.ok && typeof result?.error === 'string' && (result.error.startsWith('recording_summary_') || result.error === 'account_recording_summary_not_ready')) throw new AccountRequestError('The saved transcript summary is unavailable. Your original and transcript are kept.', result.error);
     const photoErrors: Record<string, string> = {
       account_food_photo_not_ready: 'Photo meal logging is not available for this account yet. Your original is kept on this device.',
@@ -181,6 +182,11 @@ async function accountJSON<T>(route: string, body: Record<string, unknown>, snap
 /** Dedicated bounded photo route; the ordinary data action body cap stays unchanged. */
 export async function accountFoodPhoto<T>(body: Record<string, unknown>): Promise<T> {
   return accountJSON<T>('food/photo/analyze', body, state);
+}
+
+export async function accountVoice<T>(route: 'config'|'list'|'start'|'recover'|'status'|'end', body: Record<string, unknown>, snapshot = state): Promise<T> {
+  if (!['config','list','start','recover','status','end'].includes(route)) throw Error(ACCOUNT_UNAVAILABLE);
+  return accountJSON<T>('voice/' + route, body, snapshot);
 }
 
 type CoachRoute = 'grants/received' | 'grants/list' | 'grants/revoke' | 'report' | 'meal-list' | 'meal-photo-url' | 'workspace' | 'invitations/create' | 'invitations/list' | 'invitations/revoke';
