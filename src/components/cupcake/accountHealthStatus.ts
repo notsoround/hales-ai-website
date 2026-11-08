@@ -29,9 +29,10 @@ export const healthMetricLabel = (metric: string) => ({ step_count: 'Steps', hea
 /** Navigation opens existing Settings; it never creates a grant or starts an export. */
 export function openHealthSettings() {
   const section = document.getElementById('account-health-connection');
-  const settings = section?.closest('details');
-  if (!section || !settings) return false;
-  settings.open = true;
+  if (!section || !section.closest('details')) return false;
+  for (let parent: HTMLElement | null = section.parentElement; parent; parent = parent.parentElement) {
+    if (parent instanceof HTMLDetailsElement) parent.open = true;
+  }
   requestAnimationFrame(() => { section.scrollIntoView({ block: 'start' }); section.focus({ preventScroll: true }); });
   return true;
 }
