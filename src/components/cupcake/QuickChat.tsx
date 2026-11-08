@@ -14,6 +14,13 @@ const draftKey='cupcake-quick-chat-draft';
 const selectedKey='cupcake-quick-chat-selected';
 const newThreadKey='cupcake-quick-chat-new-thread';
 const visibleError=(value:string)=>value.replace(/^Error: /,'');
+const allowanceErrors:Record<string,string>={
+  account_budget_unavailable:'Your reply allowance is unavailable right now. Your message is saved. Check again later.',
+  account_budget_exceeded:'There isn’t enough reply allowance for this answer right now. Your message is saved.',
+  account_budget_reconciliation_required:'Reply usage needs to be checked before another answer can start. Your message is saved.',
+  account_budget_attempt_already_reserved:'This answer may already have started. Your message is saved. Check status before trying again.',
+  account_budget_attempt_not_dispatched:'This answer’s status could not be confirmed. Your message is saved. Check status before trying again.',
+};
 const updateThreadUrl=(id:string|null)=>{const url=new URL(location.href);for(const key of ['document','analysis','recording','shared'])url.searchParams.delete(key);url.searchParams.set('tab','chat');if(id)url.searchParams.set('thread',id);else url.searchParams.delete('thread');history.replaceState(history.state,'',url)};
 
 const Answer:React.FC<{response:ChatReply}>=({response})=><div className="mr-4 rounded-2xl bg-white/10 p-4 whitespace-pre-wrap break-words"><ReadAloudButton text={response.reply} label="Play answer"/><p>{response.reply}</p><p className="mt-2 text-xs text-white/50">AI response · {response.model} · interpretation, not verified fact</p>{unavailableNotice(response)&&<p className="text-xs text-amber-300">{unavailableNotice(response)}</p>}{response.sources?.map((s,i)=><p key={i} className="text-xs text-pink-200">Source: {s.url?.startsWith('https://')?<a href={cupcakeHref(s.url)} target="_blank" rel="noreferrer">{s.title||'Library evidence'}</a>:s.title||'Library evidence'}</p>)}</div>;
@@ -128,7 +135,8 @@ export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean
     <p className="text-xs text-white/50">Private conversation history is saved across your devices and searchable in your library. AI replies are interpretations, not verified facts.</p>
     {thread?.turns.map(t=>{
       const inProgress=!t.response&&(t.status==='queued'||t.status==='running'||t.retryAfter>0||(sending&&t.id===last?.id));
-      const detail=t.status==='queued'||t.status==='running'?'Your reply is being prepared on the server. You can close this page.':sending&&t.id===last?.id?'Working on your reply…':t.status==='failed'?(t.error==='request_budget_exceeded'?'This conversation is too large for the pilot reply limit. Your message is saved. Start a shorter conversation.':'The reply service rejected this attempt. Your message is saved.'):t.retryAfter>0?'Waiting for this reply. Check status shortly.':'Reply outcome uncertain. A request may already have completed.';
+      const allowanceNotice=['failed','uncertain'].includes(t.status)?allowanceErrors[t.error||'']:undefined;
+      const detail=t.status==='queued'||t.status==='running'?'Your reply is being prepared on the server. You can close this page.':sending&&t.id===last?.id?'Working on your reply…':allowanceNotice||(t.status==='failed'?(t.error==='request_budget_exceeded'?'This conversation is too large for the pilot reply limit. Your message is saved. Start a shorter conversation.':'The reply service rejected this attempt. Your message is saved.'):t.retryAfter>0?'Waiting for this reply. Check status shortly.':'Reply outcome uncertain. A request may already have completed.');
       return <div key={t.id} className="space-y-2"><p className="ml-8 rounded-2xl bg-pink-700 p-4 whitespace-pre-wrap break-words"><span className="block text-xs opacity-60">You · original message</span>{t.text}</p>{t.response?<Answer response={t.response}/>:<div className={inProgress?'cc-chat-progress':'text-sm text-amber-200'} role={inProgress?'status':undefined}>{inProgress&&<span className="cc-chat-progress-label">Answer in progress</span>}<span className="text-sm text-amber-200">{detail}</span>{!busy&&<button className="underline ml-2" onClick={()=>void open(thread.id)}>Check status</button>}{!busy&&!unsaved.length&&t.retryAfter===0&&!['queued','running'].includes(t.status)&&<button className="underline ml-2" onClick={()=>void send(t)}>Request another answer (may repeat the AI request)</button>}</div>}{t.alternatives?.map(a=><details key={a.attemptId}><summary className="text-sm text-amber-200 cursor-pointer">Another received AI answer</summary><Answer response={a.response}/></details>)}</div>;
     })}
     {showSending&&<p className="cc-chat-progress" role="status"><span className="cc-chat-progress-label">Answer in progress</span></p>}
