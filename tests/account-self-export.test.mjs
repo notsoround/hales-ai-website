@@ -10,13 +10,13 @@ const cacheDir = mkdtempSync(path.join(tmpdir(), 'cupcake-self-export-'));
 const server = await createServer({ cacheDir, plugins: [{ name: 'synthetic-self-export-root', configureServer(server) { server.middlewares.use((req, _res, next) => { if (req.url?.split('?')[0] === '/cupcake/account') req.url = '/tests/account-browser-preview.html'; next(); }); } }], define: { 'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS': '"true"' }, server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), realpathSync('node_modules')] } } });
 await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library'];
+const A = 'acc_synthetic_a', B = 'acc_synthetic_b', sectionCodes = ['profile','health','activity','food','plans','phone','apple_health','chat','preferences','finance','library','recordings','voice'];
 let mode = 'normal', release = () => {}, requests = [];
 function result(owner, selected = sectionCodes) {
   const sections = Object.fromEntries(selected.map(section => [section, { status: section === 'finance' ? 'unavailable' : 'included', ...(section === 'finance' ? { reason: 'owned_schema_unavailable' } : {}), tables: section === 'food' ? { saved_meals: { rowCount: 1, columns: ['description', 'total'], jsonColumns: ['total'] } } : {} }]));
   const data = Object.fromEntries(selected.filter(section => section !== 'finance').map(section => [section, section === 'food' ? { saved_meals: [{ description: owner === A ? 'Synthetic A meal' : 'Synthetic B meal', total: '{"calories":null,"protein_g":0}' }] } : {}]));
   const omitted = sectionCodes.filter(section => !selected.includes(section)).map(section => ({ section, reason: 'not_selected', note: 'This supported section was not selected.' }));
-  return { export: { format: 'cupcake.account.local-export.v1', generatedAt: '2026-11-08T00:00:00Z', accountId: owner, completePrivacyExport: false, coverage: { scope: 'owned-local-structured-data', consistentSnapshot: true, selectedSections: selected, sections, excluded: [{ section: 'binary_originals', reason: 'not_in_json_export', note: 'Original photos, audio and files are not included.' }, { section: 'authentication_and_operations', reason: 'excluded_credentials_and_operational_data', note: 'Passwords, access credentials and service operations are not included.' }, ...omitted], notes: ['Synthetic allowlisted local records only.'] }, data }, filename: 'cupcake-local-data-20261108T000000Z.json', mimeType: 'application/json' };
+  return { export: { format: selected.includes('recordings') ? 'cupcake.account.local-export.v2' : 'cupcake.account.local-export.v1', generatedAt: '2026-11-08T00:00:00Z', accountId: owner, completePrivacyExport: false, coverage: { scope: 'owned-local-structured-data', consistentSnapshot: !selected.includes('recordings'), ...(selected.includes('recordings') ? { consistency: 'per-database', sourceSnapshots: [{ code: 'library', source: 'Saved account data', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:00Z' }, { code: 'recordings', source: 'Saved recording archive', status: 'included', consistentSnapshot: true, readAt: '2026-11-08T00:00:01Z' }] } : {}), selectedSections: selected, sections, excluded: [{ section: 'binary_originals', reason: 'not_in_json_export', note: 'Original photos, audio and files are not included.' }, { section: 'authentication_and_operations', reason: 'excluded_credentials_and_operational_data', note: 'Passwords, access credentials and service operations are not included.' }, ...omitted], notes: ['Synthetic allowlisted local records only.'] }, data }, filename: 'cupcake-local-data-20261108T000000Z.json', mimeType: 'application/json' };
 }
 async function syntheticExportServer(owner, body) {
   requests.push({ owner, body }); assert.deepEqual(Object.keys(body).sort(), ['action','sections']); assert.equal(body.action, 'account_self_export');
@@ -27,6 +27,13 @@ async function syntheticExportServer(owner, body) {
   const response = result(owner, body.sections);
   if (mode === 'wrongExportOwner') response.export.accountId = owner === A ? B : A;
   if (mode === 'badCoverage') response.export.coverage.selectedSections = ['profile'];
+  if (mode === 'globalSnapshotClaim') response.export.coverage.consistentSnapshot = true;
+  if (mode === 'missingSnapshot') response.export.coverage.sourceSnapshots = undefined;
+  if (mode === 'duplicateSnapshot') response.export.coverage.sourceSnapshots[1].code = 'library';
+  if (mode === 'badSnapshotTime') response.export.coverage.sourceSnapshots[1].readAt = 'not a date';
+  if (mode === 'nullSnapshot') response.export.coverage.sourceSnapshots[1] = null;
+  if (mode === 'legacyWithRecordings') response.export.format = 'cupcake.account.local-export.v1';
+  if (mode === 'missingArchive') { response.export.coverage.sourceSnapshots[1] = { code: 'recordings', source: 'Saved recording archive', status: 'unavailable', consistentSnapshot: false, readAt: null }; response.export.coverage.sections.recordings = { status: 'unavailable', reason: 'owned_schema_unavailable', tables: {} }; delete response.export.data.recordings; }
   if (mode === 'unselectedData') response.export.data.food = result(owner).export.data.food;
   return { status: 200, value: { ok: true, ...response } };
 }
@@ -41,7 +48,7 @@ async function open() {
 async function login(page, owner) {
   await page.getByLabel('Email', { exact: true }).fill(owner + '@example.invalid'); await page.getByLabel('Password', { exact: true }).fill('Synthetic password 123!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await page.getByText('MyCupcake — Synthetic ' + owner.toUpperCase(), { exact: true }).first().waitFor();
 }
-async function settings(page) { await page.locator('summary[aria-label="Settings"]').click(); await page.getByRole('region', { name: 'Download your data', exact: true }).waitFor(); }
+async function settings(page) { await page.locator('summary[aria-label="Settings"]').click(); await page.locator('.cc-settings-group > summary').filter({hasText:'Download my data'}).click(); await page.getByRole('region', { name: 'Download your data', exact: true }).waitFor(); }
 const exportUI = page => page.getByRole('region', { name: 'Download your data', exact: true });
 const prepare = page => exportUI(page).getByRole('button', { name: 'Prepare my download', exact: true }).click();
 async function logout(page) { await page.getByRole('button', { name: 'Close settings', exact: true }).click(); await page.getByRole('button', { name: 'Sign out of Cupcake', exact: true }).click(); await page.getByRole('heading', { name: 'Sign in to Cupcake', exact: true }).waitFor(); }
@@ -53,7 +60,7 @@ try {
   const main = await open(), p = main.page; await login(p, 'a'); await settings(p);
   assert.equal(requests.length, 0); assert.equal(main.downloads.length, 0);
   await exportUI(p).getByText('Choose sections · all selected', { exact: true }).click();
-  assert.equal(await exportUI(p).getByRole('checkbox', { checked: true }).count(), 11);
+  assert.equal(await exportUI(p).getByRole('checkbox', { checked: true }).count(), 13);
   for (const viewport of [{ width: 320, height: 844 }, { width: 1280, height: 900 }]) {
     await p.setViewportSize(viewport);
     const layout = await exportUI(p).locator('.cc-export-sections').evaluate(fieldset => ({ pageWidth: document.documentElement.scrollWidth, viewport: innerWidth, contentWidth: fieldset.clientWidth, scrollWidth: fieldset.scrollWidth }));
@@ -63,12 +70,14 @@ try {
   await p.setViewportSize({ width: 390, height: 844 });
   await prepare(p); await exportUI(p).getByText('Your file is ready.', { exact: false }).waitFor(); assert.equal(main.downloads.length, 0);
   assert.deepEqual(requests[0].body.sections, sectionCodes);
+  await exportUI(p).getByText('Each available saved store was read consistently;', { exact: false }).waitFor();
+  assert.equal(await exportUI(p).getByRole('list', { name: 'Saved store read times' }).getByRole('listitem').count(), 2);
   await exportUI(p).getByRole('list', { name: 'Download coverage', exact: true }).getByText('Meals and food settings:', { exact: false }).waitFor();
   await exportUI(p).getByText('Financial records:', { exact: false }).waitFor(); await exportUI(p).getByText('Financial records: Unavailable for this account', { exact: true }).waitFor();
   await exportUI(p).getByText('What this download leaves out', { exact: true }).click(); await exportUI(p).getByText('Original photos, audio and files are not included.', { exact: true }).waitFor();
   const downloadEvent = p.waitForEvent('download'); await exportUI(p).getByRole('button', { name: 'Download JSON file', exact: true }).click(); const download = await downloadEvent;
   assert.equal(download.suggestedFilename(), 'cupcake-local-data-20261108T000000Z.json');
-  const file = JSON.parse(readFileSync(await download.path(), 'utf8')); assert.deepEqual(file, result(A).export); assert.equal(file.identity, undefined); assert.equal(file.filename, undefined); assert.equal(file.completePrivacyExport, false); assert.deepEqual(JSON.parse(file.data.food.saved_meals[0].total), { calories: null, protein_g: 0 });
+  const file = JSON.parse(readFileSync(await download.path(), 'utf8')); assert.deepEqual(file, result(A).export); assert.equal(file.identity, undefined); assert.equal(file.filename, undefined); assert.equal(file.completePrivacyExport, false); assert.equal(file.format, 'cupcake.account.local-export.v2'); assert.equal(file.coverage.consistentSnapshot, false); assert.deepEqual(JSON.parse(file.data.food.saved_meals[0].total), { calories: null, protein_g: 0 });
   assert.equal(await exportUI(p).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); await exportUI(p).getByText('Download requested.', { exact: false }).waitFor();
   await prepare(p); await exportUI(p).getByRole('button', { name: 'Clear prepared file', exact: true }).click(); assert.equal(main.downloads.length, 1);
   const beforeSubset = requests.length;
@@ -93,10 +102,10 @@ try {
   console.log('PASS: explicit prepare/download in actual Settings, coverage/omissions, JSON export-only file with unknown/zero intact, no auto-fetch/download or legacy key');
   console.log('PASS: all selected by default; empty selection disabled; frozen subset request; changed selection clears prepared file; JSON/coverage match only chosen records');
 
-  for (const failure of ['oversized','notReady','wrongExportOwner','badCoverage']) {
+  for (const failure of ['oversized','notReady','wrongExportOwner','badCoverage','globalSnapshotClaim','missingSnapshot','duplicateSnapshot','badSnapshotTime','nullSnapshot','legacyWithRecordings']) {
     mode = failure; const test = await open(), q = test.page; await login(q, 'a'); await settings(q); await prepare(q); await exportUI(q).getByRole('alert').waitFor();
     assert.equal(await exportUI(q).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); assert.equal(test.downloads.length, 0);
-    if (failure === 'oversized') await exportUI(q).getByText('Your data exceeds the current download limit. No partial file was created.', { exact: true }).waitFor();
+    if (failure === 'oversized') { await exportUI(q).getByText('Your data exceeds the current download limit. No partial file was created.', { exact: true }).waitFor(); assert.equal(await exportUI(q).locator('.cc-export-picker').evaluate(element => element.open), true); await exportUI(q).getByText('A section that exceeds the limit cannot be downloaded yet.', { exact: false }).waitFor(); }
     if (failure === 'notReady') await exportUI(q).getByText('Your data download is not available yet. Try again later.', { exact: true }).waitFor();
     await safe(q); assert.deepEqual(test.errors, []); await test.context.close();
   }
@@ -107,11 +116,39 @@ try {
   await prepare(u); await exportUI(u).getByRole('alert').waitFor(); assert.equal(unexpected.downloads.length, 0); assert.equal(await exportUI(u).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0);
   await safe(u); assert.deepEqual(unexpected.errors, []); await unexpected.context.close(); console.log('PASS: unselected records in a returned file prevent download');
 
+  mode = 'missingArchive'; const absent = await open(), a = absent.page; await login(a, 'a'); await settings(a); await prepare(a);
+  await exportUI(a).getByText('Saved recordings and transcripts: Unavailable for this account', { exact: true }).waitFor();
+  await exportUI(a).getByRole('list', { name: 'Saved store read times' }).getByText('Saved recording archive: Unavailable for this account', { exact: true }).waitFor();
+  const absentEvent = a.waitForEvent('download'); await exportUI(a).getByRole('button', { name: 'Download JSON file', exact: true }).click();
+  const absentFile = JSON.parse(readFileSync(await (await absentEvent).path(), 'utf8'));
+  assert.equal(absentFile.data.recordings, undefined); assert.equal(absentFile.coverage.sourceSnapshots[1].readAt, null);
+  await safe(a); assert.deepEqual(absent.errors, []); await absent.context.close();
+  console.log('PASS: missing recording archive is visibly unavailable, without a fake zero count or snapshot time');
+
+  mode = 'normal'; const voice = await open(), v = voice.page; await login(v, 'a'); await settings(v);
+  await exportUI(v).getByText('Choose sections · all selected', { exact: true }).click();
+  await exportUI(v).getByRole('button', { name: 'Clear selection', exact: true }).click();
+  await exportUI(v).getByRole('checkbox', { name: 'Saved voice conversations', exact: true }).check();
+  await prepare(v); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
+  assert.equal(await exportUI(v).getByRole('list', { name: 'Saved store read times' }).count(), 0);
+  const voiceEvent = v.waitForEvent('download'); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).click();
+  const voiceFile = JSON.parse(readFileSync(await (await voiceEvent).path(), 'utf8'));
+  assert.equal(voiceFile.format, 'cupcake.account.local-export.v1'); assert.equal(voiceFile.coverage.consistentSnapshot, true); assert.deepEqual(Object.keys(voiceFile.data), ['voice']);
+  await exportUI(v).getByRole('button', { name: 'Select all', exact: true }).click();
+  await exportUI(v).getByRole('checkbox', { name: 'Saved voice conversations', exact: true }).uncheck();
+  await exportUI(v).getByRole('checkbox', { name: 'Saved recordings and transcripts', exact: true }).uncheck();
+  await prepare(v); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
+  const legacyEvent = v.waitForEvent('download'); await exportUI(v).getByRole('button', { name: 'Download JSON file', exact: true }).click();
+  const legacyFile = JSON.parse(readFileSync(await (await legacyEvent).path(), 'utf8'));
+  assert.equal(legacyFile.format, 'cupcake.account.local-export.v1'); assert.deepEqual(legacyFile.coverage.selectedSections, sectionCodes.slice(0, 11));
+  await safe(v); assert.deepEqual(voice.errors, []); await voice.context.close();
+  console.log('PASS: voice-only and original eleven-section selections retain the existing single-store v1 download');
+
   mode = 'normal'; const isolation = await open(), i = isolation.page; await login(i, 'a'); await settings(i);
   await exportUI(i).getByText('Choose sections · all selected', { exact: true }).click(); await exportUI(i).getByRole('button', { name: 'Clear selection', exact: true }).click(); await exportUI(i).getByRole('checkbox', { name: 'Meals and food settings', exact: true }).check();
   await prepare(i); await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
   await logout(i); await login(i, 'b'); await settings(i); assert.equal(await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); assert.equal(isolation.downloads.length, 0);
-  await exportUI(i).getByText('Choose sections · all selected', { exact: true }).click(); assert.equal(await exportUI(i).getByRole('checkbox', { checked: true }).count(), 11);
+  await exportUI(i).getByText('Choose sections · all selected', { exact: true }).click(); assert.equal(await exportUI(i).getByRole('checkbox', { checked: true }).count(), 13);
   mode = 'hold'; await prepare(i); await exportUI(i).getByRole('button', { name: 'Preparing your download…', exact: true }).waitFor(); await logout(i); await login(i, 'a'); release(); await settings(i);
   assert.equal(await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).count(), 0); assert.equal(isolation.downloads.length, 0);
   await prepare(i); await exportUI(i).getByRole('button', { name: 'Download JSON file', exact: true }).waitFor();
