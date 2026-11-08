@@ -40,7 +40,7 @@ function inventoryResult(value: OriginalInventory, accountId: string): OriginalI
 }
 function originalURL(value: OriginalLink, file: OriginalFile): string {
   if (!value || typeof value.url !== 'string' || !/^https:\/\/automate\.hales\.ai\/api\/account\/exports\/original\?token=[A-Za-z0-9_-]{43}$/.test(value.url)
-    || !Number.isSafeInteger(value.expiresAt) || value.expiresAt <= Date.now() / 1000 || value.expiresAt > Date.now() / 1000 + 301 || !value.original
+    || typeof value.expiresAt !== 'number' || !Number.isFinite(value.expiresAt) || value.expiresAt <= Date.now() / 1000 || value.expiresAt > Date.now() / 1000 + 301 || !value.original
     || (['kind', 'sourceId', 'filename', 'mimeType', 'bytes', 'sha256'] as const).some(key => value.original[key] !== file[key])) throw metadataError();
   return value.url;
 }

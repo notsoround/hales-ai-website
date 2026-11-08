@@ -51,6 +51,7 @@ async function remote(owner, route, body) {
   assert.ok(original); assert.equal(original.sha256, body.sha256); assert.equal(original.status, 'available');
   const token = (++tokenSequence).toString().padStart(43, 'a');
   const value = { ok: true, url: 'https://automate.hales.ai/api/account/exports/original?token=' + token, expiresAt: Math.floor(Date.now() / 1000) + 300, original: Object.fromEntries(['kind', 'sourceId', 'filename', 'mimeType', 'bytes', 'sha256'].map(key => [key, original[key]])) };
+  if (mode === 'fractionalExpiry') value.expiresAt = Date.now() / 1000 + 300.125;
   if (mode === 'urlHttp') value.url = value.url.replace('https:', 'http:');
   if (mode === 'urlHost') value.url = value.url.replace('automate.hales.ai', 'evil.example.invalid');
   if (mode === 'urlPath') value.url = value.url.replace('/exports/original?', '/exports/download?');
@@ -100,6 +101,13 @@ async function safe(test) {
   assert.equal(JSON.stringify(value.storage).includes('/exports/original?token='), false);
 }
 try {
+  if (process.argv.includes('--fractional-expiry-only')) {
+    mode = 'fractionalExpiry'; const test = await open(), p = test.page; await login(p); await settings(p); await list(p); await loaded(p); await audioGroup(p);
+    const event = p.waitForEvent('download'); await audio(p).click(); const download = await event; assert.equal(download.suggestedFilename(), 'synthetic-original.audio');
+    await ui(p).getByText('Download requested. Check your browser’s downloads for completion.', { exact: true }).waitFor();
+    assert.equal(native.length, 1); assert.equal(requests.filter(request => request.route === 'exports/original-link').length, 1); await safe(test); await test.context.close();
+    console.log('PASS: finite fractional UNIX-second expiry from runtime produces one native attachment download');
+  } else {
   const main = await open(), p = main.page; await login(p); await settings(p); assert.equal(requests.length, 0); assert.equal(native.length, 0);
   await list(p); await loaded(p); assert.equal(requests.length, 1); assert.equal(native.length, 0); assert.equal(main.downloads.length, 0); assert.equal(await audio(p).isVisible(), false);
   await ui(p).getByText('Receipt photos · 1', { exact: true }).click(); await ui(p).getByText('Original unavailable.', { exact: false }).waitFor(); assert.equal(await ui(p).getByRole('button', { name: /synthetic_receipt_missing/ }).count(), 0);
@@ -131,4 +139,5 @@ try {
 
   for (const denied of ['revoked', 'changedContext']) { mode = 'normal'; const test = await open(), r = test.page; await login(r); await settings(r); await list(r); await loaded(r); await audioGroup(r); const before = native.length; mode = denied; await audio(r).click(); await r.getByRole('heading', { name: 'Sign in to Cupcake', exact: true }).waitFor(); assert.equal(native.length, before); await safe(test); await test.context.close(); }
   console.log('PASS: server revocation and context mismatch return to sign-in with no original navigation');
+  }
 } finally { pendingRelease?.(); await browser.close(); await server.close(); rmSync(cacheDir, { recursive: true, force: true }); }
