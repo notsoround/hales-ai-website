@@ -1,4 +1,4 @@
-import { NATIVE_CLIENT } from './nativeConnectionRequest';
+import { nativeClient } from './nativeClients';
 
 export const NATIVE_HEALTH_REDIRECT = 'ai.hales.cupcake.health.preview:/health/callback';
 const KEY = 'cupcake-native-health-request-v1';
@@ -18,7 +18,7 @@ export function validNativeHealthConnection(value: unknown): value is NativeHeal
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
   return Object.keys(row).length === FIELDS.length && FIELDS.every(key => Object.prototype.hasOwnProperty.call(row, key))
-    && row.client_id === NATIVE_CLIENT && row.redirect_uri === NATIVE_HEALTH_REDIRECT
+    && !!nativeClient(row.client_id) && nativeClient(row.client_id)?.healthRedirect === row.redirect_uri
     && typeof row.installation_id === 'string' && UUID.test(row.installation_id)
     && typeof row.epoch === 'number' && Number.isSafeInteger(row.epoch) && row.epoch > 0
     && typeof row.state === 'string' && RANDOM.test(row.state)
@@ -39,7 +39,7 @@ export function takeNativeHealthConnectionRequest(): PendingNativeHealthConnecti
   if (!query.has('native_health_connect')) return null;
   const fragment = location.hash.slice(1);
   if (fragment) history.replaceState(history.state, '', location.pathname + location.search);
-  const invalid = (): PendingNativeHealthConnection => ({ request: null, createdAt: Date.now(), error: 'This health-upload request is invalid or expired. Start again from the Android app.' });
+  const invalid = (): PendingNativeHealthConnection => ({ request: null, createdAt: Date.now(), error: 'This health-upload request is invalid or expired. Start again from your mobile app.' });
   try {
     if (query.has('native_connect') || query.getAll('native_health_connect').length !== 1 || query.get('native_health_connect') !== '1') {
       sessionStorage.removeItem(KEY); return invalid();
@@ -62,7 +62,7 @@ export function takeNativeHealthConnectionRequest(): PendingNativeHealthConnecti
     }
     return pending;
   } catch {
-    return { request: null, createdAt: Date.now(), error: 'This browser could not keep the health-upload request. Start again from the Android app.' };
+    return { request: null, createdAt: Date.now(), error: 'This browser could not keep the health-upload request. Start again from your mobile app.' };
   }
 }
 
@@ -75,11 +75,11 @@ export function clearNativeHealthConnectionRequest() {
 export function nativeHealthCallback(result: unknown, request: NativeHealthConnectionRequest, owner: string): string {
   const row = result as Record<string, unknown>;
   const identity = row?.identity as Record<string, unknown> | undefined;
-  if (!validNativeHealthConnection(request) || !row || row.ok !== true || row.redirect_uri !== NATIVE_HEALTH_REDIRECT
+  if (!validNativeHealthConnection(request) || !row || row.ok !== true || row.redirect_uri !== request.redirect_uri
       || row.state !== request.state || row.expires_in !== 120 || typeof row.code !== 'string'
       || !/^nhc_[A-Za-z0-9_-]{43}$/.test(row.code) || identity?.account_id !== owner)
-    throw Error('The health-upload approval could not be confirmed. Start again from the Android app.');
-  const url = new URL(NATIVE_HEALTH_REDIRECT);
+    throw Error('The health-upload approval could not be confirmed. Start again from your mobile app.');
+  const url = new URL(request.redirect_uri);
   url.searchParams.set('code', row.code); url.searchParams.set('state', request.state);
   return url.href;
 }

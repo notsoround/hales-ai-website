@@ -1,5 +1,5 @@
-export const NATIVE_CLIENT = 'cupcake-android-health-preview-v1';
-export const NATIVE_REDIRECT = 'ai.hales.cupcake.health.preview:/oauth/callback';
+import { nativeClient } from './nativeClients';
+export { NATIVE_CLIENT, NATIVE_REDIRECT } from './nativeClients';
 const KEY = 'cupcake-native-connect-request-v1';
 const LIFETIME = 10 * 60 * 1000;
 const FIELDS = ['client_id', 'redirect_uri', 'installation_id', 'state', 'code_challenge', 'code_challenge_method'] as const;
@@ -12,7 +12,7 @@ export function validNativeConnection(value: unknown): value is NativeConnection
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
   return Object.keys(row).length === FIELDS.length && FIELDS.every(key => typeof row[key] === 'string')
-    && row.client_id === NATIVE_CLIENT && row.redirect_uri === NATIVE_REDIRECT
+    && !!nativeClient(row.client_id) && nativeClient(row.client_id)?.redirect === row.redirect_uri
     && UUID.test(row.installation_id as string) && RANDOM.test(row.state as string)
     && RANDOM.test(row.code_challenge as string) && row.code_challenge_method === 'S256';
 }
@@ -27,7 +27,7 @@ export function takeNativeConnectionRequest(): PendingNativeConnection | null {
   if (!/^\/cupcake\/account\/?$/.test(location.pathname)) return null;
   const query = new URLSearchParams(location.search);
   if (!query.has('native_connect')) return null;
-  const invalid = (): PendingNativeConnection => ({ request: null, createdAt: Date.now(), error: 'This app connection request is invalid or expired. Start again from the Android app.' });
+  const invalid = (): PendingNativeConnection => ({ request: null, createdAt: Date.now(), error: 'This app connection request is invalid or expired. Start again from your mobile app.' });
   const fragment = location.hash.slice(1);
   if (fragment) history.replaceState(history.state, '', location.pathname + location.search);
   try {
@@ -51,7 +51,7 @@ export function takeNativeConnectionRequest(): PendingNativeConnection | null {
     }
     return pending;
   } catch {
-    return { request: null, createdAt: Date.now(), error: 'This browser could not keep the app connection request. Start again from the Android app.' };
+    return { request: null, createdAt: Date.now(), error: 'This browser could not keep the app connection request. Start again from your mobile app.' };
   }
 }
 
@@ -64,10 +64,10 @@ export function clearNativeConnectionRequest() {
 export function nativeCallback(result: unknown, request: NativeConnectionRequest, owner: string): string {
   const row = result as Record<string, unknown>;
   const identity = row?.identity as Record<string, unknown> | undefined;
-  if (!row || row.ok !== true || row.redirect_uri !== NATIVE_REDIRECT || row.state !== request.state
+  if (!validNativeConnection(request) || !row || row.ok !== true || row.redirect_uri !== request.redirect_uri || row.state !== request.state
       || row.expires_in !== 120 || typeof row.code !== 'string' || !/^nc_[A-Za-z0-9_-]{43}$/.test(row.code)
-      || identity?.account_id !== owner) throw Error('The app connection response could not be confirmed. Start again from the Android app.');
-  const url = new URL(NATIVE_REDIRECT);
+      || identity?.account_id !== owner) throw Error('The app connection response could not be confirmed. Start again from your mobile app.');
+  const url = new URL(request.redirect_uri);
   url.searchParams.set('code', row.code); url.searchParams.set('state', request.state);
   return url.href;
 }
