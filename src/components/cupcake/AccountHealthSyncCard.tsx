@@ -32,21 +32,23 @@ function HealthSyncCard() {
   const setup = () => { if (!openHealthSettings()) setError('Open Settings, then Apple Health connection, to set up or check your phone.'); };
   return <section className="cc-card cc-health-sync" aria-label="Apple Health uploads">
     <div className="cc-heading-row"><h3 className="cc-card-title"><HeartPulse size={20} aria-hidden="true"/>Apple Health uploads</h3></div>
-    <p className="cc-muted cc-small">From your iPhone to this account.</p>
     {busy && <p role="status">Checking Apple Health uploads…</p>}
-    {error && <div role="alert"><p>{error}</p><p className="cc-muted cc-small">No new upload or observation is confirmed by this check.</p></div>}
+    {error && <p role="alert">{error}</p>}
     {data && <>
       {!data.devices.length && <p>No Apple Health upload set up for this account.</p>}
-      {data.devices.length > 0 && data.last_received_at === null && <p>Waiting for the first upload. Phone permission alone does not mean data is arriving.</p>}
-      <dl className="cc-health-sync-times"><div><dt>Last upload received</dt><dd>{time(data.last_received_at)}</dd></div><div><dt>Latest saved daily period</dt><dd>{period(data)}</dd></div></dl>
-      <p className="cc-muted cc-small">Daily dates use the connection’s timezone. They are not measurement or sleep-end times. An upload may contain no supported data.</p>
+      {data.devices.length > 0 && data.last_received_at === null && <p>Waiting for the first upload.</p>}
+      {data.last_received_at !== null && <dl className="cc-health-sync-times"><div><dt>Last upload received</dt><dd>{time(data.last_received_at)}</dd></div>{data.last_observed_at !== null && <div><dt>Latest saved daily period</dt><dd>{period(data)}</dd></div>}</dl>}
+      {data.last_observed_at !== null && <p className="cc-muted cc-small">Daily summaries{labels.includes('Sleep estimate') ? ' · Sleep is an estimate' : ''}</p>}
       {data.last_received_at !== null && data.last_observed_at === null && <p>Upload received; no supported observations are confirmed.</p>}
       {oldUpload && <p className="cc-health-sync-old">No upload received in the last 2 days. Check the exporter on your phone.</p>}
-      {labels.length > 0 && <p className="cc-muted cc-small">Saved previously: {labels.join(', ')}. These may come from earlier uploads, including expired or revoked connections.</p>}
-      {data.devices.length > 0 && <details><summary>Connection details ({data.devices.length})</summary><ul>{data.devices.map(device => <li key={device.id}><strong>{device.label}</strong> · {device.status === 'active' ? 'Upload permission active' : device.status === 'expired' ? 'Upload permission expired' : 'Upload permission revoked'}<p className="cc-muted cc-small">Configured export source: {device.preferred_source || 'Not specified'} · {device.timezone}<br/>Last upload: {time(device.last_received_at)}</p></li>)}</ul><p className="cc-muted cc-small">Permission alone does not confirm uploads. Sleep is an algorithm estimate. The configured source does not verify a measurement.</p></details>}
-      {checkedAt && <p className="cc-muted cc-small">Status checked {checkedAt.toLocaleTimeString()}. Checking does not refresh measurements.</p>}
+      {data.devices.length > 0 && <details><summary>Connection details ({data.devices.length})</summary>
+        <p className="cc-muted cc-small">Daily dates use the connection’s timezone. They are not measurement or sleep-end times. An upload may contain no supported data.</p>
+        {labels.length > 0 && <p className="cc-muted cc-small">Saved previously: {labels.join(', ')}. These may come from earlier uploads, including expired or revoked connections.</p>}
+        <ul>{data.devices.map(device => <li key={device.id}><strong>{device.label}</strong> · {device.status === 'active' ? 'Upload permission active' : device.status === 'expired' ? 'Upload permission expired' : 'Upload permission revoked'}<p className="cc-muted cc-small">Configured export source: {device.preferred_source || 'Not specified'} · {device.timezone}<br/>Last upload: {time(device.last_received_at)}</p></li>)}</ul><p className="cc-muted cc-small">Permission alone does not confirm uploads. Sleep is an algorithm estimate. The configured source does not verify a measurement. Checking status does not refresh measurements.</p>
+      </details>}
+      {checkedAt && <p className="cc-muted cc-small">Checked {checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>}
     </>}
-    <div className="cc-action-row"><button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Check upload status</button><button type="button" className="cc-text-button" onClick={setup}>iPhone setup in Settings</button></div>
+    <div className="cc-action-row"><button type="button" className="cc-secondary" aria-label="Check upload status" disabled={busy} onClick={() => void refresh()}>Refresh</button><button type="button" className="cc-text-button" aria-label="iPhone setup in Settings" onClick={setup}>iPhone setup</button></div>
   </section>;
 }
 export default function AccountHealthSyncCard() {
