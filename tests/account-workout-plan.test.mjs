@@ -57,7 +57,7 @@ try {
   await card(page).getByText('Preview: 3 workouts, 1 rest day').waitFor();
   let requests = await page.evaluate(() => window.workoutFixture.requests);
   assert.equal(requests.some(r => r.action === 'coach_plan_set'), false, 'builder never saves by itself');
-  const begin = requests.find(r => r.action === 'quick_chat_begin'); assert.match(begin.text, /weekly workout routine/); assert.match(begin.text, /What I want: Three easy days, no gym$/); assert.match(begin.text, /cannot search the web/);
+  const begin = requests.find(r => r.action === 'quick_chat_begin'); assert.match(begin.text, /weekly workout routine/); assert.match(begin.text, /What I want: Three easy days, no gym$/); assert.match(begin.text, /Do not claim any source except web results I paste in/);
   assert.equal(requests.some(r => r.owner_id || r.ownerId), false);
   if (process.env.AXE) {
     await page.addScriptTag({ path: process.env.AXE });
