@@ -2,6 +2,7 @@ import { ACCOUNT_SESSIONS } from './accountMode';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Mic, Square } from 'lucide-react';
 import { libraryRequest } from './library';
+import { useDataChanged } from './dataChanges';
 import { addDays, nutritionDay, nutritionDayStart, signedCalories, type NutritionHistory, type NutritionSettings } from './nutritionModel';
 import { buildMetabolicSeries, monotonePath, sampleNetAt, type BoughtEvent, type MetabolicSeries } from './metabolicSeries';
 import { preparedPurchases } from './purchases';
@@ -209,6 +210,7 @@ function useExercise(dayStart: number, dayEnd: number): ExerciseState {
       .catch(error => { if (current === generation.current) { setEntries([]); setStatus(error instanceof ExerciseUnavailableError ? 'unavailable' : 'error'); } });
   }, [dayStart, dayEnd]);
   useEffect(() => { reload(); }, [reload]);
+  useDataChanged(['exercise'], reload);
   return { status, entries, reload, add: entry => { if (entry.at >= dayStart && entry.at < dayEnd) setEntries(rows => [...rows.filter(r => r.id !== entry.id), entry].sort((a, b) => a.at - b.at)); }, remove: id => setEntries(rows => rows.filter(r => r.id !== id)) };
 }
 

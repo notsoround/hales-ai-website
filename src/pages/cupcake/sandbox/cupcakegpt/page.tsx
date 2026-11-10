@@ -17,6 +17,7 @@ import type {Body} from '../../../../components/cupcake/robyn/viewerApi';
 import {weightTime} from '../../../../components/cupcake/weightHistoryModel';
 import {QuickReset} from '../../../../components/cupcake/QuickReset';
 import {QuickChat} from '../../../../components/cupcake/QuickChat';
+import {useDataChanged} from '../../../../components/cupcake/dataChanges';
 // CupcakeGPT — Matt's AI accountability app
 // Chat + food-photo calorie tracking + live feed + week view.
 // Talks to n8n webhooks on automate.hales.ai (CORS-enabled).
@@ -392,10 +393,11 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
 
 /** One headline weight (same rule as Robyn's page: latest dated reading, Robyn's assessment first on a tie), with date and source; other readings are detail. */
 function TodayWeight({onOpen}:{onOpen:()=>void}) {
- const [scale,setScale]=useState<WeightRecord[]|null>(null),[body,setBody]=useState<Body|null>(null),[error,setError]=useState(false),[scaleError,setScaleError]=useState(false),[loading,setLoading]=useState(true);
+ const [scale,setScale]=useState<WeightRecord[]|null>(null),[body,setBody]=useState<Body|null>(null),[error,setError]=useState(false),[scaleError,setScaleError]=useState(false),[loading,setLoading]=useState(true),[changed,setChanged]=useState(0);
+ useDataChanged(['weight'],()=>setChanged(n=>n+1));
  useEffect(()=>{let live=true;void Promise.allSettled([loadWeightPage(),libraryRequest<{body:Body}>({action:'body_headline_get'})]).then(([w,b])=>{if(!live)return;
   if(w.status==='fulfilled')setScale(w.value.latestMeasurement?[w.value.latestMeasurement,...w.value.measurements.filter(m=>m.id!==w.value.latestMeasurement!.id)]:[]);
-  if(b.status==='fulfilled')setBody(b.value.body||null);setScaleError(w.status==='rejected');setError(w.status==='rejected'&&b.status==='rejected');setLoading(false);});return()=>{live=false;};},[]);
+  if(b.status==='fulfilled')setBody(b.value.body||null);setScaleError(w.status==='rejected');setError(w.status==='rejected'&&b.status==='rejected');setLoading(false);});return()=>{live=false;};},[changed]);
  const latest=scale?.[0]||null,hb=body?.weight&&body.weight.source!=='scale'?body.weight:null;
  const md=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'UTC',month:'short',day:'numeric'}).format(new Date(iso+'T12:00:00Z'));
  // Change: vs the previous reading from the same source (headline from a check-in), or vs about a week earlier (scale).
@@ -433,6 +435,8 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
       .catch(()=>{if(request===loadId.current)setErr(true);});
   },[]);
   useEffect(()=>{load();const ref=loadId;return()=>{ref.current++;};},[load]);
+  // A change confirmed from the assistant chat refreshes Today without a page reload.
+  useDataChanged(['food','exercise','weight','outcome'],load);
   // Account feed owns the timeline snapshot. Confirmed workout changes refresh it
   // instead of replacing complete feed rows with the independent capped list.
   const exerciseWithRefresh=ACCOUNT_SESSIONS?{...exercise,add:(entry:Parameters<typeof exercise.add>[0])=>{exercise.add(entry);load();},remove:(id:string)=>{exercise.remove(id);load();}}:exercise;
@@ -504,6 +508,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   const loadRecentMeals = useCallback(async () => { try { const data = await libraryRequest<{ meals: FoodMeal[] }>({ action: 'food_list', limit: 200 }); setRecentMeals(data.meals || []); void reloadNutrition(); } catch (e) { setError(e instanceof Error ? e.message : 'Recent food photos are unavailable.'); } }, [reloadNutrition]);
   useEffect(() => { void loadRecentMeals(); }, [loadRecentMeals]);
+  useDataChanged(['food'], () => { void loadRecentMeals(); });
 
   const onFile = (f: File) => {
     if (ACCOUNT_SESSIONS || busy) return;

@@ -27,3 +27,19 @@
 .cc-app[data-entry=account] .cc-workout-editor textarea{width:100%;min-width:0;box-sizing:border-box}
 .cc-app[data-entry=account] .cc-workout-issues{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--cc-warning,inherit)}
 .cc-app[data-entry=account] .cc-workout-problem{display:grid;gap:8px;justify-items:start}
+/* Labs: change suggestions under an Assistant reply. Each is confirmed with a tap. */
+.cc-app[data-entry=account] .cc-suggestions{display:grid;gap:8px;margin-top:12px;white-space:normal}
+.cc-app[data-entry=account] .cc-suggestions>p{margin:0;line-height:1.5}
+.cc-app[data-entry=account] .cc-suggestions>ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.cc-app[data-entry=account] .cc-suggestion{display:grid;gap:8px;min-width:0;padding:12px;border:1px solid color-mix(in srgb,var(--cc-pink,#ae78ff) 45%,transparent);border-radius:12px;overflow-wrap:anywhere}
+.cc-app[data-entry=account] .cc-suggestion[data-state=saved]{border-color:color-mix(in srgb,currentColor 25%,transparent)}
+.cc-app[data-entry=account] .cc-suggestion[data-state=problem]{border-style:dashed}
+.cc-app[data-entry=account] .cc-suggestion p{margin:0;line-height:1.5}
+.cc-app[data-entry=account] .cc-suggestion-details{margin:0;padding-left:18px;display:grid;gap:2px}
+.cc-app[data-entry=account] .cc-suggestion-actions{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;min-width:0}
+.cc-app[data-entry=account] .cc-suggestion-actions button{min-height:44px;max-width:100%}
+@media(max-width:480px){.cc-app[data-entry=account] .cc-suggestion-actions .cc-secondary{flex:1 1 100%}}
+.cc-app[data-entry=account] .cc-suggestion-actions .cc-secondary{padding:0 18px;border:1px solid var(--cc-pink,#ae78ff);border-radius:12px;background:color-mix(in srgb,var(--cc-pink,#ae78ff) 28%,transparent);color:inherit;font:inherit;font-weight:650;cursor:pointer}
+.cc-app[data-entry=account] .cc-suggestion-actions .cc-secondary:disabled{opacity:.6;cursor:default}
+.cc-app[data-entry=account] .cc-suggestion-actions .cc-text-button{padding:0 4px;border:0;background:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
+.cc-app[data-entry=account] .cc-suggestion-actions button:focus-visible{outline:2px solid var(--cc-pink,#ae78ff);outline-offset:3px}

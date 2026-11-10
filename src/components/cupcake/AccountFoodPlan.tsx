@@ -6,6 +6,7 @@ import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, 
 import './account-food-plan.css';
 import { parsePlanText } from './planImport';
 import { useLab } from './labsFlags';
+import { useDataChanged } from './dataChanges';
 import { AccountPlanBuilder } from './AccountPlanBuilder';
 import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, missingGroceryItems } from './groceryChecklist';
 
@@ -61,6 +62,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   }, [storage]);
   const invalidate = useCallback(() => { generation.current++; }, []);
   useEffect(() => { void refresh(); return invalidate; }, [refresh, invalidate]);
+  useDataChanged(['plan'], () => { void refresh(); });
 
   const edit = (next: PlanDraft) => {
     if (pending || busy) return;
