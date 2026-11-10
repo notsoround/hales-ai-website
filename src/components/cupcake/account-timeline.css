@@ -5,7 +5,15 @@
 .cc-app[data-entry=account] .cc-signal-filter button:hover { border-color: var(--cc-pink); }
 .cc-app[data-entry=account] .cc-signal-filter button[aria-pressed=true] { border-color: var(--cc-pink); background: var(--cc-accent-wash); color: var(--cc-pink-bright, var(--cc-pink)); font-weight: 600; }
 .cc-app[data-entry=account] .cc-signal-filter button:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+/* Jump past the scorecards to the history list. */
+.cc-app[data-entry=account] .cc-signal-jump { min-height: 44px; margin: -4px 0 4px; padding: 0; }
+.cc-app[data-entry=account] #cc-signals-heading { scroll-margin-top: 96px; }
+.cc-app[data-entry=account] #cc-signals-heading:focus { outline: none; }
+.cc-app[data-entry=account] #cc-signals-heading:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 4px; border-radius: 4px; }
 @media (max-width: 600px) {
+  /* All five ranges fit on a phone instead of clipping "Custom" off the edge. */
+  .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-range { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; gap: 4px; }
+  .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-range button { min-width: 0; padding: 10px 4px; font-size: 13px; line-height: 1.2; }
   /* One scrollable row on phones so the list stays near the top. */
   .cc-app[data-entry=account] .cc-signal-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -2px; padding: 2px; }
   .cc-app[data-entry=account] .cc-signal-filter button { flex: none; }

@@ -7,3 +7,9 @@
 /* Merged Talk + Chat (flag): typing pauses while live with Cupcake. */
 .cc-chat-locked{margin:0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);font-size:14px;color:#e9dbe8}
 .cc-talkchat-chat{margin-top:28px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1)}
+
+/* Account app: conversation starters on an empty chat. */
+.cc-app[data-entry=account] .cc-chat-starters{display:flex;flex-wrap:wrap;gap:8px}
+.cc-app[data-entry=account] .cc-chat-starters button{min-height:44px;padding:8px 14px;border:1px solid var(--cc-border);border-radius:999px;background:transparent;color:var(--cc-text-2,inherit);font:inherit;font-size:14px;text-align:left}
+.cc-app[data-entry=account] .cc-chat-starters button:hover{border-color:var(--cc-pink)}
+.cc-app[data-entry=account] .cc-chat-starters button:focus-visible{outline:2px solid var(--cc-pink);outline-offset:2px}
