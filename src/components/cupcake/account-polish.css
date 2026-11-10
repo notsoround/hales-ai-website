@@ -2,15 +2,6 @@
    route stays in the DOM. Scoped to [data-entry=account] so the original /cupcake app is unchanged. */
 
 /* ---------- Today: priority first ---------- */
-/* What happened today leads, then vitals, then setup/status. Visual order only; reading order
-   follows the same priority because the grid is a single column on phones. */
-.cc-app[data-entry=account] .cc-today-grid > * { order: 6; }
-.cc-app[data-entry=account] .cc-today-grid > .cc-nutrition-today { order: 1; }
-.cc-app[data-entry=account] .cc-today-grid > .cc-signals { order: 2; }
-.cc-app[data-entry=account] .cc-today-grid > .cc-energy { order: 3; }
-.cc-app[data-entry=account] .cc-today-grid > .cc-weight-card { order: 4; }
-.cc-app[data-entry=account] .cc-today-grid > .cc-health-sync { order: 5; }
-
 /* Quick actions: four equal one-tap tiles, a quiet tip link. */
 .cc-app[data-entry=account] .cc-welcome.cc-welcome-compact { display: block; margin: 0 0 18px; }
 .cc-app[data-entry=account] .cc-quick-account { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
@@ -32,12 +23,6 @@
 
 /* Empty states read as calm status lines, not headlines. */
 .cc-app[data-entry=account] :is(.cc-sugar-none, .cc-weight-card strong.cc-weight-none) { font-size: 22px; letter-spacing: -.01em; line-height: 1.2; }
-
-/* Vitals row: on wide screens glucose, CGM and sleep sit side by side; the curve spans the row. */
-@media (min-width: 1024px) {
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy-curve { grid-column: 1 / -1; }
-}
 
 /* ---------- Mobile bottom navigation ---------- */
 @media (max-width: 1023px) {
@@ -96,18 +81,6 @@
 }
 .cc-app[data-entry=account] .cc-account-note { margin: 0 0 8px; font-size: 12px; color: var(--cc-text-3); }
 
-/* ---------- Today vitals on phones: two small tiles side by side ---------- */
-@media (max-width: 899px) {
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy > .cc-sugar { order: 1; }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy > .cc-last-night { order: 2; }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy > :not(.cc-sugar, .cc-last-night) { order: 3; grid-column: 1 / -1; }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy > :is(.cc-sugar, .cc-last-night) { padding: 16px 14px; }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy > :is(.cc-sugar, .cc-last-night) .cc-eyebrow { font-size: 13px; }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy > :is(.cc-sugar, .cc-last-night) :is(p, .cc-muted) { font-size: 13px; line-height: 1.45; }
-  .cc-app[data-entry=account] .cc-today-grid .cc-energy > .cc-sugar .cc-sugar-none { font-size: 19px; display: block; margin: 6px 0 4px; }
-}
-
 /* ---------- Reports: always say whose information is on screen ---------- */
 .cc-app[data-entry=account] .cc-coach-lens { display: grid; gap: 8px; margin: 14px 0 18px; padding: 14px 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--ds-wins, #ffcc00) 45%, var(--cc-border)); background: linear-gradient(135deg, color-mix(in srgb, var(--ds-wins, #ffcc00) 9%, var(--cc-surface)), var(--cc-surface)); }
 .cc-app[data-entry=account] .cc-coach-lens-who { font-size: 16px; color: var(--cc-text); }
@@ -126,3 +99,114 @@
 .cc-app[data-entry=account] .cc-plan-to-groceries strong { display: block; font-size: 16px; color: var(--cc-pink-bright); }
 .cc-app[data-entry=account] .cc-plan-to-groceries small { display: block; font-size: 13px; color: var(--cc-text-2); }
 .cc-app[data-entry=account] .cc-plan-to-groceries > span:last-child { font-size: 22px; color: var(--cc-pink-bright); }
+
+/* ---------- Today layout ---------- */
+/* Energy's cards join the Today grid so each can be placed by priority. Order: food, timeline,
+   vitals with data, energy curve, weight, uploads, then everything without data folded into a
+   compact "Not logged yet" group. Every card and action stays on the page. */
+.cc-app[data-entry=account] .cc-today-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-energy { display: contents; }
+.cc-app[data-entry=account] .cc-today-grid > *, .cc-app[data-entry=account] .cc-today-grid > .cc-energy > * { grid-column: 1 / -1; order: 30; margin: 0; min-width: 0; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-nutrition-today { order: 1; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-signals { order: 2; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-energy > .cc-sugar { order: 3; grid-column: span 1; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-energy > .cc-last-night { order: 4; grid-column: span 1; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-energy > .cc-cgm { order: 5; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-energy > .cc-energy-curve { order: 6; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-weight-card { order: 7; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-health-sync { order: 8; }
+.cc-app[data-entry=account] .cc-notyet-head { display: none; order: 40; grid-column: 1 / -1; margin: 10px 0 -2px; font: 600 12px/1.2 var(--ds-font, inherit); letter-spacing: .12em; text-transform: uppercase; color: var(--cc-text-3); }
+.cc-app[data-entry=account] .cc-today-grid:has([data-empty]) > .cc-notyet-head { display: block; }
+.cc-app[data-entry=account] .cc-today-grid [data-empty] { order: 41 !important; grid-column: span 1 !important; padding: 12px 14px; border-radius: 16px; background: var(--cc-surface); border-color: var(--cc-border); box-shadow: none; gap: 4px; align-content: start; }
+.cc-app[data-entry=account] .cc-today-grid [data-empty] :is(.cc-eyebrow, .cc-card-title, .cc-weight-eyebrow) { font-size: 13px; margin: 0; }
+.cc-app[data-entry=account] .cc-today-grid [data-empty] :is(p, span, .cc-muted) { font-size: 13px; line-height: 1.4; }
+.cc-app[data-entry=account] .cc-today-grid [data-empty] :is(.cc-sugar-none, strong.cc-weight-none) { display: block; font-size: 15px; line-height: 1.25; margin: 4px 0 2px; letter-spacing: 0; }
+.cc-app[data-entry=account] .cc-today-grid [data-empty] :is(.cc-secondary, .cc-text-button) { min-height: 40px; font-size: 13px; }
+.cc-app[data-entry=account] .cc-today-grid .cc-health-sync[data-empty] .cc-heading-row { margin: 0; }
+/* Phones: anything without data becomes a compact full-width row. */
+@media (max-width: 899px) {
+  .cc-app[data-entry=account] .cc-today-grid [data-empty] { grid-column: 1 / -1 !important; padding: 10px 14px; }
+  .cc-app[data-entry=account] .cc-today-grid [data-empty] :is(.cc-sugar-none, strong.cc-weight-none) { font-size: 14px; margin: 2px 0 0; }
+}
+@media (min-width: 900px) {
+  .cc-app[data-entry=account] .cc-today-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
+  .cc-app[data-entry=account] .cc-today-grid > .cc-energy > :is(.cc-sugar, .cc-last-night, .cc-cgm) { grid-column: span 4; }
+  .cc-app[data-entry=account] .cc-today-grid > :is(.cc-weight-card, .cc-health-sync) { grid-column: span 6; }
+  .cc-app[data-entry=account] .cc-today-grid [data-empty] { grid-column: span 3 !important; }
+  /* A lone vital with data takes the full row instead of leaving two empty thirds. */
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-sugar:not([data-empty]))):not(:has(.cc-last-night:not([data-empty])))> .cc-energy > .cc-cgm { grid-column: 1 / -1; }
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-weight-card:not([data-empty]))) > .cc-health-sync:not([data-empty]), .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-health-sync:not([data-empty]))) > .cc-weight-card:not([data-empty]) { grid-column: 1 / -1; }
+}
+
+/* ---------- Next up ---------- */
+.cc-app[data-entry=account] .cc-next-up { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin: 0 0 14px; padding: 14px 16px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--cc-pink) 45%, var(--cc-border)); background: radial-gradient(120% 140% at 0 0, var(--cc-accent-wash), transparent 60%), var(--cc-surface); }
+.cc-app[data-entry=account] .cc-next-up > div { min-width: 0; flex: 1 1 200px; }
+.cc-app[data-entry=account] .cc-next-up p { margin: 4px 0 0; font-size: 15px; color: var(--cc-text-2); }
+.cc-app[data-entry=account] .cc-next-up p strong { color: var(--cc-text); }
+.cc-app[data-entry=account] .cc-next-up .cc-primary { min-height: 46px; padding: 10px 16px; }
+
+/* ---------- Readability floor ---------- */
+.cc-app[data-entry=account] :is(.cc-small, .cc-coach-provenance, .cc-coach-coverage, .cc-assistant-footer, .cc-assistant-footer button) { font-size: 13px; }
+.cc-app[data-entry=account] .cc-grocery-section { margin: 14px 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cc-pink-bright); }
+
+/* Report tables fit a phone where they can, and show a scroll edge where they cannot. */
+.cc-app[data-entry=account] .cc-coach-table { background: linear-gradient(90deg, var(--cc-surface) 30%, transparent) left / 24px 100% no-repeat local, linear-gradient(270deg, var(--cc-surface) 30%, transparent) right / 24px 100% no-repeat local, linear-gradient(90deg, #0008, transparent) left / 12px 100% no-repeat scroll, linear-gradient(270deg, #0008, transparent) right / 12px 100% no-repeat scroll; }
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-coach-table table { font-size: 13px; }
+  .cc-app[data-entry=account] .cc-coach-table :is(th, td) { padding: 8px 6px; white-space: nowrap; }
+}
+
+.cc-app[data-entry=account] .cc-today-grid .cc-weight-card[data-empty] { justify-content: flex-start; align-items: stretch; text-align: left; }
+
+/* ---------- Desktop: assistant docks as a right-hand column ---------- */
+/* On wide screens the open assistant sits beside the page instead of over it; the page narrows
+   to make room, so nothing is covered and you can talk while looking at Today or a report. */
+@media (min-width: 1280px) {
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel { top: 0; right: 0; bottom: 0; width: 400px; max-height: none; border-radius: 0; border: 0; border-left: 1px solid var(--cc-border); box-shadow: -12px 0 40px #0006; z-index: 45; }
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) :is(.cc-top, .cc-shell) { max-width: min(1100px, calc(100% - var(--cc-sidebar) - 400px)); margin-left: calc(var(--cc-sidebar) + max(0px, (100% - var(--cc-sidebar) - 400px - 1100px) / 2)); margin-right: 400px; }
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-head { padding-top: 22px; }
+}
+
+/* ---------- Photo result ---------- */
+.cc-app[data-entry=account] .cc-account-photo-receipt { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--ds-exercise, #30d158) 45%, var(--cc-border)); background: linear-gradient(135deg, color-mix(in srgb, var(--ds-exercise, #30d158) 10%, var(--cc-surface)), var(--cc-surface)); }
+.cc-app[data-entry=account] .cc-account-photo-receipt h4 { color: var(--ds-exercise-ink, #6be08a); margin: 0; }
+.cc-app[data-entry=account] .cc-account-photo-receipt strong { font-size: 18px; }
+.cc-app[data-entry=account] .cc-account-photo-receipt p { margin: 0; }
+.cc-app[data-entry=account] .cc-account-photo-receipt .cc-text-button { justify-self: start; }
+
+/* ---------- Sharing you authorized: one card per person ---------- */
+.cc-app .cc-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.cc-app[data-entry=account] .cc-grant-card { display: grid; gap: 8px; margin-top: 12px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--cc-border); background: var(--cc-surface-2); }
+.cc-app[data-entry=account] .cc-grant-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cc-app[data-entry=account] .cc-grant-head h4 { margin: 0; font-size: 17px; min-width: 0; overflow-wrap: anywhere; }
+.cc-app[data-entry=account] .cc-grant-state { flex: none; font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ds-exercise, #30d158) 16%, transparent); color: var(--ds-exercise-ink, #6be08a); }
+.cc-app[data-entry=account] .cc-grant-card:not([data-state=active]) .cc-grant-state { background: var(--cc-surface); color: var(--cc-text-3); }
+.cc-app[data-entry=account] .cc-grant-card:not([data-state=active]) { opacity: .8; }
+.cc-app[data-entry=account] .cc-grant-scopes { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.cc-app[data-entry=account] .cc-grant-scopes > span { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--cc-border); color: var(--cc-text-2); }
+.cc-app[data-entry=account] .cc-grant-card .cc-small { margin: 0; }
+.cc-app[data-entry=account] .cc-grant-card .cc-secondary { justify-self: start; min-height: 44px; }
+
+/* ---------- Plan import ---------- */
+.cc-plan-import { margin: 4px 0 14px; border: 1px dashed var(--cc-border); border-radius: 16px; padding: 4px 14px; }
+.cc-plan-import > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--cc-pink-bright, #80eee1); font-weight: 600; }
+.cc-plan-import > div { display: grid; gap: 10px; padding: 4px 0 12px; }
+.cc-plan-import label { display: grid; gap: 6px; }
+.cc-plan-import textarea { width: 100%; min-width: 0; font-size: 16px; }
+.cc-plan-import .cc-secondary { justify-self: start; }
+
+/* ---------- Quiet empty states for the cards that stay on top ---------- */
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] { padding-top: 16px; padding-bottom: 14px; }
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-values strong { font-size: 26px; }
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-balance { padding: 10px 12px; }
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-balance b { font-size: 17px; }
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] :is(p, small, span) { font-size: 13px; }
+.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) { padding-top: 16px; padding-bottom: 14px; }
+.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) p { font-size: 14px; margin: 6px 0 0; }
+.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) .cc-small { font-size: 13px; }
+.cc-app[data-entry=account] .cc-saves:has(.cc-saves-unavailable) .cc-sw-switch { margin-top: 8px; }
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-welcome-compact h2 { font-size: 27px; }
+  .cc-app[data-entry=account] .cc-quick-account { margin-top: 12px; }
+  .cc-app[data-entry=account] .cc-quick-account > :is(.cc-primary, .cc-secondary) { min-height: 68px; }
+}

@@ -30,7 +30,7 @@ function HealthSyncCard() {
   const oldUpload = data?.last_received_at != null && checkedAt !== null && checkedAt.getTime() - data.last_received_at * 1000 > twoDays;
   const labels = data ? [...new Set(data.metrics.map(healthMetricLabel))] : [];
   const setup = () => { if (!openHealthSettings()) setError('Open Settings, then Apple Health connection, to set up or check your phone.'); };
-  return <section className="cc-card cc-health-sync" aria-label="Apple Health uploads">
+  return <section className="cc-card cc-health-sync" aria-label="Apple Health uploads" data-empty={data && !data.devices.length && !error && !busy ? '' : undefined}>
     <div className="cc-heading-row"><h3 className="cc-card-title"><HeartPulse size={20} aria-hidden="true"/>Apple Health uploads</h3></div>
     {busy && <p role="status">Checking Apple Health uploads…</p>}
     {error && <p role="alert">{error}</p>}

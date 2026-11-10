@@ -4,7 +4,8 @@ import { AccountRequestError } from './accountSession';
 import { personalStorage } from './personalStorage';
 import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, rebasePlanDraft, samePlan, PLAN_DRAFT_KEY, type MealPlan, type PlanDraft, type PlanIntent } from './foodPlanModel';
 import './account-food-plan.css';
-import { appendGroceryItems, checkGroceryItem, groceryItems, missingGroceryItems } from './groceryChecklist';
+import { parsePlanText } from './planImport';
+import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, missingGroceryItems } from './groceryChecklist';
 
 export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'plan' | 'groceries'; onPlan: () => void; onGroceries?: () => void }) {
   const [storage] = useState(() => personalStorage('sessionStorage'));
@@ -14,6 +15,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [pending, setPending] = useState<PlanIntent | null>(recovery?.pending || null);
   const [latest, setLatest] = useState<MealPlan | null | undefined>();
   const [loaded, setLoaded] = useState(false), [busy, setBusy] = useState(false);
+  const [importText, setImportText] = useState(''), [importNote, setImportNote] = useState('');
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [shoppingError, setShoppingError] = useState('');
@@ -115,6 +117,12 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
       <p className="cc-plan-save-state" role="status">{pending ? 'Save unconfirmed · original request kept for retry' : dirty ? 'Unsaved changes · draft kept in this browser tab' : base ? 'Saved plan loaded from your account' : 'No saved meal plan yet'}</p>
       <fieldset disabled={busy || !!pending} className="cc-plan-fields">
         {section === 'plan' ? <>
+          <details className="cc-plan-import"><summary>Paste or upload a plan</summary><div>
+            <p className="cc-muted cc-small">A routine, a meal plan or a coach’s notes. Headings such as “Monday” or “Lunch:” become planned meals and the lines under them become items. Nothing is saved until you choose Save plan &amp; groceries.</p>
+            <label>Plan text<textarea rows={5} maxLength={20000} value={importText} placeholder={'Monday:\n- Oats with berries\n- Greek yogurt\nLunch 550 kcal:\n- Chicken quinoa bowl'} onChange={event => { setImportText(event.target.value); setImportNote(''); }}/></label>
+            <label className="cc-plan-import-file">Or choose a text file<input type="file" accept=".txt,.md,.markdown,.csv,text/plain,text/markdown" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (!file) return; if (file.size > 200000) { setImportNote('That file is too large. Paste the part you want instead.'); return; } void file.text().then(text => { setImportText(text.slice(0, 20000)); setImportNote(''); }).catch(() => setImportNote('That file could not be read. Paste its text instead.')); }}/></label>
+            {(() => { const found = parsePlanText(importText, Math.max(0, 10 - draft.meals.length)); return <><button type="button" className="cc-secondary" disabled={!found.length} onClick={() => { edit({ ...draft, meals: [...draft.meals, ...found.map(meal => ({ original: null, name: meal.name, items: meal.items.join('\n'), kcal: meal.kcal }))] }); setImportText(''); setImportNote(`Added ${found.length} planned ${found.length === 1 ? 'meal' : 'meals'} to your draft. Review them below, then save.`); }}>{found.length ? `Add ${found.length} planned ${found.length === 1 ? 'meal' : 'meals'} to draft` : draft.meals.length >= 10 ? 'Plan is full (10 meals)' : 'Add to draft'}</button>{importNote && <p role="status" className="cc-muted cc-small">{importNote}</p>}</>; })()}
+          </div></details>
           <label>Plan title (optional)<input maxLength={200} value={draft.title} onChange={event => edit({ ...draft, title: event.target.value })}/></label>
           {draft.meals.map((meal, index) => <article className="cc-card cc-plan-meal" key={index}>
             <div className="cc-heading-row"><strong>Planned meal {index + 1}</strong><button type="button" className="cc-text-button" onClick={() => edit({ ...draft, meals: draft.meals.filter((_, at) => at !== index) })}>Remove meal {index + 1}</button></div>
@@ -143,7 +151,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
           <div className="cc-grocery-checklist" aria-label="Grocery checklist">
             <div className="cc-heading-row"><h4 ref={checklistHeading} tabIndex={-1} className="cc-shopping-heading">Shopping checklist</h4><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
             <p className="cc-muted cc-small">Check off items as you shop, then Save plan &amp; groceries.</p>
-            {groceries.map(item => <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>)}
+            {groceries.flatMap(item => [...groceryHeadings(draft.groceries).filter(heading => heading.line < item.line && !groceries.some(other => other.line < item.line && other.line > heading.line) ).map(heading => <p className="cc-grocery-section" key={`h${heading.line}`}>{heading.label}</p>), <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>])}
             {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}
           </div>
           <label>Grocery notes<textarea rows={10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>

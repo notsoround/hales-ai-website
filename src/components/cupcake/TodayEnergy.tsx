@@ -39,7 +39,7 @@ export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: 
     <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd} now={now.getTime()}/>
     <AccountCGMCard/>
     <LastNightCard day={day}/>
-    <div className="cc-card cc-energy-curve">
+    <div className="cc-card cc-energy-curve" data-empty={nutrition.history && !series ? '' : undefined}>
       <div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="energy"/>Energy balance today</h3></div>
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
         : !series ? <p className="cc-muted">Add a daily expenditure estimate in Food settings to draw today’s curve.</p>
@@ -59,7 +59,7 @@ function LastNightCard({ day }: { day: string }) {
     return () => { live = false; };
   }, [day]);
   const n = state.night;
-  return <div className="cc-card cc-last-night" aria-live="polite">
+  return <div className="cc-card cc-last-night" aria-live="polite" data-empty={state.status === 'unavailable' || state.status === 'ready' && !n ? '' : undefined}>
     <span className="cc-eyebrow"><ToneIcon tone="sleep"/>Last night</span>
     {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
       : state.status === 'unavailable' ? <p className="cc-muted">RingConn nights are not available from the library yet.</p>
@@ -82,7 +82,7 @@ function SugarCard({ day, dayStart, dayEnd, now }: { day: string; dayStart: numb
   const r = closestReading(state.rows, target, SIX_PM_WINDOW_MS), offMinutes = r ? Math.round(Math.abs(r.at - target) / 60000) : 0;
   const latest = state.rows.length ? state.rows[state.rows.length - 1] : null;
   const windowOpen = now < target + SIX_PM_WINDOW_MS;
-  return <div className="cc-card cc-sugar" aria-live="polite">
+  return <div className="cc-card cc-sugar" aria-live="polite" data-empty={state.status === 'ready' && !r ? '' : undefined}>
     <span className="cc-eyebrow"><ToneIcon tone="glucose"/>6 PM blood sugar</span>
     {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
       : state.status === 'error' ? <p className="cc-muted">Manual glucose readings could not load.</p>

@@ -38,7 +38,7 @@ export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTING
   // One primary number: calories logged today (the same figure as "Eaten" in the energy chart). Balance lives in the chart.
   const targetReady = !!summary && summary.target !== null && summary.meals.length > 0 && comparisonReady && !summary.partial;
   const left = targetReady ? summary!.target! - summary!.calories : null;
-  return <section className="cc-nutrition-today" aria-label="Food today">
+  return <section className="cc-nutrition-today" aria-label="Food today" data-quiet={summary && !summary.meals.length ? '' : undefined}>
     <div className="cc-nutrition-heading"><span className="cc-nutrition-eyebrow"><Utensils size={16}/> Food today</span><button type="button" className="cc-nutrition-link" onClick={onOpenCalendar}>Open calendar <ArrowUpRight size={16}/></button></div>
     {!history || !summary ? <LoadState loading={loading} error={error} onRetry={onRetry}/> : <>
       {error && <p role="alert" className="cc-nutrition-warning">{error} {onRetry && <button type="button" onClick={onRetry}>Try again</button>}</p>}
