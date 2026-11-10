@@ -17,3 +17,13 @@
 .cc-app[data-entry=account] .cc-plan-builder-ask{display:grid;gap:10px}
 .cc-app[data-entry=account] .cc-plan-builder>.cc-secondary{justify-self:start;min-height:46px}
 @media(max-width:480px){.cc-app[data-entry=account] .cc-plan-builder>.cc-secondary{justify-self:stretch}}
+.cc-app[data-entry=account] .cc-workout-plan{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
+.cc-app[data-entry=account] .cc-workout-plan p{margin:0;line-height:1.5}
+.cc-app[data-entry=account] .cc-workout-week{margin:0;padding:0;list-style:none;display:grid;gap:8px;overflow-wrap:anywhere}
+.cc-app[data-entry=account] .cc-workout-week ul{margin:2px 0 0;padding-left:18px;display:grid;gap:2px}
+.cc-app[data-entry=account] .cc-workout-editor{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
+.cc-app[data-entry=account] .cc-workout-editor>label{min-width:0}.cc-app[data-entry=account] .cc-workout-editor input[type=file]{width:100%;min-width:0;max-width:100%;font-size:14px}
+.cc-app[data-entry=account] .cc-workout-editor>label{display:grid;gap:6px;font-weight:600}
+.cc-app[data-entry=account] .cc-workout-editor textarea{width:100%;min-width:0;box-sizing:border-box}
+.cc-app[data-entry=account] .cc-workout-issues{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--cc-warning,inherit)}
+.cc-app[data-entry=account] .cc-workout-problem{display:grid;gap:8px;justify-items:start}

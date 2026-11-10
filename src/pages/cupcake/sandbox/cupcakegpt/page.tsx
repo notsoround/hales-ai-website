@@ -51,6 +51,7 @@ import { AccountPhotoMeal } from '../../../../components/cupcake/AccountPhotoMea
 import { prepareFoodImage } from '../../../../components/cupcake/prepareFoodImage';
 import { AccountFoodSections } from '../../../../components/cupcake/AccountFoodSections';
 import { AccountLabsSettings } from '../../../../components/cupcake/AccountLabsSettings';
+import { AccountWorkoutPlan } from '../../../../components/cupcake/AccountWorkoutPlan';
 import { NutritionTodayCard, NutritionWorkspace } from '../../../../components/cupcake/NutritionWorkspace';
 import { useNutritionData } from '../../../../components/cupcake/nutritionApi';
 import { MealDialog } from '../../../../components/cupcake/MealDialog';
@@ -465,6 +466,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
       {!ACCOUNT_SESSIONS&&!err&&timelineItems&&(exercise.status==='error'||exercise.status==='unavailable')&&<p className="cc-muted cc-small" role="status">{exercise.status==='error'?'Workouts couldn’t load, so any logged today are missing from this timeline.':'Workouts are not available from the library, so they are not shown here.'}</p>}
     </section>
     <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exerciseWithRefresh} openLogRequest={logExerciseRequest}/></SectionBoundary>
+    {ACCOUNT_SESSIONS&&<SectionBoundary label="Workout plan"><AccountWorkoutPlan/></SectionBoundary>}
     <SignalSheet open={!!selected} label={selected?.type==='intervention'?'Call details':'Details'} onClose={()=>setSelected(null)}>{selected&&<SignalDetail entry={selected} backLabel="Back to Today" onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={entry=>{setSelected(null);openTalkAbout(entry);}}/>}</SignalSheet>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)} onUpdated={()=>{void nutrition.reload();load();}}/>
     <SectionBoundary label="Weight"><TodayWeight onOpen={()=>setTab('week')}/></SectionBoundary>
