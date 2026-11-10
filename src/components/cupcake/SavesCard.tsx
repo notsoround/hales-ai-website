@@ -63,7 +63,7 @@ export function SavesHero({ todayItems, nutrition, onOpenWins, onTalkAbout, onOp
   ].filter((b): b is { k: string; v: string; l: string } => !!b);
   const choose = (n: SavesWindow) => { setWin(n); writeSavesWindow(n); };
   const open = (dates: string[]) => setOpenDates(dates);
-  return <div className="cc-pulse">
+  return <div className="cc-pulse" data-empty={ACCOUNT_SESSIONS && w.data && !w.error && !w.data.personalOutcomes ? '' : undefined}>
     <section className={`cc-saves cc-saves-w${win}`} aria-labelledby="cc-saves-title">
       <div className="cc-saves-head"><h3 id="cc-saves-title" className="cc-card-title"><ToneIcon tone="wins" />{ACCOUNT_SESSIONS?'Personal wins & losses':'Saves'}</h3><button type="button" className="cc-text-button" onClick={onOpenWins}>Wins &amp; losses<ArrowRight size={16} /></button></div>
       <div className="cc-sw-switch" role="radiogroup" aria-label="Saves window">{SAVES_WINDOWS.map(n => <button key={n} type="button" role="radio" aria-checked={win === n} onClick={() => choose(n)}>{n} days</button>)}</div>

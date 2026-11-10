@@ -16,6 +16,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [latest, setLatest] = useState<MealPlan | null | undefined>();
   const [loaded, setLoaded] = useState(false), [busy, setBusy] = useState(false);
   const [importText, setImportText] = useState(''), [importNote, setImportNote] = useState('');
+  const [newItem, setNewItem] = useState('');
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [shoppingError, setShoppingError] = useState('');
@@ -153,6 +154,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             <p className="cc-muted cc-small">Check off items as you shop, then Save plan &amp; groceries.</p>
             {groceries.flatMap(item => [...groceryHeadings(draft.groceries).filter(heading => heading.line < item.line && !groceries.some(other => other.line < item.line && other.line > heading.line) ).map(heading => <p className="cc-grocery-section" key={`h${heading.line}`}>{heading.label}</p>), <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>])}
             {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}
+            <form className="cc-grocery-add" onSubmit={event => { event.preventDefault(); const item = newItem.trim(); if (!item) return; edit({ ...draft, groceries: appendGroceryItems(draft.groceries, [item]) }); setNewItem(''); }}><label className="cc-sr-only" htmlFor="cc-grocery-new">Add a grocery item</label><input id="cc-grocery-new" maxLength={300} value={newItem} placeholder="Add an item, e.g. 2 avocados" enterKeyHint="done" onChange={event => setNewItem(event.target.value)}/><button type="submit" className="cc-secondary" disabled={!newItem.trim()}>Add</button></form>
           </div>
           <label>Grocery notes<textarea rows={10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
           {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={onPlan}>Create your meal plan first</button></p>}
