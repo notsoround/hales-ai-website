@@ -5,9 +5,15 @@ import type { FoodMeal } from './DashboardView';
 import { libraryRequest } from './library';
 import { dayLabel, mealNeighbors, mealTimeLabel, type FoodHistoryMeal } from './nutritionModel';
 import { PhotoViewer } from './PhotoViewer';
+import { ACCOUNT_SESSIONS } from './accountMode';
+import { accountData, AccountRequestError } from './accountSession';
 
-export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus }: {
-  mealId: string | null; meals: FoodHistoryMeal[]; onSelect: (id: string) => void; onClose: () => void;
+type Portion = { editable: boolean; blockedReason: null | 'not_logged' | 'sheet_backed' | 'no_items'; fraction: number; label: string; choices: number[]; setAt?: string | null; originalTotal?: { calories?: number | null } | null; adjusted: boolean };
+const PORTION_TEXT: Record<string, [string, string]> = { '0.25': ['¼', 'A quarter'], '0.5': ['½', 'Half'], '0.75': ['¾', 'Three quarters'], '1': ['Full', 'The full plate'] };
+const PORTION_BLOCKED: Record<string, string> = { not_logged: 'Log this meal first, then you can change its portion.', sheet_backed: 'This older meal lives in the original app’s food log, so its portion can only be changed there.', no_items: 'This estimate has no items to scale.' };
+
+export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus, onUpdated }: {
+  mealId: string | null; meals: FoodHistoryMeal[]; onSelect: (id: string) => void; onClose: () => void; onUpdated?: () => void;
   returnFocus?: { current: HTMLElement | null };
 }) {
   const [meal, setMeal] = useState<FoodMeal | null>(null);
@@ -18,6 +24,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
   const [photoRetry, setPhotoRetry] = useState(0);
   const [retry, setRetry] = useState(0);
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const [portionBusy, setPortionBusy] = useState(false), [portionError, setPortionError] = useState('');
   const historical = meals.find(m => m.id === mealId && m.source === 'food_sheet');
   const legacy = historical && !historical.id.startsWith('meal_') ? historical : undefined;
   const currentMeal = meal?.id === mealId ? meal : null;
@@ -50,6 +57,19 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
     return () => { current = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [mealId, legacy, photoRetry, currentMeal, noPhoto]);
   const adjacent = mealNeighbors(meals, mealId || '');
+  // Portion is always a fraction of the original estimate; the server rescales and returns the saved meal.
+  const portion = ACCOUNT_SESSIONS ? (currentMeal as (FoodMeal & { portion?: Portion }) | null)?.portion : undefined;
+  const setPortion = async (fraction: number) => {
+    if (!currentMeal || portionBusy) return;
+    setPortionBusy(true); setPortionError('');
+    try {
+      const result = await accountData<{ meal: FoodMeal; unchanged?: boolean }>({ action: 'food_portion_set', mealId: currentMeal.id, fraction });
+      setMeal(previous => previous && previous.id === currentMeal.id ? { ...previous, ...result.meal } : previous);
+      if (!result.unchanged) onUpdated?.();
+    } catch (cause) {
+      setPortionError(cause instanceof AccountRequestError && cause.code === 'account_action_not_ready' ? 'Portion changes aren’t switched on yet. Your meal is unchanged.' : cause instanceof Error ? cause.message : 'The portion could not be saved. Your meal is unchanged.');
+    } finally { setPortionBusy(false); }
+  };
   return <MealDialog open={!!mealId} onClose={onClose} returnFocus={returnFocus}>
     <nav className="cc-meal-navigation" aria-label="Browse saved meals">
       <button className="cc-secondary" disabled={!adjacent.previous} onClick={() => adjacent.previous && onSelect(adjacent.previous.id)}><ArrowLeft size={16}/>Previous meal</button>
@@ -63,6 +83,14 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus 
       <div className="cc-meal-macros">
         {[[manual ? 'Calories (entered)' : 'Est. calories', currentMeal.total?.calories, 'kcal'], ['Protein', currentMeal.total?.protein_g, 'g'], ['Total carbs', currentMeal.total?.carbs_g, 'g'], ['Sugar', currentMeal.total?.sugar_g, 'g'], ...(manual ? [['Fat', currentMeal.total?.fat_g, 'g'], ['Fiber', currentMeal.total?.fiber_g, 'g']] : [])].map(([label, value, unit]) => <div key={String(label)}><small>{label}</small><strong>{value == null ? 'Unknown' : `${Number(value).toLocaleString()} ${unit}`}</strong></div>)}
       </div>
+      {portion && <div className="cc-portion" role="group" aria-label="Portion you ate">
+        <span className="cc-portion-label">Portion you ate</span>
+        <div className="cc-portion-chips">{portion.choices.map(choice => { const [short, long] = PORTION_TEXT[String(choice)] || [`${Math.round(choice * 100)}%`, `${Math.round(choice * 100)} percent`]; return <button key={choice} type="button" aria-label={long} aria-pressed={portion.fraction === choice} disabled={!portion.editable || portionBusy} onClick={() => void setPortion(choice)}>{short}</button>; })}</div>
+        {portionBusy && <p role="status" className="cc-muted cc-small">Saving portion…</p>}
+        {portion.adjusted && portion.originalTotal?.calories != null && <p className="cc-muted cc-small">Original estimate: {Math.round(portion.originalTotal.calories).toLocaleString()} kcal</p>}
+        {!portion.editable && portion.blockedReason && <p className="cc-muted cc-small">{PORTION_BLOCKED[portion.blockedReason]}</p>}
+        {portionError && <p role="alert" className="cc-error">{portionError}</p>}
+      </div>}
       {currentMeal.calorieRange && <p className="cc-muted">Estimated range: {currentMeal.calorieRange.low}–{currentMeal.calorieRange.high} kcal.</p>}
       {currentMeal.totalIsPartial && <p className="cc-error">{manual ? 'Partial entry' : 'Partial estimate'}: some nutrition is missing. This is not a complete meal total.</p>}
       {manual && <p className="cc-muted">Manually entered meal · no photo. Nutrition values were entered by you; missing values remain unknown.</p>}

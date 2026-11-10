@@ -463,7 +463,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
     </section>
     <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exerciseWithRefresh} openLogRequest={logExerciseRequest}/></SectionBoundary>
     <SignalSheet open={!!selected} label={selected?.type==='intervention'?'Call details':'Details'} onClose={()=>setSelected(null)}>{selected&&<SignalDetail entry={selected} backLabel="Back to Today" onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={entry=>{setSelected(null);openTalkAbout(entry);}}/>}</SignalSheet>
-    <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)}/>
+    <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)} onUpdated={()=>{void nutrition.reload();load();}}/>
     <SectionBoundary label="Weight"><TodayWeight onOpen={()=>setTab('week')}/></SectionBoundary>
     <SectionBoundary label="Body assessment"><BodyAssessmentCard/></SectionBoundary>
     </div>
@@ -572,7 +572,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       {ACCOUNT_SESSIONS ? <AccountPhotoMeal onSaved={()=>void loadRecentMeals()} onOpenMeal={setSelectedSavedMeal}/> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
       {ACCOUNT_SESSIONS && <AccountManualMeal onSaved={()=>void loadRecentMeals()}/>}
       <NutritionWorkspace {...nutrition} onOpenMeal={setSelectedSavedMeal} onSaveSettings={nutrition.saveSettings} onRetry={()=>void nutrition.reload()} onOpenCapture={ACCOUNT_SESSIONS ? undefined : ()=>{setCaptureOpen(true); requestAnimationFrame(()=>captureSection.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>
-      <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)}/>
+      <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)} onUpdated={()=>void nutrition.reload()}/>
       {!reviewFirst && mealQueue}
       {!ACCOUNT_SESSIONS && <><input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} /></>}
