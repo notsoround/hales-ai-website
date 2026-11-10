@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Loader2, RefreshCw, Trophy } from 'lucide-react';
 import { libraryRequest } from './library';
+import { useDataChanged } from './dataChanges';
 import type { DashboardRange } from './DashboardView';
 import { mergeEntries, outcomeRate } from './dashboardModel';
 import { PersonalOutcomeForm, type SavedPersonalOutcome } from './PersonalOutcomeForm';
@@ -38,6 +39,7 @@ export function PersonalOutcomes({ range, refreshKey }: { range: DashboardRange;
     catch (e) { if (revision === version.current) setError(e instanceof Error ? e.message : 'Personal outcomes could not be loaded.'); }
     finally { if (revision === version.current) setBusy(false); }
   }, [request]);
+  useDataChanged(['outcome'], () => { void refresh(); });
   useEffect(() => { void refresh(); return () => { version.current += 1; }; }, [refresh, refreshKey]);
   const more = async () => {
     if (!page?.nextCursor || moreVersion.current === version.current) return;

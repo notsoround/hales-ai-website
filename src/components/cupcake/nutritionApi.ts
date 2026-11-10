@@ -1,6 +1,7 @@
 import { ACCOUNT_SESSIONS, privateFetch as fetch } from './accountMode';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { libraryRequest } from './library';
+import { useDataChanged } from './dataChanges';
 import { privateAccessHeaders } from './privateAccess';
 import { EMPTY_NUTRITION_SETTINGS, mealDay, nutritionDay, validDay, type FoodHistoryMeal, type NutritionHistory, type NutritionSettings, type NutritionSettingVersion } from './nutritionModel';
 
@@ -101,6 +102,7 @@ export function useNutritionData() {
     setError(errors.join(' ')); setLoading(false);
   }, []);
   useEffect(() => { void reload(); return invalidate; }, [reload, invalidate]);
+  useDataChanged(['food', 'exercise'], () => { void reload(); });
   const saveSettings = useCallback(async (version: NutritionSettingVersion) => {
     const response = await libraryRequest<{ settings: NutritionSettings }>({ action: 'food_settings_save', calorieTarget: version.calorieTarget, expenditureEstimate: version.expenditureEstimate, effectiveFrom: version.effectiveFrom }, { foodGesture: true });
     setSettings(response.settings);

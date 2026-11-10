@@ -4,6 +4,9 @@ import {libraryRequest} from './library';
 import {type ChatReply,unavailableNotice,type ReceivedAnswer,receivedAnswers,forgetAnswer,rememberBegin,pendingBegin,forgetBegin,readChatStorage,writeChatStorage,recoveryEvent} from './quickChatRecovery';
 import './chat-layout.css';
 import {ReadAloudButton} from './ReadAloudButton';
+import {useLab} from './labsFlags';
+import {AssistantSuggestions} from './AssistantSuggestions';
+import {ACTIONS_MARK,MAX_WRAPPED_INPUT,replyText,shownMessage,wrapMessage} from './assistantActionsModel';
 
 type Turn={id:string;text:string;status:string;response?:ChatReply;retryAfter:number;error?:string;alternatives?:{attemptId:string;response:ChatReply}[]};
 type Thread={id:string;title:string;turns:Turn[]};
@@ -23,12 +26,18 @@ const allowanceErrors:Record<string,string>={
 };
 const updateThreadUrl=(id:string|null)=>{const url=new URL(location.href);for(const key of ['document','analysis','recording','shared'])url.searchParams.delete(key);url.searchParams.set('tab','chat');if(id)url.searchParams.set('thread',id);else url.searchParams.delete('thread');history.replaceState(history.state,'',url)};
 
-const Answer:React.FC<{response:ChatReply}>=({response})=><div className="mr-4 rounded-2xl bg-white/10 p-4 whitespace-pre-wrap break-words"><ReadAloudButton text={response.reply} label="Play answer"/><p>{response.reply}</p><p className="mt-2 text-xs text-white/50">AI response · {response.model} · interpretation, not verified fact</p>{unavailableNotice(response)&&<p className="text-xs text-amber-300">{unavailableNotice(response)}</p>}{response.sources?.map((s,i)=><p key={i} className="text-xs text-pink-200">Source: {s.url?.startsWith('https://')?<a href={cupcakeHref(s.url)} target="_blank" rel="noreferrer">{s.title||'Library evidence'}</a>:s.title||'Library evidence'}</p>)}</div>;
+const Answer:React.FC<{response:ChatReply;seed?:string;suggest?:boolean}>=({response,seed='',suggest=false})=><div className="mr-4 rounded-2xl bg-white/10 p-4 whitespace-pre-wrap break-words"><ReadAloudButton text={replyText(response.reply)} label="Play answer"/><p>{replyText(response.reply)}</p>{ACCOUNT_SESSIONS&&seed&&<AssistantSuggestions reply={response.reply} seed={seed} enabled={suggest}/>}<p className="mt-2 text-xs text-white/50">AI response · {response.model} · interpretation, not verified fact</p>{unavailableNotice(response)&&<p className="text-xs text-amber-300">{unavailableNotice(response)}</p>}{response.sources?.map((s,i)=><p key={i} className="text-xs text-pink-200">Source: {s.url?.startsWith('https://')?<a href={cupcakeHref(s.url)} target="_blank" rel="noreferrer">{s.title||'Library evidence'}</a>:s.title||'Library evidence'}</p>)}</div>;
 
+/** Labs: the owner's own current plans, read just before sending, so the assistant can see them. */
+async function currentPlans(){
+  try{const d=await libraryRequest<{plan:{meal_plan?:unknown;workout_template?:unknown}}>({action:'coach_plan_get'});return{mealPlan:d.plan?.meal_plan??null,workoutPlan:d.plan?.workout_template??null}}
+  catch{return{mealPlan:'(could not be read just now)',workoutPlan:'(could not be read just now)'}}
+}
 // Account app: tap to fill the message box (never sends on its own).
 const STARTERS=['How am I doing this week?','What should I eat for dinner?','Help me plan tomorrow'];
 export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean;locked?:boolean;assistantName?:string}>=({speak,mediaBusy,active=true,locked=false,assistantName='Cupcake'})=>{
   const composerRef=useRef<HTMLTextAreaElement>(null);
+  const suggest=useLab('assistant-actions')&&ACCOUNT_SESSIONS;
   const [threads,setThreads]=useState<{id:string;title:string}[]>([]),[thread,setThread]=useState<Thread|null>(null);
   const [input,setInput]=useState(()=>readChatStorage(draftKey)||''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[listening,setListening]=useState(false);
   const [unsaved,setUnsaved]=useState(receivedAnswers),[retryable,setRetryable]=useState<Retryable|null>(null),[sending,setSending]=useState(false);
@@ -71,16 +80,21 @@ export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean
   };
   const send=async(regenerate?:Turn)=>{
     if(locked||busy||unsaved.length)return;
-    const text=regenerate?.text||input.trim();if(!text)return;
+    const typed=regenerate?.text||input.trim();if(!typed)return;
+    if(suggest&&!regenerate&&typed.length>MAX_WRAPPED_INPUT){setError(`With assistant suggestions on, keep a message under ${MAX_WRAPPED_INPUT} characters.`);setRetryable(null);return}
     setBusy(true);setSending(true);setError('');setRetryable(null);recognition.current?.stop();
     let current=thread;
     try{
       if(!current){
         writeChatStorage(newThreadKey,newThreadId.current);
-        const d=await libraryRequest<Result>({action:'quick_chat_create',threadId:newThreadId.current,title:text.slice(0,120)});
+        const d=await libraryRequest<Result>({action:'quick_chat_create',threadId:newThreadId.current,title:typed.slice(0,120)});
         current=d.thread;if(mounted.current)selectThread(current);
       }
       const prior=pendingBegin(current.id);
+      // Labs: add the suggestion format and current plans. A pending identical message is reused as sent.
+      let text=typed;
+      if(!regenerate&&prior&&shownMessage(prior.text)===typed)text=prior.text;
+      else if(!regenerate&&suggest&&!typed.startsWith(ACTIONS_MARK))text=wrapMessage(typed,await currentPlans());
       if(!regenerate&&prior&&prior.text!==text)throw Error('A previous message may already be saved. Reopen this conversation before changing or sending it.');
       const turnId=regenerate?.id||prior?.turnId||crypto.randomUUID();
       const begin={threadId:current.id,turnId,text,parentTurnId:current.turns[current.turns.length-1]?.id||null,...(regenerate?{requestId:prior?.requestId||crypto.randomUUID()}:{})};
@@ -88,7 +102,7 @@ export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean
       const begun=await libraryRequest<Result>({action:'quick_chat_begin',...begin,...(regenerate?{regenerate:true}:{})});
       forgetBegin(current.id);
       if(mounted.current)selectThread(begun.thread);
-      if(!regenerate)setInput(value=>value.trim()===text?'':value);
+      if(!regenerate)setInput(value=>value.trim()===typed?'':value);
       if(!begun.acquired&&begun.execution!=='server'&&mounted.current)setError('Your saved request was reopened. No duplicate AI job was started.');
       try{await refresh()}catch(e){if(mounted.current){setError(String(e));setRetryable({kind:'list'})}}
     }catch(e){if(mounted.current){setError(String(e));setRetryable(null)}}finally{if(mounted.current){setBusy(false);setSending(false)}}
@@ -105,7 +119,7 @@ export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean
         selectThread(d.thread);
         setRetryable(current=>current?.kind==='status'?null:current);
         setError(current=>current==='Status could not refresh. Your server request continues; reopen this conversation later.'?'':current);
-        if(old&&!old.response&&latest?.response&&audioAllowed.current&&window.speechSynthesis)window.speechSynthesis.speak(new SpeechSynthesisUtterance(latest.response.reply));
+        if(old&&!old.response&&latest?.response&&audioAllowed.current&&window.speechSynthesis)window.speechSynthesis.speak(new SpeechSynthesisUtterance(replyText(latest.response.reply)));
       }catch{if(!cancelled){delay=Math.min(delay*2,30000);setError('Status could not refresh. Your server request continues; reopen this conversation later.');setRetryable({kind:'status',id:thread.id})}}
       finally{if(!cancelled)timer=window.setTimeout(poll,delay)}
     };
@@ -140,11 +154,11 @@ export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean
       const inProgress=!t.response&&(t.status==='queued'||t.status==='running'||t.retryAfter>0||(sending&&t.id===last?.id));
       const allowanceNotice=['failed','uncertain'].includes(t.status)?allowanceErrors[t.error||'']:undefined;
       const detail=t.status==='queued'||t.status==='running'?'Your reply is being prepared on the server. You can close this page.':sending&&t.id===last?.id?'Working on your reply…':allowanceNotice||(t.status==='failed'?(t.error==='request_budget_exceeded'?'This conversation is too large for the pilot reply limit. Your message is saved. Start a shorter conversation.':'The reply service rejected this attempt. Your message is saved.'):t.retryAfter>0?'Waiting for this reply. Check status shortly.':'Reply outcome uncertain. A request may already have completed.');
-      return <div key={t.id} className="space-y-2"><p className="ml-8 rounded-2xl bg-pink-700 p-4 whitespace-pre-wrap break-words"><span className="block text-xs opacity-60">You · original message</span>{t.text}</p>{t.response?<Answer response={t.response}/>:<div className={inProgress?'cc-chat-progress':'text-sm text-amber-200'} role={inProgress?'status':undefined}>{inProgress&&<span className="cc-chat-progress-label">Answer in progress</span>}<span className="text-sm text-amber-200">{detail}</span>{!busy&&<button className="underline ml-2" onClick={()=>void open(thread.id)}>Check status</button>}{!busy&&!unsaved.length&&t.retryAfter===0&&!['queued','running'].includes(t.status)&&<button className="underline ml-2" onClick={()=>void send(t)}>Request another answer (may repeat the AI request)</button>}</div>}{t.alternatives?.map(a=><details key={a.attemptId}><summary className="text-sm text-amber-200 cursor-pointer">Another received AI answer</summary><Answer response={a.response}/></details>)}</div>;
+      return <div key={t.id} className="space-y-2"><p className="ml-8 rounded-2xl bg-pink-700 p-4 whitespace-pre-wrap break-words"><span className="block text-xs opacity-60">You · original message</span>{shownMessage(t.text)}</p>{t.response?<Answer response={t.response} seed={t.id} suggest={suggest}/>:<div className={inProgress?'cc-chat-progress':'text-sm text-amber-200'} role={inProgress?'status':undefined}>{inProgress&&<span className="cc-chat-progress-label">Answer in progress</span>}<span className="text-sm text-amber-200">{detail}</span>{!busy&&<button className="underline ml-2" onClick={()=>void open(thread.id)}>Check status</button>}{!busy&&!unsaved.length&&t.retryAfter===0&&!['queued','running'].includes(t.status)&&<button className="underline ml-2" onClick={()=>void send(t)}>Request another answer (may repeat the AI request)</button>}</div>}{t.alternatives?.map(a=><details key={a.attemptId}><summary className="text-sm text-amber-200 cursor-pointer">Another received AI answer</summary><Answer response={a.response} seed={t.id} suggest={suggest}/></details>)}</div>;
     })}
     {ACCOUNT_SESSIONS&&!thread&&!input.trim()&&!unsaved.length&&!locked&&<div className="cc-chat-starters" role="group" aria-label="Conversation starters">{STARTERS.map(text=><button type="button" key={text} onClick={()=>{setInput(text);composerRef.current?.focus();}}>{text}</button>)}</div>}
     {showSending&&<p className="cc-chat-progress" role="status"><span className="cc-chat-progress-label">Answer in progress</span></p>}
-    {unsaved.map(answer=><div key={answer.attemptId} className="rounded-xl border border-amber-400 p-4"><p className="whitespace-pre-wrap break-words">{answer.response.reply}</p><p className="text-xs">Received answer awaiting save. It remains an AI interpretation.</p><button disabled={busy} onClick={async()=>{setBusy(true);setError('');setRetryable(null);try{await save(answer)}catch(e){setError(String(e));setRetryable(null)}finally{setBusy(false)}}} className="underline">Save answer again</button></div>)}
+    {unsaved.map(answer=><div key={answer.attemptId} className="rounded-xl border border-amber-400 p-4"><p className="whitespace-pre-wrap break-words">{replyText(answer.response.reply)}</p><p className="text-xs">Received answer awaiting save. It remains an AI interpretation.</p><button disabled={busy} onClick={async()=>{setBusy(true);setError('');setRetryable(null);try{await save(answer)}catch(e){setError(String(e));setRetryable(null)}finally{setBusy(false)}}} className="underline">Save answer again</button></div>)}
     {error&&<p role="alert" className="text-sm text-amber-200 break-words">{visibleError(error)}{retryable&&<button type="button" className="underline ml-2" disabled={busy} onClick={retryLast}>Retry</button>}</p>}
     {locked&&<p role="status" className="cc-chat-locked">Typing is paused while audio or recording work is active. Open its controls to finish, then send your message.</p>}<div className="cc-chat-composer flex gap-2"><textarea ref={composerRef} aria-label={`Message ${assistantName}`} disabled={locked} value={input} maxLength={8000} onChange={e=>setInput(e.target.value)} placeholder={`Talk to ${assistantName}…`} className="min-w-0 flex-1 rounded-xl bg-white/10 p-3" rows={3}/><div className="flex flex-col gap-2"><button className="rounded-xl bg-pink-600 p-3 disabled:opacity-40" disabled={locked||busy||!!unsaved.length||!input.trim()||!!(last&&last.status!=='completed')} onClick={()=>void send()}>Send</button><button className="rounded-xl bg-white/10 p-2 disabled:opacity-40" disabled={locked||busy||mediaBusy} onClick={dictate}>{listening?'Stop dictation':'Dictate'}</button></div></div>
   </section>;
