@@ -50,7 +50,7 @@ try {
         const label = `${name}/${width}/${theme}`;
         await page.goto(`${base}cupcake/account?layout=1&long=1&theme=${theme}`);
         await page.getByRole('button', { name: 'Choose meal photo', exact: true }).waitFor();
-        await page.getByText('Change portions or meal time', { exact: true }).click();
+        await page.getByText('Portions, meal time & how it works', { exact: true }).click();
         const note = page.getByLabel('Portion or meal note (optional)');
         await note.fill('Half the rice');
         assert.ok(Number.parseFloat(await note.evaluate(el => getComputedStyle(el).fontSize)) >= 16, label + ': note does not invite iOS focus zoom');
