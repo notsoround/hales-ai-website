@@ -14,7 +14,7 @@ const states = new Set(['queued', 'running', 'completed', 'failed', 'uncertain']
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'The photo save could not be confirmed. Check the same request again.';
 function validTime(value: string) { const now = Date.now(), time = Date.parse(value); return Number.isFinite(time) && time >= now - 400 * 86400000 && time <= now + 300000; }
 
-export function AccountPhotoMeal({ onSaved }: { onSaved: () => void }) {
+export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void; onOpenMeal?: (mealId: string) => void }) {
   const [store] = useState(photoDraftStore), [generation] = useState(() => sessionSnapshot().generation);
   const [drafts, setDrafts] = useState<PhotoIntent[]>([]), [intent, setIntent] = useState<PhotoIntent | null>(null);
   const [request, setRequest] = useState<PhotoRequest | null>(null), [receipt, setReceipt] = useState<FoodMeal | null>(null);
@@ -130,7 +130,7 @@ export function AccountPhotoMeal({ onSaved }: { onSaved: () => void }) {
     {intent && <div className="cc-account-photo-progress">
       <img src={intent.image} alt="Selected meal photo"/>
       <p className="cc-muted">Meal time: {new Date(intent.consumed_at).toLocaleString()}</p>
-      {receipt ? <div role="status"><h4>Meal saved to your food log</h4><strong>{receipt.description}</strong><p>{receipt.total?.calories == null ? 'Calories unknown' : `${receipt.total.calories} kcal (estimate)`}</p>{receipt.totalIsPartial && <p className="cc-muted">Some nutrition is unknown. Open meal details for the estimate.</p>}</div> : <>
+      {receipt ? <div role="status" className="cc-account-photo-receipt"><h4>Meal saved to your food log</h4><strong>{receipt.description}</strong><p>{receipt.total?.calories == null ? 'Calories unknown' : `${receipt.total.calories} kcal (estimate)`}</p>{receipt.totalIsPartial && <p className="cc-muted">Some nutrition is unknown. Open meal details for the estimate.</p>}{onOpenMeal && <button type="button" className="cc-text-button" onClick={() => onOpenMeal(receipt.id)}>Meal details &amp; photo →</button>}</div> : <>
         {request && <p role="status">{request.status === 'queued' ? 'Photo saved. Waiting to estimate your meal…' : request.status === 'running' ? 'Estimating your meal…' : request.status === 'uncertain' ? 'The estimate outcome is uncertain. Your original is kept; checking status will not request another estimate.' : request.status === 'failed' ? 'This meal was not logged. You can retry only if no estimate was sent.' : 'Confirming your saved meal…'}</p>}
         {missing && <p role="status">The server has no matching request. Send the original photo again using the same request key.</p>}
         <div className="cc-snap-actions"><button type="button" className="cc-secondary" disabled={busy} onClick={() => void check(intent)}>Check saved photo</button>{missing && <button type="button" className="cc-primary" disabled={busy} onClick={() => void upload(intent)}>Retry same upload</button>}{request?.status === 'failed' && <button type="button" className="cc-secondary" disabled={busy} onClick={() => void retry()}>Retry unsent estimate</button>}</div>

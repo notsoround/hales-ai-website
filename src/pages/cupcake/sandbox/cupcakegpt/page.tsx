@@ -64,8 +64,13 @@ import { Sparkline } from '../../../../components/cupcake/design/Visuals';
 import '../../../../components/cupcake/design/tokens.css';
 import '../../../../components/cupcake/design/cupcake-theme.css';
 import '../../../../components/cupcake/pulse.css';
-import '../../../../components/cupcake/account-polish.css';
+import '../../../../components/cupcake/account-shell.css';
+import '../../../../components/cupcake/account-today.css';
+import '../../../../components/cupcake/account-food.css';
+import '../../../../components/cupcake/account-reports.css';
+import '../../../../components/cupcake/account-base.css';
 import { queueAccountMealPhoto } from '../../../../components/cupcake/accountMealPhotoHandoff';
+import { lastLoggedMeal } from '../../../../components/cupcake/nutritionModel';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -394,7 +399,7 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
  const others=[...(hb&&latest?[`Scale ${latest.weightLb.toFixed(1)} lb (${weightTime(latest.measuredAt)})`]:[]),...(body?.weight_others||[]).filter(o=>o.source!=='scale'&&!(hb&&o.source===hb.source)).map(o=>`${o.label} ${o.value.toFixed(1)} lb (${md(o.date)})`)];
  const age=!hb&&latest?weightAge(latest.measuredAt):null;
   const trend=scale&&scale.length?scale.filter(m=>Date.parse(scale[0].measuredAt)-Date.parse(m.measuredAt)<=30*864e5).map(m=>m.weightLb).reverse():[];
- return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen}><span className="cc-weight-eyebrow"><ToneIcon tone="weight"/>Weight</span>{trend.length>2&&<span className="cc-weight-spark"><Sparkline values={trend}/><small>Scale · 30 days</small></span>}
+ return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen} data-empty={!loading&&!error&&!scaleError&&!hb&&!latest?'':undefined}><span className="cc-weight-eyebrow"><ToneIcon tone="weight"/>Weight</span>{trend.length>2&&<span className="cc-weight-spark"><Sparkline values={trend}/><small>Scale · 30 days</small></span>}
   <strong className={!hb&&!latest?'cc-weight-none':undefined}>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:scaleError?'Scale weight unavailable':'No weigh-in yet'}</strong>
   <span>{hb?`${hb.label} · ${md(hb.date)}`:latest?`${weightProvenanceLabel(latest.basis,latest.source)} · ${weightTime(latest.measuredAt)}${age?` · ${age}`:''}`:error||scaleError?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
   {change&&<span className={`cc-weight-change ${change.v<0?'cc-good':change.v>0?'cc-bad':''}`}>{change.v>0?'▲ +':change.v<0?'▼ −':'= '}{Math.abs(change.v).toFixed(1)} lb vs {change.ref}</span>}
@@ -432,13 +437,19 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
   const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',hour:'numeric',hourCycle:'h23'}).format(new Date()));
   const greeting=hour<5?'Up late':hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   const dateLine=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',weekday:'long',month:'long',day:'numeric'}).format(new Date());
+  // One time-of-day nudge, only when the food log is loaded and no meal was logged in the last three hours.
+  const mealWindow=hour>=7&&hour<10?'Breakfast':hour>=11&&hour<14?'Lunch':hour>=17&&hour<21?'Dinner':null;
+  const lastMeal=ACCOUNT_SESSIONS&&nutrition.history?lastLoggedMeal(nutrition.history.meals):null;
+  const nextUp=ACCOUNT_SESSIONS&&nutrition.history&&mealWindow&&(!lastMeal||Date.now()-Date.parse(lastMeal.consumedAt||'')>3*36e5)?mealWindow:null;
   return <>
     <div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, {accountName||'Matt'}.</h2><p>What are we conquering—or confessing?</p></div>
       {ACCOUNT_SESSIONS?<div className="cc-quick cc-quick-account" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={20}/><span>Let's talk</span></button><button className="cc-secondary" onClick={()=>mealCamera.current?.click()}><Camera size={20}/><span>Meal photo</span></button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={20}/><span>Record</span></button><button className="cc-secondary" aria-label="Log exercise" onClick={()=>setLogExerciseRequest(n=>n+1)}><Dumbbell size={20}/><span>Exercise</span></button><button className="cc-text-button cc-quick-tip" onClick={()=>setQuickAction('tip')}><Lightbulb size={16}/><span>Quick tip</span></button><input ref={mealCamera} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label="Take meal photo file" onChange={event=>{const file=event.target.files?.[0];event.currentTarget.value='';if(file){queueAccountMealPhoto(file);setTab('snap');}}}/></div>
       :<div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{personalStorage('sessionStorage').setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setLogExerciseRequest(n=>n+1)}><Dumbbell size={18}/><span>Log exercise</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div>}</div>
     <SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{personalStorage('sessionStorage').setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
+    {nextUp&&<div className="cc-card cc-next-up" role="note" aria-label="Next up"><div><span className="cc-eyebrow">Next up · {nextUp}</span><p><strong>{nextUp} time.</strong> Snap your plate when it lands and it’s logged for you.</p></div><button type="button" className="cc-primary" onClick={()=>mealCamera.current?.click()}><Camera size={18}/>Meal photo</button></div>}
     <div className="cc-today-grid">
+    {ACCOUNT_SESSIONS&&<h3 className="cc-notyet-head">Not logged yet</h3>}
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Apple Health uploads"><AccountHealthSyncCard/></SectionBoundary>}
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
@@ -554,7 +565,7 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </div>
       <AccountFoodSections>
       {reviewFirst && mealQueue}
-      {ACCOUNT_SESSIONS ? <AccountPhotoMeal onSaved={()=>void loadRecentMeals()}/> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
+      {ACCOUNT_SESSIONS ? <AccountPhotoMeal onSaved={()=>void loadRecentMeals()} onOpenMeal={setSelectedSavedMeal}/> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
       {ACCOUNT_SESSIONS && <AccountManualMeal onSaved={()=>void loadRecentMeals()}/>}
       <NutritionWorkspace {...nutrition} onOpenMeal={setSelectedSavedMeal} onSaveSettings={nutrition.saveSettings} onRetry={()=>void nutrition.reload()} onOpenCapture={ACCOUNT_SESSIONS ? undefined : ()=>{setCaptureOpen(true); requestAnimationFrame(()=>captureSection.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>
       <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)}/>

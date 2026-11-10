@@ -18,6 +18,18 @@ export function groceryItems(text: string): GroceryItem[] {
   }
   return items;
 }
+/** Markdown-style section headings (# Produce) shown as checklist group labels; display only. */
+export function groceryHeadings(text: string): { line: number; label: string }[] {
+  const lines = text.split(/\r\n|\n|\r/), headings: { line: number; label: string }[] = [];
+  let fence = '';
+  lines.forEach((raw, line) => {
+    const code = raw.match(/^\s*(`{3,}|~{3,})/);
+    if (code) { if (!fence) fence = code[1][0]; else if (code[1][0] === fence) fence = ''; return; }
+    const heading = !fence && raw.match(/^\s*#{1,6}\s+(\S.*)$/);
+    if (heading) headings.push({ line, label: heading[1].replace(/\s*#+\s*$/, '').trim() });
+  });
+  return headings;
+}
 export function checkGroceryItem(text: string, line: number, checked: boolean): string {
   const item = groceryItems(text).find(item => item.line === line);
   if (!item) return text;

@@ -31,7 +31,7 @@ function CGMCard() {
   // Unsupported accounts never see another person's source or an irrelevant setup card.
   if (data?.reason === 'unsupported_account' || busy && !shown.current && !error) return null;
   const status = data ? visibleCGMFreshness(data, elapsed) : 'unknown';
-  return <section className="cc-card cc-cgm" aria-label="Saved CGM source">
+  return <section className="cc-card cc-cgm" aria-label="Saved CGM source" data-empty={data && !data.latest && !error && !busy ? '' : undefined}>
     <div className="cc-cgm-heading"><h3 className="cc-card-title"><ToneIcon tone="glucose"/>Libre CGM</h3><button type="button" className="cc-text-button" aria-label="Check saved CGM source" disabled={busy} onClick={() => void refresh()}>{busy ? 'Checking…' : 'Refresh'}</button></div>
     {busy && <p role="status">Checking saved CGM source…</p>}
     {error && <p role="alert">{error}</p>}

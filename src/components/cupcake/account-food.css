@@ -1,0 +1,27 @@
+/* Account entry (Food photo, meal plan and groceries). Presentation only; scoped to [data-entry=account] so the original /cupcake app is unchanged. */
+
+/* ---------- Food: camera first ---------- */
+.cc-app[data-entry=account] .cc-account-photo-head p { margin: 4px 0 0; }
+.cc-app[data-entry=account] .cc-account-photo .cc-snap-actions .cc-primary { min-height: 56px; font-size: 17px; }
+.cc-app[data-entry=account] .cc-account-photo-adjustments summary { color: var(--cc-pink-bright); font-size: 14px; }
+
+/* ---------- Meal plan → groceries handoff ---------- */
+.cc-app[data-entry=account] .cc-plan-to-groceries { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; margin: 4px 0 8px; padding: 12px 16px; text-align: left; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--cc-pink) 40%, var(--cc-border)); background: linear-gradient(120deg, var(--cc-accent-wash), var(--cc-surface)); color: var(--cc-text); font: inherit; cursor: pointer; }
+.cc-app[data-entry=account] .cc-plan-to-groceries strong { display: block; font-size: 16px; color: var(--cc-pink-bright); }
+.cc-app[data-entry=account] .cc-plan-to-groceries small { display: block; font-size: 13px; color: var(--cc-text-2); }
+.cc-app[data-entry=account] .cc-plan-to-groceries > span:last-child { font-size: 22px; color: var(--cc-pink-bright); }
+
+/* ---------- Photo result ---------- */
+.cc-app[data-entry=account] .cc-account-photo-receipt { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--ds-exercise, #30d158) 45%, var(--cc-border)); background: linear-gradient(135deg, color-mix(in srgb, var(--ds-exercise, #30d158) 10%, var(--cc-surface)), var(--cc-surface)); }
+.cc-app[data-entry=account] .cc-account-photo-receipt h4 { color: var(--ds-exercise-ink, #6be08a); margin: 0; }
+.cc-app[data-entry=account] .cc-account-photo-receipt strong { font-size: 18px; }
+.cc-app[data-entry=account] .cc-account-photo-receipt p { margin: 0; }
+.cc-app[data-entry=account] .cc-account-photo-receipt .cc-text-button { justify-self: start; }
+
+/* ---------- Plan import ---------- */
+.cc-plan-import { margin: 4px 0 14px; border: 1px dashed var(--cc-border); border-radius: 16px; padding: 4px 14px; }
+.cc-plan-import > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--cc-pink-bright, #80eee1); font-weight: 600; }
+.cc-plan-import > div { display: grid; gap: 10px; padding: 4px 0 12px; }
+.cc-plan-import label { display: grid; gap: 6px; }
+.cc-plan-import textarea { width: 100%; min-width: 0; font-size: 16px; }
+.cc-plan-import .cc-secondary { justify-self: start; }

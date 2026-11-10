@@ -1,0 +1,14 @@
+/* Account entry (Shared readability rules). Presentation only; scoped to [data-entry=account] so the original /cupcake app is unchanged. */
+
+/* ---------- Readability floor ---------- */
+.cc-app[data-entry=account] :is(.cc-small, .cc-coach-provenance, .cc-coach-coverage, .cc-assistant-footer, .cc-assistant-footer button) { font-size: 13px; }
+.cc-app[data-entry=account] .cc-grocery-section { margin: 14px 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cc-pink-bright); }
+
+/* Report tables fit a phone where they can, and show a scroll edge where they cannot. */
+.cc-app[data-entry=account] .cc-coach-table { background: linear-gradient(90deg, var(--cc-surface) 30%, transparent) left / 24px 100% no-repeat local, linear-gradient(270deg, var(--cc-surface) 30%, transparent) right / 24px 100% no-repeat local, linear-gradient(90deg, #0008, transparent) left / 12px 100% no-repeat scroll, linear-gradient(270deg, #0008, transparent) right / 12px 100% no-repeat scroll; }
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-coach-table table { font-size: 13px; }
+  .cc-app[data-entry=account] .cc-coach-table :is(th, td) { padding: 8px 6px; white-space: nowrap; }
+}
+
+.cc-app[data-entry=account] .cc-today-grid .cc-weight-card[data-empty] { justify-content: flex-start; align-items: stretch; text-align: left; }

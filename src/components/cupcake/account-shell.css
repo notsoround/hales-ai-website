@@ -1,0 +1,62 @@
+/* Account entry (Navigation, header and assistant panel). Presentation only; scoped to [data-entry=account] so the original /cupcake app is unchanged. */
+
+/* ---------- Mobile bottom navigation ---------- */
+@media (max-width: 1023px) {
+  .cc-app[data-entry=account] { --cc-nav-offset: 66px; }
+  .cc-app[data-entry=account] .cc-nav > div { max-width: 560px; margin: 0 auto; }
+  .cc-app[data-entry=account] .cc-nav button { position: relative; min-height: 66px; padding: 9px 2px 7px; gap: 4px; font-size: 11.5px; font-weight: 600; letter-spacing: .01em; }
+  .cc-app[data-entry=account] .cc-nav button::before { content: ""; position: absolute; top: 6px; left: 50%; width: 56px; height: 32px; border-radius: 999px; transform: translateX(-50%) scaleX(.55); opacity: 0; background: color-mix(in srgb, var(--cc-pink) 17%, transparent); transition: transform .22s var(--ds-ease, ease), opacity .22s var(--ds-ease, ease); }
+  .cc-app[data-entry=account] .cc-nav button:is([aria-current=page], [aria-expanded=true]) { color: var(--cc-pink-bright); background: none; }
+  .cc-app[data-entry=account] .cc-nav button:is([aria-current=page], [aria-expanded=true])::before { opacity: 1; transform: translateX(-50%) scaleX(1); }
+  .cc-app[data-entry=account] .cc-nav button > svg, .cc-app[data-entry=account] .cc-nav-portrait { position: relative; z-index: 1; height: 32px; }
+  .cc-app[data-entry=account] .cc-nav button[aria-current=page] svg { filter: none; }
+  .cc-app[data-entry=account] .cc-nav-label { position: relative; z-index: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .cc-app[data-entry=account] .cc-nav button::before { transition: none; } }
+
+/* The assistant's portrait is its navigation icon. */
+.cc-app[data-entry=account] .cc-nav-portrait { display: inline-grid; place-items: center; width: 32px; flex: none; }
+.cc-app[data-entry=account] .cc-nav-portrait .cc-assistant-portrait.is-small { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--cc-pink) 45%, transparent); }
+.cc-app[data-entry=account] .cc-nav-portrait .cc-assistant-portrait:not(.is-photo).is-small { width: 28px; height: 31px; border-radius: 0; box-shadow: none; overflow: visible; }
+.cc-app[data-entry=account] .cc-nav-portrait .cc-assistant-portrait.is-photo.is-small { width: 30px; height: 30px; }
+.cc-app[data-entry=account] .cc-nav button[aria-expanded=true] .cc-nav-portrait .cc-assistant-portrait.is-photo { box-shadow: 0 0 0 2px var(--cc-pink-bright); }
+
+/* ---------- Desktop ---------- */
+@media (min-width: 1024px) {
+  .cc-app[data-entry=account] .cc-nav button { min-height: 50px; font-weight: 600; }
+  .cc-app[data-entry=account] .cc-nav button:is([aria-current=page], [aria-expanded=true]) { box-shadow: inset 3px 0 0 var(--cc-pink); }
+}
+
+/* ---------- Assistant panel ---------- */
+/* On phones the panel stops above the tab bar, so navigation (and the Assistant tab that
+   minimizes it) stays reachable. Height still follows the visual viewport for the keyboard. */
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel { height: calc(var(--assistant-vh, 100dvh) - 20px - var(--cc-nav-offset, 66px) - env(safe-area-inset-bottom)); z-index: 55; }
+}
+/* Composer sits at the bottom of the panel like any messaging app; history fills the space above. */
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body { display: flex; flex-direction: column; flex: 1 1 auto; }
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body > div:has(> .cc-assistant-text-intro):not([hidden]) { flex: 1 0 auto; display: flex; flex-direction: column; }
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body .cc-chat { flex: 1 0 auto; display: flex; flex-direction: column; }
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body .cc-chat > .cc-chat-composer { margin-top: auto; }
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-chat-composer textarea { border: 1px solid var(--cc-border); }
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-chat-composer textarea:focus { border-color: var(--cc-pink); outline: none; box-shadow: 0 0 0 3px var(--cc-accent-wash); }
+
+/* While the assistant is open, it alone is the active tab. */
+.cc-app[data-entry=account] .cc-nav:has(button[aria-expanded=true]) button[aria-current=page] { color: var(--cc-text-3); box-shadow: none; background: none; }
+.cc-app[data-entry=account] .cc-nav:has(button[aria-expanded=true]) button[aria-current=page]::before { opacity: 0; }
+
+/* ---------- Header ---------- */
+.cc-app[data-entry=account] .cc-top > div { min-width: 0; }
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-account-identity { display: block; font-size: 16px; line-height: 1.25; }
+}
+.cc-app[data-entry=account] .cc-account-note { margin: 0 0 8px; font-size: 12px; color: var(--cc-text-3); }
+
+/* ---------- Desktop: assistant docks as a right-hand column ---------- */
+/* On wide screens the open assistant sits beside the page instead of over it; the page narrows
+   to make room, so nothing is covered and you can talk while looking at Today or a report. */
+@media (min-width: 1280px) {
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel { top: 0; right: 0; bottom: 0; width: 400px; max-height: none; border-radius: 0; border: 0; border-left: 1px solid var(--cc-border); box-shadow: -12px 0 40px #0006; z-index: 45; }
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) :is(.cc-top, .cc-shell) { max-width: min(1100px, calc(100% - var(--cc-sidebar) - 400px)); margin-left: calc(var(--cc-sidebar) + max(0px, (100% - var(--cc-sidebar) - 400px - 1100px) / 2)); margin-right: 400px; }
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-head { padding-top: 22px; }
+}
