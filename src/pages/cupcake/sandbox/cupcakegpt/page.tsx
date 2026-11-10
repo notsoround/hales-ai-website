@@ -50,6 +50,7 @@ import { AccountManualMeal } from '../../../../components/cupcake/AccountManualM
 import { AccountPhotoMeal } from '../../../../components/cupcake/AccountPhotoMeal';
 import { prepareFoodImage } from '../../../../components/cupcake/prepareFoodImage';
 import { AccountFoodSections } from '../../../../components/cupcake/AccountFoodSections';
+import { AccountLabsSettings } from '../../../../components/cupcake/AccountLabsSettings';
 import { NutritionTodayCard, NutritionWorkspace } from '../../../../components/cupcake/NutritionWorkspace';
 import { useNutritionData } from '../../../../components/cupcake/nutritionApi';
 import { MealDialog } from '../../../../components/cupcake/MealDialog';
@@ -368,6 +369,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       {accountIdentity&&<><SettingsGroup title="Account & security"><AccountControls identity={accountIdentity} assistantName={assistantName} includePrivacy={false}/></SettingsGroup><SettingsGroup title="Download my data"><AccountSelfExport/></SettingsGroup><SettingsGroup title="Close account access" danger><AccountClosureControls owner={accountIdentity.account_id}/></SettingsGroup></>}
       <SettingsGroup title="App & updates"><AppUpdateNotice busy={mediaBusy} part="check"/>{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}{!ACCOUNT_SESSIONS&&<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}</SettingsGroup>
       {ACCOUNT_SESSIONS&&<SettingsGroup title="iPhone & Apple Health"><AccountInstallInstructions/><AccountAppleHealth/></SettingsGroup>}
+      {ACCOUNT_SESSIONS&&accountIdentity&&<SettingsGroup title="Labs"><AccountLabsSettings/></SettingsGroup>}
     </CupcakeSettings><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} disabled={mediaBusy&&!accountIdentity} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
     <main className="cc-shell">
       <AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<details className="cc-account-note"><summary>Your private account · Sharing details</summary><p>You’re in your private account. Manage coach reports and meal-photo sharing in Reports. <button type="button" className="cc-text-button" onClick={()=>setTab('reports')}>Open Reports</button></p></details>}
