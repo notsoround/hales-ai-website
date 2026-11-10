@@ -19,7 +19,7 @@ const REPLY = ['Nice lunch! Here is everything ready for you to check and save.'
   block({ type: 'add_groceries', items: ['Bananas', 'Oats', 'Greek yogurt'] }),
   block({ type: 'record_outcome', outcome: 'win', title: 'Synthetic walk after lunch', date: today }),
   block({ type: 'delete_meal', mealId: 'meal_1' })].join('\n\n');
-const WRITES = new Set(['food_manual_log', 'exercise_log', 'weight_add', 'outcome_record', 'coach_plan_set', 'exercise_delete', 'body_checkin_delete', 'weight_correct', 'food_portion_set']);
+const WRITES = new Set(['reconcile_resolve', 'food_manual_log', 'exercise_log', 'weight_add', 'outcome_record', 'coach_plan_set', 'exercise_delete', 'body_checkin_delete', 'weight_correct', 'food_portion_set']);
 async function open(width = 390) {
   const context = await browser.newContext({ viewport: { width, height: 900 } });
   const page = await context.newPage(); page.setDefaultTimeout(15000);
@@ -63,7 +63,17 @@ try {
   for (const p of found.slice(0, 4)) if (p.proposal.type !== 'add_groceries') assert.equal(['owner_id', 'ownerId', 'accountId', 'account_id', 'role', 'actor'].some(k => k in m.requestFor(p.proposal, hex)), false);
   assert.equal(m.groceriesWith('- [ ] Oats', ['oats']), null);
   assert.deepEqual(m.groceriesWith('- [ ] Oats\n', ['Oats', 'Kale']), { text: '- [ ] Oats\n- [ ] Kale', added: ['Kale'] });
-  console.log('PASS: only the five allowed kinds become suggestions; bad times, units and amounts are refused; ids are stable; no account fields');
+  assert.match(bad({ type: 'set_portion', mealId: 'meal_1', fraction: 0 }), /¼, ½, ¾/);
+  assert.match(bad({ type: 'set_portion', mealId: 'meal 1; drop', fraction: 0.5 }), /does not name a meal/);
+  assert.match(bad({ type: 'review_purchase', purchaseId: 'l1', status: 'delete' }), /confirmed, not spending/);
+  assert.match(bad({ type: 'save_workout_plan', days: { funday: [] } }), /mon to sun/);
+  assert.match(bad({ type: 'save_workout_plan', days: { mon: [{ name: 'Run', minutes: 400 }] } }), /1 to 300/);
+  assert.match(bad({ type: 'save_meal_plan', meals: [] }), /1 to 10/);
+  assert.deepEqual(m.requestFor(m.parseProposal({ type: 'review_purchase', purchaseId: 'l1', status: 'undecided' }).proposal, hex).status, 'pending');
+  assert.deepEqual(m.mealPlanWith({ meals: [], groceries: '- [ ] Oats', title: 'Old' }, m.parseProposal({ type: 'save_meal_plan', meals: [{ name: 'A', items: ['x'] }] }).proposal), { meals: [{ name: 'A', items: ['x'] }], groceries: '- [ ] Oats' });
+  const big = m.wrapMessage('hello', { recentMeals: Array(40).fill({ mealId: 'meal_x', what: 'y'.repeat(70) }), purchases: [], mealPlan: { groceries: 'z'.repeat(19000) }, workoutPlan: null, recentWorkouts: [] });
+  assert.ok(big.length <= 8000 && big.endsWith('My message:\nhello'));
+  console.log('PASS: only the allowed kinds become suggestions; bad times, units and amounts are refused; ids are stable; no account fields');
 
   const { context, page, errors } = await open();
   assert.equal(await page.getByRole('switch', { name: 'Let the assistant suggest changes' }).isChecked(), false, 'off by default');
@@ -81,7 +91,7 @@ try {
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await ask(page, 'I had a turkey sandwich and an apple an hour ago and walked after', REPLY);
   sent = (await requests(page)).filter(r => r.action === 'quick_chat_begin').at(-1);
-  assert.ok(sent.text.startsWith('[Cupcake app: assistant suggestions are on]')); assert.match(sent.text, /Synthetic week/); assert.match(sent.text, /My message:\nI had a turkey sandwich/);
+  assert.ok(sent.text.startsWith('[Cupcake app: assistant suggestions are on]')); assert.match(sent.text, /Synthetic week/); assert.match(sent.text, /meal_syn_a1/); assert.match(sent.text, /ex_syn0001aaaa/); assert.match(sent.text, /lnk_syn_77/); assert.ok(sent.text.length <= 8000); assert.match(sent.text, /My message:\nI had a turkey sandwich/);
   await page.locator('p', { hasText: 'I had a turkey sandwich and an apple an hour ago and walked after' }).first().waitFor();
   assert.equal(await page.getByText('[Cupcake app', { exact: false }).count(), 0, 'the format instructions never show in the chat');
   const latest = cards.last();
@@ -124,6 +134,60 @@ try {
   const weight = (await requests(page)).find(r => r.action === 'weight_add');
   assert.equal(weight.value, 180.4); assert.equal(weight.unit, 'lb'); assert.equal(weight.source.type, 'owner-request'); assert.match(weight.observedAt, /Z$/);
   assert.deepEqual(await page.evaluate(() => window.suggestFixture.blocked), []); assert.deepEqual(errors, []);
+  const EDIT_REPLY = ['Ready for you to check.',
+    block({ type: 'set_portion', mealId: 'meal_syn_a1', fraction: 0.5 }),
+    block({ type: 'remove_workout', workoutId: 'ex_syn0001aaaa' }),
+    block({ type: 'review_purchase', purchaseId: 'lnk_syn_77', status: 'not_spending' }),
+    block({ type: 'set_portion', mealId: 'meal_syn_old', fraction: 0.5 }),
+    block({ type: 'remove_workout', workoutId: 'ex_invented' })].join('\n\n');
+  await ask(page, 'Half portion on the burrito, remove the walk, and the coffee was a work expense', EDIT_REPLY);
+  const edits = cards.last();
+  await edits.getByText('Synthetic burrito bowl', { exact: false }).waitFor();
+  await edits.getByText('Synthetic walk logged by mistake', { exact: false }).waitFor();
+  await edits.getByText('Synthetic Coffee Co', { exact: false }).waitFor();
+  await edits.getByText('cannot be changed here', { exact: false }).waitFor();
+  await edits.getByText('not found in the last 31 days', { exact: false }).waitFor();
+  assert.equal(await edits.getByText('Changes something already saved').count(), 5);
+  assert.equal((await requests(page)).some(r => ['food_portion_set', 'exercise_delete', 'reconcile_resolve'].includes(r.action)), false, 'edits wait for a tap');
+  if (process.env.SHOT_DIR) await edits.screenshot({ path: path.join(process.env.SHOT_DIR, 'assistant-edits-390.png') });
+  await edits.getByRole('button', { name: 'Change portion' }).click();
+  await edits.getByText('Portion set to ½; this meal now counts 450 kcal.').waitFor();
+  await edits.getByRole('button', { name: 'Remove workout' }).click();
+  await edits.getByText('Workout removed from your log.').waitFor();
+  await edits.getByRole('button', { name: 'Mark purchase' }).click();
+  await edits.getByText('Purchase marked: Not spending (ignored in totals).').waitFor();
+  const changes = (await requests(page)).filter(r => ['food_portion_set', 'exercise_delete', 'reconcile_resolve'].includes(r.action));
+  assert.deepEqual(changes.map(r => [r.action, r.mealId || r.id, r.fraction ?? r.status ?? null]), [['food_portion_set', 'meal_syn_a1', 0.5], ['exercise_delete', 'ex_syn0001aaaa', null], ['reconcile_resolve', 'lnk_syn_77', 'ignored']]);
+  console.log('PASS: edit cards show the exact record first, refuse unknown or locked records, and change only after a tap');
+
+  const PLAN_REPLY = ['Here are both plans.',
+    block({ type: 'save_meal_plan', title: 'Synthetic easy dinners', meals: [{ name: 'Mon dinner', items: ['chicken', 'rice'], kcal: 600 }, { name: 'Tue dinner', items: ['lentil soup'] }] }),
+    block({ type: 'save_workout_plan', days: { mon: [{ name: 'Strength', minutes: 30 }], fri: [{ name: 'Walk', minutes: 45 }] } })].join('\n\n');
+  await ask(page, 'Write my dinner plan and a workout plan', PLAN_REPLY);
+  const plans = cards.last();
+  await plans.getByText('Your grocery list is kept.').waitFor();
+  await plans.getByRole('button', { name: 'Save meal plan' }).click();
+  await plans.getByText('Meal plan saved with 2 meals; your grocery list is unchanged.').waitFor();
+  const mealPlan = (await requests(page)).filter(r => r.action === 'coach_plan_set' && r.kind === 'meal_plan').at(-1);
+  assert.equal(mealPlan.value.title, 'Synthetic easy dinners'); assert.equal(mealPlan.value.meals.length, 2); assert.match(mealPlan.value.groceries, /Bananas/, 'groceries are kept'); assert.ok(mealPlan.expected_value);
+  await plans.getByRole('button', { name: 'Save workout plan' }).click();
+  await plans.getByText('Weekly workout plan saved.').waitFor();
+  assert.deepEqual(await page.evaluate(() => window.suggestFixture.workoutPlan), { days: { mon: [{ name: 'Strength', minutes: 30 }], fri: [{ name: 'Walk', minutes: 45 }] } });
+  console.log('PASS: meal and workout plans save from the chat on a tap; the meal plan keeps the grocery list');
+
+  await ask(page, 'Fingerstick 104 just now, and set my target to 2000', ['Ready to check.', block({ type: 'log_glucose', value: 104, unit: 'mg/dL', method: 'fingerstick', when: hourAgo }), block({ type: 'set_calorie_target', calories: 2000 }), block({ type: 'log_glucose', value: 104, unit: 'mg/dL', when: hourAgo })].join('\n\n'));
+  const health = cards.last();
+  await health.getByText('Current target: 2200 kcal a day').waitFor();
+  await health.getByText('fingerstick or another manual meter', { exact: false }).waitFor();
+  await health.getByRole('button', { name: 'Save reading' }).click();
+  await health.getByText('Saved as a manual glucose reading.').waitFor();
+  await health.getByRole('button', { name: 'Change target' }).click();
+  await health.getByText('Daily target set to 2000 kcal from today.').waitFor();
+  const glucose = (await requests(page)).find(r => r.action === 'glucose_add'), target = (await requests(page)).find(r => r.action === 'food_settings_save');
+  assert.equal(glucose.method, 'fingerstick'); assert.equal(glucose.unit, 'mg/dL'); assert.equal(glucose.source.type, 'owner-request');
+  assert.equal(target.calorieTarget, 2000); assert.equal(target.expenditureEstimate, 2600, 'the energy estimate is kept'); assert.match(target.effectiveFrom, /^\d{4}-\d\d-\d\d$/);
+  console.log('PASS: glucose needs its method; a calorie target change shows the current target and keeps the energy estimate');
+
   if (process.env.AXE) {
     await page.addScriptTag({ path: process.env.AXE });
     const issues = await page.evaluate(async () => (await window.axe.run(document.querySelector('[aria-label="Suggested changes"]'), { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] })).violations.filter(v => ['serious', 'critical'].includes(v.impact)).map(v => v.id));

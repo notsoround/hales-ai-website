@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 /** Screens that show account data listen here, so a change confirmed elsewhere (for example a
  *  suggestion saved from the assistant chat) shows up straight away without a page reload. */
-export type DataArea = 'food' | 'exercise' | 'weight' | 'plan' | 'outcome';
+export type DataArea = 'food' | 'exercise' | 'weight' | 'plan' | 'outcome' | 'workout-plan' | 'purchase' | 'glucose';
 const EVENT = 'cupcake-account-data-changed';
 export function notifyDataChanged(area: DataArea) {
   window.dispatchEvent(new CustomEvent<DataArea>(EVENT, { detail: area }));
