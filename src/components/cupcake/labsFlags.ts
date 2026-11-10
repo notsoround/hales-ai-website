@@ -5,6 +5,7 @@ import { personalStorage } from './personalStorage';
  *  turns it on in Settings → Labs. Stored per account on this device only. */
 export const LABS = [
   { key: 'plan-builder', label: 'Build a plan by talking with the assistant', detail: 'Adds “Build it with the assistant” under Food → Meal plan → Paste or upload a plan. The assistant drafts meals from what you tell it; you review them before anything is saved. It cannot search the web yet.' },
+  { key: 'workout-plan', label: 'Weekly workout plan', detail: 'Adds a Workout plan card to Today. Paste or upload a routine, or build one by talking with the assistant; you review it before anything is saved. It cannot search the web yet.' },
 ] as const;
 export type LabKey = typeof LABS[number]['key'];
 const EVENT = 'cupcake-labs-change', storageKey = (key: LabKey) => `cupcake-labs-${key}`;
