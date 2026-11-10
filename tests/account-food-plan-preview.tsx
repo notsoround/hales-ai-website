@@ -38,6 +38,6 @@ await restoreSession();
 function Preview() {
   const session = useSyncExternalStore(subscribeSession, sessionSnapshot), [visible, setVisible] = useState(true), [viewer, setViewer] = useState(false);
   const sample = { meal_plan: { title: 'Synthetic partial reference', meals: [{ name: 'Known reference', kcal: 200, items: ['Owner-entered item'] }, { name: 'Unknown reference', items: ['Owner-entered unknown'] }] } } as Coach;
-  return <div className="cc-app" data-appearance="rose"><main style={{ maxWidth: 900, margin: 'auto', padding: 16 }}><p>Isolated synthetic food planning. No live meals, orders or providers.</p><button onClick={() => setVisible(value => !value)}>{visible ? 'Leave Food preview' : 'Return to Food preview'}</button><button onClick={() => setViewer(value => !value)}>Toggle reference viewer</button>{viewer && <MealPlanCard coach={sample}/>} {visible && session.identity && <SnapView key={session.generation}/>}</main></div>;
+  return <div className="cc-app" data-appearance="rose" data-entry="account"><main style={{ maxWidth: 900, margin: 'auto', padding: 16 }}><p>Isolated synthetic food planning. No live meals, orders or providers.</p><button onClick={() => setVisible(value => !value)}>{visible ? 'Leave Food preview' : 'Return to Food preview'}</button><button onClick={() => setViewer(value => !value)}>Toggle reference viewer</button>{viewer && <MealPlanCard coach={sample}/>} {visible && session.identity && <SnapView key={session.generation}/>}</main></div>;
 }
 createRoot(document.getElementById('root')!).render(<Preview/>);

@@ -165,7 +165,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}
             <form className="cc-grocery-add" onSubmit={event => { event.preventDefault(); const item = newItem.trim(); if (!item) return; edit({ ...draft, groceries: appendGroceryItems(draft.groceries, [item]) }); setNewItem(''); }}><label className="cc-sr-only" htmlFor="cc-grocery-new">Add a grocery item</label><input id="cc-grocery-new" maxLength={300} value={newItem} placeholder="Add an item, e.g. 2 avocados" enterKeyHint="done" onChange={event => setNewItem(event.target.value)}/><button type="submit" className="cc-secondary" disabled={!newItem.trim()}>Add</button></form>
           </div>
-          <label>Grocery notes<textarea rows={10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
+          <label>Grocery notes<textarea rows={groceries.length ? 5 : 10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
           {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={toPlan}>Create your meal plan first</button></p>}
           <p className="cc-muted cc-small">Add or edit items in Grocery notes. Your other notes are kept.</p>
         </>;

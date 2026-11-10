@@ -54,7 +54,7 @@ await restoreSession();
 function Preview() {
   const session = useSyncExternalStore(subscribeSession, sessionSnapshot);
   const [visible, setVisible] = useState(true);
-  return <div className="cc-app" data-appearance="rose"><main style={{ maxWidth: 900, margin: 'auto', padding: 16 }}>
+  return <div className="cc-app" data-appearance="rose" data-entry="account"><main style={{ maxWidth: 900, margin: 'auto', padding: 16 }}>
     <p>Isolated synthetic manual meal preview. No live records or providers.</p>
     <button onClick={() => setVisible(value => !value)}>{visible ? 'Leave Food preview' : 'Return to Food preview'}</button>
     {session.identity && visible && <SnapView key={session.generation}/>}
