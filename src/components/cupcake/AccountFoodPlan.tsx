@@ -6,7 +6,7 @@ import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, 
 import './account-food-plan.css';
 import { appendGroceryItems, checkGroceryItem, groceryItems, missingGroceryItems } from './groceryChecklist';
 
-export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'groceries'; onPlan: () => void }) {
+export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'plan' | 'groceries'; onPlan: () => void; onGroceries?: () => void }) {
   const [storage] = useState(() => personalStorage('sessionStorage'));
   const [recovery] = useState(() => readPlanRecovery(storage));
   const [base, setBase] = useState<MealPlan | null>(recovery?.base || null);
@@ -124,6 +124,7 @@ export function AccountFoodPlan({ section, onPlan }: { section: 'plan' | 'grocer
           </article>)}
           <button type="button" className="cc-secondary" disabled={draft.meals.length >= 10} onClick={() => edit({ ...draft, meals: [...draft.meals, { original: null, name: '', items: '', kcal: '' }] })}>Add planned meal</button>
           <p className="cc-muted cc-small">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
+          {onGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={onGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">→</span></button>}
         </> : <>
           <div className="cc-card cc-shopping-builder">
             <div><h4>Shop your meal plan</h4><p className="cc-muted cc-small">Choose the food items you still need. Your quantities, notes and checked items stay as they are.</p></div>

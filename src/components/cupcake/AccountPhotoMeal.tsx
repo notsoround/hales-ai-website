@@ -4,6 +4,7 @@ import { accountData, accountFoodPhoto, AccountRequestError, assertGeneration, s
 import { photoDraftStore, type PhotoIntent } from './accountFoodPhotoDraft';
 import { prepareFoodImage } from './prepareFoodImage';
 import { MealTimeInput } from './MealTimeInput';
+import { takeQueuedAccountMealPhoto } from './accountMealPhotoHandoff';
 import type { FoodMeal } from './DashboardView';
 import './account-photo-meal.css';
 
@@ -98,6 +99,9 @@ export function AccountPhotoMeal({ onSaved }: { onSaved: () => void }) {
     } catch (cause) { if (alive.current) setError(errorText(cause)); }
     finally { sending.current = false; if (alive.current) setBusy(false); }
   };
+  // A photo taken from Today's one-tap camera continues here with the default file time.
+  const chooseRef = useRef(chooseFile); chooseRef.current = chooseFile;
+  useEffect(() => { if (loading) return; const file = takeQueuedAccountMealPhoto(); if (file) void chooseRef.current(file); }, [loading]);
   const resume = (original: PhotoIntent) => { terminal.current.delete(original.request_id); current.current = original; setIntent(original); setRequest(null); setReceipt(null); setMissing(false); void check(original); };
   const another = () => { current.current = null; setIntent(null); setRequest(null); setReceipt(null); setError(''); setMissing(false); setNote(''); setFileTime(true); setConsumedAt(''); };
   const retry = async () => {
@@ -109,16 +113,16 @@ export function AccountPhotoMeal({ onSaved }: { onSaved: () => void }) {
   };
   const input = (ref: typeof picker, capture = false) => <input ref={ref} aria-label={capture ? 'Take meal photo file' : 'Choose meal photo file'} type="file" accept="image/jpeg,image/png,image/webp" {...(capture ? { capture: 'environment' as const } : {})} hidden onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void chooseFile(file); }}/>;
   return <section className="cc-card cc-account-photo" aria-label="Photo meal logging">
-    <div><h3>Log a food photo</h3><p className="cc-muted">Full photo = full meal. Taking or choosing a photo estimates and logs what you ate automatically.</p></div>
+    <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>
     {!intent && !receipt && <>
-      <p className="cc-muted cc-small">Uses the photo’s file time by default. Nutrition is estimated; unknown values stay unknown.</p>
-      <details className="cc-account-photo-adjustments"><summary>Change portions or meal time</summary><div>
+      <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => camera.current?.click()}><Camera size={17}/>Take meal photo</button><button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
+      <details className="cc-account-photo-adjustments"><summary>Portions, meal time &amp; how it works</summary><div>
+        <p className="cc-muted cc-small">Full photo = full meal. Uses the photo’s file time by default. Nutrition is estimated; unknown values stay unknown.</p>
         <label className="cc-account-photo-option"><input type="checkbox" checked={fileTime} disabled={busy} onChange={event => setFileTime(event.target.checked)}/>Use photo file time for when I ate</label>
         <p className="cc-muted cc-small">File metadata is a time suggestion, not verified capture time.</p>
         {!fileTime && <MealTimeInput value={consumedAt} onChange={setConsumedAt} disabled={busy}/>}
         <label>Portion or meal note (optional)<textarea maxLength={1000} value={note} disabled={busy} rows={2} onChange={event => setNote(event.target.value)} placeholder="For example: half the rice, unsweetened drink…"/></label>
       </div></details>
-      <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => camera.current?.click()}><Camera size={17}/>Take meal photo</button><button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
     </>}
     {input(camera, true)}{input(picker)}
     {loading && <p role="status">Checking this device’s saved photo requests…</p>}

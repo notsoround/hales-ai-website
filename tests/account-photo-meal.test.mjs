@@ -26,7 +26,7 @@ async function choose(page) { const data = await page.evaluate(() => { const can
 async function saved(page) { await page.getByRole('heading', { name: 'Meal saved to your food log', exact: true }).waitFor(); }
 try {
   const normal = await open(), page = normal.page;
-  await page.getByText('Change portions or meal time', { exact: true }).click();
+  await page.getByText('Portions, meal time & how it works', { exact: true }).click();
   await page.getByLabel('Portion or meal note (optional)').fill('Half the rice');
   await mode(page, 'holdGet'); await choose(page);
   await page.waitForFunction(() => window.photoFixture.requests.some(row => row.body.action === 'food_get'));
