@@ -1,0 +1,27 @@
+/* Account entry (Reports and sharing). Presentation only; scoped to [data-entry=account] so the original /cupcake app is unchanged. */
+
+/* ---------- Reports: always say whose information is on screen ---------- */
+.cc-app[data-entry=account] .cc-coach-lens { display: grid; gap: 8px; margin: 14px 0 18px; padding: 14px 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--ds-wins, #ffcc00) 45%, var(--cc-border)); background: linear-gradient(135deg, color-mix(in srgb, var(--ds-wins, #ffcc00) 9%, var(--cc-surface)), var(--cc-surface)); }
+.cc-app[data-entry=account] .cc-coach-lens-who { font-size: 16px; color: var(--cc-text); }
+.cc-app[data-entry=account] .cc-coach-lens-who strong { color: var(--ds-wins-ink, #ffd84d); }
+.cc-app[data-entry=account] .cc-coach-lens-scopes { display: flex; flex-wrap: wrap; gap: 6px; }
+.cc-app[data-entry=account] .cc-coach-lens-scopes > span { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--cc-surface-2); border: 1px solid var(--cc-border); color: var(--cc-text-2); }
+.cc-app[data-entry=account] .cc-coach-lens .cc-muted { margin: 0; font-size: 13px; }
+.cc-app[data-entry=account] .cc-coach-controls select { white-space: normal; text-overflow: ellipsis; }
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-coach-context { flex-direction: column; gap: 10px; }
+  .cc-app[data-entry=account] .cc-coach h2 { font-size: 26px; }
+}
+
+/* ---------- Sharing you authorized: one card per person ---------- */
+.cc-app .cc-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.cc-app[data-entry=account] .cc-grant-card { display: grid; gap: 8px; margin-top: 12px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--cc-border); background: var(--cc-surface-2); }
+.cc-app[data-entry=account] .cc-grant-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cc-app[data-entry=account] .cc-grant-head h4 { margin: 0; font-size: 17px; min-width: 0; overflow-wrap: anywhere; }
+.cc-app[data-entry=account] .cc-grant-state { flex: none; font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ds-exercise, #30d158) 16%, transparent); color: var(--ds-exercise-ink, #6be08a); }
+.cc-app[data-entry=account] .cc-grant-card:not([data-state=active]) .cc-grant-state { background: var(--cc-surface); color: var(--cc-text-3); }
+.cc-app[data-entry=account] .cc-grant-card:not([data-state=active]) { opacity: .8; }
+.cc-app[data-entry=account] .cc-grant-scopes { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.cc-app[data-entry=account] .cc-grant-scopes > span { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--cc-border); color: var(--cc-text-2); }
+.cc-app[data-entry=account] .cc-grant-card .cc-small { margin: 0; }
+.cc-app[data-entry=account] .cc-grant-card .cc-secondary { justify-self: start; min-height: 44px; }

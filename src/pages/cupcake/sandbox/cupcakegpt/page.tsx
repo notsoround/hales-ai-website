@@ -64,7 +64,11 @@ import { Sparkline } from '../../../../components/cupcake/design/Visuals';
 import '../../../../components/cupcake/design/tokens.css';
 import '../../../../components/cupcake/design/cupcake-theme.css';
 import '../../../../components/cupcake/pulse.css';
-import '../../../../components/cupcake/account-polish.css';
+import '../../../../components/cupcake/account-shell.css';
+import '../../../../components/cupcake/account-today.css';
+import '../../../../components/cupcake/account-food.css';
+import '../../../../components/cupcake/account-reports.css';
+import '../../../../components/cupcake/account-base.css';
 import { queueAccountMealPhoto } from '../../../../components/cupcake/accountMealPhotoHandoff';
 import { lastLoggedMeal } from '../../../../components/cupcake/nutritionModel';
 
