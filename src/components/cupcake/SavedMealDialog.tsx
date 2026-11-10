@@ -8,9 +8,10 @@ import { PhotoViewer } from './PhotoViewer';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { accountData, AccountRequestError } from './accountSession';
 
-type Portion = { editable: boolean; blockedReason: null | 'not_logged' | 'sheet_backed' | 'no_items'; fraction: number; label: string; choices: number[]; setAt?: string | null; originalTotal?: { calories?: number | null } | null; adjusted: boolean };
+type Portion = { editable: boolean; blockedReason: null | 'not_logged' | 'sheet_backed' | 'no_items' | 'unavailable'; fraction: number; label: string; choices: number[]; setAt?: string | null; originalTotal?: { calories?: number | null } | null; adjusted: boolean };
 const PORTION_TEXT: Record<string, [string, string]> = { '0.25': ['¼', 'A quarter'], '0.5': ['½', 'Half'], '0.75': ['¾', 'Three quarters'], '1': ['Full', 'The full plate'] };
-const PORTION_BLOCKED: Record<string, string> = { not_logged: 'Log this meal first, then you can change its portion.', sheet_backed: 'This older meal lives in the original app’s food log, so its portion can only be changed there.', no_items: 'This estimate has no items to scale.' };
+const PORTION_BLOCKED: Record<string, string> = { not_logged: 'Log this meal first, then you can change its portion.', sheet_backed: 'This older meal lives in the original app’s food log, so its portion can only be changed there.', no_items: 'This estimate has no items to scale.', unavailable: 'Portion changes aren’t available for this meal yet.' };
+const PORTION_CHOICES = [0.25, 0.5, 0.75, 1];
 
 export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus, onUpdated }: {
   mealId: string | null; meals: FoodHistoryMeal[]; onSelect: (id: string) => void; onClose: () => void; onUpdated?: () => void;
@@ -58,7 +59,11 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus,
   }, [mealId, legacy, photoRetry, currentMeal, noPhoto]);
   const adjacent = mealNeighbors(meals, mealId || '');
   // Portion is always a fraction of the original estimate; the server rescales and returns the saved meal.
-  const portion = ACCOUNT_SESSIONS ? (currentMeal as (FoodMeal & { portion?: Portion }) | null)?.portion : undefined;
+  // Chips always show in the account app so the feature is discoverable; a meal the server did not
+  // describe (older Food Sheet rows, or a details fallback) shows them disabled with the reason.
+  const served = (currentMeal as (FoodMeal & { portion?: Portion }) | null)?.portion;
+  const portion: Portion | undefined = !ACCOUNT_SESSIONS || !currentMeal ? undefined : served
+    || { editable: false, blockedReason: historical || currentMeal.source === 'food_sheet' ? 'sheet_backed' : logged ? 'unavailable' : 'not_logged', fraction: 1, label: 'full', choices: PORTION_CHOICES, adjusted: false };
   const setPortion = async (fraction: number) => {
     if (!currentMeal || portionBusy) return;
     setPortionBusy(true); setPortionError('');
@@ -83,12 +88,12 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus,
       <div className="cc-meal-macros">
         {[[manual ? 'Calories (entered)' : 'Est. calories', currentMeal.total?.calories, 'kcal'], ['Protein', currentMeal.total?.protein_g, 'g'], ['Total carbs', currentMeal.total?.carbs_g, 'g'], ['Sugar', currentMeal.total?.sugar_g, 'g'], ...(manual ? [['Fat', currentMeal.total?.fat_g, 'g'], ['Fiber', currentMeal.total?.fiber_g, 'g']] : [])].map(([label, value, unit]) => <div key={String(label)}><small>{label}</small><strong>{value == null ? 'Unknown' : `${Number(value).toLocaleString()} ${unit}`}</strong></div>)}
       </div>
-      {portion && <div className="cc-portion" role="group" aria-label="Portion you ate">
+      {portion && <div className="cc-portion" role="group" aria-label="Portion you ate" aria-describedby={!portion.editable && portion.blockedReason ? 'cc-portion-note' : undefined}>
         <span className="cc-portion-label">Portion you ate</span>
         <div className="cc-portion-chips">{portion.choices.map(choice => { const [short, long] = PORTION_TEXT[String(choice)] || [`${Math.round(choice * 100)}%`, `${Math.round(choice * 100)} percent`]; return <button key={choice} type="button" aria-label={long} aria-pressed={portion.fraction === choice} disabled={!portion.editable || portionBusy} onClick={() => void setPortion(choice)}>{short}</button>; })}</div>
         {portionBusy && <p role="status" className="cc-muted cc-small">Saving portion…</p>}
         {portion.adjusted && portion.originalTotal?.calories != null && <p className="cc-muted cc-small">Original estimate: {Math.round(portion.originalTotal.calories).toLocaleString()} kcal</p>}
-        {!portion.editable && portion.blockedReason && <p className="cc-muted cc-small">{PORTION_BLOCKED[portion.blockedReason]}</p>}
+        {!portion.editable && portion.blockedReason && <p id="cc-portion-note" className="cc-muted cc-small">{PORTION_BLOCKED[portion.blockedReason]}</p>}
         {portionError && <p role="alert" className="cc-error">{portionError}</p>}
       </div>}
       {currentMeal.calorieRange && <p className="cc-muted">Estimated range: {currentMeal.calorieRange.low}–{currentMeal.calorieRange.high} kcal.</p>}
