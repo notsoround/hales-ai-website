@@ -31,3 +31,13 @@
 .cc-grocery-add input { flex: 1; min-width: 0; min-height: 48px; padding: 0 14px; font-size: 16px; border-radius: 14px; border: 1px solid var(--cc-border, #ffffff30); background: var(--cc-surface-2, #ffffff08); color: inherit; }
 .cc-grocery-add input:focus { outline: none; border-color: var(--cc-pink, #39e6d2); box-shadow: 0 0 0 3px var(--cc-accent-wash, #39e6d214); }
 .cc-grocery-add .cc-secondary { min-height: 48px; padding: 0 18px; }
+
+/* ---------- Portion you ate (Meal details) ---------- */
+.cc-portion { display: grid; gap: 8px; margin: 14px 0 6px; }
+.cc-portion-label { font-size: 13px; font-weight: 600; letter-spacing: .04em; color: var(--cc-text-2, #b7ccd5); }
+.cc-portion-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cc-portion-chips button { min-height: 48px; border-radius: 14px; border: 1px solid var(--cc-border, #29434f); background: var(--cc-surface-2, #132631); color: var(--cc-text, #edf8fc); font: inherit; font-size: 17px; font-weight: 650; }
+.cc-portion-chips button[aria-pressed=true] { border-color: var(--cc-pink, #39e6d2); background: color-mix(in srgb, var(--cc-pink, #39e6d2) 18%, transparent); color: var(--cc-pink-bright, #80eee1); }
+.cc-portion-chips button:disabled { opacity: .45; }
+.cc-portion-chips button:focus-visible { outline: 3px solid var(--cc-pink-bright, #80eee1); outline-offset: 2px; }
+.cc-portion p { margin: 0; }
