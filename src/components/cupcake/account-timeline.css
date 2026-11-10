@@ -1,0 +1,12 @@
+/* Account app Timeline: type filter over the full signal history. Scoped so /cupcake is unchanged. */
+.cc-app[data-entry=account] .cc-signal-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.cc-app[data-entry=account] .cc-signal-filter button { position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 13px; border: 1px solid var(--cc-border); border-radius: 999px; background: transparent; color: var(--cc-text-2, inherit); font: inherit; font-size: 13px; cursor: pointer; }
+.cc-app[data-entry=account] .cc-signal-filter button > span[aria-hidden] { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--cc-accent-wash); color: inherit; font-size: 11px; font-variant-numeric: tabular-nums; text-align: center; }
+.cc-app[data-entry=account] .cc-signal-filter button:hover { border-color: var(--cc-pink); }
+.cc-app[data-entry=account] .cc-signal-filter button[aria-pressed=true] { border-color: var(--cc-pink); background: var(--cc-accent-wash); color: var(--cc-pink-bright, var(--cc-pink)); font-weight: 600; }
+.cc-app[data-entry=account] .cc-signal-filter button:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+@media (max-width: 600px) {
+  /* One scrollable row on phones so the list stays near the top. */
+  .cc-app[data-entry=account] .cc-signal-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -2px; padding: 2px; }
+  .cc-app[data-entry=account] .cc-signal-filter button { flex: none; }
+}

@@ -7,7 +7,8 @@ import './account-food-plan.css';
 import { parsePlanText } from './planImport';
 import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, missingGroceryItems } from './groceryChecklist';
 
-export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'plan' | 'groceries'; onPlan: () => void; onGroceries?: () => void }) {
+/** `both` (desktop) shows the meal plan and groceries side by side from one draft and one save. */
+export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'plan' | 'groceries' | 'both'; onPlan: () => void; onGroceries?: () => void }) {
   const [storage] = useState(() => personalStorage('sessionStorage'));
   const [recovery] = useState(() => readPlanRecovery(storage));
   const [base, setBase] = useState<MealPlan | null>(recovery?.base || null);
@@ -21,6 +22,10 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [shoppingError, setShoppingError] = useState('');
   const checklistHeading = useRef<HTMLHeadingElement>(null), focusChecklist = useRef(false);
+  const both = section === 'both', planTitle = useRef<HTMLInputElement>(null), shopHeading = useRef<HTMLHeadingElement>(null);
+  // Side by side, both halves are already on screen: move focus instead of switching sections.
+  const toPlan = both ? () => planTitle.current?.focus() : onPlan;
+  const toGroceries = both ? () => shopHeading.current?.focus() : onGroceries;
   useEffect(() => {
     if (!choosingItems && focusChecklist.current) { focusChecklist.current = false; checklistHeading.current?.focus(); }
   }, [choosingItems]);
@@ -107,9 +112,9 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
       setNotice(`${selected.length} ${selected.length === 1 ? 'item added' : 'items added'} to your grocery draft. Review the list, then Save plan & groceries.`);
     } catch (cause) { setShoppingError(cause instanceof Error ? cause.message : 'These items could not be added. Your notes are unchanged.'); }
   };
-  return <section className="cc-food-plan" aria-label={section === 'plan' ? 'Meal plan workspace' : 'Grocery workspace'}>
-    <div className="cc-heading-row"><h3>{section === 'plan' ? 'Your meal plan' : 'Your groceries'}</h3><button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Reload saved plan</button></div>
-    <p className="cc-muted">{section === 'plan' ? 'Plan meals in your own words. This reference plan is separate from meals you actually ate.' : 'Keep your grocery list and shopping notes with your meal plan.'}</p>
+  return <section className={`cc-food-plan${both ? ' cc-food-plan-both' : ''}`} aria-label={both ? 'Meal plan and grocery workspace' : section === 'plan' ? 'Meal plan workspace' : 'Grocery workspace'}>
+    <div className="cc-heading-row"><h3>{both ? 'Your meal plan & groceries' : section === 'plan' ? 'Your meal plan' : 'Your groceries'}</h3><button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Reload saved plan</button></div>
+    <p className="cc-muted">{both ? 'Plan meals in your own words and shop for them. This reference plan is separate from meals you actually ate.' : section === 'plan' ? 'Plan meals in your own words. This reference plan is separate from meals you actually ate.' : 'Keep your grocery list and shopping notes with your meal plan.'}</p>
     {!loaded && !error && <p role="status">Loading your saved plan…</p>}
     {error && <p role="alert" className="cc-error">{error}</p>}
     {notice && <p role="status" className="cc-muted">{notice}</p>}
@@ -117,14 +122,14 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
     {loaded && <>
       <p className="cc-plan-save-state" role="status">{pending ? 'Save unconfirmed · original request kept for retry' : dirty ? 'Unsaved changes · draft kept in this browser tab' : base ? 'Saved plan loaded from your account' : 'No saved meal plan yet'}</p>
       <fieldset disabled={busy || !!pending} className="cc-plan-fields">
-        {section === 'plan' ? <>
+        {(() => { const planPart = <>
           <details className="cc-plan-import"><summary>Paste or upload a plan</summary><div>
             <p className="cc-muted cc-small">A routine, a meal plan or a coach’s notes. Headings such as “Monday” or “Lunch:” become planned meals and the lines under them become items. Nothing is saved until you choose Save plan &amp; groceries.</p>
             <label>Plan text<textarea rows={5} maxLength={20000} value={importText} placeholder={'Monday:\n- Oats with berries\n- Greek yogurt\nLunch 550 kcal:\n- Chicken quinoa bowl'} onChange={event => { setImportText(event.target.value); setImportNote(''); }}/></label>
             <label className="cc-plan-import-file">Or choose a text file<input type="file" accept=".txt,.md,.markdown,.csv,text/plain,text/markdown" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (!file) return; if (file.size > 200000) { setImportNote('That file is too large. Paste the part you want instead.'); return; } void file.text().then(text => { setImportText(text.slice(0, 20000)); setImportNote(''); }).catch(() => setImportNote('That file could not be read. Paste its text instead.')); }}/></label>
             {(() => { const found = parsePlanText(importText, Math.max(0, 10 - draft.meals.length)); return <><button type="button" className="cc-secondary" disabled={!found.length} onClick={() => { edit({ ...draft, meals: [...draft.meals, ...found.map(meal => ({ original: null, name: meal.name, items: meal.items.join('\n'), kcal: meal.kcal }))] }); setImportText(''); setImportNote(`Added ${found.length} planned ${found.length === 1 ? 'meal' : 'meals'} to your draft. Review them below, then save.`); }}>{found.length ? `Add ${found.length} planned ${found.length === 1 ? 'meal' : 'meals'} to draft` : draft.meals.length >= 10 ? 'Plan is full (10 meals)' : 'Add to draft'}</button>{importNote && <p role="status" className="cc-muted cc-small">{importNote}</p>}</>; })()}
           </div></details>
-          <label>Plan title (optional)<input maxLength={200} value={draft.title} onChange={event => edit({ ...draft, title: event.target.value })}/></label>
+          <label>Plan title (optional)<input ref={planTitle} maxLength={200} value={draft.title} onChange={event => edit({ ...draft, title: event.target.value })}/></label>
           {draft.meals.map((meal, index) => <article className="cc-card cc-plan-meal" key={index}>
             <div className="cc-heading-row"><strong>Planned meal {index + 1}</strong><button type="button" className="cc-text-button" onClick={() => edit({ ...draft, meals: draft.meals.filter((_, at) => at !== index) })}>Remove meal {index + 1}</button></div>
             <label>Meal {index + 1} name<input maxLength={300} value={meal.name} onChange={event => edit({ ...draft, meals: draft.meals.map((item, at) => at === index ? { ...item, name: event.target.value } : item) })}/></label>
@@ -133,11 +138,11 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
           </article>)}
           <button type="button" className="cc-secondary" disabled={draft.meals.length >= 10} onClick={() => edit({ ...draft, meals: [...draft.meals, { original: null, name: '', items: '', kcal: '' }] })}>Add planned meal</button>
           <p className="cc-muted cc-small">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
-          {onGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={onGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">→</span></button>}
-        </> : <>
+          {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">{both ? '↓' : '→'}</span></button>}
+        </>; const groceryPart = <>
           <div className="cc-card cc-shopping-builder">
-            <div><h4>Shop your meal plan</h4><p className="cc-muted cc-small">Choose the food items you still need. Your quantities, notes and checked items stay as they are.</p></div>
-            {!draft.meals.length ? <button type="button" className="cc-secondary" onClick={onPlan}>Create a meal plan</button>
+            <div><h4 ref={shopHeading} tabIndex={-1} className="cc-shopping-heading">Shop your meal plan</h4><p className="cc-muted cc-small">Choose the food items you still need. Your quantities, notes and checked items stay as they are.</p></div>
+            {!draft.meals.length ? <button type="button" className="cc-secondary" onClick={toPlan}>Create a meal plan</button>
               : !suggestions.length ? <p className="cc-muted cc-small">{draft.meals.some(meal => groceryItems(meal.items).length) ? 'Your planned food items are already on this list. You can still add or edit groceries below.' : 'Add food items to your meal plan to choose groceries here.'}</p>
                 : <button type="button" className="cc-secondary" aria-expanded={choosingItems} aria-controls="cc-shopping-choices" onClick={() => { setChoosingItems(!choosingItems); setSelectedItems(suggestions); setShoppingError(''); }}>{choosingItems ? 'Close meal plan items' : 'Choose meal plan items'}</button>}
             {choosingItems && suggestions.length > 0 && <fieldset className="cc-shopping-choices" id="cc-shopping-choices">
@@ -157,9 +162,10 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             <form className="cc-grocery-add" onSubmit={event => { event.preventDefault(); const item = newItem.trim(); if (!item) return; edit({ ...draft, groceries: appendGroceryItems(draft.groceries, [item]) }); setNewItem(''); }}><label className="cc-sr-only" htmlFor="cc-grocery-new">Add a grocery item</label><input id="cc-grocery-new" maxLength={300} value={newItem} placeholder="Add an item, e.g. 2 avocados" enterKeyHint="done" onChange={event => setNewItem(event.target.value)}/><button type="submit" className="cc-secondary" disabled={!newItem.trim()}>Add</button></form>
           </div>
           <label>Grocery notes<textarea rows={10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
-          {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={onPlan}>Create your meal plan first</button></p>}
+          {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={toPlan}>Create your meal plan first</button></p>}
           <p className="cc-muted cc-small">Add or edit items in Grocery notes. Your other notes are kept.</p>
-        </>}
+        </>;
+          return both ? <div className="cc-plan-split"><div className="cc-plan-col" role="group" aria-labelledby="cc-plan-col-plan"><h4 id="cc-plan-col-plan" className="cc-plan-col-title">Meal plan</h4>{planPart}</div><div className="cc-plan-col" role="group" aria-labelledby="cc-plan-col-groceries"><h4 id="cc-plan-col-groceries" className="cc-plan-col-title">Groceries</h4>{groceryPart}</div></div> : section === 'plan' ? planPart : groceryPart; })()}
       </fieldset>
       {dirty && validation && !pending && <p className="cc-muted cc-small">{validation}</p>}
       <div className="cc-plan-actions"><button type="button" className="cc-primary" disabled={busy || latest !== undefined || (!pending && (!dirty || !!validation))} onClick={() => void save()}>{busy ? 'Confirming saved plan…' : pending ? 'Retry same plan save' : 'Save plan & groceries'}</button></div>
