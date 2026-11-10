@@ -90,3 +90,25 @@ assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', det
 
 assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', details: { outcome: 'no_answer', ownerUpdated: true, boughtAnyway: false } }), 'unscored', 'a note-only update never promotes a legacy false flag to a win');
 assert.equal(interventionOutcome({ date: '2026-09-20', type: 'intervention', details: { outcome: 'no_answer', ownerPurchaseChoice: 'no', boughtAnyway: null } }), 'missed', 'a stale explicit marker without the matching purchase flag is not a win');
+
+// Timeline type filter
+{
+  const { signalTypeOptions, entriesOfSignalType, signalTypeLabel } = await import('../src/components/cupcake/dashboardModel.ts');
+  const mixed = [
+    { id: 'a', date: '2026-09-07', type: 'transaction' },
+    { id: 'b', date: '2026-09-07', type: 'food' },
+    { id: 'c', date: '2026-09-07', type: 'phone_usage' },
+    { id: 'd', date: '2026-09-06', type: 'food' },
+    { id: 'e', date: '2026-09-06', type: 'intervention' },
+  ];
+  assert.deepEqual(signalTypeOptions(mixed), [
+    { type: 'food', label: 'Meals', count: 2 },
+    { type: 'transaction', label: 'Purchases', count: 1 },
+    { type: 'intervention', label: 'Calls', count: 1 },
+    { type: 'phone_usage', label: 'Phone usage', count: 1 },
+  ], 'known types come first in a fixed order; unknown types get a readable name');
+  assert.deepEqual(entriesOfSignalType(mixed, 'food').map(entry => entry.id), ['b', 'd'], 'a type filter keeps only that type, in order');
+  assert.equal(entriesOfSignalType(mixed, null), mixed, 'no filter returns every loaded entry');
+  assert.equal(signalTypeLabel(''), 'Other');
+  assert.deepEqual(signalTypeOptions([]), []);
+}

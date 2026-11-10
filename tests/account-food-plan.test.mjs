@@ -28,15 +28,16 @@ async function syntheticPlanServer(owner, body) {
   if (behavior === 'holdWrite') { behavior = 'normal'; await new Promise(resolve => { release = resolve; }); }
   return { status: 200, value: { ok: true, meal_plan: structuredClone(plans[owner]) } };
 }
-async function open() {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await context.exposeFunction('syntheticPlanServer', syntheticPlanServer);
+async function open(width = 390) {
+  const context = await browser.newContext({ viewport: { width, height: 844 } }); await context.exposeFunction('syntheticPlanServer', syntheticPlanServer);
   const page = await context.newPage(); page.setDefaultTimeout(10000); page.on('dialog', dialog => dialog.accept());
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   await page.goto(base + '/cupcake/account'); await page.getByRole('tab', { name: 'Food log', exact: true }).waitFor();
   return { context, page, errors };
 }
-const tab = (page, name) => page.getByRole('tab', { name, exact: true }).click();
+// Desktop folds Meal plan and Groceries into one "Plan & groceries" tab.
+const tab = async (page, name) => { const wide = name !== 'Food log' && await page.getByRole('tab', { name: 'Plan & groceries', exact: true }).count(); return page.getByRole('tab', { name: wide ? 'Plan & groceries' : name, exact: true }).click(); };
 const plan = page => page.getByRole('region', { name: 'Meal plan workspace', exact: true });
 const save = page => page.getByRole('button', { name: 'Save plan & groceries', exact: true });
 const saved = page => page.getByText('Plan and groceries saved to your account.', { exact: false }).waitFor();
@@ -178,4 +179,21 @@ try {
   await i.evaluate(() => window.planFixture.switchOwner('B')); release(); await tab(i, 'Groceries'); await i.getByLabel('Grocery notes').waitFor(); assert.equal(await i.getByLabel('Grocery notes').inputValue(), ''); assert.equal(await i.getByText('Plan and groceries saved to your account.', { exact: false }).count(), 0);
   assert.equal(plans.B, null); await safe(i); assert.deepEqual(isolated.errors, []); await isolated.context.close();
   console.log('PASS: owner-scoped draft restoration and late save responses stay isolated; no legacy auth/provider/health writes');
+
+  reset(null); const wide = await open(1280), w = wide.page;
+  assert.equal(await w.getByRole('tab', { name: 'Groceries', exact: true }).count(), 0, 'desktop folds groceries into one tab');
+  await tab(w, 'Plan & groceries'); const both = w.getByRole('region', { name: 'Meal plan and grocery workspace', exact: true }); await both.waitFor();
+  assert.equal(await w.getByRole('region', { name: 'Meal plan workspace', exact: true }).count() + await w.getByRole('region', { name: 'Grocery workspace', exact: true }).count(), 0, 'one workspace, not two drafts');
+  await meal(w, 'Synthetic breakfast', 'Oats\nBerries');
+  const planBox = await w.getByLabel('Meal 1 name', { exact: true }).boundingBox(), groceryBox = await w.getByLabel('Grocery notes').boundingBox();
+  assert.ok(groceryBox.x > planBox.x + planBox.width - 1, 'groceries sit to the right of the plan on desktop');
+  await w.getByRole('button', { name: /Shop this plan/ }).click(); assert.equal(await w.evaluate(() => document.activeElement?.textContent), 'Shop your meal plan', 'Shop this plan moves focus to the grocery column');
+  await w.getByRole('button', { name: 'Choose meal plan items', exact: true }).click(); await w.getByRole('button', { name: 'Add 2 items to grocery draft', exact: true }).click();
+  assert.equal(await save(w).count(), 1, 'one save for both halves'); await save(w).click(); await saved(w);
+  const writes = calls.filter(call => call.body.action === 'coach_plan_set'); assert.equal(writes.length, 1);
+  assert.equal(writes[0].body.value.meals[0].name, 'Synthetic breakfast'); assert.match(writes[0].body.value.groceries, /Oats[\s\S]*Berries/);
+  await w.getByLabel('Grocery notes').fill('Synthetic draft kept across resize'); await w.setViewportSize({ width: 390, height: 844 });
+  await w.getByRole('tab', { name: 'Groceries', exact: true }).waitFor(); await tab(w, 'Groceries'); assert.equal(await w.getByLabel('Grocery notes').inputValue(), 'Synthetic draft kept across resize', 'shrinking to a phone keeps the same draft');
+  await safe(w); assert.deepEqual(wide.errors, []); await wide.context.close();
+  console.log('PASS: desktop shows plan and groceries side by side from one draft with one save; resizing keeps the draft');
 } finally { await browser.close(); await server.close(); rmSync(cacheDir, { recursive: true, force: true }); }

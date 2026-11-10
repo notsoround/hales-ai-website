@@ -1,15 +1,16 @@
 import { NativeHealthSyncDetail } from './NativeHealthSyncDetail';
-import { cupcakeHref } from './accountMode';
+import { ACCOUNT_SESSIONS, cupcakeHref } from './accountMode';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, ChevronRight, Headphones, Loader2, RefreshCw } from 'lucide-react';
 import './dashboard.css';
 import './meal-detail.css';
 import './signal-sheet.css';
+import './account-timeline.css';
 import { WeightHistoryConnected as WeightHistory } from './WeightHistoryConnected';
 import { loadWeightPage, weightProvenanceLabel, type WeightRecord } from './weightApi';
 import { weightTime } from './weightHistoryModel';
 import { PersonalOutcomes } from './PersonalOutcomes';
-import { dashboardSelectionEntries, interventionGroups, interventionOutcome, mergeEntries, metricScales, outcomeRate, rangeLabel, transactionAmount, validDashboardDates, type DashboardSelection } from './dashboardModel';
+import { dashboardSelectionEntries, entriesOfSignalType, interventionGroups, signalTypeLabel, signalTypeOptions, interventionOutcome, mergeEntries, metricScales, outcomeRate, rangeLabel, transactionAmount, validDashboardDates, type DashboardSelection } from './dashboardModel';
 import { callPlace, callSubtitle, displaySummary, listTitle, ownerQuote, signalHeading } from './pulseModel';
 import { OutcomeChip } from './TodayPulse';
 import { calorieTotal } from './dataState';
@@ -105,6 +106,7 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
   const [refreshKey, setRefreshKey] = useState(0);
   const [weightOpen, setWeightOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [signalType, setSignalType] = useState<string | null>(null);
   const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const requestVersion=useRef(0); const statsKeyRef=useRef<string|null>(null); const errorKeyRef=useRef<string|null>(null);
   const range = useMemo<DashboardRange>(() => ({ preset, start: preset === 'custom' ? customStart : startFor(preset, today), end: preset === 'custom' ? customEnd : today, timezone: chicago }), [preset, today, customEnd, customStart]);
   const refresh = useCallback(async () => {
@@ -154,6 +156,13 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
   // Missing totals are unavailable (—), and food entries without an estimate mark the calorie total partial.
   const calorie = ready ? calorieTotal(ready.totals.calories, ready.entries) : null;
   if (calorie && ready?.totals.caloriesPartial) calorie.partial = true;
+  // Account app: filter the loaded history by type. The original /cupcake app keeps its unfiltered list.
+  const typeOptions = ACCOUNT_SESSIONS && ready ? signalTypeOptions(ready.entries) : [];
+  if (ACCOUNT_SESSIONS && signalType && !typeOptions.some(option => option.type === signalType)) typeOptions.push({ type: signalType, label: signalTypeLabel(signalType), count: 0 });
+  const typeFilter = typeOptions.length > 1 || (ACCOUNT_SESSIONS && !!signalType);
+  const activeType = typeFilter ? signalType : null;
+  const listed = ready ? entriesOfSignalType(ready.entries, activeType) : [];
+  const chooseType = (type: string | null) => { setSignalType(type); setVisibleCount(20); };
   const latest = latestWeight ? { lb: latestWeight.weightLb, at: Date.parse(latestWeight.measuredAt) } : null;
   const weightAge = latest ? relativeWeightAge(latest.at) : '';
   const weightButton = <button className="cc-dashboard-card" onClick={() => setWeightOpen(true)}><strong>{latest ? `${latest.lb.toFixed(1)} lb` : '—'}</strong><span>{latest ? `${weightProvenanceLabel(latestWeight?.basis, latestWeight?.source)} ${weightTime(latest.at)}${weightAge ? ` · ${weightAge}` : ''} · View graph` : weightError ? 'Weight unavailable · Open to retry' : 'Weight history · Awaiting a timestamped weigh-in'}</span></button>;
@@ -195,7 +204,7 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
           <div className="cc-bars" style={{ '--cc-days': ready.series.length } as React.CSSProperties} aria-label="Calories and spend by day">{ready.series.map((day, index) => <button key={day.date} className="cc-bar-day" aria-label={`${day.date}: ${day.calories===null?'Calories unavailable':`${day.calories} calories`}, ${day.spend===null?'spend unavailable':`${moneyPrefix}${day.spend.toFixed(2)} spend`}. Open all entries.`} onClick={() => setSelectedList({ title: day.date, kind: 'day', date: day.date })}><span className="cc-bar-stack"><i style={{ height: `${scales.caloriePercent(day.calories)}%` }} /><b style={{ height: `${scales.spendPercent(day.spend)}%` }} /></span><small className={ready.series.length > 14 && index % 5 !== 0 && index !== ready.series.length - 1 ? 'cc-visually-hidden' : ''}>{day.date.slice(5)}</small></button>)}</div>
           <div className="cc-chart-legend"><span><i />Calories (kcal scale)</span><span><b />Spend ({ready.totals.currency || 'USD'} scale)</span></div>
         </div>}
-        <div className="cc-dashboard-section"><div className="cc-heading-row"><h3>Signals in this range</h3><span className="cc-muted cc-small">{ready.entries.length} loaded</span></div>{ready.entries.slice(0, visibleCount).map(entry => <button className="cc-dashboard-entry" key={entry.id} onClick={() => setSelected(entry)}><span className="cc-dashboard-entry-icon">{entry.icon || '•'}</span><span><strong>{listTitle(entry)}</strong><small>{entryWhen(entry)} · {entry.type === 'intervention' ? callSubtitle(entry) : entry.body || entry.type}</small></span><ChevronRight size={17} /></button>)}{visibleCount < ready.entries.length && <button className="cc-secondary cc-dashboard-more" onClick={() => setVisibleCount(count => count + 20)}>Show more ({ready.entries.length - visibleCount} remaining)</button>}{!ready.entries.length && <p className="cc-muted">No entries in this range.</p>}</div>
+        <div className="cc-dashboard-section"><div className="cc-heading-row"><h3>Signals in this range</h3><span className="cc-muted cc-small" aria-live="polite">{activeType ? `${listed.length} of ${ready.entries.length} loaded` : `${ready.entries.length} loaded`}</span></div>{typeFilter && <div className="cc-signal-filter" role="group" aria-label="Show signal type"><button type="button" aria-pressed={!activeType} onClick={() => chooseType(null)}>All<span aria-hidden="true">{ready.entries.length}</span><span className="cc-visually-hidden">, {ready.entries.length} loaded</span></button>{typeOptions.map(option => <button type="button" key={option.type} aria-pressed={activeType === option.type} onClick={() => chooseType(activeType === option.type ? null : option.type)}>{option.label}<span aria-hidden="true">{option.count}</span><span className="cc-visually-hidden">, {option.count} loaded</span></button>)}</div>}{listed.slice(0, visibleCount).map(entry => <button className="cc-dashboard-entry" key={entry.id} onClick={() => setSelected(entry)}><span className="cc-dashboard-entry-icon">{entry.icon || '•'}</span><span><strong>{listTitle(entry)}</strong><small>{entryWhen(entry)} · {entry.type === 'intervention' ? callSubtitle(entry) : entry.body || entry.type}</small></span><ChevronRight size={17} /></button>)}{visibleCount < listed.length && <button className="cc-secondary cc-dashboard-more" onClick={() => setVisibleCount(count => count + 20)}>Show more ({listed.length - visibleCount} remaining)</button>}{!ready.entries.length ? <p className="cc-muted">No entries in this range.</p> : !listed.length && activeType && <p className="cc-muted">No {signalTypeLabel(activeType).toLowerCase()} loaded in this range.{ready.nextCursor ? ' Load older records to look further back.' : ''} <button type="button" className="cc-text-button" onClick={() => chooseType(null)}>Show all signals</button></p>}</div>
         {ready.nextCursor&&<button className="cc-secondary" disabled={pageBusy} onClick={()=>void loadMore()}>{pageBusy?'Loading…':'Load older records'}</button>}
       </>}
       {partial && <p className="cc-muted cc-small cc-dashboard-coverage">{partial}</p>}

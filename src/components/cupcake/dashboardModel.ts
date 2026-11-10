@@ -136,3 +136,24 @@ export function talkSeedFromIntervention(entry: TalkSeedEntry) {
     lines: [{ role: 'Cupcake' as const, text }],
   };
 }
+
+/** Timeline type filter: plain names for each signal type, in the order people look for them. */
+const SIGNAL_TYPES: ReadonlyArray<readonly [string, string]> = [['food', 'Meals'], ['transaction', 'Purchases'], ['intervention', 'Calls'], ['exercise', 'Workouts'], ['activity', 'Weight'], ['glucose', 'Glucose'], ['sleep', 'Sleep'], ['transcript', 'Voice notes'], ['native_health', 'Health sync']];
+export function signalTypeLabel(type: string): string {
+  const known = SIGNAL_TYPES.find(([key]) => key === type);
+  if (known) return known[1];
+  const words = type.replace(/[_-]+/g, ' ').trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : 'Other';
+}
+export type SignalTypeOption = { type: string; label: string; count: number };
+/** One option per type present in the loaded entries, known types first, each with its loaded count. */
+export function signalTypeOptions<T extends { type: string }>(entries: T[]): SignalTypeOption[] {
+  const counts = new Map<string, number>();
+  for (const entry of entries) counts.set(entry.type, (counts.get(entry.type) || 0) + 1);
+  const rank = (type: string) => { const at = SIGNAL_TYPES.findIndex(([key]) => key === type); return at < 0 ? SIGNAL_TYPES.length : at; };
+  return [...counts].map(([type, count]) => ({ type, label: signalTypeLabel(type), count }))
+    .sort((a, b) => rank(a.type) - rank(b.type) || a.label.localeCompare(b.label));
+}
+export function entriesOfSignalType<T extends { type: string }>(entries: T[], type: string | null): T[] {
+  return type ? entries.filter(entry => entry.type === type) : entries;
+}
