@@ -28,7 +28,7 @@ function LastMeal({ meals, now, onOpenMeal }: { meals: FoodHistoryMeal[]; now: D
   const last = lastLoggedMeal(meals, now);
   return last ? <button type="button" className="cc-nutrition-last" onClick={() => onOpenMeal(last.id)}>
     <Clock3 size={18}/><span><small>Last logged meal with a saved time · {elapsedLabel(now.getTime() - Date.parse(last.consumedAt!))} ago</small><strong>{last.description}</strong><small>{mealTimeLabel(last.consumedAt)}</small></span><ChevronRight size={18}/>
-  </button> : <p className="cc-nutrition-note">No meal with a saved eaten time is available. This does not mean you have not eaten.</p>;
+  </button> : <p className="cc-nutrition-note cc-nutrition-no-timed">No meal with a saved eaten time is available. This does not mean you have not eaten.</p>;
 }
 
 export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onOpenCalendar, now: fixedNow }: CommonProps & { onOpenCalendar: () => void }) {

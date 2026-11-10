@@ -41,3 +41,6 @@
 .cc-portion-chips button:disabled { opacity: .45; }
 .cc-portion-chips button:focus-visible { outline: 3px solid var(--cc-pink-bright, #80eee1); outline-offset: 2px; }
 .cc-portion p { margin: 0; }
+/* Meal details: Previous / Next stay one line each and the same height on phones. */
+.cc-app[data-entry=account] .cc-meal-navigation button { white-space: nowrap; justify-content: center; gap: 6px; font-size: 14px; }
+@media (max-width: 360px) { .cc-app[data-entry=account] .cc-meal-navigation button { font-size: 13px; padding-inline: 6px; } }
