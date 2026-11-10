@@ -5,6 +5,8 @@ import { personalStorage } from './personalStorage';
 import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, rebasePlanDraft, samePlan, PLAN_DRAFT_KEY, type MealPlan, type PlanDraft, type PlanIntent } from './foodPlanModel';
 import './account-food-plan.css';
 import { parsePlanText } from './planImport';
+import { useLab } from './labsFlags';
+import { AccountPlanBuilder } from './AccountPlanBuilder';
 import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, missingGroceryItems } from './groceryChecklist';
 
 /** `both` (desktop) shows the meal plan and groceries side by side from one draft and one save. */
@@ -18,6 +20,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [loaded, setLoaded] = useState(false), [busy, setBusy] = useState(false);
   const [importText, setImportText] = useState(''), [importNote, setImportNote] = useState('');
   const [newItem, setNewItem] = useState('');
+  const planBuilder = useLab('plan-builder');
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [shoppingError, setShoppingError] = useState('');
@@ -128,6 +131,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             <label>Plan text<textarea rows={5} maxLength={20000} value={importText} placeholder={'Monday:\n- Oats with berries\n- Greek yogurt\nLunch 550 kcal:\n- Chicken quinoa bowl'} onChange={event => { setImportText(event.target.value); setImportNote(''); }}/></label>
             <label className="cc-plan-import-file">Or choose a text file<input type="file" accept=".txt,.md,.markdown,.csv,text/plain,text/markdown" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (!file) return; if (file.size > 200000) { setImportNote('That file is too large. Paste the part you want instead.'); return; } void file.text().then(text => { setImportText(text.slice(0, 20000)); setImportNote(''); }).catch(() => setImportNote('That file could not be read. Paste its text instead.')); }}/></label>
             {(() => { const found = parsePlanText(importText, Math.max(0, 10 - draft.meals.length)); return <><button type="button" className="cc-secondary" disabled={!found.length} onClick={() => { edit({ ...draft, meals: [...draft.meals, ...found.map(meal => ({ original: null, name: meal.name, items: meal.items.join('\n'), kcal: meal.kcal }))] }); setImportText(''); setImportNote(`Added ${found.length} planned ${found.length === 1 ? 'meal' : 'meals'} to your draft. Review them below, then save.`); }}>{found.length ? `Add ${found.length} planned ${found.length === 1 ? 'meal' : 'meals'} to draft` : draft.meals.length >= 10 ? 'Plan is full (10 meals)' : 'Add to draft'}</button>{importNote && <p role="status" className="cc-muted cc-small">{importNote}</p>}</>; })()}
+            {planBuilder && <AccountPlanBuilder room={Math.max(0, 10 - draft.meals.length)} disabled={busy || !!pending} onAdd={found => edit({ ...draft, meals: [...draft.meals, ...found.map(meal => ({ original: null, name: meal.name, items: meal.items.join('\n'), kcal: meal.kcal }))] })}/>}
           </div></details>
           <label>Plan title (optional)<input ref={planTitle} maxLength={200} value={draft.title} onChange={event => edit({ ...draft, title: event.target.value })}/></label>
           {draft.meals.map((meal, index) => <article className="cc-card cc-plan-meal" key={index}>

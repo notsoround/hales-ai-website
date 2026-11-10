@@ -1,0 +1,19 @@
+/* Labs switch (Settings) and the talk-to-build-a-plan panel. Account app only. */
+.cc-app[data-entry=account] .cc-labs{display:grid;gap:14px}
+.cc-app[data-entry=account] .cc-labs p{margin:0;line-height:1.5}
+.cc-app[data-entry=account] .cc-labs-item{display:grid;gap:6px}
+.cc-app[data-entry=account] .cc-labs-toggle{display:flex;align-items:center;gap:12px;min-height:44px;cursor:pointer;font-weight:600}
+.cc-app[data-entry=account] .cc-labs-toggle input{flex:none;width:22px;height:22px;margin:0;accent-color:var(--cc-pink,#ae78ff)}
+.cc-app[data-entry=account] .cc-labs-toggle input:focus-visible{outline:2px solid var(--cc-pink,#ae78ff);outline-offset:3px}
+.cc-app[data-entry=account] .cc-labs-badge{display:inline-block;margin-left:6px;padding:1px 8px;border:1px solid currentColor;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle;opacity:.8}
+.cc-app[data-entry=account] .cc-plan-builder{display:grid;gap:12px;min-width:0;margin-top:8px;padding-top:16px;border-top:1px solid color-mix(in srgb,currentColor 18%,transparent)}
+.cc-app[data-entry=account] .cc-plan-builder h4{margin:0;font-size:16px}
+.cc-app[data-entry=account] .cc-plan-builder-turn{display:grid;gap:8px;min-width:0}
+.cc-app[data-entry=account] .cc-plan-builder-you,.cc-app[data-entry=account] .cc-plan-builder-reply{margin:0;padding:10px 12px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+.cc-app[data-entry=account] .cc-plan-builder-you{justify-self:end;max-width:88%;background:color-mix(in srgb,var(--cc-pink,#ae78ff) 22%,transparent)}
+.cc-app[data-entry=account] .cc-plan-builder-reply{background:color-mix(in srgb,currentColor 7%,transparent)}
+.cc-app[data-entry=account] .cc-plan-builder-found{display:grid;gap:6px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--cc-pink,#ae78ff) 45%,transparent);border-radius:12px;min-width:0}
+.cc-app[data-entry=account] .cc-plan-builder-found ul{margin:0;padding-left:18px;display:grid;gap:4px;overflow-wrap:anywhere}
+.cc-app[data-entry=account] .cc-plan-builder-ask{display:grid;gap:10px}
+.cc-app[data-entry=account] .cc-plan-builder>.cc-secondary{justify-self:start;min-height:46px}
+@media(max-width:480px){.cc-app[data-entry=account] .cc-plan-builder>.cc-secondary{justify-self:stretch}}
