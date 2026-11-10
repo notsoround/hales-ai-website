@@ -52,15 +52,18 @@ export function AssistantShell({ open, library, mode, onMode, onOpen, onMinimize
     return { top, height, width, minY, maxY, left };
   }, []);
   useLayoutEffect(() => {
-    let frame = 0;
-    const measure = () => {
+    let frame = 0, placed = false;
+    // Placement is chosen when the layout changes (open/close, resize, a move), not on every
+    // scroll or content update, so the companion stays put instead of jumping as cards pass under it.
+    const measure = (replace = true) => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const b = bounds();
         setViewport({ top: b.top, height: b.height });
         const blockers = [...document.querySelectorAll<HTMLElement>('dialog[open],.cc-photo-viewer,.cc-detail,.cc-settings[open]')].some(el => el.getClientRects().length > 0);
         setObscured(blockers);
-        if (drag.current) return;
+        if (drag.current || !replace && placed) return;
+        placed = true;
         const x = latestPosition.current.side === 'left' ? b.left : b.width - 78;
         const preferred = b.minY + latestPosition.current.ratio * (b.maxY - b.minY);
         const controls = [...document.querySelectorAll<HTMLElement>('button,a,input,textarea,select,[role="button"]')].filter(el => !el.closest('.cc-assistant-launcher,.cc-assistant-workspace.is-panel') && el.getClientRects().length && !el.closest('[hidden]')).map(el => el.getBoundingClientRect());
@@ -70,12 +73,14 @@ export function AssistantShell({ open, library, mode, onMode, onOpen, onMinimize
       });
     };
     measure();
-    const observer = new MutationObserver(measure);
+    const settle = () => measure(false);
+    const observer = new MutationObserver(settle);
     // Attribute changes on this shell are excluded to avoid observing our own layout writes.
     observer.observe(document.querySelector('.cc-app') || document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'hidden'] });
-    window.addEventListener('resize', measure); window.addEventListener('scroll', measure, true);
-    window.visualViewport?.addEventListener('resize', measure); window.visualViewport?.addEventListener('scroll', measure);
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); window.visualViewport?.removeEventListener('resize', measure); window.visualViewport?.removeEventListener('scroll', measure); };
+    const resize = () => measure();
+    window.addEventListener('resize', resize); window.addEventListener('scroll', settle, true);
+    window.visualViewport?.addEventListener('resize', resize); window.visualViewport?.addEventListener('scroll', settle);
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', resize); window.removeEventListener('scroll', settle, true); window.visualViewport?.removeEventListener('resize', resize); window.visualViewport?.removeEventListener('scroll', settle); };
   }, [bounds, position, open, library, hidden]);
   useEffect(() => {
     if (!open) return;

@@ -83,3 +83,24 @@
   .cc-app[data-entry=account] .cc-quick-account { margin-top: 12px; }
   .cc-app[data-entry=account] .cc-quick-account > :is(.cc-primary, .cc-secondary) { min-height: 68px; }
 }
+
+/* Wins & losses leads Today when outcomes exist and folds with the other empty sources when not. */
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse { order: 0; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse > .cc-saves { margin: 0; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] { padding: 0; border: 0; background: none; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] > .cc-saves { height: 100%; padding: 12px 14px; border-radius: 16px; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-saves-head h3 { font-size: 13px; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-sw-switch { transform: scale(.9); transform-origin: left center; }
+
+/* Phones: the "Not logged yet" group is one tap away instead of a long tail. Desktop shows it as tiles. */
+.cc-app[data-entry=account] .cc-notyet-toggle { display: none; }
+@media (max-width: 899px) {
+  .cc-app[data-entry=account] .cc-today-grid:has([data-empty]) > .cc-notyet-head { display: none; }
+  .cc-app[data-entry=account] .cc-today-grid:has([data-empty]) > .cc-notyet-toggle { display: flex; order: 40; grid-column: 1 / -1; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 16px; border-radius: 16px; border: 1px dashed var(--cc-border); background: none; color: var(--cc-text-2); font: 600 14px/1.2 var(--ds-font, inherit); }
+  .cc-app[data-entry=account] .cc-notyet-toggle small { color: var(--cc-pink-bright); font-size: 13px; }
+  .cc-app[data-entry=account] .cc-today-grid:not(.is-fold-open) [data-empty] { display: none !important; }
+}
+/* An open exercise log is never hidden inside the folded group. */
+@media (max-width: 899px) {
+  .cc-app[data-entry=account] .cc-today-grid:not(.is-fold-open) > .cc-energy > .cc-energy-curve[data-empty]:has(#cc-exercise-text) { display: grid !important; order: 6 !important; }
+}
