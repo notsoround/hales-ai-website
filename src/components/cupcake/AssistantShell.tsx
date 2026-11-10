@@ -91,7 +91,24 @@ export function AssistantShell({ open, library, mode, onMode, onOpen, onMinimize
       else document.querySelector<HTMLButtonElement>('.cc-nav button:last-child')?.focus({ preventScroll: true });
     };
   }, [open]);
-  const finishDrag = (cancelled = false) => {
+  // On phones the open assistant covers the whole page: keep TalkBack/VoiceOver and the keyboard
+  // inside it (the tab bar stays reachable) instead of wandering through the hidden screen behind.
+  useEffect(() => {
+    const el = shell.current, main = el?.closest('main');
+    if (!ACCOUNT_SESSIONS || !open || library || !el || !main) return;
+    const phone = window.matchMedia('(max-width: 600px)'), marked: HTMLElement[] = [];
+    const release = () => { marked.splice(0).forEach(node => { node.inert = false; }); };
+    const apply = () => {
+      release();
+      if (!phone.matches) return;
+      const behind = [...Array.from(main.children), document.querySelector('.cc-top')]
+        .filter((node): node is HTMLElement => node instanceof HTMLElement && !node.contains(el) && !node.inert);
+      behind.forEach(node => { node.inert = true; marked.push(node); });
+    };
+    apply(); phone.addEventListener('change', apply);
+    return () => { phone.removeEventListener('change', apply); release(); };
+  }, [open, library]);
+  const finishDrag =(cancelled = false) => {
     const d = drag.current; if (!d) return;
     drag.current = null; setDragging(false);
     if (d.moved) {

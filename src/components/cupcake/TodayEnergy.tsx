@@ -35,7 +35,7 @@ export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: 
   const bought = useMemo<BoughtEvent[]>(() => preparedPurchases(items, dayStart, now.getTime(), ACCOUNT_SESSIONS).map(p => ({ id: p.id, at: p.at, label: p.merchant, amount: p.amount, currency: p.currency })), [items, dayStart, now]);
   const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), bought, steps: steps.day?.count ?? null, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, bought, steps.day, now]);
   const comparisonReady = !!nutrition.history?.complete && !nutrition.history.pendingCount && !nutrition.history.undatedLoggedCount;
-  return <section className="cc-energy" aria-label="Energy today">
+  return <section className="cc-energy" aria-label={ACCOUNT_SESSIONS ? undefined : 'Energy today'}>
     <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd} now={now.getTime()}/>
     <AccountCGMCard/>
     <LastNightCard day={day}/>
@@ -60,7 +60,7 @@ function LastNightCard({ day }: { day: string }) {
   }, [day]);
   const n = state.night;
   return <div className="cc-card cc-last-night" aria-live="polite" data-empty={state.status === 'unavailable' || state.status === 'ready' && !n ? '' : undefined}>
-    <span className="cc-eyebrow"><ToneIcon tone="sleep"/>Last night</span>
+    <span className="cc-eyebrow" role="heading" aria-level={3}><ToneIcon tone="sleep"/>Last night</span>
     {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
       : state.status === 'unavailable' ? <p className="cc-muted">RingConn nights are not available from the library yet.</p>
         : state.status === 'error' ? <p className="cc-muted">RingConn night could not load.</p>
@@ -83,7 +83,7 @@ function SugarCard({ day, dayStart, dayEnd, now }: { day: string; dayStart: numb
   const latest = state.rows.length ? state.rows[state.rows.length - 1] : null;
   const windowOpen = now < target + SIX_PM_WINDOW_MS;
   return <div className="cc-card cc-sugar" aria-live="polite" data-empty={state.status === 'ready' && !r ? '' : undefined}>
-    <span className="cc-eyebrow"><ToneIcon tone="glucose"/>6 PM blood sugar</span>
+    <span className="cc-eyebrow" role="heading" aria-level={3}><ToneIcon tone="glucose"/>6 PM blood sugar</span>
     {state.status === 'loading' ? <p className="cc-muted">Loading…</p>
       : state.status === 'error' ? <p className="cc-muted">Manual glucose readings could not load.</p>
         : r ? <><b>{r.valueMgDl} <small>mg/dL</small></b><p className="cc-muted">Manual reading at {clock(r.at)}{offMinutes ? ` · ${offMinutes} min from 6 PM` : ' · right at 6 PM'}</p></>

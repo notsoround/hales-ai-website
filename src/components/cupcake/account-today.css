@@ -104,3 +104,24 @@
 @media (max-width: 899px) {
   .cc-app[data-entry=account] .cc-today-grid:not(.is-fold-open) > .cc-energy > .cc-energy-curve[data-empty]:has(#cc-exercise-text) { display: grid !important; order: 6 !important; }
 }
+
+/* ---------- One title scale on Today (re-score gap: three title sizes, off-centre tile rows) ---------- */
+/* Full-width cards: one title size and one header-link size. */
+.cc-app[data-entry=account] .cc-today-grid .cc-nutrition-today .cc-nutrition-eyebrow,
+.cc-app[data-entry=account] .cc-today-grid :is(.cc-signals, .cc-cgm):not([data-empty]) .cc-card-title { font-size: 15px; font-weight: 650; letter-spacing: 0; text-transform: none; line-height: 1.3; }
+.cc-app[data-entry=account] .cc-today-grid .cc-nutrition-today .cc-nutrition-heading .cc-nutrition-link,
+.cc-app[data-entry=account] .cc-today-grid :is(.cc-signals, .cc-cgm):not([data-empty]) :is(.cc-heading-row, .cc-cgm-heading) > :is(button, a) { font-size: 14px !important; font-weight: 600; min-height: 44px; }
+.cc-app[data-entry=account] .cc-today-grid .cc-cgm:not([data-empty]) p { font-size: 14px; line-height: 1.5; }
+/* "Not logged yet" tiles: every header sits on the same line and starts at the same spot. */
+.cc-app[data-entry=account] .cc-today-grid .cc-weight-card[data-empty] { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+.cc-app[data-entry=account] .cc-today-grid [data-empty] :is(.cc-eyebrow, .cc-card-title, .cc-weight-eyebrow) { display: flex; align-items: center; gap: 8px; min-height: 26px; font-weight: 650; letter-spacing: 0; text-transform: none; line-height: 1.25; }
+.cc-app[data-entry=account] .cc-today-grid [data-empty] .cc-heading-row { min-height: 26px; margin: 0; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-saves-head { align-items: center; min-height: 26px; gap: 6px; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-saves-head h3 { flex: 1 1 auto; min-width: 0; margin: 0; }
+/* The tile already says "Personal wins & losses": keep the link's spoken name, show only its arrow. */
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-saves-head .cc-text-button { flex: none; width: 44px; min-height: 44px; margin: -9px -10px -9px 0; justify-content: center; font-size: 0 !important; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-saves-head .cc-text-button svg { width: 18px; height: 18px; }
+.cc-app[data-entry=account] .cc-today-grid .cc-health-sync[data-empty] .cc-action-row { justify-content: flex-start; align-items: center; margin-top: 10px; }
+/* One title colour on Today; the icon carries each source's tone. */
+.cc-app[data-entry=account] .cc-today-grid :is(.cc-nutrition-today .cc-nutrition-eyebrow, .cc-card-title, [data-empty] .cc-eyebrow, [data-empty] .cc-weight-eyebrow) { color: var(--cc-pink-bright); }
+.cc-app[data-entry=account] .cc-today-grid { reading-flow: grid-order; }

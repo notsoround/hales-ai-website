@@ -1,3 +1,5 @@
+/** "Notes: buy ripe fruit" is a note, not something to buy (an explicit "- [ ] Note: …" task stays an item). */
+const NOTE_LINE = /^\s*(?:[-+*][ \t]+)?(?:notes?|reminder|tip)\s*:\s*\S/i;
 export type GroceryItem = { line: number; label: string; checked: boolean; start: number; end: number; marker: number | null; insert: number; bullet: boolean };
 /** Parse a view only. Preserve every original byte until a particular item is toggled. */
 export function groceryItems(text: string): GroceryItem[] {
@@ -9,6 +11,7 @@ export function groceryItems(text: string): GroceryItem[] {
     if (code) { if (!fence) fence = code[1][0]; else if (code[1][0] === fence) fence = ''; }
     else if (!fence && raw.trim() && !/^\s*(?:#|>|\||\d+[.)]\s|[-*_]{3,}\s*$|[^:]+:\s*$)/.test(raw)) {
       const task = raw.match(/^(\s*(?:[-+*][ \t]+)?\[)([ xX])(\][ \t]+)(\S.*)$/);
+      if (!task && NOTE_LINE.test(raw)) { start = end + (lines[at + 1]?.length || 0); continue; }
       const bullet = raw.match(/^(\s*[-+*][ \t]+)(\S.*)$/);
       const indent = raw.match(/^\s*/)?.[0].length || 0;
       items.push({ line, label: (task?.[4] || bullet?.[2] || raw).trim(), checked: !!task && task[2].toLowerCase() === 'x',
@@ -29,6 +32,20 @@ export function groceryHeadings(text: string): { line: number; label: string }[]
     if (heading) headings.push({ line, label: heading[1].replace(/\s*#+\s*$/, '').trim() });
   });
   return headings;
+}
+/** Lines kept in the text but not on the checklist (notes and > quotes), shown read-only beside it. */
+export function groceryNotes(text: string): { line: number; text: string }[] {
+  const lines = text.split(/\r\n|\n|\r/), notes: { line: number; text: string }[] = [];
+  let fence = '';
+  lines.forEach((raw, line) => {
+    const code = raw.match(/^\s*(`{3,}|~{3,})/);
+    if (code) { if (!fence) fence = code[1][0]; else if (code[1][0] === fence) fence = ''; return; }
+    if (fence || /^\s*(?:[-+*][ \t]+)?\[[ xX]\]/.test(raw)) return;
+    const quote = raw.match(/^\s*>\s?(\S.*)$/);
+    if (quote) notes.push({ line, text: quote[1].trim() });
+    else if (NOTE_LINE.test(raw)) notes.push({ line, text: raw.replace(/^\s*[-+*][ \t]+/, '').trim() });
+  });
+  return notes;
 }
 export function checkGroceryItem(text: string, line: number, checked: boolean): string {
   const item = groceryItems(text).find(item => item.line === line);
