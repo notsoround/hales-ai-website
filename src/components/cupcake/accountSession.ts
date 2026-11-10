@@ -166,7 +166,7 @@ export async function accountControl<T>(route: 'password' | 'recovery/issue' | '
 
 // Match the reviewed backend boundary explicitly; never auto-admit new actions.
 const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis_get decision_list '
-  + 'food_list food_get food_history food_photo food_settings_get food_settings_save food_manual_log '
+  + 'food_list food_get food_history food_photo food_settings_get food_settings_save food_manual_log food_portion_set '
   + 'weight_list weight_get weight_add weight_correct glucose_add glucose_manual_list checkin_add checkin_list health_observation_get '
   + 'exercise_log exercise_list exercise_delete outcome_record outcome_list outcome_get body_checkin_upsert body_checkin_delete '
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '

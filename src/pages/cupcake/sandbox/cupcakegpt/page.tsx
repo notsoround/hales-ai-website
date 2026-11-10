@@ -70,6 +70,7 @@ import '../../../../components/cupcake/account-food.css';
 import '../../../../components/cupcake/account-reports.css';
 import '../../../../components/cupcake/account-base.css';
 import { queueAccountMealPhoto } from '../../../../components/cupcake/accountMealPhotoHandoff';
+import { MealCamera } from '../../../../components/cupcake/MealCamera';
 import { lastLoggedMeal } from '../../../../components/cupcake/nutritionModel';
 import { CUPCAKE_VERSION } from '../../../../components/cupcake/appVersion';
 
@@ -417,7 +418,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
   const nutrition=useNutritionData();
   const exercise=useTodayExercise();
   const [logExerciseRequest,setLogExerciseRequest]=useState(0);
-  const mealCamera=useRef<HTMLInputElement>(null);
+  const [mealCameraOpen,setMealCameraOpen]=useState(false);
   const [foldOpen,setFoldOpen]=useState(false);
   const timelineItems=React.useMemo(()=>items?(ACCOUNT_SESSIONS?items:mergeTimelineItems(items,exerciseTimelineItems(exercise.entries))):null,[items,exercise.entries]);
   const loadId=useRef(0);
@@ -445,11 +446,11 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
   const nextUp=ACCOUNT_SESSIONS&&nutrition.history&&mealWindow&&(!lastMeal||Date.now()-Date.parse(lastMeal.consumedAt||'')>3*36e5)?mealWindow:null;
   return <>
     <div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, {accountName||'Matt'}.</h2><p>What are we conquering—or confessing?</p></div>
-      {ACCOUNT_SESSIONS?<div className="cc-quick cc-quick-account" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={20}/><span>Let's talk</span></button><button className="cc-secondary" onClick={()=>mealCamera.current?.click()}><Camera size={20}/><span>Meal photo</span></button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={20}/><span>Record</span></button><button className="cc-secondary" aria-label="Log exercise" onClick={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}><Dumbbell size={20}/><span>Exercise</span></button><button className="cc-text-button cc-quick-tip" onClick={()=>setQuickAction('tip')}><Lightbulb size={16}/><span>Quick tip</span></button><input ref={mealCamera} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label="Take meal photo file" onChange={event=>{const file=event.target.files?.[0];event.currentTarget.value='';if(file){queueAccountMealPhoto(file);setTab('snap');}}}/></div>
+      {ACCOUNT_SESSIONS?<div className="cc-quick cc-quick-account" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={20}/><span>Let's talk</span></button><button className="cc-secondary" onClick={()=>setMealCameraOpen(true)}><Camera size={20}/><span>Meal photo</span></button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={20}/><span>Record</span></button><button className="cc-secondary" aria-label="Log exercise" onClick={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}><Dumbbell size={20}/><span>Exercise</span></button><button className="cc-text-button cc-quick-tip" onClick={()=>setQuickAction('tip')}><Lightbulb size={16}/><span>Quick tip</span></button><MealCamera open={mealCameraOpen} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/></div>
       :<div className="cc-quick" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={18}/>Let's talk</button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={18}/><span>Record</span></button><button className="cc-secondary" onClick={()=>{try{personalStorage('sessionStorage').setItem('cupcake-food-capture','1');}catch{/* Capture remains reachable from Food. */}setTab('snap');}}><Camera size={18}/><span>Food photo</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setLogExerciseRequest(n=>n+1)}><Dumbbell size={18}/><span>Log exercise</span></button><button className="cc-secondary cc-quick-pill" onClick={()=>setQuickAction('tip')}><Lightbulb size={18}/><span>Quick tip</span></button></div>}</div>
     {!ACCOUNT_SESSIONS&&<SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>}
     {needs>0&&<button type="button" className="cc-card cc-needs-ok" onClick={()=>{try{personalStorage('sessionStorage').setItem('cupcake-food-review','1');}catch{/* The food screen still lists meals that need a decision. */}setTab('snap');}}>{needs===1?'1 food photo needs attention':`${needs} food photos need attention`}</button>}
-    {nextUp&&<div className="cc-card cc-next-up" role="note" aria-label="Next up"><div><span className="cc-eyebrow">Next up · {nextUp}</span><p><strong>{nextUp} time.</strong> Snap your plate when it lands and it’s logged for you.</p></div><button type="button" className="cc-primary" onClick={()=>mealCamera.current?.click()}><Camera size={18}/>Meal photo</button></div>}
+    {nextUp&&<div className="cc-card cc-next-up" role="note" aria-label="Next up"><div><span className="cc-eyebrow">Next up · {nextUp}</span><p><strong>{nextUp} time.</strong> Snap your plate when it lands and it’s logged for you.</p></div><button type="button" className="cc-primary" onClick={()=>setMealCameraOpen(true)}><Camera size={18}/>Meal photo</button></div>}
     <div className={`cc-today-grid${foldOpen?' is-fold-open':''}`}>
     {ACCOUNT_SESSIONS&&<h3 className="cc-notyet-head">Not logged yet</h3>}
     {ACCOUNT_SESSIONS&&<button type="button" className="cc-notyet-toggle" aria-expanded={foldOpen} onClick={()=>setFoldOpen(open=>!open)}><span>Not logged yet</span><small>{foldOpen?'Hide':'Show'}</small></button>}

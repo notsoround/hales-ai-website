@@ -4,6 +4,7 @@ import { accountData, accountFoodPhoto, AccountRequestError, assertGeneration, s
 import { photoDraftStore, type PhotoIntent } from './accountFoodPhotoDraft';
 import { prepareFoodImage } from './prepareFoodImage';
 import { MealTimeInput } from './MealTimeInput';
+import { MealCamera } from './MealCamera';
 import { takeQueuedAccountMealPhoto } from './accountMealPhotoHandoff';
 import type { FoodMeal } from './DashboardView';
 import './account-photo-meal.css';
@@ -21,7 +22,8 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
   const [note, setNote] = useState(''), [fileTime, setFileTime] = useState(true), [consumedAt, setConsumedAt] = useState('');
   const [backgroundTick, setBackgroundTick] = useState(0);
   const [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [missing, setMissing] = useState(false);
-  const camera = useRef<HTMLInputElement>(null), picker = useRef<HTMLInputElement>(null), sending = useRef(false), alive = useRef(true);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const picker = useRef<HTMLInputElement>(null), sending = useRef(false), alive = useRef(true);
   const completed = useRef(new Set<string>()), terminal = useRef(new Set<string>());
   const current = useRef<PhotoIntent | null>(null), timer = useRef<ReturnType<typeof setTimeout>>(), onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
@@ -111,11 +113,11 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
     catch (cause) { if (alive.current) setError(errorText(cause)); }
     finally { sending.current = false; if (alive.current) setBusy(false); }
   };
-  const input = (ref: typeof picker, capture = false) => <input ref={ref} aria-label={capture ? 'Take meal photo file' : 'Choose meal photo file'} type="file" accept="image/jpeg,image/png,image/webp" {...(capture ? { capture: 'environment' as const } : {})} hidden onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void chooseFile(file); }}/>;
+  const input = (ref: typeof picker) => <input ref={ref} aria-label="Choose meal photo file" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void chooseFile(file); }}/>;
   return <section className="cc-card cc-account-photo" aria-label="Photo meal logging">
     <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>
     {!intent && !receipt && <>
-      <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => camera.current?.click()}><Camera size={17}/>Take meal photo</button><button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
+      <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => setCameraOpen(true)}><Camera size={17}/>Take meal photo</button><button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
       <details className="cc-account-photo-adjustments"><summary>Portions, meal time &amp; how it works</summary><div>
         <p className="cc-muted cc-small">Full photo = full meal. Uses the photo’s file time by default. Nutrition is estimated; unknown values stay unknown.</p>
         <label className="cc-account-photo-option"><input type="checkbox" checked={fileTime} disabled={busy} onChange={event => setFileTime(event.target.checked)}/>Use photo file time for when I ate</label>
@@ -124,7 +126,7 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
         <label>Portion or meal note (optional)<textarea maxLength={1000} value={note} disabled={busy} rows={2} onChange={event => setNote(event.target.value)} placeholder="For example: half the rice, unsweetened drink…"/></label>
       </div></details>
     </>}
-    {input(camera, true)}{input(picker)}
+    {input(picker)}<MealCamera open={cameraOpen} onClose={() => setCameraOpen(false)} onPhoto={file => void chooseFile(file)}/>
     {loading && <p role="status">Checking this device’s saved photo requests…</p>}
     {busy && <p role="status">Preserving your photo and checking its saved meal…</p>}
     {intent && <div className="cc-account-photo-progress">

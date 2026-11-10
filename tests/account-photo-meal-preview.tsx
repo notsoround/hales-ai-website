@@ -21,10 +21,14 @@ const layout = params.has('layout');
 const description = params.has('long') ? 'SyntheticProductName'.repeat(15) : 'Synthetic photo meal';
 const statusCase = params.get('status');
 const stamp = new Date().toISOString();
+const portionCase = params.get('portion');
 const labelMeal: FoodMeal | null = statusCase ? {
   id: 'meal_synthetic_label', status: 'ready', description: 'Synthetic status meal', createdAt: stamp, imageStored: false, total: { calories: null },
   ...(statusCase === 'legacy' ? { source: 'food_sheet', sheetLoggedAt: stamp, consumedAt: stamp } : { source: 'account-photo-estimate', logDestination: 'account-local', ...(statusCase !== 'unlogged' ? { accountLoggedAt: stamp } : {}), ...(['logged', 'missing-time'].includes(statusCase || '') ? { logState: 'logged', countedInTotals: true, ...(statusCase === 'logged' ? { consumedAt: stamp } : {}) } : { logState: 'awaiting_confirmation', countedInTotals: false }) }),
 } : null;
+// Synthetic portion overlay: the server describes the portion and rescales the one meal from its original.
+const portionOriginal = { calories: 800, protein_g: 40, carbs_g: 90, sugar_g: 12 };
+if (labelMeal && portionCase === 'served') Object.assign(labelMeal, { total: { ...portionOriginal }, items: [{ id: 'item_synthetic', name: 'Synthetic plate', nutrition: { calories: 800 } }], portion: { editable: true, blockedReason: null, fraction: 1, label: 'full', choices: [0.25, 0.5, 0.75, 1], originalTotal: portionOriginal, adjusted: false } });
 let owner = 'A';
 const identities = { A: { account_id: 'acc_photo_a', email: 'a@example.invalid', name: 'Synthetic A' }, B: { account_id: 'acc_photo_b', email: 'b@example.invalid', name: 'Synthetic B' } };
 type Entry = { body: PhotoIntent; status: 'queued' | 'running' | 'completed' | 'failed' | 'uncertain'; meal: FoodMeal };
@@ -70,6 +74,11 @@ window.fetch = async (input, init) => {
     return response(envelope(entry));
   }
   if (body.action === 'food_photo') return response({ photo: { dataUrl: [...saved[scope].values()].find(entry => entry.meal.id === body.mealId)?.body.image } });
+  if (body.action === 'food_portion_set' && labelMeal && body.mealId === labelMeal.id && portionCase === 'served') {
+    const fraction = Number(body.fraction), current = (labelMeal as FoodMeal & { portion: { fraction: number } }).portion.fraction;
+    Object.assign(labelMeal, { total: Object.fromEntries(Object.entries(portionOriginal).map(([key, value]) => [key, Math.round(value * fraction * 100) / 100])), portion: { editable: true, blockedReason: null, fraction, label: String(fraction), choices: [0.25, 0.5, 0.75, 1], originalTotal: portionOriginal, adjusted: fraction !== 1 } });
+    return response({ meal: labelMeal, unchanged: current === fraction });
+  }
   if (body.action === 'food_get') {
     if (fixture.mode === 'holdGet') { fixture.mode = 'normal'; await new Promise<void>(resolve => { fixture.release = resolve; }); }
     return response({ meal: body.mealId === labelMeal?.id ? labelMeal : [...saved[scope].values()].find(entry => entry.meal.id === body.mealId)?.meal });
