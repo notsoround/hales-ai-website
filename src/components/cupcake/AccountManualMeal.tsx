@@ -66,7 +66,7 @@ export function AccountManualMeal({ onSaved }: { onSaved: () => void }) {
     if (!uncertain) { setDescription(''); setConsumedAt(''); setValues({}); }
   };
   return <section className="cc-card cc-manual-entry" aria-label="Manual meal entry">
-    <div><strong>Add a meal</strong><p className="cc-muted cc-small">Log what you ate. Enter nutrition only when you know it.</p></div>
+    <div><strong role="heading" aria-level={3}>Add a meal</strong><p className="cc-muted cc-small">Log what you ate. Enter nutrition only when you know it.</p></div>
     <button ref={trigger} type="button" className="cc-primary" onClick={() => setOpen(true)}>{intent ? 'Resume meal save' : 'Add meal'}</button>
     <MealDialog open={open} onClose={() => setOpen(false)} returnFocus={trigger} heading="Log a meal manually" closeLabel="Close manual meal">
       {receipt ? <div className="cc-manual-receipt" role="status"><h3>Meal saved to your food log</h3><strong>{receipt.description}</strong><p>Eaten {new Date(receipt.consumedAt!).toLocaleString()}</p><p>Owner-entered nutrition. Blank values remain unknown.</p><small>Receipt: {receipt.id}</small><button type="button" className="cc-secondary" onClick={() => startNew(false)}>Add another meal</button></div> : <form className="cc-manual-form" onSubmit={event => { event.preventDefault(); void save(); }}>

@@ -39,7 +39,7 @@ export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTING
   const targetReady = !!summary && summary.target !== null && summary.meals.length > 0 && comparisonReady && !summary.partial;
   const left = targetReady ? summary!.target! - summary!.calories : null;
   return <section className="cc-nutrition-today" aria-label="Food today" data-quiet={summary && !summary.meals.length ? '' : undefined}>
-    <div className="cc-nutrition-heading"><span className="cc-nutrition-eyebrow"><Utensils size={16}/> Food today</span><button type="button" className="cc-nutrition-link" onClick={onOpenCalendar}>Open calendar <ArrowUpRight size={16}/></button></div>
+    <div className="cc-nutrition-heading"><span className="cc-nutrition-eyebrow" role="heading" aria-level={3}><Utensils size={16} aria-hidden="true"/> Food today</span><button type="button" className="cc-nutrition-link" onClick={onOpenCalendar}>Open calendar <ArrowUpRight size={16}/></button></div>
     {!history || !summary ? <LoadState loading={loading} error={error} onRetry={onRetry}/> : <>
       {error && <p role="alert" className="cc-nutrition-warning">{error} {onRetry && <button type="button" onClick={onRetry}>Try again</button>}</p>}
       <div className="cc-nutrition-today-values"><div><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}</strong><span>{summary.partial ? 'known kcal · partial estimate' : 'kcal logged today'}</span><small>{summary.meals.length ? `${summary.meals.length} logged meal${summary.meals.length === 1 ? '' : 's'}` : 'No meals logged today'}</small>

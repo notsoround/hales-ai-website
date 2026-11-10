@@ -7,7 +7,7 @@ import './account-food-plan.css';
 import { parsePlanText } from './planImport';
 import { useLab } from './labsFlags';
 import { AccountPlanBuilder } from './AccountPlanBuilder';
-import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, missingGroceryItems } from './groceryChecklist';
+import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, groceryNotes, missingGroceryItems } from './groceryChecklist';
 
 /** `both` (desktop) shows the meal plan and groceries side by side from one draft and one save. */
 export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'plan' | 'groceries' | 'both'; onPlan: () => void; onGroceries?: () => void }) {
@@ -19,7 +19,9 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [latest, setLatest] = useState<MealPlan | null | undefined>();
   const [loaded, setLoaded] = useState(false), [busy, setBusy] = useState(false);
   const [importText, setImportText] = useState(''), [importNote, setImportNote] = useState('');
-  const [newItem, setNewItem] = useState('');
+  const [newItem, setNewItem] = useState(''), [addError, setAddError] = useState('');
+  // The raw list text stays folded once the checklist shows the items, so the list is not on screen twice.
+  const [textOpen, setTextOpen] = useState(false);
   const planBuilder = useLab('plan-builder');
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -162,12 +164,19 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             <div className="cc-heading-row"><h4 ref={checklistHeading} tabIndex={-1} className="cc-shopping-heading">Shopping checklist</h4><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
             <p className="cc-muted cc-small">Check off items as you shop, then Save plan &amp; groceries.</p>
             {groceries.flatMap(item => [...groceryHeadings(draft.groceries).filter(heading => heading.line < item.line && !groceries.some(other => other.line < item.line && other.line > heading.line) ).map(heading => <p className="cc-grocery-section" key={`h${heading.line}`}>{heading.label}</p>), <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>])}
-            {!groceries.length && <p className="cc-muted">Add grocery items below, one per line, to make your checklist.</p>}
-            <form className="cc-grocery-add" onSubmit={event => { event.preventDefault(); const item = newItem.trim(); if (!item) return; edit({ ...draft, groceries: appendGroceryItems(draft.groceries, [item]) }); setNewItem(''); }}><label className="cc-sr-only" htmlFor="cc-grocery-new">Add a grocery item</label><input id="cc-grocery-new" maxLength={300} value={newItem} placeholder="Add an item, e.g. 2 avocados" enterKeyHint="done" onChange={event => setNewItem(event.target.value)}/><button type="submit" className="cc-secondary" disabled={!newItem.trim()}>Add</button></form>
+            {!groceries.length && <p className="cc-muted">Add an item below, or type your list in Grocery notes, one item per line.</p>}
+            {groceryNotes(draft.groceries).length > 0 && <ul className="cc-grocery-notes" aria-label="Shopping notes">{groceryNotes(draft.groceries).map(note => <li key={note.line}>{note.text}</li>)}</ul>}
+            <form className="cc-grocery-add" onSubmit={event => { event.preventDefault(); const item = newItem.trim(); if (!item) return; try { edit({ ...draft, groceries: appendGroceryItems(draft.groceries, [item]) }); setNewItem(''); setAddError(''); } catch (failure) { setAddError(failure instanceof Error ? failure.message : 'That item could not be added.'); } }}><label className="cc-sr-only" htmlFor="cc-grocery-new">Add a grocery item</label><input id="cc-grocery-new" maxLength={300} value={newItem} placeholder="Add an item, e.g. 2 avocados" enterKeyHint="done" onChange={event => { setNewItem(event.target.value); setAddError(''); }}/><button type="submit" className="cc-secondary" disabled={!newItem.trim()}>Add</button></form>
+            {addError && <p role="alert" className="cc-error cc-small">{addError}</p>}
           </div>
-          <label>Grocery notes<textarea rows={groceries.length ? 5 : 10} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
+          {(() => { const showText = textOpen || !groceries.length; return <div className="cc-grocery-text">
+            {groceries.length > 0 && <button type="button" className="cc-text-button cc-grocery-text-toggle" aria-expanded={showText} aria-controls="cc-grocery-text" onClick={() => setTextOpen(!showText)}>Edit list as text<span aria-hidden="true">▾</span></button>}
+            {showText && <div id="cc-grocery-text">
+              <label>Grocery notes<textarea rows={groceries.length ? 6 : 8} maxLength={10000} value={draft.groceries} placeholder="Food, quantity, and shopping notes — one item per line" onFocus={() => setTextOpen(true)} onChange={event => edit({ ...draft, groceries: event.target.value })}/></label>
+              <p className="cc-muted cc-small">One item per line. Lines starting with “Notes:” stay notes. Your quantities and checked items are kept.</p>
+            </div>}
+          </div>; })()}
           {!draft.meals.length && <p className="cc-muted">Grocery notes save with a meal plan. <button type="button" className="cc-text-button" onClick={toPlan}>Create your meal plan first</button></p>}
-          <p className="cc-muted cc-small">Add or edit items in Grocery notes. Your other notes are kept.</p>
         </>;
           return both ? <div className="cc-plan-split"><div className="cc-plan-col" role="group" aria-labelledby="cc-plan-col-plan"><h4 id="cc-plan-col-plan" className="cc-plan-col-title">Meal plan</h4>{planPart}</div><div className="cc-plan-col" role="group" aria-labelledby="cc-plan-col-groceries"><h4 id="cc-plan-col-groceries" className="cc-plan-col-title">Groceries</h4>{groceryPart}</div></div> : section === 'plan' ? planPart : groceryPart; })()}
       </fieldset>
