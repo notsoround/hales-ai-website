@@ -12,3 +12,6 @@
 }
 
 .cc-app[data-entry=account] .cc-today-grid .cc-weight-card[data-empty] { justify-content: flex-start; align-items: stretch; text-align: left; }
+
+/* Release label beside the portrait (both apps): tiny, quiet, still readable. */
+.cc-app .cc-top .cc-version { display: table; margin-top: 3px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--cc-border, #ffffff22); font-size: 10.5px; line-height: 1.5; letter-spacing: .02em; color: var(--cc-text-3, #9fb7c2); font-variant-numeric: tabular-nums; vertical-align: 1px; }
