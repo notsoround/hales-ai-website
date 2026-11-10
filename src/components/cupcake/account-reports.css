@@ -25,3 +25,10 @@
 .cc-app[data-entry=account] .cc-grant-scopes > span { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--cc-border); color: var(--cc-text-2); }
 .cc-app[data-entry=account] .cc-grant-card .cc-small { margin: 0; }
 .cc-app[data-entry=account] .cc-grant-card .cc-secondary { justify-self: start; min-height: 44px; }
+
+/* Two jobs, two tabs: what others shared with me, and what I share. */
+.cc-app[data-entry=account] .cc-coach-views { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 16px 0 14px; padding: 4px; border-radius: 16px; border: 1px solid var(--cc-border); background: var(--cc-surface); }
+.cc-app[data-entry=account] .cc-coach-views button { min-height: 46px; border-radius: 12px; border: 0; background: none; color: var(--cc-text-2); font: inherit; font-size: 14px; font-weight: 600; }
+.cc-app[data-entry=account] .cc-coach-views button[aria-selected=true] { background: color-mix(in srgb, var(--cc-pink) 16%, transparent); color: var(--cc-pink-bright); }
+.cc-app[data-entry=account] .cc-coach-view[hidden] { display: none !important; }
+.cc-app[data-entry=account] .cc-coach-view > .cc-muted:first-child { margin: 0 0 8px; }

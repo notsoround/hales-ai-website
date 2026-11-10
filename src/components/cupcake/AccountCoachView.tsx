@@ -55,16 +55,21 @@ export function AccountCoachView({identity,onPersonal,assistantName='Cupcake'}:{
     return()=>clearTimeout(timer);
   },[selected]);
   const period=useMemo(()=>periodFor(end,days),[end,days]);
+  // Two clear jobs: reading what others shared with you, and managing what you share.
+  const [view,setView]=useState<'received'|'mine'|null>(null);
+  const shown=view??(received.length?'received':'mine');
   return <section className="cc-coach" aria-label="Authorized reports">
-    <div className="cc-coach-context"><div><span className="cc-eyebrow">AUTHORIZED VIEW</span><h2>{selected?`Report — ${label(selected.ownerDisplayName)}`:'Reports shared with you'}</h2><p>Signed in as {identity.name||identity.email}. Your personal {assistantName} stays separate from these authorized views.</p></div><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>
-    <AccountPilotWorkspace identity={identity} onSharingChanged={()=>void reload()}/>
+    <div className="cc-coach-context"><div><span className="cc-eyebrow">AUTHORIZED VIEW</span><h2>{shown==='mine'?'Your sharing & clients':selected?`Report — ${label(selected.ownerDisplayName)}`:'Reports shared with you'}</h2><p>Signed in as {identity.name||identity.email}. Your personal {assistantName} stays separate from these authorized views.</p></div><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>
+    <div className="cc-coach-views" role="tablist" aria-label="Reports sections"><button type="button" role="tab" aria-selected={shown==='received'} onClick={()=>setView('received')}>Shared with me{received.length?` · ${received.length}`:''}</button><button type="button" role="tab" aria-selected={shown==='mine'} onClick={()=>setView('mine')}>My sharing &amp; clients</button></div>
+    <div className="cc-coach-view" role="tabpanel" hidden={shown!=='mine'}><p className="cc-muted">Choose who can see your reports and meal photos, invite clients, and revoke access at any time.</p><AccountPilotWorkspace identity={identity} onSharingChanged={()=>void reload()}/><OwnedGrants identity={identity}/></div>
+    <div className="cc-coach-view" role="tabpanel" hidden={shown!=='received'}>
     <div className="cc-coach-controls"><label className="cc-label">Whose data<select aria-label="Authorized owner" value={selected?.id||''} disabled={loading} onChange={event=>setSelected(received.find(grant=>grant.id===event.target.value&&activeGrant(grant))||null)}><option value="">Choose an authorized owner</option>{received.map(grant=><option key={grant.id} value={grant.id}>{label(grant.ownerDisplayName)} · {grant.scopes.map(scopeLabel).join(' + ')}</option>)}</select></label><button className="cc-text-button" onClick={()=>void reload()} disabled={loading}>Reload authorizations</button></div>
     {loading&&<p role="status">Checking active authorizations…</p>}{error&&<p role="alert">{error}</p>}
     {!loading&&!error&&!received.length&&<p>No active reports have been shared with this account. The owner must authorize your existing account before a report can appear. There is no public account search here.</p>}
     {selected&&<><div className="cc-coach-lens" role="note" aria-label="Whose information is shown"><span className="cc-coach-lens-who"><strong>{label(selected.ownerDisplayName)}</strong> shared this with you</span><span className="cc-coach-lens-scopes">{selected.scopes.map(scope=><span key={scope}>{scopeLabel(scope)}</span>)}</span><p className="cc-muted">Authorized for {selected.scopes.map(scopeLabel).join(' and ')} until {new Date(selected.expires*1000).toLocaleString()}. Each permission is checked separately, and the owner can revoke it at any time.</p></div><div className="cc-coach-period"><div role="group" aria-label="Report period">{([7,30] as const).map(value=><button className="cc-secondary" key={value} aria-pressed={days===value} onClick={()=>setDays(value)}>{value} days</button>)}</div><label className="cc-label">Through<input type="date" aria-label="Report end date" max={today()} value={end} onChange={event=>setEnd(event.target.value)}/></label></div>
       {!period?<p role="alert">Choose a valid past or current Chicago date.</p>:<GrantView key={`${selected.id}:${period.start}:${period.end}`} grant={selected} period={period}/>}
     </>}
-    <OwnedGrants identity={identity}/>
+    </div>
   </section>;
 }
 function GrantView({grant,period}:{grant:Grant;period:Period}) {

@@ -77,6 +77,7 @@ try{
   await page.waitForFunction(previous=>window.accountFixture.requests.filter(r=>r.route==='coach/meal-photo').length>previous,priorBinary);
   await logout(page);await login(page,'a');delayed.release();photoDelay.release();await nav(page,'Reports');
   await page.getByText('No active reports have been shared with this account.',{exact:false}).waitFor();assert.equal(await image.count(),0);assert.equal(await page.getByRole('heading',{name:'Health numbers',exact:true}).count(),0);
+  await page.getByRole('tab',{name:'My sharing & clients',exact:true}).click();
   await page.getByRole('button',{name:'Sharing you authorized',exact:true}).click();const cleanShare=page.locator('.cc-coach>section.cc-card article').filter({hasText:'Health report'}).filter({hasNotText:'Meal photos'}).first();await cleanShare.getByRole('button',{name:'Revoke sharing',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.cc-coach')?.textContent.includes('Revoked'));
   assert.ok(grants.find(g=>g.id===CLEAN).revoked);
   await logout(page);await login(page,'b');await nav(page,'Reports');await page.waitForFunction(()=>document.querySelector('select[aria-label="Authorized owner"]')?.options.length===3);assert.equal(await page.locator(`option[value="${CLEAN}"]`).count(),0);

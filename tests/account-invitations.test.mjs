@@ -59,6 +59,7 @@ async function login(page,who){await page.getByLabel('Email',{exact:true}).fill(
 async function safe(page){const state=await page.evaluate(()=>({requests:window.accountFixture.requests,blocked:window.accountFixture.blocked,reads:window.accountFixture.legacyReads,stored:[...Object.values(localStorage),...Object.values(sessionStorage)]}));assert.equal(state.reads,0);assert.deepEqual(state.blocked,[]);assert.ok(state.stored.every(value=>!value.includes('ci_'+'a'.repeat(43))&&!value.includes('ci_'+'b'.repeat(43))));for(const request of state.requests){assert.equal(request.headers['x-cupcake-key'],undefined);if(request.route.startsWith('sharing/')||request.route==='invitations/accept')assert.match(request.headers['x-cupcake-account-context'],/^acc_synthetic_[ab]$/);assert.equal(request.body.owner_id,undefined);assert.equal(request.body.account_id,undefined);}}
 try{
   const coachBrowser=await context(),coachPage=coachBrowser.page;await coachPage.goto(base+'/cupcake/account');await login(coachPage,'b');await nav(coachPage,'Reports');
+  await coachPage.getByRole('tab',{name:'My sharing & clients',exact:true}).click();
   await coachPage.locator('.cc-pilot-disclosure > summary').click();
   await coachPage.getByRole('button',{name:'My clients & invitations',exact:true}).click();await coachPage.getByLabel('Client email',{exact:true}).fill('a@example.invalid');
   await coachPage.getByLabel('Suggested assistant',{exact:true}).selectOption('cupcake');await coachPage.getByRole('button',{name:'Create private invitation link',exact:true}).click();
