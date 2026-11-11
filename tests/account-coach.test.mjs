@@ -51,7 +51,7 @@ try{
   await choose(page,CLEAN);await page.getByRole('heading',{name:'Report — Shared A',exact:true}).waitFor();await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();
   assert.equal(await page.getByText('FORBIDDEN PRIVATE NOTE',{exact:true}).count(),0);
   const exercise=page.locator('.cc-coach-grid>.cc-card').filter({has:page.getByRole('heading',{name:'Exercise',exact:true})});assert.match(await exercise.innerText(),/unknown/);assert.equal(await exercise.getByRole('cell',{name:'—',exact:true}).count(),1);
-  const glucose=page.locator('.cc-coach-grid>.cc-card').filter({has:page.getByRole('heading',{name:'Manual glucose',exact:true})});assert.match(await glucose.innerText(),/unknown, not zero/);
+  const glucose=page.locator('.cc-coach-empty-row').filter({hasText:'Manual glucose'});await glucose.locator('summary').click();assert.match(await glucose.innerText(),/unknown, not zero/);
   const weight=page.locator('.cc-coach-grid>.cc-card').filter({has:page.getByRole('heading',{name:'Weight',exact:true})});assert.match(await weight.innerText(),/Change lb\n—/);
   assert.equal(requests.filter(r=>r.route==='coach/meal-list').length,0);assert.equal(await page.getByRole('button',{name:'Load photo',exact:true}).count(),0);
   await page.getByLabel('Report end date',{exact:true}).fill('2026-11-01');await page.getByRole('button',{name:'30 days',exact:true}).click();await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();
@@ -76,7 +76,7 @@ try{
   await login(page,'b');await nav(page,'Reports');const delayed=deferred();holdReport=delayed;await choose(page,BOTH);await page.getByRole('button',{name:'Load photo',exact:true}).waitFor();const photoDelay=deferred();holdPhoto=photoDelay;const priorBinary=requests.filter(r=>r.route==='coach/meal-photo').length;await page.getByRole('button',{name:'Load photo',exact:true}).click();
   await page.waitForFunction(previous=>window.accountFixture.requests.filter(r=>r.route==='coach/meal-photo').length>previous,priorBinary);
   await logout(page);await login(page,'a');delayed.release();photoDelay.release();await nav(page,'Reports');
-  await page.getByText('No active reports have been shared with this account.',{exact:false}).waitFor();assert.equal(await image.count(),0);assert.equal(await page.getByRole('heading',{name:'Health numbers',exact:true}).count(),0);
+  await page.getByRole('tab',{name:/^Shared with me/}).click();await page.getByText('No active reports have been shared with this account.',{exact:false}).waitFor();assert.equal(await image.count(),0);assert.equal(await page.getByRole('heading',{name:'Health numbers',exact:true}).count(),0);
   await page.getByRole('tab',{name:'My sharing & clients',exact:true}).click();
   await page.getByRole('button',{name:'Sharing you authorized',exact:true}).click();const cleanShare=page.locator('.cc-coach>section.cc-card article').filter({hasText:'Health report'}).filter({hasNotText:'Meal photos'}).first();await cleanShare.getByRole('button',{name:'Revoke sharing',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.cc-coach')?.textContent.includes('Revoked'));
   assert.ok(grants.find(g=>g.id===CLEAN).revoked);

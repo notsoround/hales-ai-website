@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { accountCoach, accountCoachPhoto, type AccountIdentity } from './accountSession';
 import './account-coach.css';
 import { personalAssistantLabel } from './assistantBrand';
@@ -16,6 +16,10 @@ const record = (value:unknown):Row => value && typeof value === 'object' && !Arr
 const rows = (value:unknown):Row[] => Array.isArray(value) ? value.filter(value=>value && typeof value === 'object' && !Array.isArray(value)) : [];
 const numeric = (value:unknown) => typeof value === 'number' && Number.isFinite(value) ? value : null;
 const number = (value:unknown) => numeric(value)?.toLocaleString('en-US',{maximumFractionDigits:2}) ?? '—';
+const rangeText = (period:Period) => {
+  const label=(value:string,year:boolean)=>new Date(`${value}T12:00:00Z`).toLocaleDateString('en-US',{timeZone:'UTC',month:'short',day:'numeric',...(year?{year:'numeric'}:{})});
+  return `${label(period.start,period.start.slice(0,4)!==period.end.slice(0,4))} – ${label(period.end,true)}`;
+};
 const day = (value:unknown) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '—';
 const savedTime = (value:unknown) => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('en-US',{timeZone:'America/Chicago'})+' CT' : 'Time unavailable';
 const today = () => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -73,7 +77,7 @@ export function AccountCoachView({identity,onPersonal,assistantName='Cupcake'}:{
   </section>;
 }
 function GrantView({grant,period}:{grant:Grant;period:Period}) {
-  return <><p>{period.start} – {period.end} · America/Chicago. Missing data stays unknown.</p>
+  return <><p>{rangeText(period)} · Chicago time. Missing data stays unknown.</p>
     {grant.scopes.includes('clean-report')?<CleanReport grant={grant} period={period}/>:<p>Health report access was not shared. A meal-photo permission does not include health numbers.</p>}
     {grant.scopes.includes('meal-photo')?<MealPhotos grant={grant} period={period}/>:<p>Meal-photo access was not shared. Health report access does not include original images.</p>}
   </>;
@@ -95,15 +99,20 @@ function CleanReport({grant,period}:{grant:Grant;period:Period}) {
   if(error)return <div role="alert"><p>{error} No earlier report is shown.</p><button className="cc-secondary" onClick={()=>setRetry(value=>value+1)}>Retry health report</button></div>;
   if(!data)return null;
   const d=data.data;
-  return <section aria-label="Clean health report"><h3>Health numbers</h3><p>Owned local ledgers only. This view excludes private notes, messages, purchase details and inferred meals. A query covering this period does not prove complete tracking.</p><div className="cc-coach-grid">
-    <MetricSection title="Weight" data={d.weight} coverage={data.coverage.weight} provenance="Scale / Health Connect and explicit owner entries or corrections"><Summary data={d.weight} fields={['firstLb','latestLb','changeLb','samples']} labels={['First lb','Latest lb','Change lb','Readings']}/><NumbersTable data={rows(d.weight?.daily)} fields={['meanLb','minLb','maxLb','samples']} labels={['Mean lb','Min lb','Max lb','Readings']}/></MetricSection>
-    <MetricSection title="Body measurements" data={d.bodyMeasurements} coverage={data.coverage.bodyMeasurements} provenance="Owned body check-ins; flagged measurements stay missing"><NumbersTable data={rows(d.bodyMeasurements?.measurements)} fields={['weight_lb','body_fat_pct','neck_in','waist_in','hips_in']} labels={['Weight lb','Body fat %','Neck in','Waist in','Hips in']} source/></MetricSection>
-    <MetricSection title="Manual glucose" data={d.manualGlucose} coverage={data.coverage.manualGlucose} provenance="Owner-reported manual glucose; not sensor readings"><NumbersTable data={rows(d.manualGlucose?.daily)} fields={['meanMgDl','minMgDl','maxMgDl','samples']} labels={['Mean mg/dL','Min mg/dL','Max mg/dL','Readings']}/></MetricSection>
-    <MetricSection title="Exercise" data={d.exercise} coverage={data.coverage.exercise} provenance="Owner-reported exercise estimates; omitted duration stays unknown"><NumbersTable data={rows(d.exercise?.daily)} fields={['entries','minutes','knownDurationEntries','missingDurationEntries','energyKcal']} labels={['Entries','Known min','With duration','Missing duration','Est. kcal']}/></MetricSection>
-    <MetricSection title="Outcomes" data={d.outcomes} coverage={data.coverage.outcomes} provenance="Explicit owner-reported outcomes only"><Summary data={record(d.outcomes?.counts)} fields={['wins','losses','unscored','total']} labels={['Wins','Setbacks','Unscored','Total']}/><NumbersTable data={rows(d.outcomes?.daily)} fields={['wins','losses','unscored']} labels={['Wins','Setbacks','Unscored']}/></MetricSection>
-    <MetricSection title="Steps" data={d.steps} coverage={data.coverage.steps} provenance="Owned local steps ledger"><NumbersTable data={rows(d.steps?.daily)} fields={['count']} labels={['Steps']}/></MetricSection>
-    <MetricSection title="RingConn nights" data={d.ringconnNight} coverage={data.coverage.ringconnNight} provenance="RingConn provider estimates; missing metrics stay unknown"><NumbersTable data={rows(d.ringconnNight?.nights)} fields={['asleepMinutes','sessionMinutes','averageHeartRateBpm','restingHeartRateBpm','meanSpo2Percent']} labels={['Asleep min','Session min','Avg HR bpm','Resting HR bpm','Mean SpO₂ %']}/></MetricSection>
-    <MetricSection title="Confirmed nutrition" data={d.nutrition} coverage={data.coverage.nutrition} provenance="Confirmed local food ledger; photos and purchases alone never establish eating"><NutritionTable data={rows(d.nutrition?.daily)}/><p>Totals include known values only. Missing nutrients and unlogged meals remain gaps; this is not complete intake.</p></MetricSection>
+  const sections:{key:ReportKey;title:string;node:ReactNode}[]=[
+    {key:'weight',title:'Weight',node:<MetricSection title="Weight" data={d.weight} coverage={data.coverage.weight} provenance="Scale / Health Connect and explicit owner entries or corrections"><Summary data={d.weight} fields={['firstLb','latestLb','changeLb','samples']} labels={['First lb','Latest lb','Change lb','Readings']}/><NumbersTable data={rows(d.weight?.daily)} fields={['meanLb','minLb','maxLb','samples']} labels={['Mean lb','Min lb','Max lb','Readings']}/></MetricSection>},
+    {key:'bodyMeasurements',title:'Body measurements',node:<MetricSection title="Body measurements" data={d.bodyMeasurements} coverage={data.coverage.bodyMeasurements} provenance="Owned body check-ins; flagged measurements stay missing"><NumbersTable data={rows(d.bodyMeasurements?.measurements)} fields={['weight_lb','body_fat_pct','neck_in','waist_in','hips_in']} labels={['Weight lb','Body fat %','Neck in','Waist in','Hips in']} source/></MetricSection>},
+    {key:'manualGlucose',title:'Manual glucose',node:<MetricSection title="Manual glucose" data={d.manualGlucose} coverage={data.coverage.manualGlucose} provenance="Owner-reported manual glucose; not sensor readings"><NumbersTable data={rows(d.manualGlucose?.daily)} fields={['meanMgDl','minMgDl','maxMgDl','samples']} labels={['Mean mg/dL','Min mg/dL','Max mg/dL','Readings']}/></MetricSection>},
+    {key:'exercise',title:'Exercise',node:<MetricSection title="Exercise" data={d.exercise} coverage={data.coverage.exercise} provenance="Owner-reported exercise estimates; omitted duration stays unknown"><NumbersTable data={rows(d.exercise?.daily)} fields={['entries','minutes','knownDurationEntries','missingDurationEntries','energyKcal']} labels={['Entries','Known min','With duration','Missing duration','Est. kcal']}/></MetricSection>},
+    {key:'outcomes',title:'Outcomes',node:<MetricSection title="Outcomes" data={d.outcomes} coverage={data.coverage.outcomes} provenance="Explicit owner-reported outcomes only"><Summary data={record(d.outcomes?.counts)} fields={['wins','losses','unscored','total']} labels={['Wins','Setbacks','Unscored','Total']}/><NumbersTable data={rows(d.outcomes?.daily)} fields={['wins','losses','unscored']} labels={['Wins','Setbacks','Unscored']}/></MetricSection>},
+    {key:'steps',title:'Steps',node:<MetricSection title="Steps" data={d.steps} coverage={data.coverage.steps} provenance="Owned local steps ledger"><NumbersTable data={rows(d.steps?.daily)} fields={['count']} labels={['Steps']}/></MetricSection>},
+    {key:'ringconnNight',title:'RingConn nights',node:<MetricSection title="RingConn nights" data={d.ringconnNight} coverage={data.coverage.ringconnNight} provenance="RingConn provider estimates; missing metrics stay unknown"><NumbersTable data={rows(d.ringconnNight?.nights)} fields={['asleepMinutes','sessionMinutes','averageHeartRateBpm','restingHeartRateBpm','meanSpo2Percent']} labels={['Asleep min','Session min','Avg HR bpm','Resting HR bpm','Mean SpO₂ %']}/></MetricSection>},
+    {key:'nutrition',title:'Confirmed nutrition',node:<MetricSection title="Confirmed nutrition" data={d.nutrition} coverage={data.coverage.nutrition} provenance="Confirmed local food ledger; photos and purchases alone never establish eating"><NutritionTable data={rows(d.nutrition?.daily)}/><p>Totals include known values only. Missing nutrients and unlogged meals remain gaps; this is not complete intake.</p></MetricSection>},
+  ];
+  const filled=sections.filter(item=>d[item.key]),empty=sections.filter(item=>!d[item.key]);
+  return <section aria-label="Clean health report"><h3>Health numbers</h3><p>Only numbers the owner saved. Private notes, messages, purchases and guessed meals are never included, and a missing day is left blank, not counted as zero.</p><div className="cc-coach-grid">
+    {filled.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}
+    {empty.length>0&&<section className="cc-card cc-coach-empty-group" aria-label="No data this period"><h4>No data this period</h4><p className="cc-coach-provenance">Nothing saved for these in the dates above. Open one to see what was checked.</p>{empty.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}</section>}
   </div></section>;
 }
 function MetricSection({title,data,coverage,provenance,children}:{title:string;data:Row|null;coverage?:Coverage;provenance:string;children:ReactNode}) {

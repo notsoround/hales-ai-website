@@ -13,3 +13,9 @@
 .cc-coach-empty-row>summary:focus-visible{outline:3px solid var(--cc-pink);outline-offset:4px;border-radius:6px}
 .cc-coach-empty-row[open]>summary{margin-bottom:12px}
 .cc-coach-empty-row>p{margin:8px 0;line-height:1.6}
+/* Metrics with no data this period share one card instead of a stack of "Unknown" cards. */
+.cc-coach-grid>.cc-coach-empty-group{grid-column:1/-1;padding:16px 18px 6px}
+.cc-coach-empty-group>h4{margin:0 0 4px}
+.cc-coach-empty-group>.cc-coach-provenance{margin:0 0 6px}
+.cc-app .cc-coach-grid>.cc-coach-empty-group>details.cc-card.cc-coach-empty-row{margin:0;padding:2px 0;border:0;border-top:1px solid var(--cc-border,#ffffff1f);border-radius:0;background:none;box-shadow:none}
+.cc-app .cc-coach-empty-group>.cc-coach-empty-row>summary strong{font-size:15px}

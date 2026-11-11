@@ -13,7 +13,7 @@
 @media (max-width: 600px) {
   /* All five ranges fit on a phone instead of clipping "Custom" off the edge. */
   .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-range { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; gap: 4px; }
-  .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-range button { min-width: 0; padding: 10px 4px; font-size: 13px; line-height: 1.2; }
+  .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-range button { min-width: 0; min-height: 44px; padding: 6px 2px; font-size: 13px; line-height: 1.2; white-space: normal; text-align: center; }
   /* One scrollable row on phones so the list stays near the top. */
   .cc-app[data-entry=account] .cc-signal-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -2px; padding: 2px; }
   .cc-app[data-entry=account] .cc-signal-filter button { flex: none; }

@@ -52,7 +52,7 @@ async function safe(page){const s=await page.evaluate(()=>({requests:window.acco
 try{
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await open(context);await login(page,'a');
   await page.getByText('A saved local timeline',{exact:true}).waitFor();await page.locator('.cc-account-outcome-summary').getByText('2',{exact:true}).waitFor();
-  assert.match(await page.locator('.cc-account-outcome-summary').innerText(),/1 personal losses/);assert.match(await page.locator('.cc-account-outcome-summary').innerText(),/Phone purchase-call outcomes are not connected/);
+  assert.match(await page.locator('.cc-account-outcome-summary').innerText(),/1 personal losses/);assert.match(await page.locator('.cc-account-outcome-summary').innerText(),/Purchase-call saves are not part of account sign-in/);
   assert.equal(await page.getByText('B saved local timeline',{exact:true}).count(),0);
   assert.ok(requests.some(r=>r.owner===A&&r.body.action==='feed_get'&&r.body.start===today&&r.body.end===today));
   const timeline=page.locator('.cc-signals');

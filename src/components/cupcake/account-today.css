@@ -125,3 +125,12 @@
 /* One title colour on Today; the icon carries each source's tone. */
 .cc-app[data-entry=account] .cc-today-grid :is(.cc-nutrition-today .cc-nutrition-eyebrow, .cc-card-title, [data-empty] .cc-eyebrow, [data-empty] .cc-weight-eyebrow) { color: var(--cc-pink-bright); }
 .cc-app[data-entry=account] .cc-today-grid { reading-flow: grid-order; }
+/* Empty Food today: one plain line instead of a dash, a unit, and two notes saying the same thing. */
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-values > div:first-child > :is(strong, span) { display: none; }
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-values > div:first-child > small { display: block; margin: 0; font-size: 16px; font-weight: 600; color: var(--cc-text-1, #fff); }
+.cc-app[data-entry=account] .cc-nutrition-no-timed { display: none; }
+/* Empty wins tile in "Not logged yet": no range switch or scope note until something is recorded. */
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] :is(.cc-sw-switch, .cc-saves-scope) { display: none; }
+.cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-values { margin-top: 10px; align-items: center; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] { align-self: stretch; display: flex; flex-direction: column; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] > .cc-saves { flex: 1; }

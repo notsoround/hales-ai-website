@@ -69,7 +69,7 @@ export function SavesHero({ todayItems, nutrition, onOpenWins, onTalkAbout, onOp
       <div className="cc-sw-switch" role="radiogroup" aria-label="Saves window">{SAVES_WINDOWS.map(n => <button key={n} type="button" role="radio" aria-checked={win === n} onClick={() => choose(n)}>{n} days</button>)}</div>
       {ACCOUNT_SESSIONS && w.data && !w.error ? <div className="cc-account-outcome-summary">
         {w.data.personalOutcomes ? <><div className="cc-saves-number"><strong>{w.data.personalOutcomes.wins}</strong><span>personal wins · {windowLabel(win).toLowerCase()}</span></div><p>{w.data.personalOutcomes.losses} personal losses · {w.data.personalOutcomes.unscored} unscored</p></> : <p className="cc-saves-unavailable">Personal outcomes unavailable for this window.</p>}
-        <p className="cc-muted cc-small">Phone purchase-call outcomes are not connected to account sign-in. Personal outcomes are counted separately.</p>
+        <p className="cc-muted cc-small cc-saves-scope">Purchase-call saves are not part of account sign-in yet, so only wins and setbacks you add are counted here.</p>
       </div> : w.error ? <div className="cc-saves-error" role="alert"><p>Couldn’t load {ACCOUNT_SESSIONS?'personal outcomes':'calls'} for the last {win} days.</p><button type="button" className="cc-secondary" onClick={w.reload}>Retry</button></div>
         : !counts || !cells ? <div className="cc-saves-skeleton" aria-busy="true" aria-label="Loading saves"><i /><i /><i /></div>
         : calls === 0 ? <div className="cc-saves-empty"><strong>No calls in the last {win} days</strong><p>Your card swipes. She calls. Every time you resist, it lands here as a save.</p></div>
