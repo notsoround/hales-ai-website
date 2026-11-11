@@ -112,6 +112,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       invitation_account_mismatch:'This invitation is for a different account. Sign in with the intended email.',
       disclosure_required:'Read and accept the pilot disclosure before continuing.',
     };
+    if (response.status === 429 && result?.error === 'web_search_daily_limit') throw new AccountRequestError('You have used today’s 10 web searches. Try again tomorrow.', 'web_search_daily_limit');
     if (!response.ok && typeof result?.error === 'string' && invitationErrors[result.error]) throw new AccountRequestError(invitationErrors[result.error],result.error);
     if (!response.ok || !result || result.ok === false) throw Error(response.status === 503 ? ACCOUNT_UNAVAILABLE
       : response.status === 429 ? 'Too many attempts. Please try again later.'

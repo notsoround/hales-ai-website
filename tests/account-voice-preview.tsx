@@ -28,6 +28,9 @@ const fixture = {
   persist(rows: RecordRow[]) { localStorage.setItem(SERVER, JSON.stringify(rows)); },
   namespace: personalNamespace,
   async switchOwner(next: 'A' | 'B') { localStorage.setItem(OWNER, next); await restoreSession(); },
+  statusCalls: 0,
+  confirmEnd() { const rows = this.records(); for (const row of rows) if (row.session.state !== 'ended') row.session = { ...publicSession(row.session), ...saved(), sessionId: row.session.sessionId, createdAt: Date.now() / 1000 }; this.persist(rows); },
+  remote(name: string, value: unknown) { this.calls.at(-1)?.emit(name, value); },
   emit(text: string) { this.calls.at(-1)?.emit('app-message', { data: { type: 'transcript', transcriptType: 'final', role: 'assistant', transcript: text, id: text } }); },
 };
 (window as unknown as { voiceFixture: typeof fixture }).voiceFixture = fixture;
@@ -75,12 +78,15 @@ window.fetch = async (input, init) => {
     if (body.session_id === HIST) return response(200, saved());
     const row = rows.find(row => row.owner === identity.account_id && row.session.sessionId === body.session_id);
     if (!row) return response(404, { error: 'voice_session_not_found' });
+    if (fixture.behavior === 'slowEnd' && row.session.state === 'ending' && ++fixture.statusCalls >= 3) fixture.confirmEnd();
     if (fixture.behavior === 'holdStatus') { fixture.held = true; await new Promise<void>(resolve => { fixture.release = resolve; }); fixture.held = false; }
     return response(200, publicSession(row.session));
   }
   if (route === 'voice/end') {
     const row = rows.find(row => row.owner === identity.account_id && row.session.sessionId === body.session_id);
     if (!row) return response(404, { error: 'voice_session_not_found' });
+    if (row.session.state === 'ended') return response(200, row.session);
+    if (fixture.behavior === 'slowEnd') { row.session = { ...publicSession(row.session), state: 'ending', reason: 'voice_end_requested' }; fixture.persist(rows); return response(200, row.session); }
     if (fixture.behavior === 'endUncertain') { row.session.state = 'uncertain'; row.session.reason = 'voice_dispatch_uncertain'; fixture.persist(rows); return response(200, publicSession(row.session)); }
     row.session = { ...publicSession(row.session), ...saved(), sessionId: LIVE, createdAt: Date.now() / 1000 };
     if (fixture.behavior === 'emptyResult') row.session.result = { ...row.session.result!, transcript: null, messages: [] };

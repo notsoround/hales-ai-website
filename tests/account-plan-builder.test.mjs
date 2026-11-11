@@ -31,6 +31,8 @@ try {
   assert.deepEqual(model.planFromReply('Sure! What do you like to eat?'), []);
   assert.equal(model.spokenText(model.builderMessage('  five lunches ', true)), 'five lunches');
   assert.equal(model.spokenText(model.builderMessage('no pork', false)), 'no pork');
+  const legacy = model.builderMessage('old', true).replace('Do not claim any source except web results I paste in.', 'You cannot search the web, so do not cite or claim sources.');
+  assert.equal(model.spokenText(legacy), 'old', 'saved conversations with the earlier wording still show only what was typed');
   console.log('PASS: replies become planned meals only from headings and list items; greetings and questions are ignored');
 
   const { context, page, errors } = await open();
@@ -56,7 +58,7 @@ try {
   assert.equal(await page.getByLabel('Meal 1 planned calories (optional)', { exact: true }).inputValue(), '600');
   let requests = await page.evaluate(() => window.labsFixture.requests);
   assert.equal(requests.some(r => r.action === 'coach_plan_set'), false, 'Builder must never save the plan by itself');
-  const begin = requests.find(r => r.action === 'quick_chat_begin'); assert.match(begin.text, /What I want: Two easy dinners$/); assert.match(begin.text, /cannot search the web/);
+  const begin = requests.find(r => r.action === 'quick_chat_begin'); assert.match(begin.text, /What I want: Two easy dinners$/); assert.match(begin.text, /Do not claim any source except web results I paste in/); assert.doesNotMatch(begin.text, /Web results I picked/);
   assert.equal(requests.some(r => r.owner_id || r.ownerId), false);
   await builder(page).locator('.cc-plan-builder-you', { hasText: 'Two easy dinners' }).waitFor();
   await page.getByRole('button', { name: 'Save plan & groceries', exact: true }).click();

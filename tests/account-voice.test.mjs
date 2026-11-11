@@ -116,9 +116,9 @@ try {
   }
   {
     const view = await open('unknown'), { page, panel } = view;
-    await panel.getByRole('button', { name: 'Send saved voice request', exact: true }).waitFor();
+    await panel.getByRole('button', { name: 'Start conversation', exact: true }).waitFor();
     const old = await counts(page); assert.equal(old.starts, 0); assert.equal(old.mic, 0);
-    await panel.getByRole('button', { name: 'Send saved voice request', exact: true }).click();
+    await panel.getByRole('button', { name: 'Start conversation', exact: true }).click();
     await panel.getByRole('button', { name: 'End conversation', exact: true }).waitFor();
     const state = await counts(page); assert.equal(state.starts, 1); assert.equal(state.recovery.requestId, old.recovery.requestId);
     await panel.getByRole('button', { name: 'End conversation', exact: true }).click();
@@ -165,13 +165,49 @@ try {
     const view = await open('behavior=endUncertain'), { page, panel } = view; await start(view);
     const id = (await counts(page)).recovery.requestId;
     await panel.getByRole('button', { name: 'End conversation', exact: true }).click();
-    await panel.getByText(/Waiting for the server to confirm/).waitFor();
+    await panel.getByText(/Wrapping up the conversation/).waitFor();
     let state = await counts(page); assert.equal(state.active, 0); assert.equal(state.recovery.requestId, id);
     assert.equal(await panel.getByText(/^Conversation ended\./).count(), 0);
     assert.equal(await panel.getByRole('button', { name: 'Start conversation', exact: true }).count(), 0);
-    await panel.getByRole('button', { name: 'Check saved status', exact: true }).click();
-    await panel.getByText(/Waiting for the server to confirm/).waitFor(); state = await counts(page); assert.equal(state.recovery.requestId, id); assert.equal(state.starts, 1);
-    await finish(view, 'uncertain end and status keep recovery; no false ended or automatic restart');
+    await panel.getByRole('button', { name: 'Check status now', exact: true }).click();
+    await panel.getByText(/Wrapping up the conversation/).waitFor(); state = await counts(page); assert.equal(state.recovery.requestId, id); assert.equal(state.starts, 1);
+    // One tap recovers: it waits for the server to confirm the old call ended, then starts.
+    await panel.getByRole('button', { name: 'Start new conversation', exact: true }).click();
+    await panel.getByRole('button', { name: 'Starting after the last one closes…', exact: true }).waitFor();
+    await page.waitForTimeout(2500); state = await counts(page); assert.equal(state.starts, 1, 'never starts while the old call is unconfirmed'); assert.equal(state.mic, 1);
+    await voice(page, () => window.voiceFixture.confirmEnd());
+    await wait(page, () => window.voiceFixture.requests.filter(row => row.route === 'voice/start').length === 2 && window.voiceFixture.joins.length === 2);
+    assert.notEqual((await counts(page)).recovery.requestId, id, 'new conversation uses a new request id');
+    await finish(view, 'uncertain end keeps recovery; one tap starts again only after the server confirms the end');
+  }
+  {
+    const view = await open('behavior=slowEnd'), { page, panel } = view; await start(view);
+    await panel.getByRole('button', { name: 'End conversation', exact: true }).click();
+    await panel.getByText(/Wrapping up the conversation/).waitFor();
+    assert.equal((await counts(page)).active, 0, 'microphone off at once');
+    await panel.getByText('Owned saved estimate.', { exact: false }).waitFor({ timeout: 20000 });
+    await panel.getByRole('button', { name: 'Start conversation', exact: true }).waitFor();
+    assert.equal((await counts(page)).recovery, null);
+    await finish(view, 'slow server end resolves by itself without a tap');
+  }
+  for (const how of ['status', 'left']) {
+    const view = await open(), { page, panel } = view; await start(view);
+    if (how === 'status') await voice(page, () => window.voiceFixture.remote('app-message', { data: { type: 'status-update', status: 'ended', endedReason: 'call.in-progress.error-assistant-did-not-receive-customer-audio' } }));
+    else await voice(page, () => window.voiceFixture.remote('participant-left', { participant: { local: false } }));
+    await wait(page, () => window.voiceFixture.activeTracks === 0 && window.voiceFixture.requests.some(row => row.route === 'voice/end'));
+    await panel.getByRole('button', { name: 'Start conversation', exact: true }).waitFor();
+    if (how === 'status') await panel.getByText(/could not hear your microphone/).waitFor();
+    await finish(view, `provider ending the call (${how}) stops the microphone and closes it`);
+  }
+  {
+    const view = await open(), { page, panel } = view;
+    await voice(page, () => { window.voiceFixture.holdJoin = true; });
+    await panel.getByRole('button', { name: 'Start conversation', exact: true }).click();
+    await wait(page, () => window.voiceFixture.joins.length === 1);
+    await panel.getByText(/did not open in time/).waitFor({ timeout: 20000 });
+    await wait(page, () => window.voiceFixture.activeTracks === 0 && window.voiceFixture.requests.some(row => row.route === 'voice/end'));
+    await panel.getByRole('button', { name: 'Start conversation', exact: true }).waitFor();
+    await finish(view, 'a join that never opens times out and closes the call');
   }
   {
     const view = await open('behavior=emptyResult'), { page, panel } = view;

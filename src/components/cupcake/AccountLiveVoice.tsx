@@ -11,10 +11,16 @@ import './account-live-voice.css';
 
 type MediaState = 'idle' | 'connecting' | 'live' | 'ending';
 type ProvisionalLine = { role: 'user' | 'assistant'; text: string };
-const MAX_POLLS = 40;
+const FAST_POLLS = 20;
+// The provider ends a web call when no caller audio arrives within ~15 seconds,
+// so a join that has not opened by then can never become a conversation.
+const JOIN_LIMIT_MS = 12000;
+// After its hard deadline the server cleanup worker owns ending; allow it a margin.
+const CLOSE_GRACE_MS = 90000;
 const terminal = (session: VoiceSession | null) => session?.state === 'ended' || (session?.state === 'failed' && session.reason === 'voice_not_dispatched');
 const hasSpeech = (session: VoiceSession | null) => !!session?.result && (!!session.result.transcript?.trim() || session.result.messages.some(line => line.message.trim()));
 const deadline = (value: unknown) => typeof value === 'number' ? value * 1000 : typeof value === 'string' ? Date.parse(value) : NaN;
+const noAudioReason = (reason: unknown) => typeof reason === 'string' && /customer-audio|no-audio|microphone/i.test(reason);
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
 const dateLabel = (value: unknown) => { const time = deadline(value); return Number.isFinite(time) ? new Date(time).toLocaleString() : 'Saved conversation'; };
 
@@ -36,7 +42,8 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
   const state = useRef<MediaState>('idle'), acquisition = useRef<AbortController | null>(null), microphone = useRef<MediaStream | null>(null);
   const transport = useRef<DailyCall | null>(null), players = useRef(new Map<string, HTMLAudioElement>());
   const stopRequested = useRef(false), connecting = useRef(false), reading = useRef(false), ending = useRef(false), joinedDeadline = useRef(0);
-  const locallyUnsent = useRef(false);
+  const locallyUnsent = useRef(false), fresh = useRef(false), freshUntil = useRef(0), remoteEnd = useRef('');
+  const [freshWaiting, setFreshWaiting] = useState(false);
   const transcriptIds = useRef(new Set<string>());
   const callbacks = useRef({ onStateChange, onStopReady, onTestingChange }); callbacks.current = { onStateChange, onStopReady, onTestingChange };
 
@@ -58,9 +65,11 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
       stopLocal(); changeState('idle'); owner.clearRecovery(value.sessionId); currentRecovery.current = null; setRecovery(null); stopRequested.current = false;
       if (value.state === 'ended') { setRows(previous => [value, ...previous.filter(row => row.sessionId !== value.sessionId)].slice(0, 25)); setOpened(value); }
       setProvisional([]);
+      const heard = noAudioReason(remoteEnd.current); remoteEnd.current = '';
       setNotice(value.state === 'failed' ? 'The server confirmed this request was never sent. Microphone off; you can start when ready.' : hasSpeech(value) ? 'Conversation ended. The provider-fetched transcript is saved to your account.' : 'Conversation ended. No speech transcript was returned.');
+      if (heard && !fresh.current) setError('The voice service could not hear your microphone, so it hung up. Check that this browser may use the microphone, then tap Start conversation.');
     } else if (value.state === 'ending' || stopRequested.current) {
-      stopLocal(); changeState('ending'); setNotice('Microphone off. Waiting for the server to confirm the conversation ended.');
+      stopLocal(); changeState('ending'); setNotice(fresh.current ? 'Closing your last conversation, then starting a new one…' : 'Microphone off. Wrapping up the conversation…');
     } else if (value.state === 'uncertain' || value.state === 'failed') {
       stopLocal(); changeState('idle'); setNotice('Microphone off. This saved request needs a status check before another conversation can start.');
     }
@@ -70,7 +79,7 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
     if (ending.current) return;
     ending.current = true;
     try { remember(await owner.end(value.sessionId), owner); }
-    catch (cause) { if (alive.current && client.current === owner) { setError(voiceError(cause)); setNotice('Microphone off. Ending is not confirmed; check the same saved conversation.'); changeState('ending'); } }
+    catch { if (alive.current && client.current === owner) { setNotice(fresh.current ? 'Closing your last conversation, then starting a new one…' : 'Microphone off. Still closing the conversation; this retries automatically.'); changeState('ending'); } }
     finally { ending.current = false; }
   }, [changeState, remember]);
 
@@ -133,16 +142,47 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
   useEffect(() => { if (!active && !keepMediaOnHide && (state.current === 'live' || state.current === 'connecting')) stop(); }, [active, keepMediaOnHide, stop]);
   useEffect(() => { if (!active) { setTesting(false); callbacks.current.onTestingChange?.(false); } }, [active]);
   useEffect(() => {
-    if (!session || terminal(session) || session.state === 'failed' || polls >= MAX_POLLS || checking || connecting.current || (!active && mediaState === 'idle')) return;
-    const timer = window.setTimeout(() => { setPolls(value => value + 1); void checkCurrent(false); }, 3000);
+    if (!session || terminal(session) || (session.state === 'failed' && !freshWaiting) || checking || connecting.current || (!active && mediaState === 'idle')) return;
+    if (freshWaiting && Date.now() > freshUntil.current) {
+      fresh.current = false; setFreshWaiting(false);
+      setError('Your last conversation is still closing on the server, so a new one cannot start yet. Text and Record still work; try Start new conversation again in a minute.');
+      return;
+    }
+    // Ending is retried with every check, and checks never stop while a
+    // conversation is unconfirmed; they only slow down.
+    const delay = freshWaiting ? 2000 : polls < FAST_POLLS ? 3000 : 10000;
+    const timer = window.setTimeout(() => { setPolls(value => value + 1); void checkCurrent(false); }, delay);
     return () => clearTimeout(timer);
-  }, [active, session, mediaState, checking, polls, checkCurrent]);
+  }, [active, session, mediaState, checking, polls, checkCurrent, freshWaiting]);
+  // Load the audio library while the panel is open so the first tap connects sooner.
+  useEffect(() => { if (active && config?.available) void import('@daily-co/daily-js').catch(() => {}); }, [active, config?.available]);
   useEffect(() => {
     if (mediaState !== 'live') return;
     const tick = () => { const end = Math.min(joinedDeadline.current || Infinity, deadline(currentSession.current?.expiresAt) || Infinity); const seconds = Math.max(0, Math.ceil((end - Date.now()) / 1000)); setRemaining(Number.isFinite(seconds) ? seconds : null); if (seconds <= 0) stop(); };
     tick(); const timer = window.setInterval(tick, 250); return () => clearInterval(timer);
   }, [mediaState, stop]);
   useEffect(() => { if (mediaState === 'idle') return; const warn = (event: BeforeUnloadEvent) => event.preventDefault(); window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn); }, [mediaState]);
+
+  /** One tap: close any unfinished conversation, then start a new one once the server confirms it ended. */
+  function startNew() {
+    const owner = client.current;
+    if (!owner || !active || disabled || testing || state.current === 'connecting' || state.current === 'live' || !config?.available) return;
+    setError('');
+    if (!currentRecovery.current || missing) { void connect('start'); return; }
+    const value = currentSession.current;
+    fresh.current = true; setFreshWaiting(true); setPolls(0);
+    freshUntil.current = Math.max(Date.now(), (deadline(value?.expiresAt) || 0)) + CLOSE_GRACE_MS;
+    stopRequested.current = true;
+    setNotice('Closing your last conversation, then starting a new one…');
+    if (value && !terminal(value)) { changeState('ending'); void finish(owner, value); }
+    else void checkCurrent();
+  }
+  const connectNow = useRef<(intent: 'start' | 'resume') => Promise<void>>(async () => {});
+  connectNow.current = connect;
+  useEffect(() => {
+    if (!fresh.current || mediaState !== 'idle' || !active || !config?.available) return;
+    if (!recovery || missing) { fresh.current = false; setFreshWaiting(false); stopRequested.current = false; void connectNow.current('start'); }
+  }, [mediaState, recovery, missing, active, config?.available]);
 
   async function connect(intent: 'start' | 'resume') {
     const owner = client.current;
@@ -174,9 +214,11 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
       remember(value, owner);
       if (terminal(value)) return;
       if (value.state !== 'live' || !value.webCallUrl) { stopLocal(); changeState(value.state === 'ending' ? 'ending' : 'idle'); setNotice('Microphone off. The saved request has not confirmed a joinable conversation. Check its status.'); return; }
-      const call = Daily.createCallObject({ audioSource: mic.getAudioTracks()[0], videoSource: false, startVideoOff: true }); transport.current = call;
+      const track = mic.getAudioTracks()[0];
+      if (!track || track.readyState !== 'live') throw Error('The microphone stopped before the call connected. Microphone off; tap Start conversation to try again.');
+      const call = Daily.createCallObject({ audioSource: track, videoSource: false, startVideoOff: true }); transport.current = call;
       const current = () => alive.current && client.current === owner && token === generation.current && transport.current === call;
-      transcriptIds.current.clear(); setProvisional([]); setOpened(null);
+      transcriptIds.current.clear(); setProvisional([]); setOpened(null); remoteEnd.current = '';
       call.on('track-started', event => {
         if (!current() || event?.track.kind !== 'audio' || event.participant?.local) return;
         const player = new Audio(); player.autoplay = true; player.srcObject = new MediaStream([event.track]); players.current.set(event.track.id, player);
@@ -186,6 +228,9 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
       call.on('app-message', event => {
         if (!current()) return;
         let data = event?.data; if (typeof data === 'string') { try { data = JSON.parse(data); } catch { return; } }
+        if (data && typeof data === 'object' && data.type === 'status-update' && data.status === 'ended') {
+          remoteEnd.current = typeof data.endedReason === 'string' ? data.endedReason.slice(0, 200) : 'ended'; stop(); return;
+        }
         if (!data || typeof data !== 'object' || data.type !== 'transcript' || data.transcriptType !== 'final' || !['user', 'assistant'].includes(data.role) || typeof data.transcript !== 'string') return;
         const text = data.transcript.trim().slice(0, 10000); if (!text) return;
         const id = typeof (data.id || data.messageId || data.transcriptId) === 'string' ? data.id || data.messageId || data.transcriptId : `${data.role}:${text}`;
@@ -193,8 +238,13 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
         setProvisional(previous => [...previous, { role: data.role, text }].slice(-100));
       });
       call.on('left-meeting', () => { if (current()) stop(); });
+      // The assistant leaving the room means the provider ended the call.
+      call.on('participant-left', event => { if (current() && !event?.participant?.local) { remoteEnd.current ||= 'assistant-left'; stop(); } });
       call.on('error', () => { if (current()) { setError('The audio connection was interrupted. Microphone off; checking this saved conversation.'); stop(); } });
-      await call.join({ url: value.webCallUrl });
+      let joinTimer = 0;
+      try {
+        await Promise.race([call.join({ url: value.webCallUrl }), new Promise((_, reject) => { joinTimer = window.setTimeout(() => reject(Error('The audio connection did not open in time. Microphone off; tap Start conversation to try again.')), JOIN_LIMIT_MS); })]);
+      } finally { clearTimeout(joinTimer); }
       if (!current() || stopRequested.current) { try { await call.destroy(); } catch { /* Local audio was already stopped. */ } return; }
       joinedDeadline.current = Date.now() + value.maxSeconds * 1000; setMuted(false); changeState('live'); setNotice('Microphone live. Your conversation will stop at its time limit.');
     } catch (cause) {
@@ -226,18 +276,17 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
     {!config?.available && <p role="status" className="cc-muted">{config ? `Live voice is currently unavailable. You can still use Text or Record.` : 'Checking live voice availability…'}</p>}
     <div className="cc-action-row">
       {!pending && mediaState === 'idle' && <button className="cc-primary" disabled={!active || disabled || testing || checking || !config?.available} onClick={() => void connect('start')}><Headphones size={20}/>Start conversation</button>}
-      {missing && pending && mediaState === 'idle' && <button className="cc-primary" disabled={!active || disabled || testing || checking || !config?.available} onClick={() => void connect('start')}>Send saved voice request</button>}
+      {missing && pending && mediaState === 'idle' && <button className="cc-primary" disabled={!active || disabled || testing || checking || !config?.available} onClick={() => void connect('start')}><Headphones size={20}/>Start conversation</button>}
       {canResume && <button className="cc-primary" disabled={!active || disabled || testing || checking || !config?.available} onClick={() => void connect('resume')}><Headphones size={20}/>Resume same conversation</button>}
-      {mediaState !== 'idle' && <button className="cc-primary" onClick={stop} disabled={mediaState === 'ending' && ending.current}><Square size={18}/>{mediaState === 'connecting' ? 'Cancel connection' : mediaState === 'ending' ? 'Retry ending conversation' : 'End conversation'}</button>}
-      {pending && mediaState === 'idle' && !missing && <button className="cc-secondary" onClick={stop} disabled={checking}>End saved conversation</button>}
-      {pending && <button className="cc-secondary" disabled={checking || mediaState === 'connecting'} onClick={() => void checkCurrent()}>{checking ? 'Checking conversation…' : 'Check saved status'}</button>}
+      {(mediaState === 'connecting' || mediaState === 'live') && <button className="cc-primary" onClick={stop}><Square size={18}/>{mediaState === 'connecting' ? 'Cancel connection' : 'End conversation'}</button>}
+      {(mediaState === 'ending' || (pending && mediaState === 'idle' && !missing)) && <button className={canResume ? 'cc-secondary' : 'cc-primary'} disabled={freshWaiting || !active || disabled || testing || !config?.available} onClick={startNew}><Headphones size={20}/>{freshWaiting ? 'Starting after the last one closes…' : 'Start new conversation'}</button>}
+      {pending && mediaState !== 'connecting' && <button className="cc-text-button" disabled={checking} onClick={() => void checkCurrent()}>{checking ? 'Checking…' : 'Check status now'}</button>}
       {mediaState === 'live' && <><button className="cc-secondary" onClick={() => { const next = !muted; microphone.current?.getAudioTracks().forEach(track => { track.enabled = !next; }); void transport.current?.setLocalAudio(!next); setMuted(next); }}><Mic size={17}/>{muted ? 'Unmute microphone' : 'Mute microphone'}</button><button className="cc-text-button" onClick={() => { players.current.forEach(player => void player.play().then(() => { transport.current?.sendAppMessage('playable'); setAudioBlocked(false); }).catch(() => setAudioBlocked(true))); }}><Volume2 size={17}/>Resume audio</button></>}
     </div>
     <p role="status" className="cc-muted cc-small cc-mic-line">{notice}{mediaState === 'live' && muted ? ' Microphone muted.' : ''}{remaining !== null ? ` ${clock(remaining)} remaining.` : ''}</p>
     {audioBlocked && <p role="alert">Audio playback is blocked. Tap Resume audio and allow sound in this browser.</p>}
     {error && <p role="alert" className="cc-voice-error">{error}</p>}
-    {polls >= MAX_POLLS && pending && <p className="cc-muted cc-small">Automatic status checks paused. Use Check saved status later. A new conversation remains blocked until this one is confirmed ended.</p>}
-    {pending && <p className="cc-muted cc-small">Reopening this page only checks your saved request. It never starts or joins a call, turns on the microphone, or repeats a paid request automatically.</p>}
+    {pending && !freshWaiting && <p className="cc-muted cc-small">Your microphone is off. Start new conversation closes the last one first, so you are never charged for two at once.</p>}
     <details className="cc-fold"><summary>Microphone settings</summary>{active && <VoiceInputCheck deviceId={inputDevice} disabled={disabled || mediaState !== 'idle'} onTesting={value => { setTesting(value); callbacks.current.onTestingChange?.(value); }} onDevice={id => { setInputDevice(id); saveInputDevice(id); }}/>}</details>
     {!!provisional.length && <section className="cc-voice-provisional"><h3>Live captions · provisional</h3><p className="cc-muted cc-small">Temporary connection messages. They may be incomplete and are not your saved transcript.</p><div className="cc-transcript" aria-live="polite">{provisional.map((line, index) => <p key={index}><strong>{line.role === 'user' ? 'You' : assistantName}</strong>{line.text}</p>)}</div></section>}
     <section className="cc-voice-history" aria-label="Saved voice conversations"><div className="cc-heading-row"><h3>Saved voice conversations</h3><button className="cc-text-button" disabled={checking} onClick={() => void refresh()}>Refresh history</button></div><p className="cc-muted cc-small">Your latest 25 ended conversations. Opening one keeps the microphone off.</p>

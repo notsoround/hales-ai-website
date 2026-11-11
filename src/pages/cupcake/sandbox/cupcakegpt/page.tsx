@@ -436,7 +436,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
   },[]);
   useEffect(()=>{load();const ref=loadId;return()=>{ref.current++;};},[load]);
   // A change confirmed from the assistant chat refreshes Today without a page reload.
-  useDataChanged(['food','exercise','weight','outcome'],load);
+  useDataChanged(['food','exercise','weight','outcome','purchase','glucose'],load);
   // Account feed owns the timeline snapshot. Confirmed workout changes refresh it
   // instead of replacing complete feed rows with the independent capped list.
   const exerciseWithRefresh=ACCOUNT_SESSIONS?{...exercise,add:(entry:Parameters<typeof exercise.add>[0])=>{exercise.add(entry);load();},remove:(id:string)=>{exercise.remove(id);load();}}:exercise;

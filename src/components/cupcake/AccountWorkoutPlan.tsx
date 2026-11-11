@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { libraryRequest } from './library';
 import { useLab } from './labsFlags';
+import { useDataChanged } from './dataChanges';
 import { AccountPlanBuilder } from './AccountPlanBuilder';
 import { DAY_NAMES, WEEKDAYS, countWorkouts, parseRoutine, parseWorkoutPlan, routineText, sameWorkoutPlan, type WorkoutPlan } from './workoutPlanModel';
 import './account-food-plan.css';
@@ -30,6 +31,8 @@ function WorkoutPlanCard() {
     finally { setBusy(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  // A plan saved from the assistant chat shows straight away (an open editor is left alone).
+  useDataChanged(['workout-plan'], () => { if (!editing) void load(); });
   useEffect(() => { if (editing && focusEditor.current) { focusEditor.current = false; editor.current?.focus(); } }, [editing, text]);
   const open = (value: string) => { setText(value); setEditing(true); setNotice(''); focusEditor.current = true; };
   const parsed = parseRoutine(text), saved = countWorkouts(base);
