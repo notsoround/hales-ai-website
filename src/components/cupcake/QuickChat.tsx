@@ -6,7 +6,7 @@ import './chat-layout.css';
 import {ReadAloudButton} from './ReadAloudButton';
 import {useLab} from './labsFlags';
 import {AssistantSuggestions} from './AssistantSuggestions';
-import {ACTIONS_MARK,MAX_WRAPPED_INPUT,replyText,shownMessage,wrapMessage} from './assistantActionsModel';
+import {ACTIONS_MARK,MAX_WRAPPED_INPUT,compactMeals,compactPurchases,compactWorkouts,replyText,shownMessage,wrapMessage} from './assistantActionsModel';
 
 type Turn={id:string;text:string;status:string;response?:ChatReply;retryAfter:number;error?:string;alternatives?:{attemptId:string;response:ChatReply}[]};
 type Thread={id:string;title:string;turns:Turn[]};
@@ -28,10 +28,23 @@ const updateThreadUrl=(id:string|null)=>{const url=new URL(location.href);for(co
 
 const Answer:React.FC<{response:ChatReply;seed?:string;suggest?:boolean}>=({response,seed='',suggest=false})=><div className="mr-4 rounded-2xl bg-white/10 p-4 whitespace-pre-wrap break-words"><ReadAloudButton text={replyText(response.reply)} label="Play answer"/><p>{replyText(response.reply)}</p>{ACCOUNT_SESSIONS&&seed&&<AssistantSuggestions reply={response.reply} seed={seed} enabled={suggest}/>}<p className="mt-2 text-xs text-white/50">AI response · {response.model} · interpretation, not verified fact</p>{unavailableNotice(response)&&<p className="text-xs text-amber-300">{unavailableNotice(response)}</p>}{response.sources?.map((s,i)=><p key={i} className="text-xs text-pink-200">Source: {s.url?.startsWith('https://')?<a href={cupcakeHref(s.url)} target="_blank" rel="noreferrer">{s.title||'Library evidence'}</a>:s.title||'Library evidence'}</p>)}</div>;
 
-/** Labs: the owner's own current plans, read just before sending, so the assistant can see them. */
-async function currentPlans(){
-  try{const d=await libraryRequest<{plan:{meal_plan?:unknown;workout_template?:unknown}}>({action:'coach_plan_get'});return{mealPlan:d.plan?.meal_plan??null,workoutPlan:d.plan?.workout_template??null}}
-  catch{return{mealPlan:'(could not be read just now)',workoutPlan:'(could not be read just now)'}}
+/** Labs: the owner's own current app data, read just before sending, so the assistant can see it
+ *  and name exact records. Each part that fails to load is marked unavailable, never guessed. */
+async function currentAppState(){
+  const now=Date.now(),day=(offset:number)=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date(now+offset*864e5));
+  type Row=Record<string,unknown>;
+  const [plan,meals,workouts,purchases,settings]=await Promise.allSettled([
+    libraryRequest<{plan:{meal_plan?:unknown;workout_template?:unknown}}>({action:'coach_plan_get'}),
+    libraryRequest<{meals?:Row[]}>({action:'food_list',limit:12}),
+    libraryRequest<{entries?:Row[]}>({action:'exercise_list',start:new Date(now-7*864e5).toISOString(),end:new Date(now+6e5).toISOString(),limit:100}),
+    libraryRequest<{links?:Row[]}>({action:'reconcile_list',start:day(-14),end:day(0)}),
+    libraryRequest<{settings?:Row}>({action:'food_settings_get'})]);
+  const gone='(could not be read just now)';
+  return{nutritionSettings:settings.status==='fulfilled'?{calorieTarget:settings.value.settings?.calorieTarget??null,since:settings.value.settings?.effectiveFrom??null}:gone,recentMeals:meals.status==='fulfilled'?compactMeals(meals.value.meals||[]):gone,
+    recentWorkouts:workouts.status==='fulfilled'?compactWorkouts(workouts.value.entries||[]):gone,
+    purchases:purchases.status==='fulfilled'?compactPurchases(purchases.value.links||[]):gone,
+    mealPlan:plan.status==='fulfilled'?plan.value.plan?.meal_plan??null:gone,
+    workoutPlan:plan.status==='fulfilled'?plan.value.plan?.workout_template??null:gone};
 }
 // Account app: tap to fill the message box (never sends on its own).
 const STARTERS=['How am I doing this week?','What should I eat for dinner?','Help me plan tomorrow'];
@@ -94,7 +107,7 @@ export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean
       // Labs: add the suggestion format and current plans. A pending identical message is reused as sent.
       let text=typed;
       if(!regenerate&&prior&&shownMessage(prior.text)===typed)text=prior.text;
-      else if(!regenerate&&suggest&&!typed.startsWith(ACTIONS_MARK))text=wrapMessage(typed,await currentPlans());
+      else if(!regenerate&&suggest&&!typed.startsWith(ACTIONS_MARK))text=wrapMessage(typed,await currentAppState());
       if(!regenerate&&prior&&prior.text!==text)throw Error('A previous message may already be saved. Reopen this conversation before changing or sending it.');
       const turnId=regenerate?.id||prior?.turnId||crypto.randomUUID();
       const begin={threadId:current.id,turnId,text,parentTurnId:current.turns[current.turns.length-1]?.id||null,...(regenerate?{requestId:prior?.requestId||crypto.randomUUID()}:{})};
