@@ -12,7 +12,7 @@ type Turn = { id: string; text: string; status: string; error?: string; response
 // The synthetic server survives a page reload (like a real server) through this tab's sessionStorage.
 const threads = new Map<string, { id: string; title: string; turns: Turn[] }>(JSON.parse(sessionStorage.getItem('synthetic-server-threads') || '[]'));
 const persist = () => sessionStorage.setItem('synthetic-server-threads', JSON.stringify([...threads]));
-const fixture = { requests: [] as Record<string, unknown>[], blocked: [] as string[], plan: null as unknown, replies: [] as string[], mode: 'normal' as 'normal' | 'notReady' | 'fail',
+const fixture = { requests: [] as Record<string, unknown>[], blocked: [] as string[], plan: null as unknown, replies: [] as string[], mode: 'normal' as 'normal' | 'notReady' | 'fail', searchMode: 'normal' as 'normal' | 'notReady' | 'limit',
   answer() { for (const thread of threads.values()) for (const turn of thread.turns) if (turn.status === 'queued') { if (fixture.mode === 'fail') { turn.status = 'failed'; turn.error = 'provider_rejected'; } else { turn.status = 'completed'; turn.response = { reply: fixture.replies.shift() || 'No plan.', model: 'synthetic' }; } } persist(); } };
 (window as unknown as { labsFixture: typeof fixture }).labsFixture = fixture;
 const nativeFetch = window.fetch.bind(window);
@@ -30,6 +30,8 @@ window.fetch = async (input, init) => {
   if (body.action === 'coach_plan_set') { fixture.plan = body.value; return response({ meal_plan: body.value }); }
   if (String(body.action).startsWith('quick_chat_') && fixture.mode === 'notReady') return response({ error: 'account_action_not_ready' }, 503);
   if (body.action === 'quick_chat_create') { threads.set(body.threadId, { id: body.threadId, title: body.title, turns: [] }); return response({ thread: threads.get(body.threadId) }); }
+  if (body.action === 'quick_chat_begin' && String(body.text).startsWith('CUPCAKE_WEB_SEARCH_V1\n') && fixture.searchMode !== 'normal')
+    return fixture.searchMode === 'limit' ? response({ error: 'web_search_daily_limit' }, 429) : response({ error: 'account_action_not_ready' }, 503);
   if (body.action === 'quick_chat_begin') { const thread = threads.get(body.threadId)!; thread.turns.push({ id: body.turnId, text: body.text, status: 'queued' }); return response({ thread: structuredClone(thread), acquired: true, execution: 'server' }); }
   if (body.action === 'quick_chat_get') return threads.has(body.threadId) ? response({ thread: structuredClone(threads.get(body.threadId)) }) : response({ error: 'not_found' }, 404);
   throw Error('Unexpected synthetic action ' + body.action);
