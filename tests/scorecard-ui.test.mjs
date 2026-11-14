@@ -47,6 +47,12 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node, Fragment: 'fragment' };
       if (name === 'lucide-react') return new Proxy({}, { get: () => emptyComponent });
       if (name === './WeightHistoryConnected') return { WeightHistoryConnected: emptyComponent };
+      if (name === './NativeHealthSyncDetail') return { NativeHealthSyncDetail: emptyComponent };
+      // These assertions exercise the original scorecard UI; Noir is covered by the account design harness.
+      if (name === './accountMode') return { ACCOUNT_SESSIONS: false, cupcakeHref: href => href };
+      if (name === './noir/OutcomeBalance') return { OutcomeBalance: emptyComponent };
+      if (name === './dataChanges') return { useDataChanged: () => {} };
+      if (name === './personalStorage') return { personalStorage: kind => context[kind] };
       if (name === './weightApi') return { loadWeightPage: async () => ({ latestMeasurement: null }) };
       if (name === './weightHistoryModel') return { weightTime: String };
       if (name === './personalOutcomeDraft') return personalOutcomeDraft;
