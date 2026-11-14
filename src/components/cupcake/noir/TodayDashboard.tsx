@@ -13,6 +13,8 @@ import { todayLine } from './voice';
 import './noir-today.css';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
 import type { ReactNode } from 'react';
+import './noir-elevate.css';
+import './noir-recap.css';
 
 const TZ = 'America/Chicago';
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');

@@ -1,0 +1,156 @@
+/* Noir, second pass (design lead). Loaded last. One reading per home, a ruled instrument line instead of boxes,
+   two-tone depth, colour only where something needs you, and the camera as the centre key on phones. */
+.cc-app[data-entry=account] {
+  --nx-good: var(--nx-a); --nx-ink-2: rgba(238,244,245,.7);
+  background: radial-gradient(90% 420px at 50% -110px, color-mix(in oklab, var(--nx-a2) 20%, transparent), transparent 72%),
+    radial-gradient(55% 300px at 88% 20px, color-mix(in oklab, var(--nx-a) 9%, transparent), transparent 70%), #030607;
+  background-attachment: fixed;
+}
+.cc-app[data-entry=account][data-appearance=rose] {
+  background: radial-gradient(90% 420px at 50% -110px, color-mix(in oklab, var(--nx-a2) 22%, transparent), transparent 72%),
+    radial-gradient(55% 300px at 88% 20px, color-mix(in oklab, var(--nx-a) 10%, transparent), transparent 70%), #050409;
+  background-attachment: fixed;
+}
+
+/* ---------- The line she says ---------- */
+.cc-app[data-entry=account] .nx-today { gap: 0; }
+.cc-app[data-entry=account] .nx-today-head { align-items: flex-start; }
+.cc-app[data-entry=account] .nx-today-head > div { gap: 10px; }
+.cc-app[data-entry=account] .nx-today-head h2.nx-say { font: 300 22px/1.3 var(--nx-display); letter-spacing: -.012em; min-height: 2.6em; max-width: 26ch; }
+.cc-app[data-entry=account] .nx-say em { font-style: normal; color: var(--nx-a); }
+
+/* ---------- Dial: a gauge with a scale ---------- */
+.cc-app[data-entry=account] .nx-dial { max-width: 350px; margin-top: 4px; }
+.nx-tick.is-mid { stroke: rgba(255,255,255,.22); }
+.nx-tick.is-major { stroke: rgba(255,255,255,.5); }
+.nx-dial-scale { fill: var(--nx-ink-3); font: 500 9.5px/1 var(--nx-text, Inter, system-ui, sans-serif); letter-spacing: .05em; font-variant-numeric: tabular-nums; }
+.nx-dial-pace { stroke: var(--nx-ink); stroke-width: 2; stroke-linecap: round; }
+.nx-dial-head-ring { fill: #030607; }
+.cc-app[data-appearance=rose] .nx-dial-head-ring { fill: #050409; }
+.cc-app[data-entry=account] .nx-dial-head { filter: none; }
+.cc-app[data-entry=account] .nx-dial-glow { opacity: .45; }
+.cc-app[data-entry=account] .nx-dial-centre { inset: 0 0 4% 0; padding-top: 2%; }
+.cc-app[data-entry=account] .nx-big { font-size: clamp(60px, 19vw, 80px); line-height: .92; margin: 10px 0 8px; }
+.cc-app[data-entry=account] .nx-dial-centre p { color: var(--nx-ink-2); font-size: 12.5px; }
+
+/* ---------- Macros and vitals: ruled, not boxed ---------- */
+.cc-app[data-entry=account] .nx-macros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-top: -10px; position: relative; }
+.cc-app[data-entry=account] .nx-macros div { justify-items: start; gap: 0; padding: 0 12px; border-left: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .nx-macros div:first-child { border-left: 0; padding-left: 0; }
+.cc-app[data-entry=account] .nx-macros b { font-size: 22px; order: 1; }
+.cc-app[data-entry=account] .nx-macros i { order: 2; width: 100%; margin-top: 9px; }
+.cc-app[data-entry=account] .nx-macros u { background: linear-gradient(90deg, var(--nx-a2), var(--nx-a)); }
+.cc-app[data-entry=account] .nx-macros span { order: 3; margin-top: 8px; letter-spacing: .14em; text-transform: uppercase; font-size: 10.5px; }
+.cc-app[data-entry=account] .nx-today-side { gap: 0; }
+.cc-app[data-entry=account] .nx-tiles { gap: 0; border: 0; border-radius: 0; background: none; overflow: visible; border-block: 1px solid var(--nx-hair); padding: 18px 0; margin-top: 26px; }
+.cc-app[data-entry=account] .nx-tile { background: none; padding: 0 12px; border-left: 1px solid var(--nx-hair); gap: 0; border-radius: 4px; }
+.cc-app[data-entry=account] .nx-tile:first-child { border-left: 0; padding-left: 0; }
+.cc-app[data-entry=account] .nx-tile small { letter-spacing: .14em; font-size: 10.5px; }
+.cc-app[data-entry=account] .nx-tile b { font-size: 28px; letter-spacing: -.03em; margin: 9px 0 7px; line-height: 1; }
+.cc-app[data-entry=account] .nx-tile > span { display: flex; align-items: center; gap: 5px; color: var(--nx-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; --dot: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-tile > span::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--dot); }
+.cc-app[data-entry=account] .nx-tile > span.nx-good { --dot: var(--nx-a); }
+.cc-app[data-entry=account] .nx-tile > span.nx-warn { --dot: var(--nx-warm); }
+.cc-app[data-entry=account] .nx-tile > span.nx-bad { --dot: var(--nx-bad); color: var(--nx-bad); }
+.cc-app[data-entry=account] .nx-tile .nx-spark { margin-top: 12px; height: 20px; opacity: .85; }
+.cc-app[data-entry=account] .nx-c-sleep { color: var(--nx-a2); }
+.cc-app[data-entry=account] .nx-spark path { stroke-width: 1.3; }
+
+/* ---------- Dock ---------- */
+.cc-app[data-entry=account] .nx-dock { margin-top: 26px; }
+.cc-app[data-entry=account] .nx-mic span { display: none; }
+.cc-app[data-entry=account] .nx-cam, .cc-app[data-entry=account] .nx-mic { transition: transform .12s cubic-bezier(.3,.7,.4,1), box-shadow .12s, filter .12s; }
+.cc-app[data-entry=account] :is(.nx-cam, .nx-mic, .nx-minor button):active { transform: scale(.97); box-shadow: none; filter: brightness(.92); }
+.cc-app[data-entry=account] .nx-minor { margin-top: 12px; }
+.cc-app[data-entry=account] .nx-minor button { border: 0; background: rgba(255,255,255,.045); min-height: 36px; }
+
+/* ---------- Chart sections: a hairline and air, no frame ---------- */
+.cc-app[data-entry=account] .nx-panel { background: none; border: 0; border-radius: 0; padding: 26px 0 4px; }
+.cc-app[data-entry=account] .nx-tiles + .nx-panel { padding-top: 26px; }
+.cc-app[data-entry=account] .nx-charts { gap: 0; }
+.cc-app[data-entry=account] .nx-charts .nx-panel { border-top: 1px solid var(--nx-hair); margin-top: 22px; }
+.cc-app[data-entry=account] .nx-panel > header { padding: 0 0 6px; align-items: baseline; }
+.cc-app[data-entry=account] .nx-panel h3 { font-size: 15px; }
+.cc-app[data-entry=account] .nx-panel header p { font-size: 12.5px; color: var(--nx-ink-2); margin-top: 5px; }
+.cc-app[data-entry=account] .nx-kpi { font-size: 26px; }
+.nx-bar-g { transition: opacity .2s; }
+.nx-bar-g.is-dim { opacity: .3; }
+.cc-app[data-entry=account] .nx-bar { animation: none; fill: var(--nx-a); opacity: .78; }
+.cc-app[data-entry=account] .nx-bar.is-now { fill: var(--nx-ink); opacity: 1; }
+.cc-app[data-entry=account] .nx-bar.is-over { fill: var(--nx-warm); opacity: 1; }
+.cc-app[data-entry=account] .nx-bar-g.is-active .nx-bar { opacity: 1; }
+.cc-app[data-entry=account] .nx-bar-missing { fill: rgba(255,255,255,.28); }
+.cc-app[data-entry=account] .nx-target { stroke-dasharray: 1 4; stroke-opacity: .35; }
+.cc-app[data-entry=account] .nx-grid { stroke: rgba(255,255,255,.045); }
+.cc-app[data-entry=account] .nx-band { opacity: .05; }
+.nx-thread { fill: none; stroke: var(--nx-a); stroke-opacity: .22; stroke-width: 1.2; }
+.cc-app[data-entry=account] .nx-point { r: 2.6px; }
+.cc-app[data-entry=account] .nx-line { stroke-width: 2; }
+.cc-app[data-entry=account] .nx-fill-top { stop-opacity: .22; }
+.cc-app[data-entry=account] .nx-raw { opacity: .4; }
+.cc-app[data-entry=account] .nx-readout { border: 0; border-radius: 12px; background: rgba(20,28,32,.94); box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 14px 34px -10px rgba(0,0,0,.7); padding: 7px 11px; }
+.cc-app[data-entry=account] .nx-readout b { font-size: 15px; font-weight: 400; }
+@media (prefers-reduced-motion: no-preference) {
+  .nx-bar-g { animation: nx-rise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 22ms); transform-box: fill-box; transform-origin: bottom; }
+  .cc-app[data-entry=account] .nx-draw { animation-duration: .9s; }
+}
+
+/* ---------- One home per reading ----------
+   Food today and Weight repeat what the dial, the vitals line and the charts already show. They stay on the page,
+   one tap away under "More detail", together with anything that has no data yet. */
+.cc-app[data-entry=account] .cc-today-grid { margin-top: 26px; }
+.cc-app[data-entry=account] .cc-today-grid > .cc-notyet-head { display: none !important; }
+.cc-app[data-entry=account] .cc-today-grid:is(:has([data-empty]), :has(> .cc-nutrition-today), :has(> .cc-weight-card)) > .cc-notyet-toggle {
+  display: flex; order: 40; grid-column: 1 / -1; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 2px; border: 0; border-top: 1px solid var(--nx-hair); border-radius: 0;
+  background: none; color: var(--nx-ink-2); font: 500 14px/1.2 var(--nx-text); }
+.cc-app[data-entry=account] .cc-notyet-toggle small { color: var(--nx-a); font-size: 13px; font-weight: 500; }
+.cc-app[data-entry=account] .cc-today-grid:not(.is-fold-open) :is([data-empty], .cc-nutrition-today, .cc-weight-card) { display: none !important; }
+.cc-app[data-entry=account] .cc-today-grid:not(.is-fold-open) > .cc-energy > .cc-energy-curve[data-empty]:has(#cc-exercise-text) { display: grid !important; order: 6 !important; }
+.cc-app[data-entry=account] .cc-today-grid.is-fold-open > :is(.cc-nutrition-today, .cc-weight-card) { order: 41; }
+
+/* ---------- Phones: the camera is the centre key ---------- */
+@media (max-width: 1023px) {
+  .cc-app[data-entry=account] { --cc-nav-offset: 70px; }
+  .cc-app[data-entry=account] .cc-nav { border-top: 0; background: linear-gradient(180deg, transparent, rgba(3,6,7,.88) 38%, #030607 78%); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .cc-app[data-entry=account][data-appearance=rose] .cc-nav { background: linear-gradient(180deg, transparent, rgba(5,4,9,.88) 38%, #050409 78%); }
+  .cc-app[data-entry=account] .cc-nav > div { grid-auto-flow: row; grid-template-columns: 1fr 1fr 84px 1fr 1fr; align-items: end; max-width: 480px; }
+  .cc-app[data-entry=account] .cc-nav button { min-height: 70px; grid-row: 1; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(1) { grid-column: 1; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(3) { grid-column: 2; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(2) { grid-column: 3; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(4) { grid-column: 4; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(5) { grid-column: 5; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(2) { justify-self: center; width: 64px; height: 64px; min-height: 64px; margin-bottom: 10px; padding: 0; border-radius: 50%; color: #021412;
+    background: radial-gradient(circle at 30% 25%, color-mix(in oklab, var(--nx-a) 45%, #fff), var(--nx-a) 46%, var(--nx-a2) 125%);
+    box-shadow: 0 0 0 5px #030607, 0 0 0 6px color-mix(in oklab, var(--nx-a) 40%, transparent), 0 14px 34px -8px color-mix(in oklab, var(--nx-a) 70%, transparent), inset 0 1px 0 rgba(255,255,255,.5);
+    transition: transform .12s cubic-bezier(.3,.7,.4,1), box-shadow .12s; }
+  .cc-app[data-entry=account][data-appearance=rose] .cc-nav button:nth-child(2) { color: #12081f; box-shadow: 0 0 0 5px #050409, 0 0 0 6px color-mix(in oklab, var(--nx-a) 40%, transparent), 0 14px 34px -8px color-mix(in oklab, var(--nx-a) 70%, transparent), inset 0 1px 0 rgba(255,255,255,.5); }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(2):active { transform: scale(.95); }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(2)::before { display: none; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(2) > svg { width: 26px; height: 26px; color: inherit; }
+  .cc-app[data-entry=account] .cc-nav button:nth-child(2) .cc-nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  /* With the key always under the thumb, Today's dock becomes the voice button. */
+  .cc-app[data-entry=account] .nx-dock { grid-template-columns: 1fr; }
+  .cc-app[data-entry=account] .nx-cam { display: none; }
+  .cc-app[data-entry=account] .nx-mic { width: 100%; height: 54px; border-radius: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 0; background: rgba(255,255,255,.055); color: var(--nx-ink); font: 500 15px/1 var(--nx-text); }
+  .cc-app[data-entry=account] .nx-mic span { display: inline; }
+  .cc-app[data-entry=account] .nx-mic svg { color: var(--nx-a); width: 19px; height: 19px; }
+}
+@media (min-width: 960px) {
+  .cc-app[data-entry=account] .nx-today-head h2.nx-say { font-size: 34px; font-weight: 200; line-height: 1.18; max-width: 24ch; min-height: 0; }
+  .cc-app[data-entry=account] .nx-today-top { margin-top: 18px; gap: 48px; }
+  .cc-app[data-entry=account] .nx-tiles { margin-top: 0; }
+  .cc-app[data-entry=account] .nx-charts { gap: 48px; }
+}
+
+/* ---------- Third look: clearances and the drill-down cards ---------- */
+.cc-app[data-entry=account] .nx-macros { margin-top: 10px; }
+.nx-thread { display: none; }
+/* Drill-down cards below the dashboard share its language: a hairline and air instead of a frame. */
+.cc-app[data-entry=account] .cc-shell .cc-today-grid :is(.cc-signals, .cc-last-night, .cc-sugar, .cc-cgm, .cc-energy-curve, .cc-health-sync):not([data-empty]) {
+  background: none; border: 0; border-top: 1px solid var(--nx-hair); border-radius: 0; box-shadow: none; padding: 26px 0 8px; }
+.cc-app[data-entry=account] .cc-shell .cc-today-grid { gap: 22px 28px; }
+.cc-app[data-entry=account] .cc-shell .cc-today-grid .cc-last-night strong { font: 300 34px/1 var(--nx-display); letter-spacing: -.03em; white-space: nowrap; }
+@media (max-width: 899px) {
+  .cc-app[data-entry=account] .cc-today-grid > .cc-energy > :is(.cc-last-night, .cc-sugar):not([data-empty]) { grid-column: 1 / -1; }
+}

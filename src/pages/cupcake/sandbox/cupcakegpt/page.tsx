@@ -468,7 +468,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantNam
     {!ACCOUNT_SESSIONS&&nextUp&&<div className="cc-card cc-next-up" role="note" aria-label="Next up"><div><span className="cc-eyebrow">Next up · {nextUp}</span><p><strong>{nextUp} time.</strong> Snap your plate when it lands and it’s logged for you.</p></div><button type="button" className="cc-primary" onClick={()=>setMealCameraOpen(true)}><Camera size={18}/>Meal photo</button></div>}
     <div className={`cc-today-grid${foldOpen?' is-fold-open':''}`}>
     {ACCOUNT_SESSIONS&&<h3 className="cc-notyet-head">Not logged yet</h3>}
-    {ACCOUNT_SESSIONS&&<button type="button" className="cc-notyet-toggle" aria-expanded={foldOpen} onClick={()=>setFoldOpen(open=>!open)}><span>Not logged yet</span><small>{foldOpen?'Hide':'Show'}</small></button>}
+    {ACCOUNT_SESSIONS&&<button type="button" className="cc-notyet-toggle" aria-expanded={foldOpen} onClick={()=>setFoldOpen(open=>!open)}><span>{ACCOUNT_SESSIONS?'More detail':'Not logged yet'}</span><small>{foldOpen?'Hide':'Show'}</small></button>}
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>}
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Apple Health uploads"><AccountHealthSyncCard/></SectionBoundary>}
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
