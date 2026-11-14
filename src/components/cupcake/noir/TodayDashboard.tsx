@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Camera, ChevronRight, Dumbbell, Lightbulb, Mic, Radio, RotateCw } from 'lucide-react';
 import { spendSourceLabel } from '../savesModel';
-import { BarChart, Spark, TrendChart } from './NoirCharts';
+import { BarChart, Spark, TrendChart, type ChartScrub } from './NoirCharts';
 import { libraryRequest } from '../library';
 import { loadWeightPage, type WeightRecord } from '../weightApi';
 import { parseGlucoseEntries, type GlucoseReading } from '../glucoseApi';
@@ -99,6 +99,9 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
     sleepLastNight: !!lastNight && lastNight.nightId >= addDays(today, -1),
   } : null;
   const [metric, setMetric] = useState('cal');
+  const [intakeScrub, setIntakeScrub] = useState<ChartScrub | null>(null);
+  const [glucoseScrub, setGlucoseScrub] = useState<ChartScrub | null>(null);
+  const [weightScrub, setWeightScrub] = useState<ChartScrub | null>(null);
   const lastMealAt = recapFacts?.lastMealAt ?? null, fastMin = lastMealAt ? Math.max(0, (Date.now() - lastMealAt) / 60000) : null, FAST_GOAL = 16 * 60;
   const freshG = latestG && Date.now() - latestG.at < 864e5 ? latestG : null;
   const sleepNight = lastNight && lastNight.nightId >= addDays(today, -1) ? lastNight : null, SLEEP_GOAL = 8 * 60;
@@ -177,29 +180,29 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
         </div>
 
         {intake && intake.some(d => d.meals.length) && <article className="nx-panel">
-          <header><div><h3>Intake</h3><p>{(() => { const logged = intake.filter(d => d.meals.length && d.day !== today); const avg = logged.length ? logged.reduce((s, d) => s + d.calories, 0) / logged.length : null; return avg === null ? 'Last 14 days' : `Average ${fmtInt(avg)} kcal on ${logged.length} logged days`; })()}</p></div>
+          <header><div><h3>Intake</h3><p>{intakeScrub ? `${intakeScrub.title} · ${intakeScrub.value}${intakeScrub.unit ? ` ${intakeScrub.unit}` : ''}` : (() => { const logged = intake.filter(d => d.meals.length && d.day !== today); const avg = logged.length ? logged.reduce((s, d) => s + d.calories, 0) / logged.length : null; return avg === null ? 'Last 14 days' : `Average ${fmtInt(avg)} kcal on ${logged.length} logged days`; })()}</p></div>
             <button type="button" className="nx-link" onClick={onOpenFood}>Food log<ChevronRight size={14} aria-hidden="true" /></button></header>
           <BarChart bars={intake.map(d => ({ key: d.day, label: shortDay(d.day), value: d.meals.length ? d.calories : null, title: d.day === today ? 'Today so far' : shortDay(d.day) }))}
             target={target} unit="kcal" axis={[{ index: 0, label: shortDay(days14[0]!) }, { index: 7, label: shortDay(days14[7]!) }, { index: 13, label: 'Today' }]}
-            label={`Calories per day for the last 14 days${target ? `, target ${fmtInt(target)}` : ''}`} />
+            label={`Calories per day for the last 14 days${target ? `, target ${fmtInt(target)}` : ''}`} onScrub={setIntakeScrub} />
         </article>}
       </div>
     </div>
 
     <div className="nx-charts">
       {glucose.length > 1 && <article className="nx-panel">
-        <header><div><h3>Glucose</h3><p>{inRange !== null ? `${inRange}% of readings in range · 14 days` : '14 days'}</p></div><span className="nx-kpi">{latestG!.valueMgDl}<small>mg/dL</small></span></header>
+        <header><div><h3>Glucose</h3><p>{glucoseScrub?.title ?? (inRange !== null ? `${inRange}% of readings in range · 14 days` : '14 days')}</p></div><span className="nx-kpi">{glucoseScrub?.value ?? latestG!.valueMgDl}<small>mg/dL</small></span></header>
         <TrendChart points={glucose.map(g => ({ t: g.at, v: g.valueMgDl, label: `${shortDate(g.at)} · ${clock(g.at)}` }))} band={[70, 140]} scatter unit="mg/dL" formatValue={v => String(Math.round(v))}
           formatTime={t => `${shortDate(t)} · ${clock(t)}`} axisTimes={[{ t: Date.now() - 13 * 864e5, label: shortDate(Date.now() - 13 * 864e5) }, { t: Date.now(), label: 'Today' }]}
-          label={`Manual glucose readings for 14 days, latest ${latestG!.valueMgDl}`} live />
+          label={`Manual glucose readings for 14 days, latest ${latestG!.valueMgDl}`} onScrub={setGlucoseScrub} live />
         <p className="nx-legend"><i className="nx-dot-a" />Your readings<i className="nx-dot-band" />Target 70–140</p>
       </article>}
       {w90.length > 2 && <article className="nx-panel">
-        <header><div><h3>Weight</h3><p>{(() => { const d = w90[w90.length - 1]!.weightLb - w90[0]!.weightLb; return <><span className={d <= 0 ? 'nx-good' : 'nx-warn'}>{d <= 0 ? '−' : '+'}{Math.abs(d).toFixed(1)} lb</span> since {shortDate(Date.parse(w90[0]!.measuredAt))} · 7-day average</>; })()}</p></div>
-          <span className="nx-kpi">{latestW!.weightLb.toFixed(1)}<small>lb</small></span></header>
+        <header><div><h3>Weight</h3><p>{weightScrub ? `${weightScrub.title} · 7-day average` : (() => { const d = w90[w90.length - 1]!.weightLb - w90[0]!.weightLb; return <><span className={d <= 0 ? 'nx-good' : 'nx-warn'}>{d <= 0 ? '−' : '+'}{Math.abs(d).toFixed(1)} lb</span> since {shortDate(Date.parse(w90[0]!.measuredAt))} · 7-day average</>; })()}</p></div>
+          <span className="nx-kpi">{weightScrub?.value ?? latestW!.weightLb.toFixed(1)}<small>lb</small></span></header>
         <TrendChart points={w90.map(m => ({ t: Date.parse(m.measuredAt), v: m.weightLb }))} average={7} unit="lb" tone="a2"
           formatTime={t => shortDate(t)} axisTimes={[0, 1, 2].map(i => { const t = Date.parse(w90[0]!.measuredAt) + (Date.now() - Date.parse(w90[0]!.measuredAt)) * i / 2; return { t, label: i === 2 ? 'Today' : shortDate(t) }; })}
-          label={`Weight over ${Math.round((Date.now() - Date.parse(w90[0]!.measuredAt)) / 864e5)} days, latest ${latestW!.weightLb.toFixed(1)} pounds`} />
+          label={`Weight over ${Math.round((Date.now() - Date.parse(w90[0]!.measuredAt)) / 864e5)} days, latest ${latestW!.weightLb.toFixed(1)} pounds`} onScrub={setWeightScrub} />
       </article>}
     </div>
   </section>;

@@ -73,7 +73,23 @@ export function Spark({ values, className }: { values: number[]; className?: str
 }
 
 export type TrendPoint = { t: number; v: number; label?: string };
-type Readout = { x: number; y: number; title: string; value: string };
+export type ChartScrub = { title: string; value: string; unit: string };
+export type OnChartScrub = (selection: ChartScrub | null) => void;
+type Readout = ChartScrub & { x: number; y: number };
+
+/** Report the same formatted selection as the tooltip, without notifying on
+ * background renders or pointer movement within the same point. */
+function useScrubReadout(onScrub: OnChartScrub | undefined, readout: Readout | null) {
+  const callback = useRef(onScrub);
+  useEffect(() => { callback.current = onScrub; }, [onScrub]);
+  const { title, value, unit } = readout ?? {};
+  const enabled = onScrub !== undefined;
+  useEffect(() => {
+    if (enabled) callback.current?.(title !== undefined && value !== undefined && unit !== undefined ? { title, value, unit } : null);
+  }, [enabled, title, unit, value]);
+}
+
+const scrubText = ({ value, unit }: ChartScrub) => unit ? `${value} ${unit}` : value;
 
 /** Scrubbing shared by line and bar charts: pointer and keyboard pick an index; the readout follows it. */
 function useScrub(count: number) {
@@ -91,14 +107,14 @@ function useScrub(count: number) {
 function ReadoutTag({ r, width }: { r: Readout | null; width: number }) {
   if (!r) return null;
   const left = clamp(r.x, 52, width - 52);
-  return <div className="nx-readout" style={{ left, top: Math.max(0, r.y - 50) }} aria-hidden="true"><b>{r.value}</b><span>{r.title}</span></div>;
+  return <div className="nx-readout" style={{ left, top: Math.max(0, r.y - 50) }} aria-hidden="true"><b>{scrubText(r)}</b><span>{r.title}</span></div>;
 }
 
 /** A trend line over time. Optional 7-point rolling average (raw readings become faint dots), goal line, target band and markers. */
-export function TrendChart({ points, height = 180, average, goal, band, unit, formatValue = v => v.toFixed(1), formatTime, axisTimes, label, live, markers = [], className, tone = 'a', scatter = false }: {
+export function TrendChart({ points, height = 180, average, goal, band, unit, formatValue = v => v.toFixed(1), formatTime, axisTimes, label, live, markers = [], className, tone = 'a', scatter = false, onScrub }: {
   points: TrendPoint[]; height?: number; average?: number; goal?: { value: number; label: string }; band?: [number, number]; unit: string;
   formatValue?: (v: number) => string; formatTime: (t: number) => string; axisTimes: { t: number; label: string }[]; label: string; live?: boolean;
-  markers?: { t: number; label: string }[]; className?: string; tone?: 'a' | 'a2'; scatter?: boolean;
+  markers?: { t: number; label: string }[]; className?: string; tone?: 'a' | 'a2'; scatter?: boolean; onScrub?: OnChartScrub;
 }) {
   const id = useId().replace(/:/g, '');
   const [box, W] = useBoxWidth<HTMLDivElement>(340);
@@ -120,10 +136,11 @@ export function TrendChart({ points, height = 180, average, goal, band, unit, fo
     setIndex(best);
   };
   const ticks: number[] = []; for (let v = lo; v <= hi + 1e-9; v += step) ticks.push(Math.round(v * 1000) / 1000);
-  const active = index !== null ? { p: sorted[index]!, s: smoothed[index]!, pt: line[index]! } : null;
-  const readout: Readout | null = active ? { x: active.pt.x, y: active.pt.y, title: active.p.label || formatTime(active.p.t), value: `${formatValue(average ? active.s.v : active.p.v)} ${unit}` } : null;
+  const active = index !== null && index < sorted.length ? { p: sorted[index]!, s: smoothed[index]!, pt: line[index]! } : null;
+  const readout: Readout | null = active ? { x: active.pt.x, y: active.pt.y, title: active.p.label || formatTime(active.p.t), value: formatValue(active.s.v), unit } : null;
+  useScrubReadout(onScrub, readout);
   if (!sorted.length) return null;
-  return <div ref={box} className={`nx-chart nx-tone-${tone} ${className || ''}`} tabIndex={0} role="img" aria-label={label} onKeyDown={onKey}
+  return <div ref={box} className={`nx-chart nx-tone-${tone} ${className || ''}`} tabIndex={0} role="img" aria-label={onScrub && readout ? `${label}. ${readout.title}: ${scrubText(readout)}` : label} onKeyDown={onKey}
     onPointerMove={pick} onPointerDown={pick} onPointerLeave={e => { if (e.pointerType === 'mouse') setIndex(null); }} onBlur={() => setIndex(null)}>
     <svg viewBox={`0 0 ${W} ${height}`} width={W} height={height} aria-hidden="true">
       <defs><linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" className="nx-fill-top" /><stop offset="1" className="nx-fill-bottom" /></linearGradient></defs>
@@ -147,8 +164,8 @@ export function TrendChart({ points, height = 180, average, goal, band, unit, fo
 
 export type Bar = { key: string; label: string; value: number | null; title?: string };
 /** Vertical bars with an optional target line. Bars over target turn warm; days without data show as a faint stub. */
-export function BarChart({ bars, height = 150, target, unit, formatValue = v => Math.round(v).toLocaleString('en-US'), axis, label, className }: {
-  bars: Bar[]; height?: number; target?: number | null; unit: string; formatValue?: (v: number) => string; axis: { index: number; label: string }[]; label: string; className?: string;
+export function BarChart({ bars, height = 150, target, unit, formatValue = v => Math.round(v).toLocaleString('en-US'), axis, label, className, onScrub }: {
+  bars: Bar[]; height?: number; target?: number | null; unit: string; formatValue?: (v: number) => string; axis: { index: number; label: string }[]; label: string; className?: string; onScrub?: OnChartScrub;
 }) {
   const [box, W] = useBoxWidth<HTMLDivElement>(340);
   const pad = { l: 36, r: 10, t: 14, b: 22 }, iw = Math.max(10, W - pad.l - pad.r), ih = height - pad.t - pad.b;
@@ -157,9 +174,10 @@ export function BarChart({ bars, height = 150, target, unit, formatValue = v => 
   const { index, setIndex, onKey } = useScrub(bars.length);
   const pick = (e: PointerEvent<HTMLDivElement>) => { const rect = e.currentTarget.getBoundingClientRect(); setIndex(clamp(Math.floor((e.clientX - rect.left - pad.l) / bw), 0, bars.length - 1)); };
   const active = index !== null ? bars[index] : null;
-  const readout: Readout | null = active && index !== null ? { x: pad.l + index * bw + bw / 2, y: active.value ? y(active.value) : pad.t + ih, title: active.title || active.label, value: active.value === null ? 'Not logged' : `${formatValue(active.value)} ${unit}` } : null;
+  const readout: Readout | null = active && index !== null ? { x: pad.l + index * bw + bw / 2, y: active.value ? y(active.value) : pad.t + ih, title: active.title || active.label, value: active.value === null ? 'Not logged' : formatValue(active.value), unit: active.value === null ? '' : unit } : null;
+  useScrubReadout(onScrub, readout);
   const ticks: number[] = []; for (let v = step; v < max; v += step) if (!target || Math.abs(v - target) > step * 0.4) ticks.push(v);
-  return <div ref={box} className={`nx-chart ${className || ''}`} tabIndex={0} role="img" aria-label={label} onKeyDown={onKey}
+  return <div ref={box} className={`nx-chart ${className || ''}`} tabIndex={0} role="img" aria-label={onScrub && readout ? `${label}. ${readout.title}: ${scrubText(readout)}` : label} onKeyDown={onKey}
     onPointerMove={pick} onPointerDown={pick} onPointerLeave={e => { if (e.pointerType === 'mouse') setIndex(null); }} onBlur={() => setIndex(null)}>
     <svg viewBox={`0 0 ${W} ${height}`} width={W} height={height} aria-hidden="true">
       {ticks.map(v => <g key={v}><line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} className="nx-grid" /><text x={pad.l - 8} y={y(v) + 3.5} textAnchor="end" className="nx-axis">{v >= 1000 ? `${(v / 1000).toFixed(v % 1000 ? 1 : 0)}k` : formatValue(v)}</text></g>)}
