@@ -1,0 +1,48 @@
+/* Multi-ring dial (MultiDial.tsx). Ring colours: calories take the theme's two-tone accent; the others have fixed hues so they
+   read the same for Cupcake and Matthieu. Rings trade places by scaling about the dial's centre. */
+.nx-md { --md-fast: #ffb547; --md-glucose: #5fe3a1; --md-sleep: #8f8cff; --md-ease: cubic-bezier(.3,.9,.2,1); position: relative; width: 100%; max-width: 350px; margin: 4px auto 0; }
+.cc-app .nx-md-face { all: unset; display: block; position: relative; width: 100%; cursor: pointer; border-radius: 28px; -webkit-tap-highlight-color: transparent; }
+.cc-app .nx-md-face:focus-visible { box-shadow: 0 0 0 2px var(--nx-a); }
+.nx-md-dial { position: relative; }
+.nx-md-face svg { display: block; width: 100%; height: auto; overflow: visible; }
+.nx-md-ring path { fill: none; stroke-linecap: round; }
+.nx-md-track { stroke: rgba(255,255,255,.055); }
+.nx-md-ring.is-fast { color: var(--md-fast); } .nx-md-ring.is-glucose { color: var(--md-glucose); } .nx-md-ring.is-sleep { color: var(--md-sleep); } .nx-md-ring.is-cal { color: var(--nx-a); }
+.nx-md-fill, .nx-md-glow { stroke: currentColor; }
+.nx-md-ring:not(.is-primary) .nx-md-fill { opacity: .78; }
+.nx-md-ring:not(.is-primary) .nx-md-track { stroke: rgba(255,255,255,.04); }
+.nx-md-glow { opacity: .42; }
+.nx-md-over { stroke: var(--nx-warm); }
+.nx-md-ring.is-empty .nx-md-track { stroke-dasharray: 1 5; stroke: rgba(255,255,255,.16); stroke-linecap: butt; }
+.nx-md-centre { position: absolute; inset: 0 0 4% 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-top: 2%; pointer-events: none; }
+.nx-md-centre small { font: 500 10.5px/1 var(--nx-text); letter-spacing: .14em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-md .nx-big { font-size: clamp(50px, 15.5vw, 66px); line-height: .94; margin: 10px 0 8px; white-space: nowrap; }
+.nx-md .nx-big sub { font: 400 12px/1 var(--nx-text); letter-spacing: 0; color: var(--nx-ink-3); margin-left: 4px; vertical-align: baseline; }
+.nx-md-detail { display: block; max-width: 168px; font: 400 12.5px/1.35 var(--nx-text); color: var(--nx-ink-2, rgba(238,244,245,.7)); font-variant-numeric: tabular-nums; text-wrap: balance; }
+.nx-md-detail em { font-style: normal; color: var(--nx-a); }
+.nx-md[data-tone=fast] .nx-md-detail em { color: var(--md-fast); } .nx-md[data-tone=glucose] .nx-md-detail em { color: var(--md-glucose); } .nx-md[data-tone=sleep] .nx-md-detail em { color: var(--md-sleep); }
+/* The drill-down sits in the open quarter at the bottom of the dial. */
+.cc-app .nx-md-drill { all: unset; box-sizing: border-box; position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 3px; min-height: 32px; padding: 0 10px 0 13px; border-radius: 99px; cursor: pointer;
+  font: 500 12px/1 var(--nx-text); color: var(--nx-ink); background: rgba(255,255,255,.06); white-space: nowrap; }
+.cc-app .nx-md-drill svg { color: var(--nx-ink-3); }
+.cc-app .nx-md-drill:focus-visible, .cc-app .nx-md-key:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; }
+.nx-md-keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 14px; border-block: 1px solid var(--nx-hair); }
+.cc-app .nx-md-key { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 5px 6px; padding: 12px 0 12px 10px; min-width: 0; cursor: pointer; border-left: 1px solid var(--nx-hair); opacity: .62; transition: opacity .25s; -webkit-tap-highlight-color: transparent; }
+.cc-app .nx-md-key:first-child { border-left: 0; padding-left: 0; }
+.cc-app .nx-md-key[aria-selected=true] { opacity: 1; }
+.nx-md-key i { width: 10px; height: 3px; border-radius: 3px; background: currentColor; }
+.nx-md-key.is-cal i { background: linear-gradient(90deg, var(--nx-a2), var(--nx-a)); } .nx-md-key.is-fast i { color: var(--md-fast); } .nx-md-key.is-glucose i { color: var(--md-glucose); } .nx-md-key.is-sleep i { color: var(--md-sleep); }
+.nx-md-key.is-empty i { background: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+.nx-md-key span { font: 500 10px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-md-key b { grid-column: 1 / -1; font: 300 17px/1 var(--nx-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--nx-ink); white-space: nowrap; }
+.cc-app[data-entry=account] .nx-md + .nx-macros { margin-top: 18px; }
+@media (prefers-reduced-motion: no-preference) {
+  .nx-md-ring { transition: transform .62s var(--md-ease); }
+  .nx-md-ring path { transition: stroke-width .62s var(--md-ease), stroke-dasharray .9s var(--md-ease), opacity .4s; }
+  .nx-md-centre { animation: nx-md-in .42s var(--md-ease) both; }
+  .nx-md-scale, .nx-md-headg { animation: nx-md-fade .5s ease .18s both; }
+  .cc-app .nx-md-face:active svg { transform: scale(.985); transition: transform .12s; }
+}
+@keyframes nx-md-in { from { opacity: 0; transform: translateY(8px) scale(.96); filter: blur(4px); } }
+@keyframes nx-md-fade { from { opacity: 0; } }
+.cc-app[data-appearance=rose] .nx-md { --md-sleep: #6fb7ff; }
