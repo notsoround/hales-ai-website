@@ -13,7 +13,8 @@
 .nx-md-ring:not(.is-primary) .nx-md-track { stroke: rgba(255,255,255,.04); }
 .nx-md-glow { opacity: .42; }
 .nx-md-over { stroke: var(--nx-warm); }
-.nx-md-ring.is-empty .nx-md-track { stroke-dasharray: 1 5; stroke: rgba(255,255,255,.16); stroke-linecap: butt; }
+.nx-md-ring.is-empty .nx-md-track { stroke: rgba(255,255,255,.03); }
+.nx-md-ring.is-empty.is-primary .nx-md-track { stroke-dasharray: 2 7; stroke: rgba(255,255,255,.2); stroke-linecap: butt; }
 .nx-md-centre { position: absolute; inset: 0 0 4% 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-top: 2%; pointer-events: none; }
 .nx-md-centre small { font: 500 10.5px/1 var(--nx-text); letter-spacing: .14em; text-transform: uppercase; color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .nx-md .nx-big { font-size: clamp(50px, 15.5vw, 66px); line-height: .94; margin: 10px 0 8px; white-space: nowrap; }
@@ -46,3 +47,19 @@
 @keyframes nx-md-in { from { opacity: 0; transform: translateY(8px) scale(.96); filter: blur(4px); } }
 @keyframes nx-md-fade { from { opacity: 0; } }
 .cc-app[data-appearance=rose] .nx-md { --md-sleep: #6fb7ff; }
+
+/* Spent today: one quiet line under the dial's readings. Money has no "more is better" arc, so it is a line, not a ring. */
+.nx-spend { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; border-bottom: 1px solid var(--nx-hair); }
+.cc-app .nx-spend-main { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 10px; min-height: 48px; padding: 14px 0 12px; cursor: pointer; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.nx-spend-main small { font: 500 10px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); white-space: nowrap; }
+.nx-spend-main b { font: 300 19px/1 var(--nx-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--nx-ink); white-space: nowrap; }
+.nx-spend-main span { font: 400 12px/1.2 var(--nx-text); color: var(--nx-ink-2, rgba(238,244,245,.7)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cc-app .nx-spend-refresh { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 7px; min-width: 40px; min-height: 40px; justify-content: flex-end; cursor: pointer; color: var(--nx-ink-3); font: 500 11px/1 var(--nx-text); white-space: nowrap; font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; }
+.cc-app .nx-spend-refresh:disabled { cursor: default; }
+.cc-app .nx-spend-refresh:active svg { transform: rotate(90deg); }
+.cc-app :is(.nx-spend-main, .nx-spend-refresh):focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; border-radius: 6px; }
+.nx-spend-refresh svg { transition: transform .2s; }
+.cc-app[data-entry=account] .nx-spend + .nx-macros { margin-top: 18px; }
+@media (max-width: 420px) { .nx-spend-refresh span { display: none; } }
+@media (prefers-reduced-motion: no-preference) { .nx-spend-refresh svg.is-spinning { animation: nx-spin .9s linear infinite; } }
+@keyframes nx-spin { to { transform: rotate(360deg); } }

@@ -9,7 +9,7 @@ export function todayLine(s: TodayState): TodayLine {
   if (!s.meals) {
     const meal = s.mealHint ? s.mealHint.toLowerCase() : s.hour < 11 ? 'breakfast' : s.hour < 16 ? 'lunch' : 'dinner';
     if (calm) return line(`Nothing logged yet, ${s.name}. `, `Start with ${meal}`, ' when you are ready.');
-    return s.hour >= 14 ? line(`It is past two and I have nothing, ${s.name}. `, 'Show me a plate', '.') : line(`Morning, ${s.name}. `, `Show me ${meal}`, ' and I will do the math.');
+    return s.hour >= 14 ? line(`It is past two and I have nothing, ${s.name}. `, 'Show me a plate', '.') : line(`${s.hour < 12 ? 'Morning' : 'Afternoon'}, ${s.name}. `, `Show me ${meal}`, ' and I will do the math.');
   }
   if (s.left === null) return calm ? line('Logged and saved. ', 'Set a daily target', ' to see what is left.') : line('I am counting, but toward what? ', 'Give me a target', '.');
   if (s.left < 0) return calm ? line(`${n(s.left)} over today. `, 'Keep the evening light', '.') : line(`${n(s.left)} over. I saw that. `, 'Kitchen is closed', ', water is free.');
