@@ -54,7 +54,7 @@ export function MultiDial({ metrics, selected, onSelect, size = 300 }: { metrics
           return <g key={m.key} className={`nx-md-ring is-${m.tone}${slot === 0 ? ' is-primary' : ''}${m.fraction === null ? ' is-empty' : ''}`} style={{ transform: `scale(${k})`, transformOrigin: `${cx}px ${cy}px` }}>
             <path d={arc} className="nx-md-track" strokeWidth={w} />
             {slot === 0 && f > 0.004 && <path d={arc} pathLength={1} stroke={stroke} strokeWidth={w} strokeDasharray={`${f} 1`} className="nx-md-glow" filter={`url(#${id}b)`} />}
-            <path d={arc} pathLength={1} stroke={stroke} strokeWidth={w} strokeDasharray={`${f} 1`} className="nx-md-fill" />
+            {f > 0.004 && <path d={arc} pathLength={1} stroke={stroke} strokeWidth={w} strokeDasharray={`${f} 1`} className="nx-md-fill" />}
             {m.over && m.over > 0.004 ? <path d={arc} pathLength={1} strokeWidth={w} strokeDasharray={`${clamp(m.over, 0, 1)} 1`} className="nx-md-over" /> : null}
           </g>;
         })}

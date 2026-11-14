@@ -1,7 +1,8 @@
 /** Today's instrument panel for the account app: the calorie dial, one camera button with voice beside it,
  *  a strip of three key readings, and touchable charts for intake, glucose and weight. Everything below it is drill-down. */
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, ChevronRight, Dumbbell, Lightbulb, Mic, Radio } from 'lucide-react';
+import { Camera, ChevronRight, Dumbbell, Lightbulb, Mic, Radio, RotateCw } from 'lucide-react';
+import { spendSourceLabel } from '../savesModel';
 import { BarChart, Spark, TrendChart } from './NoirCharts';
 import { libraryRequest } from '../library';
 import { loadWeightPage, type WeightRecord } from '../weightApi';
@@ -23,6 +24,12 @@ const shortDay = (day: string) => new Intl.DateTimeFormat('en-US', { timeZone: '
 const shortDate = (ms: number) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric' }).format(new Date(ms));
 const clock = (ms: number) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).format(new Date(ms)).replace(' AM', 'a').replace(' PM', 'p');
 const hm = (minutes: number) => `${Math.floor(minutes / 60)}:${String(Math.round(minutes % 60)).padStart(2, '0')}`;
+
+/** Money spent today, as the account feed reports it. `amount` null means nothing has been reported. */
+export type TodaySpend = { amount: number | null; count: number; lastTime: string | null; lastTitle: string | null; source: string; checkedAt: number | null; loading: boolean; failed: boolean; onRefresh: () => void; onOpen: () => void };
+const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+/** "14:05" from the feed becomes "2:05p". Anything else is shown as given. */
+const feedClock = (t: string) => { const m = /^(\d{1,2}):(\d{2})/.exec(t); if (!m) return t; const h = Number(m[1]); return `${h % 12 || 12}:${m[2]}${h < 12 ? 'a' : 'p'}`; };
 
 type Nutrition = { history: NutritionHistory | null; settings: NutritionSettings; loading: boolean };
 type Signals = { weight: WeightRecord[] | null; glucose: GlucoseReading[] | null; nights: RingconnNight[] | null };
@@ -51,8 +58,8 @@ function useSignals(): Signals {
   return signals;
 }
 
-export function TodayDashboard({ name, assistantName, portrait, sassy, nutrition, mealHint, onCamera, onTalk, onRecord, onExercise, onTip, onOpenFood, onOpenHistory }: {
-  name: string; assistantName: string; portrait: ReactNode; sassy: boolean; nutrition: Nutrition; mealHint: string | null;
+export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nutrition, mealHint, onCamera, onTalk, onRecord, onExercise, onTip, onOpenFood, onOpenHistory }: {
+  spend?: TodaySpend; name: string; assistantName: string; portrait: ReactNode; sassy: boolean; nutrition: Nutrition; mealHint: string | null;
   onCamera: () => void; onTalk: () => void; onRecord: () => void; onExercise: () => void; onTip: () => void; onOpenFood: () => void; onOpenHistory: () => void;
 }) {
   const signals = useSignals();
@@ -118,6 +125,16 @@ export function TodayDashboard({ name, assistantName, portrait, sassy, nutrition
     <div className="nx-today-top">
       <div className="nx-today-dial">
         <MultiDial metrics={metrics} selected={metric} onSelect={setMetric} />
+        {spend && <div className="nx-spend" role="group" aria-label="Spent today">
+          <button type="button" className="nx-spend-main" onClick={spend.onOpen} aria-label={`Spent today ${spend.amount !== null ? money(spend.amount) : 'not reported'}. ${spend.source ? spendSourceLabel(spend.source) : ''} Open history`}>
+            <small>Spent today</small>
+            <b>{spend.loading && spend.amount === null ? '—' : spend.amount !== null ? money(spend.amount) : '—'}</b>
+            <span>{spend.failed ? 'Could not check. Try refresh.' : spend.loading ? 'Checking…' : spend.lastTime ? <>{spend.lastTitle ? `${spend.lastTitle} · ` : 'Last '}{feedClock(spend.lastTime)}{spend.count > 1 ? ` · ${spend.count} purchases` : ''}</> : spend.amount !== null ? 'Day total so far' : 'Nothing reported today'}</span>
+          </button>
+          <button type="button" className="nx-spend-refresh" onClick={spend.onRefresh} disabled={spend.loading} aria-label={`Refresh spending${spend.checkedAt ? `, checked ${clock(spend.checkedAt)}` : ''}`}>
+            {spend.checkedAt && !spend.loading ? <span>Checked {clock(spend.checkedAt)}</span> : null}<RotateCw size={15} aria-hidden="true" className={spend.loading ? 'is-spinning' : undefined} />
+          </button>
+        </div>}
         <div className="nx-macros" aria-label="Macros today">
           {([['Protein', macros.protein, 150], ['Carbs', macros.carbs, 220], ['Fat', macros.fat, 70]] as const).map(([label, value, goal]) =>
             <div key={label}><b>{Math.round(value)}<small>g</small></b><span>{label}</span><i><u style={{ width: `${Math.min(100, value / goal * 100)}%` }} /></i></div>)}

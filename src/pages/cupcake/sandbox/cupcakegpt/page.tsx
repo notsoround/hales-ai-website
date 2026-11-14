@@ -77,7 +77,7 @@ import { queueAccountMealPhoto, requestFoodCamera } from '../../../../components
 import { MealCamera } from '../../../../components/cupcake/MealCamera';
 import { lastLoggedMeal } from '../../../../components/cupcake/nutritionModel';
 import { CUPCAKE_VERSION } from '../../../../components/cupcake/appVersion';
-import { TodayDashboard } from '../../../../components/cupcake/noir/TodayDashboard';
+import { TodayDashboard, type TodaySpend } from '../../../../components/cupcake/noir/TodayDashboard';
 import { todayFoodContext } from '../../../../components/cupcake/noir/todayContext';
 import { ConnectionsHub } from '../../../../components/cupcake/noir/ConnectionsHub';
 
@@ -418,10 +418,18 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
   {!loading&&!error&&<span className="cc-weight-more">View history →</span>}</button>;
 }
 
+/** Today's spend for the dashboard line: the feed's own day total when it reports one, otherwise the sum of today's saved USD purchases. */
+function todaySpend(items:FeedItem[]|null,feed:{total:number|null;source:string;checkedAt:number}|null,failed:boolean,refresh:()=>void,open:()=>void):TodaySpend{
+  const purchases=(items||[]).filter(it=>it.type==='purchase'&&typeof it.amount==='number'&&(!it.currency||it.currency==='USD'));
+  const last=purchases.reduce<FeedItem|null>((a,b)=>!a||String(b.time||'')>String(a.time||'')?b:a,null);
+  const summed=purchases.length?purchases.reduce((s,it)=>s+(it.amount as number),0):null;
+  return {amount:feed?.total??summed,count:purchases.length,lastTime:last?.time||null,lastTitle:last?.title||null,source:feed?.source||'',checkedAt:feed?.checkedAt??null,loading:items===null&&!failed,failed,onRefresh:refresh,onOpen:open};
+}
 function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantName='Cupcake',persona}:{accountName?:string;assistantName?:string;persona?:Parameters<typeof AssistantPortrait>[0]['persona'];setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
   const [items,setItems]=useState<FeedItem[]|null>(null);
   const [err,setErr]=useState(false);
   const [coverage,setCoverage]=useState('');
+  const [spendFeed,setSpendFeed]=useState<{total:number|null;source:string;checkedAt:number}|null>(null);
   const [selected,setSelected]=useState<DashboardEntry|null>(null);
   const [selectedMeal,setSelectedMeal]=useState<string|null>(null);
   const nutrition=useNutritionData();
@@ -435,7 +443,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantNam
     const request=++loadId.current;
     setErr(false);setItems(null);
     feedRequest(ACCOUNT_SESSIONS ? {start:new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date()),end:new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date())} : {})
-      .then(d=>{if(request===loadId.current){setItems(d.items);setCoverage(feedCoverage(d));}})
+      .then(d=>{if(request===loadId.current){setItems(d.items);setCoverage(feedCoverage(d));setSpendFeed({total:typeof d.totals?.spendUsd==='number'?d.totals.spendUsd:null,source:d.coverage?.spendSource||'',checkedAt:Date.now()});}})
       .catch(()=>{if(request===loadId.current)setErr(true);});
   },[]);
   useEffect(()=>{load();const ref=loadId;return()=>{ref.current++;};},[load]);
@@ -456,7 +464,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantNam
   const lastMeal=ACCOUNT_SESSIONS&&nutrition.history?lastLoggedMeal(nutrition.history.meals):null;
   const nextUp=ACCOUNT_SESSIONS&&nutrition.history&&mealWindow&&(!lastMeal||Date.now()-Date.parse(lastMeal.consumedAt||'')>3*36e5)?mealWindow:null;
   return <>
-    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} nutrition={nutrition} mealHint={nextUp||null}
+    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} spend={todaySpend(items,spendFeed,err,load,()=>setTab('week'))} nutrition={nutrition} mealHint={nextUp||null}
       onCamera={()=>setMealCameraOpen(true)} onTalk={()=>setTab('talk')} onRecord={()=>setTab('record')} onExercise={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}
       onTip={()=>setQuickAction('tip')} onOpenFood={()=>setTab('snap')} onOpenHistory={()=>setTab('week')}/></SectionBoundary>}
     {ACCOUNT_SESSIONS&&<MealCamera open={mealCameraOpen} context={todayFoodContext(nutrition.history,nutrition.settings)} onOpenFoodLog={()=>setTab('snap')} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/>}
