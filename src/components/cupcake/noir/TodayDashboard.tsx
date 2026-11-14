@@ -2,7 +2,7 @@
  *  a strip of three key readings, and touchable charts for intake, glucose and weight. Everything below it is drill-down. */
 import { useEffect, useMemo, useState } from 'react';
 import { Camera, ChevronRight, Dumbbell, Lightbulb, Mic, Radio } from 'lucide-react';
-import { BarChart, Dial, Spark, TrendChart } from './NoirCharts';
+import { BarChart, Spark, TrendChart } from './NoirCharts';
 import { libraryRequest } from '../library';
 import { loadWeightPage, type WeightRecord } from '../weightApi';
 import { parseGlucoseEntries, type GlucoseReading } from '../glucoseApi';
@@ -13,6 +13,7 @@ import { todayLine } from './voice';
 import './noir-today.css';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
 import type { ReactNode } from 'react';
+import { MultiDial, type DialMetric } from './MultiDial';
 import './noir-elevate.css';
 import './noir-recap.css';
 
@@ -90,18 +91,33 @@ export function TodayDashboard({ name, assistantName, portrait, sassy, nutrition
     weightAt: latestW ? Date.parse(latestW.measuredAt) : null, weightDeltaWeek: wDelta, glucoseAt: latestG ? latestG.at : null,
     sleepLastNight: !!lastNight && lastNight.nightId >= addDays(today, -1),
   } : null;
+  const [metric, setMetric] = useState('cal');
+  const lastMealAt = recapFacts?.lastMealAt ?? null, fastMin = lastMealAt ? Math.max(0, (Date.now() - lastMealAt) / 60000) : null, FAST_GOAL = 16 * 60;
+  const freshG = latestG && Date.now() - latestG.at < 864e5 ? latestG : null;
+  const sleepNight = lastNight && lastNight.nightId >= addDays(today, -1) ? lastNight : null, SLEEP_GOAL = 8 * 60;
+  const metrics: DialMetric[] = [
+    { key: 'cal', label: 'Calories', tone: 'cal', fraction: target ? Math.max(0, Math.min(1, 1 - eaten / target)) : null, over: target ? eaten / target - 1 : 0, notch: expected !== null ? 1 - expected : null, scale,
+      eyebrow: target === null ? 'Eaten today' : left! >= 0 ? 'Left today' : 'Over today', value: nutrition.loading && !day ? '—' : fmtInt(target === null ? eaten : Math.abs(left!)),
+      detail: target !== null ? <>{fmtInt(eaten)} kcal eaten · <em>{status}</em></> : <em>{status}</em>, chip: target === null ? fmtInt(eaten) : fmtInt(Math.abs(left!)), spoken: dialLabel, drill: { label: 'Food log', run: onOpenFood } },
+    { key: 'fast', label: 'Fasting', tone: 'fast', fraction: fastMin === null ? null : Math.min(1, fastMin / FAST_GOAL), scale: ['0', '4h', '8h', '12h', '16h'],
+      eyebrow: 'Fasting', value: fastMin === null ? '—' : hm(fastMin), unit: fastMin === null ? undefined : 'h',
+      detail: fastMin === null ? 'No meal logged yet' : <>Since your last logged meal · <em>{fastMin >= FAST_GOAL ? '16 h window reached' : `${Math.floor((FAST_GOAL - fastMin) / 60)} h ${Math.round((FAST_GOAL - fastMin) % 60)} m to go`}</em></>,
+      chip: fastMin === null ? '—' : hm(fastMin), spoken: fastMin === null ? 'Fasting, no meal logged yet' : `Fasting ${Math.floor(fastMin / 60)} hours ${Math.round(fastMin % 60)} minutes since your last logged meal`, drill: { label: 'Meals', run: onOpenFood } },
+    { key: 'glucose', label: 'Glucose', tone: 'glucose', fraction: freshG && inRange !== null ? inRange / 100 : null, scale: ['0', '25%', '50%', '75%', '100%'],
+      eyebrow: 'Glucose', value: freshG ? String(freshG.valueMgDl) : '—', unit: freshG ? 'mg/dL' : undefined,
+      detail: freshG ? <><em>{inRange}% in range</em> over 14 days · read {clock(freshG.at)}</> : latestG ? `No reading since ${shortDate(latestG.at)}` : 'No readings yet',
+      chip: freshG ? String(freshG.valueMgDl) : '—', spoken: freshG ? `Glucose ${freshG.valueMgDl} milligrams per deciliter, ${inRange} percent of readings in range over 14 days` : 'Glucose, no recent reading', drill: { label: 'Readings', run: onOpenHistory } },
+    { key: 'sleep', label: 'Sleep', tone: 'sleep', fraction: sleepNight ? Math.min(1, sleepNight.asleepMinutes! / SLEEP_GOAL) : null, scale: ['0', '2h', '4h', '6h', '8h'],
+      eyebrow: 'Slept last night', value: sleepNight ? hm(sleepNight.asleepMinutes!) : '—', unit: sleepNight ? 'h' : undefined,
+      detail: sleepNight ? <>Ring estimate{avgSleep !== null ? <> · <em>{sleepNight.asleepMinutes! >= avgSleep ? '+' : '−'}{Math.round(Math.abs(sleepNight.asleepMinutes! - avgSleep))} min vs your average</em></> : null}</> : 'No night uploaded',
+      chip: sleepNight ? hm(sleepNight.asleepMinutes!) : '—', spoken: sleepNight ? `Slept ${Math.floor(sleepNight.asleepMinutes! / 60)} hours ${Math.round(sleepNight.asleepMinutes! % 60)} minutes last night, an estimate from your ring` : 'Sleep, no night uploaded', drill: { label: 'History', run: onOpenHistory } },
+  ];
   return <section className="nx-today" aria-label="Today at a glance">
     <header className="nx-today-head"><div><span>{dateLine}</span><h2 className="nx-say">{nutrition.loading && !day ? <>&nbsp;</> : <>{say.before}<em>{say.accent}</em>{say.after}</>}</h2></div>
       <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={onOpenHistory} /></header>
     <div className="nx-today-top">
       <div className="nx-today-dial">
-        <button type="button" className="nx-dial-button" onClick={onOpenFood} aria-label={`${dialLabel}. Open food log`}>
-          <Dial value={eaten} target={target || 0} label={dialLabel} pace={expected} scale={scale}>
-            <small>{target === null ? 'Eaten today' : left! >= 0 ? 'Left today' : 'Over today'}</small>
-            <strong className="nx-big">{nutrition.loading && !day ? '—' : fmtInt(target === null ? eaten : Math.abs(left!))}</strong>
-            <p>{target !== null ? <>{fmtInt(eaten)} kcal eaten · <em>{status}</em></> : <em>{status}</em>}</p>
-          </Dial>
-        </button>
+        <MultiDial metrics={metrics} selected={metric} onSelect={setMetric} />
         <div className="nx-macros" aria-label="Macros today">
           {([['Protein', macros.protein, 150], ['Carbs', macros.carbs, 220], ['Fat', macros.fat, 70]] as const).map(([label, value, goal]) =>
             <div key={label}><b>{Math.round(value)}<small>g</small></b><span>{label}</span><i><u style={{ width: `${Math.min(100, value / goal * 100)}%` }} /></i></div>)}
