@@ -1,0 +1,58 @@
+/* Noir chart kit. Accent tokens come from the account theme: --nx-a (accent), --nx-a2 (second tone). */
+.cc-app { --nx-a: var(--cc-pink, #2fe0c8); --nx-a2: var(--cc-ocean, #3c8cff); --nx-warm: #ffb547; --nx-good: #4be08f; --nx-bad: #ff6b7a; --nx-ink: var(--cc-text, #eef4f5); --nx-ink-3: rgba(238,244,245,.48); --nx-hair: rgba(255,255,255,.07); }
+.nx-dial { position: relative; width: 100%; max-width: 340px; margin: 0 auto; }
+.nx-dial svg { display: block; width: 100%; height: auto; overflow: visible; }
+.nx-tick { stroke: rgba(255,255,255,.1); stroke-width: 1; }
+.nx-tick.is-major { stroke: rgba(255,255,255,.3); }
+.nx-dial-track { fill: none; stroke: rgba(255,255,255,.06); stroke-linecap: round; }
+.nx-dial-fill, .nx-dial-glow { fill: none; stroke-linecap: round; }
+.nx-dial-glow { opacity: .55; }
+.nx-dial-over { fill: none; stroke: var(--nx-warm); stroke-linecap: round; opacity: .9; }
+.nx-dial-head { fill: #fff; filter: drop-shadow(0 0 6px var(--nx-a)); }
+.nx-dial-centre { position: absolute; inset: 0 0 6% 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-top: 4%; }
+
+.nx-spark { display: block; width: 100%; height: 24px; overflow: visible; }
+.nx-spark path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.nx-spark circle { fill: currentColor; }
+
+.nx-chart { position: relative; width: 100%; touch-action: pan-y; outline: none; border-radius: 12px; -webkit-tap-highlight-color: transparent; user-select: none; }
+.nx-chart:focus-visible { box-shadow: 0 0 0 2px var(--nx-a); }
+.nx-chart svg { display: block; overflow: visible; }
+.nx-axis { fill: var(--nx-ink-3); font: 500 10px/1 var(--nx-text, Inter, system-ui, sans-serif); font-variant-numeric: tabular-nums; }
+.nx-grid { stroke: var(--nx-hair); stroke-width: 1; }
+.nx-band { fill: var(--nx-a); opacity: .06; }
+.nx-goal { stroke: var(--nx-good); stroke-dasharray: 4 4; opacity: .6; }
+.nx-goal-label { fill: var(--nx-good); font: 500 10px/1 var(--nx-text, Inter, system-ui, sans-serif); }
+.nx-target { stroke: var(--nx-ink); stroke-opacity: .45; stroke-dasharray: 3 3; }
+.nx-target-label { fill: var(--nx-ink); fill-opacity: .7; }
+.nx-fill-top { stop-color: var(--nx-a); stop-opacity: .32; }
+.nx-fill-bottom { stop-color: var(--nx-a); stop-opacity: 0; }
+.nx-tone-a2 .nx-fill-top { stop-color: var(--nx-a2); }
+.nx-tone-a2 .nx-fill-bottom { stop-color: var(--nx-a2); }
+.nx-line { fill: none; stroke: var(--nx-a); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.nx-tone-a2 .nx-line { stroke: var(--nx-a2); }
+.nx-raw { fill: var(--nx-ink-3); opacity: .6; }
+.nx-point { fill: var(--nx-a); }
+.nx-point.is-out { fill: var(--nx-warm); }
+.nx-head { fill: #fff; stroke: var(--nx-a); stroke-width: 2; }
+.nx-tone-a2 .nx-head { stroke: var(--nx-a2); }
+.nx-pulse { fill: var(--nx-a); opacity: .22; }
+.nx-cursor { stroke: var(--nx-ink); stroke-opacity: .35; }
+.nx-marker line { stroke: rgba(255,255,255,.12); }
+.nx-marker circle { fill: var(--cc-surface-2, #0f171b); stroke: rgba(255,255,255,.35); }
+.nx-bar { fill: var(--nx-a); transition: opacity .2s; }
+.nx-bar.is-over { fill: var(--nx-warm); }
+.nx-bar.is-dim { opacity: .35; }
+.nx-bar-missing { fill: rgba(255,255,255,.12); }
+.nx-readout { position: absolute; transform: translateX(-50%); pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 10px; border-radius: 10px;
+  background: rgba(14,20,24,.92); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(10px); white-space: nowrap; box-shadow: 0 10px 30px -10px rgba(0,0,0,.6); }
+.nx-readout b { font: 500 13px/1.1 var(--nx-display, Outfit, Inter, system-ui, sans-serif); font-variant-numeric: tabular-nums; color: var(--nx-ink); }
+.nx-readout span { font: 500 10px/1.1 var(--nx-text, Inter, system-ui, sans-serif); color: var(--nx-ink-3); }
+@media (prefers-reduced-motion: no-preference) {
+  .nx-draw { stroke-dasharray: var(--nx-len); stroke-dashoffset: var(--nx-len); animation: nx-draw 1.4s cubic-bezier(.2,.8,.2,1) .15s forwards; }
+  .nx-pulse { animation: nx-pulse 2.4s ease-out 3; transform-box: fill-box; transform-origin: center; }
+  .nx-bar { animation: nx-rise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 18ms); transform-box: fill-box; transform-origin: bottom; }
+}
+@keyframes nx-draw { to { stroke-dashoffset: 0; } }
+@keyframes nx-pulse { 0% { transform: scale(.6); opacity: .35; } 100% { transform: scale(1.8); opacity: 0; } }
+@keyframes nx-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
