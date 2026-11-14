@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import './noir/noir-pages.css';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { MealDialog } from './MealDialog';
 import type { FoodMeal } from './DashboardView';
