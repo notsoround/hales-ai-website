@@ -79,6 +79,7 @@ import { lastLoggedMeal } from '../../../../components/cupcake/nutritionModel';
 import { CUPCAKE_VERSION } from '../../../../components/cupcake/appVersion';
 import { TodayDashboard } from '../../../../components/cupcake/noir/TodayDashboard';
 import { todayFoodContext } from '../../../../components/cupcake/noir/todayContext';
+import { ConnectionsHub } from '../../../../components/cupcake/noir/ConnectionsHub';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -374,7 +375,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       <SettingsGroup title="Appearance"><AssistantAppearanceSettings {...appearance}/><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/></SettingsGroup>
       {accountIdentity&&<><SettingsGroup title="Account & security"><AccountControls identity={accountIdentity} assistantName={assistantName} includePrivacy={false}/></SettingsGroup><SettingsGroup title="Download my data"><AccountSelfExport/></SettingsGroup><SettingsGroup title="Close account access" danger><AccountClosureControls owner={accountIdentity.account_id}/></SettingsGroup></>}
       <SettingsGroup title="App & updates"><AppUpdateNotice busy={mediaBusy} part="check"/>{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}{!ACCOUNT_SESSIONS&&<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}</SettingsGroup>
-      {ACCOUNT_SESSIONS&&<SettingsGroup title="iPhone & Apple Health"><AccountInstallInstructions/><AccountAppleHealth/></SettingsGroup>}
+      {ACCOUNT_SESSIONS&&<SettingsGroup title="Connections"><ConnectionsHub assistantName={assistantName} appleHealth={<AccountAppleHealth/>} iphoneInstall={<AccountInstallInstructions/>} canInstall={!!install} onInstall={promptInstall}/></SettingsGroup>}
       {ACCOUNT_SESSIONS&&accountIdentity&&<SettingsGroup title="Labs"><AccountLabsSettings/></SettingsGroup>}
     </CupcakeSettings><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} disabled={mediaBusy&&!accountIdentity} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
     <main className="cc-shell">
