@@ -71,7 +71,8 @@ try{
   assert.equal(await calories.locator('strong').innerText(),'—');assert.equal(await spend.locator('strong').innerText(),'—');
   await spend.click();await page.getByRole('heading',{name:'Saved transactions',exact:true}).waitFor();await page.getByRole('button',{name:/A saved purchase/}).waitFor();await page.getByRole('button',{name:'Back to dashboard',exact:true}).click();
   assert.equal(await dash.locator('[aria-label="Recorded intervention outcomes"]').count(),0);
-  await dash.getByRole('button',{name:new RegExp(today+': Calories unavailable, spend unavailable')}).waitFor();
+  await dash.getByText('No calorie or spending data to chart in this range.',{exact:true}).waitFor();
+  assert.equal(await dash.locator('.cc-bars').count(),0);
   await dash.getByRole('button',{name:/A saved purchase/}).click();await page.getByText('Currency unknown 9.00',{exact:true}).waitFor();assert.equal(await page.getByText('$9.00',{exact:true}).count(),0);
   await page.getByRole('button',{name:'Back to dashboard',exact:true}).click();
   await dash.getByRole('tab',{name:'Last 30 days',exact:true}).click();await dash.getByText('A saved local timeline',{exact:true}).waitFor();
