@@ -35,7 +35,12 @@ type Props = {
 
 const ACCEPT = 'image/jpeg,image/png,image/webp';
 const SWIPE_CLOSE = 90;
-const STATUS = { search: 'Center your plate', steady: 'Hold steady', locked: 'Ready' } as const;
+// Cupcake talks with attitude; Matthieu stays composed. The persona is the app's appearance.
+const STATUS = {
+  cupcake: { search: 'Whoa, slow down, cowboy', steady: 'Hold it…', locked: 'Got it. Shoot.' },
+  calm: { search: 'Center your plate', steady: 'Hold steady', locked: 'Ready' },
+} as const;
+const statusVoice = () => typeof document !== 'undefined' && document.querySelector('.cc-app')?.getAttribute('data-appearance') === 'caribbean' ? STATUS.cupcake : STATUS.calm;
 
 export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: Props) {
   const dialog = useRef<HTMLDialogElement>(null), video = useRef<HTMLVideoElement>(null);
@@ -117,7 +122,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
   const meal = context?.mealLabel?.trim() || mealForTime(now);
   const kcal = wholeNumber(context?.caloriesLeft), protein = wholeNumber(context?.proteinLeftG);
   const live = state === 'live';
-  const status = state === 'blocked' ? 'Camera off · tap the shutter' : state === 'starting' ? '' : STATUS[track];
+  const status = state === 'blocked' ? 'Camera off · tap the shutter' : state === 'starting' ? '' : statusVoice()[track];
   const announce = state === 'blocked' ? 'Camera access is off. The shutter opens your phone camera.' : live ? 'Camera ready.' : '';
 
   return <dialog ref={dialog} className="cc-cam" aria-label="Meal camera" onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>

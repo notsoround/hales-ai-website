@@ -42,17 +42,17 @@ async function syntheticCoachServer(owner,route,body,query){
 async function login(page,who){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic '+who.toUpperCase(),{exact:true}).first().waitFor();}
 async function nav(page,name){await page.getByRole('navigation',{name:'Cupcake',exact:true}).getByRole('button',{name,exact:true}).click();}
 async function logout(page){await page.getByRole('button',{name:'Sign out of Cupcake'}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
-async function choose(page,id){await page.getByLabel('Authorized owner',{exact:true}).selectOption(id);}
+async function choose(page,id){const back=page.getByRole('button',{name:'All clients',exact:true});if(await back.count())await back.click();await page.locator(`[data-grant-id="${id}"]`).click();}
 async function safe(page){const s=await page.evaluate(()=>({requests:window.accountFixture.requests,blocked:window.accountFixture.blocked,reads:window.accountFixture.legacyReads}));assert.equal(s.reads,0);assert.deepEqual(s.blocked,[]);for(const r of s.requests.filter(r=>r.route.startsWith('coach/'))){assert.equal(r.credentials,'include');assert.equal(r.headers['x-cupcake-request'],'account');assert.match(r.headers['x-cupcake-account-context'],/^acc_synthetic_[ab]$/);assert.equal(r.headers['x-cupcake-key'],undefined);assert.equal(r.body.owner_id,undefined);assert.equal(r.body.account_id,undefined);}}
 try{
   const context=await browser.newContext({viewport:{width:390,height:844}});await context.exposeFunction('syntheticCoachServer',syntheticCoachServer);const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
   await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(page,'b');await nav(page,'Reports');
-  await page.waitForFunction(()=>document.querySelector('select[aria-label="Authorized owner"]')?.options.length===4);
+  await page.waitForFunction(()=>document.querySelectorAll('[data-grant-id]').length===3);
   await choose(page,CLEAN);await page.getByRole('heading',{name:'Report — Shared A',exact:true}).waitFor();await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();
   assert.equal(await page.getByText('FORBIDDEN PRIVATE NOTE',{exact:true}).count(),0);
-  const exercise=page.locator('.cc-coach-grid>.cc-card').filter({has:page.getByRole('heading',{name:'Exercise',exact:true})});assert.match(await exercise.innerText(),/unknown/);assert.equal(await exercise.getByRole('cell',{name:'—',exact:true}).count(),1);
+  const exercise=page.locator('.cc-coach-grid>.cc-card').filter({has:page.getByRole('heading',{name:'Exercise',exact:true})});assert.match(await exercise.innerText(),/unknown/);await exercise.locator('.cc-rep-numbers>summary').click();assert.equal(await exercise.getByRole('cell',{name:'—',exact:true}).count(),1);
   const glucose=page.locator('.cc-coach-empty-row').filter({hasText:'Manual glucose'});await glucose.locator('summary').click();assert.match(await glucose.innerText(),/unknown, not zero/);
-  const weight=page.locator('.cc-coach-grid>.cc-card').filter({has:page.getByRole('heading',{name:'Weight',exact:true})});assert.match(await weight.innerText(),/Change lb\n—/);
+  const weight=page.locator('.cc-coach-grid>.cc-card').filter({has:page.getByRole('heading',{name:'Weight',exact:true})});await weight.locator('.cc-rep-numbers>summary').click();assert.match(await weight.innerText(),/Change lb\n—/);
   assert.equal(requests.filter(r=>r.route==='coach/meal-list').length,0);assert.equal(await page.getByRole('button',{name:'Load photo',exact:true}).count(),0);
   await page.getByLabel('Report end date',{exact:true}).fill('2026-11-01');await page.getByRole('button',{name:'30 days',exact:true}).click();await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();
   const lastReport=requests.filter(r=>r.route==='coach/report').at(-1);assert.equal(lastReport.body.end,'2026-11-01');assert.equal(lastReport.body.start,'2026-10-03');
@@ -80,7 +80,7 @@ try{
   await page.getByRole('tab',{name:'My sharing & clients',exact:true}).click();
   await page.getByRole('button',{name:'Sharing you authorized',exact:true}).click();const cleanShare=page.locator('.cc-coach>section.cc-card article').filter({hasText:'Health report'}).filter({hasNotText:'Meal photos'}).first();await cleanShare.getByRole('button',{name:'Revoke sharing',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.cc-coach')?.textContent.includes('Revoked'));
   assert.ok(grants.find(g=>g.id===CLEAN).revoked);
-  await logout(page);await login(page,'b');await nav(page,'Reports');await page.waitForFunction(()=>document.querySelector('select[aria-label="Authorized owner"]')?.options.length===3);assert.equal(await page.locator(`option[value="${CLEAN}"]`).count(),0);
+  await logout(page);await login(page,'b');await nav(page,'Reports');await page.waitForFunction(()=>document.querySelectorAll('[data-grant-id]').length===2);assert.equal(await page.locator(`[data-grant-id="${CLEAN}"]`).count(),0);
   await page.setViewportSize({width:1280,height:900});await choose(page,BOTH);await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.getByRole('button',{name:'Load photo',exact:true}).click();await image.waitFor();const finalUrl=await image.getAttribute('src');await logout(page);assert.equal(await page.evaluate(url=>window.coachRevoked.includes(url),finalUrl),true);assert.equal(await image.count(),0);
   await safe(page);await context.close();
