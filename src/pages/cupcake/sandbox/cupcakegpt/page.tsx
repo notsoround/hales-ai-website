@@ -383,7 +383,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
       {access==='ready'&&screen==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
-      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
+      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} assistantName={assistantName} persona={appearance.persona} setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
       {access==='ready'&&screen==='reports'&&accountIdentity&&<SectionBoundary label="Authorized reports"><AccountCoachView identity={accountIdentity} assistantName={assistantName} onPersonal={()=>setTab('feed')}/></SectionBoundary>}
       {access==='ready'&&<AssistantShell open={assistantOpen} library={tab==='library'} mode={assistantMode} onMode={openAssistantMode} onOpen={()=>openAssistantMode(activity.kind==='voice'?'voice':activity.kind==='record'?'record':assistantMode)} onMinimize={()=>setTab(returnTab.current)} onLibrary={()=>setTab('library')} busy={mediaBusy} activity={activity} persona={appearance.persona} name={assistantName}>
         <div hidden={!(tab==='library'||assistantMode!=='text')}><CupcakeStudio assistantName={assistantName} active={tab==='library'||(assistantOpen&&assistantMode!=='text')} keepMediaOnHide contextVersion={talkContextVersion} mode={tab==='library'?'library':assistantMode==='voice'?'talk':'record'} onBusy={setMediaBusy} onActivity={setActivity}/></div>
@@ -417,7 +417,7 @@ function TodayWeight({onOpen}:{onOpen:()=>void}) {
   {!loading&&!error&&<span className="cc-weight-more">View history →</span>}</button>;
 }
 
-function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountName?:string;setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
+function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantName='Cupcake',persona}:{accountName?:string;assistantName?:string;persona?:Parameters<typeof AssistantPortrait>[0]['persona'];setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
   const [items,setItems]=useState<FeedItem[]|null>(null);
   const [err,setErr]=useState(false);
   const [coverage,setCoverage]=useState('');
@@ -455,7 +455,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName}:{accountNam
   const lastMeal=ACCOUNT_SESSIONS&&nutrition.history?lastLoggedMeal(nutrition.history.meals):null;
   const nextUp=ACCOUNT_SESSIONS&&nutrition.history&&mealWindow&&(!lastMeal||Date.now()-Date.parse(lastMeal.consumedAt||'')>3*36e5)?mealWindow:null;
   return <>
-    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} nutrition={nutrition} mealHint={nextUp||null}
+    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} nutrition={nutrition} mealHint={nextUp||null}
       onCamera={()=>setMealCameraOpen(true)} onTalk={()=>setTab('talk')} onRecord={()=>setTab('record')} onExercise={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}
       onTip={()=>setQuickAction('tip')} onOpenFood={()=>setTab('snap')} onOpenHistory={()=>setTab('week')}/></SectionBoundary>}
     {ACCOUNT_SESSIONS&&<MealCamera open={mealCameraOpen} context={todayFoodContext(nutrition.history,nutrition.settings)} onOpenFoodLog={()=>setTab('snap')} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/>}

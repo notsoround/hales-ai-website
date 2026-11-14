@@ -10,6 +10,8 @@ import { parseRingconnNight, type RingconnNight } from '../ringconnApi';
 import { addDays, nutritionDay, nutritionDays, type NutritionHistory, type NutritionSettings } from '../nutritionModel';
 import { useDataChanged } from '../dataChanges';
 import './noir-today.css';
+import { WelcomeBack, type RecapFacts } from './WelcomeBack';
+import type { ReactNode } from 'react';
 
 const TZ = 'America/Chicago';
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -45,8 +47,8 @@ function useSignals(): Signals {
   return signals;
 }
 
-export function TodayDashboard({ name, nutrition, mealHint, onCamera, onTalk, onRecord, onExercise, onTip, onOpenFood, onOpenHistory }: {
-  name: string; nutrition: Nutrition; mealHint: string | null;
+export function TodayDashboard({ name, assistantName, portrait, sassy, nutrition, mealHint, onCamera, onTalk, onRecord, onExercise, onTip, onOpenFood, onOpenHistory }: {
+  name: string; assistantName: string; portrait: ReactNode; sassy: boolean; nutrition: Nutrition; mealHint: string | null;
   onCamera: () => void; onTalk: () => void; onRecord: () => void; onExercise: () => void; onTip: () => void; onOpenFood: () => void; onOpenHistory: () => void;
 }) {
   const signals = useSignals();
@@ -76,8 +78,16 @@ export function TodayDashboard({ name, nutrition, mealHint, onCamera, onTalk, on
   const dialLabel = target !== null ? `${fmtInt(Math.abs(left!))} calories ${left! >= 0 ? 'left' : 'over'} today, ${fmtInt(eaten)} of ${fmtInt(target)} eaten` : `${fmtInt(eaten)} calories eaten today`;
   const status = !day || !day.meals.length ? (mealHint ? `${mealHint} time` : 'Nothing logged yet') : pace === null ? `${day.meals.length} ${day.meals.length === 1 ? 'meal' : 'meals'} logged` : pace > 0.12 ? 'Ahead of pace' : pace < -0.2 ? 'Room to eat' : 'On pace';
 
+  const loggedMeals = nutrition.history?.meals.filter(m => m.consumedAt && m.countedInTotals !== false) || [];
+  const recapFacts: RecapFacts | null = nutrition.history && signals.weight ? {
+    lastMealAt: loggedMeals.length ? Math.max(...loggedMeals.map(m => Date.parse(m.consumedAt!)).filter(Number.isFinite)) : null,
+    caloriesLeft: left, target, eatenToday: day?.meals.length ? eaten : 0,
+    weightAt: latestW ? Date.parse(latestW.measuredAt) : null, weightDeltaWeek: wDelta, glucoseAt: latestG ? latestG.at : null,
+    sleepLastNight: !!lastNight && lastNight.nightId >= addDays(today, -1),
+  } : null;
   return <section className="nx-today" aria-label="Today at a glance">
-    <header className="nx-today-head"><span>{dateLine}</span><h2>{greeting}, {name}.</h2></header>
+    <header className="nx-today-head"><div><span>{dateLine}</span><h2>{greeting}, {name}.</h2></div>
+      <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={onOpenHistory} /></header>
     <div className="nx-today-top">
       <div className="nx-today-dial">
         <button type="button" className="nx-dial-button" onClick={onOpenFood} aria-label={`${dialLabel}. Open food log`}>
