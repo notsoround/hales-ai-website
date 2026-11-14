@@ -111,8 +111,8 @@
 /* ---------- Phones: the camera is the centre key ---------- */
 @media (max-width: 1023px) {
   .cc-app[data-entry=account] { --cc-nav-offset: 70px; }
-  .cc-app[data-entry=account] .cc-nav { border-top: 0; background: linear-gradient(180deg, transparent, rgba(3,6,7,.88) 38%, #030607 78%); backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .cc-app[data-entry=account][data-appearance=rose] .cc-nav { background: linear-gradient(180deg, transparent, rgba(5,4,9,.88) 38%, #050409 78%); }
+  .cc-app[data-entry=account] .cc-nav { border-top: 0; background: linear-gradient(180deg, transparent, rgba(3,6,7,.97) 30%, #030607 55%); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .cc-app[data-entry=account][data-appearance=rose] .cc-nav { background: linear-gradient(180deg, transparent, rgba(5,4,9,.97) 30%, #050409 55%); }
   .cc-app[data-entry=account] .cc-nav > div { grid-auto-flow: row; grid-template-columns: 1fr 1fr 84px 1fr 1fr; align-items: end; max-width: 480px; }
   .cc-app[data-entry=account] .cc-nav button { min-height: 70px; grid-row: 1; }
   .cc-app[data-entry=account] .cc-nav button:nth-child(1) { grid-column: 1; }

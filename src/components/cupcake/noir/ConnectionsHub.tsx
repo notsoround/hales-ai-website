@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronRight, Smartphone, HeartPulse, Droplet } from 'lucide-react';
 import './connections.css';
+import './noir-connect.css';
 
 export type Platform = 'ios' | 'android' | 'desktop';
 export function detectPlatform(): Platform {
