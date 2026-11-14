@@ -56,7 +56,7 @@ export function WelcomeBack({ assistantName, sassy, portrait, facts, onCamera, o
     <button ref={trigger} type="button" className={`nx-recap-chip${pulse ? ' is-pulsing' : ''}`} aria-expanded={open} aria-haspopup="dialog"
       onClick={() => { setOpen(o => !o); setSeen(true); }}>
       <span className="nx-recap-portrait" aria-hidden="true">{portrait}</span>
-      <span>{away ? 'Catch up' : 'Status'}</span>
+      <span>{away ? 'Catch up' : 'Recap'}</span>
     </button>
     {open && <div ref={card} className="nx-recap-card" role="dialog" aria-label={`${assistantName} recap`} tabIndex={-1}>
       <header><span className="nx-recap-portrait is-large" aria-hidden="true">{portrait}</span><div><small>{assistantName}</small><strong>{title}</strong></div>

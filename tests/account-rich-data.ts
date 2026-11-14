@@ -63,6 +63,11 @@ export function richData(action: string): Record<string, unknown> | null {
     case 'ringconn_night_list': return { entries: nights() };
     case 'steps_list': return { entries: steps() };
     case 'feed_get': return { items: feed(), nextCursor: null, totals: { calories: null, spendUsd: 16.4 }, daily: [], personalOutcomes: null, outcomes: { wins: null, losses: null, missed: null, unscored: null, interventions: null }, coverage: { start: dayOf(NOW), end: dayOf(NOW), source: 'owned-local-ledgers', complete: true, localComplete: true, notes: [] } };
+    case 'outcome_list': {
+      const rows = [['win', 'Walked past the drive-through', 0], ['win', 'Hit 9,000 steps before dinner', 1], ['loss', 'Late-night cereal', 2], ['win', 'Cooked instead of ordering', 3], ['unscored', 'Skipped the gym, rested instead', 4], ['win', 'Three litres of water', 6], ['loss', 'Second helping at the cookout', 8], ['win', 'Morning weigh-in streak, day 12', 9], ['win', 'Said no to office donuts', 11]] as const;
+      const entries = rows.map(([outcome, title, d], i) => ({ id: `o-${i}`, date: dayOf(NOW - d * D), title, outcome, note: `${title}. Reported by you.`, source: { type: 'owner-request', reference: `r-${i}`, description: 'You reported this outcome.' }, metrics: i === 1 ? { steps: 9120 } : {}, evidenceType: 'owner-reported-outcome', createdAt: new Date(NOW - d * D).toISOString() }));
+      return { entries, nextCursor: null, counts: { wins: entries.filter(e => e.outcome === 'win').length, losses: entries.filter(e => e.outcome === 'loss').length, unscored: entries.filter(e => e.outcome === 'unscored').length, total: entries.length } };
+    }
     default: return null;
   }
 }
