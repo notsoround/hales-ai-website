@@ -1,0 +1,122 @@
+/* Noir assistant panel: header, mode switch, read-aloud switch and footer.
+   Scoped to [data-entry=account]; the original /cupcake app keeps its look.
+   Layered near-black glass, 1px hairlines, color only for selection and primary actions. */
+@import "@fontsource/outfit/300.css";
+@import "@fontsource/outfit/400.css";
+
+/* The sliding thumb only exists for the account segmented control. */
+.cc-assistant-modes-thumb { display: none; }
+
+.cc-app[data-entry=account] {
+  --ax-hair: rgba(255,255,255,.07);
+  --ax-hair-2: rgba(255,255,255,.11);
+  --ax-glass: rgba(255,255,255,.045);
+  --ax-glass-2: rgba(255,255,255,.075);
+  --ax-ink: var(--cc-text, #eef4f5);
+  --ax-ink-2: rgba(238,244,245,.74);
+  --ax-ink-3: rgba(238,244,245,.58);
+  --ax-panel: #070b0e;
+  --ax-text: "Inter", -apple-system, "SF Pro Text", Roboto, sans-serif;
+  --ax-display: "Outfit", -apple-system, "SF Pro Display", Roboto, sans-serif;
+  --ax-ease: cubic-bezier(.3,.7,.2,1);
+}
+.cc-app[data-entry=account][data-appearance=rose] { --ax-panel: #0b0911; --ax-ink: var(--cc-text, #f3effa); --ax-ink-2: rgba(243,239,250,.74); --ax-ink-3: rgba(243,239,250,.58); }
+
+/* ---------- Panel ---------- */
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel {
+  font-family: var(--ax-text); color: var(--ax-ink);
+  background: radial-gradient(120% 260px at 50% -80px, color-mix(in oklab, var(--cc-pink) 9%, transparent), transparent 72%), linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0) 40%), var(--ax-panel);
+  border: 1px solid var(--ax-hair-2);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.85), 0 0 0 .5px rgba(0,0,0,.6);
+}
+@media (min-width: 1280px) {
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel { border: 0; border-left: 1px solid var(--ax-hair); box-shadow: -24px 0 60px -30px rgba(0,0,0,.9); }
+}
+
+/* ---------- Header ---------- */
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-head { gap: 12px; padding: 14px 14px 10px 16px; border-bottom: 0; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-head h2 { font: 400 20px/1.15 var(--ax-display) !important; letter-spacing: -.01em; margin: 0 0 2px !important; color: var(--ax-ink); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-head p { font: 400 12.5px/1.3 var(--ax-text); color: var(--ax-ink-3); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-icon {
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--ax-hair-2); color: var(--ax-ink-2);
+  background: var(--ax-glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  transition: background .2s var(--ax-ease), color .2s var(--ax-ease);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-icon:hover { background: var(--ax-glass-2); color: var(--ax-ink); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-icon svg { width: 17px; height: 17px; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-icon:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+
+/* ---------- Segmented control: one track, a sliding thumb ---------- */
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes {
+  position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0;
+  margin: 2px 16px 6px; padding: 3px; border: 1px solid var(--ax-hair); border-bottom: 1px solid var(--ax-hair); border-radius: 12px;
+  background: rgba(255,255,255,.035);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes-thumb {
+  display: block; position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3);
+  border-radius: 9px; background: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.08));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 4px 14px -6px rgba(0,0,0,.7);
+  transform: translateX(calc(var(--mode-index, 0) * 100%)); transition: transform .32s var(--ax-ease);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button {
+  position: relative; z-index: 1; min-height: 32px; gap: 6px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--ax-ink-3); font: 500 13px/1 var(--ax-text); letter-spacing: -.005em; transition: color .2s var(--ax-ease);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button svg { width: 15px; height: 15px; flex: none; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button:hover:not(:disabled) { color: var(--ax-ink-2); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button[aria-pressed=true] { color: var(--ax-ink); background: transparent; border: 0; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button[aria-pressed=true] svg { color: var(--cc-pink); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 0; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button:disabled { opacity: .35; }
+
+/* ---------- Body ---------- */
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body { padding: 8px 16px 14px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+
+/* Read replies aloud (rendered by the page): a quiet switch row. The intro sentence it sits beside
+   is folded into the chat's privacy disclosure (QuickChat "About conversation privacy"). */
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro { display: flex; align-items: center; margin: 0 0 8px; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-muted { display: none; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button {
+  position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 50px 0 2px; margin: 0;
+  border: 0; background: none; color: var(--ax-ink-2); font: 500 13px/1.2 var(--ax-text); text-align: left; text-decoration: none;
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button svg { width: 16px; height: 16px; color: var(--ax-ink-3); flex: none; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button::after {
+  content: ""; position: absolute; right: 2px; top: 50%; width: 38px; height: 22px; margin-top: -11px; border-radius: 999px;
+  background: rgba(255,255,255,.12); box-shadow: inset 0 0 0 1px var(--ax-hair); transition: background .22s var(--ax-ease);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button::before {
+  content: ""; position: absolute; z-index: 1; right: 20px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%;
+  background: #f4f7f8; box-shadow: 0 2px 6px rgba(0,0,0,.45); transition: right .22s var(--ax-ease);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button:has(.lucide-volume2, .lucide-volume-2)::after { background: var(--cc-pink); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button:has(.lucide-volume2, .lucide-volume-2)::before { right: 4px; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button:has(.lucide-volume2, .lucide-volume-2) svg { color: var(--cc-pink); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; border-radius: 10px; }
+
+/* ---------- Footer: one quiet line ---------- */
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer {
+  gap: 2px 14px; padding: 6px 16px 8px; border-top: 1px solid var(--ax-hair); background: rgba(0,0,0,.18);
+  font: 400 11px/1.3 var(--ax-text); color: var(--ax-ink-3);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer button { min-height: 32px; gap: 6px; color: var(--ax-ink-2); font: 500 12px/1.2 var(--ax-text); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer button:hover { color: var(--ax-ink); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer button svg { color: var(--ax-ink-3); }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer > span { width: auto; margin-left: auto; }
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-head { padding: 12px 12px 8px 14px; }
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes { margin: 2px 12px 6px; }
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body { padding: 6px 12px 12px; }
+  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-footer { padding: 4px 14px 6px; }
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer > span { width: 100%; margin-left: 0; }
+}
+
+/* Floating companion and minimized status: same glass. */
+.cc-app[data-entry=account] .cc-assistant-status { border: 1px solid var(--ax-hair-2); border-radius: 18px; background: rgba(12,16,19,.86); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); font: 500 13px/1.3 var(--ax-text); box-shadow: 0 12px 34px -12px rgba(0,0,0,.8); }
+.cc-app[data-entry=account] .cc-assistant-hide { background: rgba(20,24,28,.9); border-color: var(--ax-hair-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes-thumb,
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button::before,
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-text-intro > .cc-text-button::after { transition: none; }
+}
