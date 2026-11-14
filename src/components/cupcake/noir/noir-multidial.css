@@ -63,3 +63,23 @@
 @media (max-width: 420px) { .nx-spend-refresh span { display: none; } }
 @media (prefers-reduced-motion: no-preference) { .nx-spend-refresh svg.is-spinning { animation: nx-spin .9s linear infinite; } }
 @keyframes nx-spin { to { transform: rotate(360deg); } }
+
+/* Touching an arc: it swells and flares under the finger, then a tray of facts opens under the readings. */
+.nx-md-ring.is-pressed .nx-md-fill { opacity: 1; filter: brightness(1.18); }
+.nx-md-ring.is-pressed .nx-md-track { stroke: rgba(255,255,255,.1); }
+.cc-app .nx-md-drill[aria-expanded=true] svg { transform: rotate(180deg); }
+.cc-app .nx-md-drill svg { transition: transform .25s; }
+.nx-md-tray-in { padding: 4px 0 6px; border-bottom: 1px solid var(--nx-hair); }
+.nx-md-tray dl { margin: 0; display: grid; }
+.nx-md-tray dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--nx-hair); }
+.nx-md-tray dt { font: 400 13.5px/1.2 var(--nx-text); color: var(--nx-ink-2, rgba(238,244,245,.7)); }
+.nx-md-tray dd { margin: 0; font: 300 17px/1.1 var(--nx-display); font-variant-numeric: tabular-nums; color: var(--nx-ink); text-align: right; }
+.cc-app .nx-md-open { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; cursor: pointer; font: 500 14px/1 var(--nx-text); color: var(--nx-a); -webkit-tap-highlight-color: transparent; }
+.nx-md[data-tone=fast] .nx-md-open { color: var(--md-fast); } .nx-md[data-tone=glucose] .nx-md-open { color: var(--md-glucose); } .nx-md[data-tone=sleep] .nx-md-open { color: var(--md-sleep); }
+.cc-app .nx-md-open:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; border-radius: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+  .nx-md-tray-in { animation: nx-md-tray .38s var(--md-ease) both; }
+  .nx-md-glow.is-touched { animation: nx-md-flare .7s ease-out; }
+}
+@keyframes nx-md-tray { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes nx-md-flare { 0% { opacity: 1; } 100% { opacity: .42; } }

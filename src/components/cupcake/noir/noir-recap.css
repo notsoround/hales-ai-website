@@ -36,3 +36,12 @@
   .cc-app[data-entry=account] .nx-recap-card { animation: nx-sheet-up .32s cubic-bezier(.2,.85,.25,1); transform-origin: bottom; }
 }
 @keyframes nx-sheet-up { from { transform: translateY(40%); opacity: 0; } }
+
+/* One portrait, one job. On phones the header drops its static portrait (the tab bar already carries the assistant), and the
+   portrait beside her line is the recap button with a caption that says so. */
+.cc-app[data-entry=account] .nx-recap-chip { display: grid; justify-items: center; gap: 6px; }
+.cc-app[data-entry=account] .nx-recap-chip > span:last-child { position: static; width: auto; height: auto; overflow: visible; clip-path: none; font: 500 9.5px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-recap-chip.is-pulsing > span:last-child { color: var(--nx-a); }
+@media (max-width: 1023px) {
+  .cc-app[data-entry=account] .cc-top > .cc-assistant-portrait { display: none; }
+}
