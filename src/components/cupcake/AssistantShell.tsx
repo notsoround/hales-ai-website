@@ -5,6 +5,7 @@ import { AssistantPortrait } from './AssistantPersona';
 import type { Persona } from './assistantAppearance';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import './assistant-shell.css';
+import './noir/assistant/noir-assistant.css';
 
 export type AssistantMode = 'text' | 'voice' | 'record';
 type Position = { side: 'left' | 'right'; ratio: number };
@@ -119,10 +120,10 @@ export function AssistantShell({ open, library, mode, onMode, onOpen, onMinimize
   };
   return <>
     <section ref={shell} id="cupcake-assistant" hidden={!open && !library} className={`cc-assistant-workspace ${library ? 'is-library' : 'is-panel'}`} aria-label={library ? 'Private Library' : `${name} assistant`} style={{ '--assistant-vh': `${viewport.height}px`, '--assistant-vtop': `${viewport.top}px` } as CSSProperties} onKeyDown={e => { if (e.key === 'Escape' && open && !e.defaultPrevented && !document.querySelector('dialog[open],.cc-photo-viewer,.cc-detail')) { e.preventDefault(); onMinimize(); } }}>
-      <header className="cc-assistant-head" hidden={library}><AssistantPortrait persona={persona} name={name} small busy={busy}/><div><h2 ref={heading} tabIndex={-1}>{name}</h2><p>{busy ? activity.label : 'Here with you · choose how to connect'}</p></div><button type="button" className="cc-assistant-icon" aria-label="Minimize assistant" onClick={onMinimize}><Minus size={20}/></button></header>
-      <div className="cc-assistant-modes" role="group" aria-label="Assistant mode" hidden={library}>{modes.map(({ key, label, Icon }) => <button key={key} type="button" aria-pressed={mode === key} disabled={busy && key !== 'text' && activity.kind !== key} onClick={() => onMode(key)}><Icon size={17}/>{label}</button>)}</div>
+      <header className="cc-assistant-head" hidden={library}><AssistantPortrait persona={persona} name={name} small busy={busy}/><div><h2 ref={heading} tabIndex={-1}>{name}</h2><p>{busy ? activity.label : ACCOUNT_SESSIONS ? 'Here with you' : 'Here with you · choose how to connect'}</p></div><button type="button" className="cc-assistant-icon" aria-label="Minimize assistant" onClick={onMinimize}><Minus size={20}/></button></header>
+      <div className="cc-assistant-modes" role="group" aria-label="Assistant mode" hidden={library} style={{ '--mode-index': Math.max(0, modes.findIndex(m => m.key === mode)) } as CSSProperties}><span className="cc-assistant-modes-thumb" aria-hidden="true"/>{modes.map(({ key, label, Icon }) => <button key={key} type="button" aria-pressed={mode === key} disabled={busy && key !== 'text' && activity.kind !== key} onClick={() => onMode(key)}><Icon size={17}/>{label}</button>)}</div>
       <div className="cc-assistant-body">{children}</div>
-      <footer className="cc-assistant-footer" hidden={library}><button type="button" onClick={onLibrary}><Library size={15}/>Private Library & originals</button>{hidden && <button type="button" onClick={showCompanion}>Show floating companion</button>}<span>Minimizing keeps active audio running.</span></footer>
+      <footer className="cc-assistant-footer" hidden={library}><button type="button" onClick={onLibrary}><Library size={15}/>Private Library & originals</button>{hidden && <button type="button" onClick={showCompanion}>Show floating companion</button>}<span>{ACCOUNT_SESSIONS ? 'Audio keeps running when minimized' : 'Minimizing keeps active audio running.'}</span></footer>
     </section>
     {busy && !open && !library && <button type="button" className="cc-assistant-status" onClick={onOpen}><span className="cc-dot"/>{activity.label || `${name} is working`}<span>Open controls</span></button>}
     {!open && !hidden && !obscured && (placement.safe || dragging) && <div className={`cc-assistant-launcher ${dragging ? 'is-dragging' : ''}`} style={{ left: placement.x, top: placement.y }}>
