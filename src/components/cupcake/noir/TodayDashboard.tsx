@@ -9,6 +9,7 @@ import { parseGlucoseEntries, type GlucoseReading } from '../glucoseApi';
 import { parseRingconnNight, type RingconnNight } from '../ringconnApi';
 import { addDays, nutritionDay, nutritionDays, type NutritionHistory, type NutritionSettings } from '../nutritionModel';
 import { useDataChanged } from '../dataChanges';
+import { todayLine } from './voice';
 import './noir-today.css';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
 import type { ReactNode } from 'react';
@@ -63,7 +64,9 @@ export function TodayDashboard({ name, assistantName, portrait, sassy, nutrition
   const target = day?.target ?? null, eaten = day?.calories ?? 0, left = target !== null ? target - eaten : null;
   const pace = target && day ? eaten / target - Math.min(1, Math.max(0, (day.elapsedFraction - 0.25) / 0.65)) : null;
   const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
-  const greeting = hour < 5 ? 'Up late' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const say = todayLine({ persona: sassy ? 'cupcake' : 'matthieu', name, hour, meals: day?.meals.length ?? 0, left, pace, mealHint });
+  const expected = target && day ? Math.min(1, Math.max(0, (day.elapsedFraction - 0.25) / 0.65)) : null;
+  const scale = target ? [0, 1, 2, 3].map(i => fmtInt(target * i / 3 / 10) === '0' ? '0' : fmtInt(Math.round(target * i / 3 / 10) * 10)) : [];
   const dateLine = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'long', month: 'short', day: 'numeric' }).format(new Date());
 
   const weight = signals.weight, latestW = weight?.[weight.length - 1];
@@ -86,15 +89,15 @@ export function TodayDashboard({ name, assistantName, portrait, sassy, nutrition
     sleepLastNight: !!lastNight && lastNight.nightId >= addDays(today, -1),
   } : null;
   return <section className="nx-today" aria-label="Today at a glance">
-    <header className="nx-today-head"><div><span>{dateLine}</span><h2>{greeting}, {name}.</h2></div>
+    <header className="nx-today-head"><div><span>{dateLine}</span><h2 className="nx-say">{nutrition.loading && !day ? <>&nbsp;</> : <>{say.before}<em>{say.accent}</em>{say.after}</>}</h2></div>
       <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={onOpenHistory} /></header>
     <div className="nx-today-top">
       <div className="nx-today-dial">
         <button type="button" className="nx-dial-button" onClick={onOpenFood} aria-label={`${dialLabel}. Open food log`}>
-          <Dial value={eaten} target={target || 0} label={dialLabel}>
+          <Dial value={eaten} target={target || 0} label={dialLabel} pace={expected} scale={scale}>
             <small>{target === null ? 'Eaten today' : left! >= 0 ? 'Left today' : 'Over today'}</small>
-            <strong className="nx-big">{nutrition.loading && !day ? '—' : fmtInt(target === null ? eaten : Math.abs(left!))}<sup>kcal</sup></strong>
-            <p>{target !== null ? <>{fmtInt(eaten)} of {fmtInt(target)} · <em>{status}</em></> : <em>{status}</em>}</p>
+            <strong className="nx-big">{nutrition.loading && !day ? '—' : fmtInt(target === null ? eaten : Math.abs(left!))}</strong>
+            <p>{target !== null ? <>{fmtInt(eaten)} kcal eaten · <em>{status}</em></> : <em>{status}</em>}</p>
           </Dial>
         </button>
         <div className="nx-macros" aria-label="Macros today">
@@ -103,7 +106,7 @@ export function TodayDashboard({ name, assistantName, portrait, sassy, nutrition
         </div>
         <div className="nx-dock">
           <button type="button" className="nx-cam" onClick={onCamera}><Camera size={20} aria-hidden="true" />Log a meal</button>
-          <button type="button" className="nx-mic" onClick={onTalk} aria-label="Talk"><Mic size={22} aria-hidden="true" /></button>
+          <button type="button" className="nx-mic" onClick={onTalk} aria-label={`Talk to ${assistantName}`}><Mic size={22} aria-hidden="true" /><span>Talk to {assistantName}</span></button>
         </div>
         <div className="nx-minor" role="group" aria-label="More ways to log">
           <button type="button" onClick={onExercise}><Dumbbell size={14} aria-hidden="true" />Exercise</button>

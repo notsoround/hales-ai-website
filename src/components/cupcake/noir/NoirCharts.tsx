@@ -23,35 +23,39 @@ export function useBoxWidth<T extends HTMLElement>(fallback: number) {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const niceStep = (span: number, count: number) => { const raw = span / Math.max(1, count), mag = 10 ** Math.floor(Math.log10(raw)), n = raw / mag; return (n >= 5 ? 10 : n >= 2 ? 5 : n >= 1 ? 2 : 1) * mag; };
 
-/** 270° dial. `value` of `target`; overshoot shows as a warm second lap segment. Children sit in the centre. */
-export function Dial({ value, target, label, children, size = 300 }: { value: number; target: number; label: string; children?: ReactNode; size?: number }) {
+/** 270° gauge that drains: the lit arc is what is left of `target` after `value`, read against a labelled scale.
+ *  `pace` (0..1 of target expected to be used by now) draws a notch outside the arc; overshoot shows as a warm arc from zero. */
+export function Dial({ value, target, label, children, size = 300, pace = null, scale = [] }: { value: number; target: number; label: string; children?: ReactNode; size?: number; pace?: number | null; scale?: string[] }) {
   const id = useId().replace(/:/g, '');
-  const R = size * 0.39, cx = size / 2, cy = size / 2, start = 225, sweep = 270;
-  const frac = target > 0 ? clamp(value / target, 0, 1) : 0, over = target > 0 ? clamp(value / target - 1, 0, 1) : 0;
+  const R = size * 0.385, cx = size / 2, cy = size / 2, start = 225, sweep = 270, sw = size * 0.032;
+  const left = target > 0 ? clamp(1 - value / target, 0, 1) : 0, over = target > 0 ? clamp(value / target - 1, 0, 1) : 0;
   const pt = (a: number, r = R) => { const rad = (a - 90) * Math.PI / 180; return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)] as const; };
   const arc = (a0: number, a1: number) => { const [x0, y0] = pt(a0), [x1, y1] = pt(a1); return `M${x0.toFixed(2)},${y0.toFixed(2)}A${R},${R} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`; };
-  const len = 2 * Math.PI * R * (sweep * frac / 360);
-  const ticks = useMemo(() => Array.from({ length: 55 }, (_, i) => {
-    const a = start + sweep * i / 54, major = i % 9 === 0, [x0, y0] = pt(a, R + size * 0.055), [x1, y1] = pt(a, R + size * (major ? 0.085 : 0.07));
-    return <line key={i} x1={x0} y1={y0} x2={x1} y2={y1} className={major ? 'nx-tick is-major' : 'nx-tick'} />;
+  const len = 2 * Math.PI * R * (sweep * left / 360);
+  const ticks = useMemo(() => Array.from({ length: 85 }, (_, i) => {
+    const a = start + sweep * i / 84, kind = i % 28 === 0 ? 'is-major' : i % 7 === 0 ? 'is-mid' : '', r0 = R - size * 0.05, [x0, y0] = pt(a, r0), [x1, y1] = pt(a, r0 - size * (kind === 'is-major' ? 0.03 : kind ? 0.02 : 0.011));
+    return <line key={i} x1={x0} y1={y0} x2={x1} y2={y1} className={`nx-tick ${kind}`} />;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [size]);
-  const [hx, hy] = pt(start + sweep * frac);
-  const h = size * 0.84;
+  const [hx, hy] = pt(start + sweep * left);
+  const notch = pace !== null && target > 0 ? start + sweep * clamp(1 - pace, 0, 1) : null;
+  const h = size * 0.86;
   return <div className="nx-dial" role="img" aria-label={label}>
     <svg viewBox={`0 0 ${size} ${h}`} aria-hidden="true">
       <defs>
-        <linearGradient id={`${id}g`} x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="var(--nx-a2)" /><stop offset="1" stopColor="var(--nx-a)" /></linearGradient>
-        <filter id={`${id}b`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation={size * 0.02} /></filter>
+        <linearGradient id={`${id}g`} gradientUnits="userSpaceOnUse" x1={size * 0.12} y1={size * 0.85} x2={size * 0.88} y2={size * 0.12}><stop offset="0" stopColor="var(--nx-a2)" /><stop offset="1" stopColor="var(--nx-a)" /></linearGradient>
+        <filter id={`${id}b`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation={size * 0.028} /></filter>
       </defs>
       {ticks}
-      <path d={arc(start, start + sweep)} className="nx-dial-track" strokeWidth={size * 0.045} />
-      {frac > 0.004 && <>
-        <path d={arc(start, start + sweep * frac)} stroke={`url(#${id}g)`} strokeWidth={size * 0.045} className="nx-dial-glow" filter={`url(#${id}b)`} />
-        <path d={arc(start, start + sweep * frac)} stroke={`url(#${id}g)`} strokeWidth={size * 0.045} className="nx-dial-fill nx-draw" style={{ ['--nx-len' as string]: len }} />
+      {scale.map((text, i) => { const [x, y] = pt(start + sweep * i / Math.max(1, scale.length - 1), R + size * 0.072); return <text key={i} x={x} y={y + 3} textAnchor="middle" className="nx-dial-scale">{text}</text>; })}
+      <path d={arc(start, start + sweep)} className="nx-dial-track" strokeWidth={sw} />
+      {left > 0.004 && <>
+        <path d={arc(start, start + sweep * left)} stroke={`url(#${id}g)`} strokeWidth={sw} className="nx-dial-glow" filter={`url(#${id}b)`} />
+        <path d={arc(start, start + sweep * left)} stroke={`url(#${id}g)`} strokeWidth={sw} className="nx-dial-fill nx-draw" style={{ ['--nx-len' as string]: len }} />
       </>}
-      {over > 0.004 && <path d={arc(start, start + sweep * over)} strokeWidth={size * 0.02} className="nx-dial-over" />}
-      {frac > 0.004 && <circle cx={hx} cy={hy} r={size * 0.017} className="nx-dial-head" />}
+      {over > 0.004 && <path d={arc(start, start + sweep * over)} strokeWidth={sw} className="nx-dial-over" />}
+      {notch !== null && (() => { const [x0, y0] = pt(notch, R + size * 0.028), [x1, y1] = pt(notch, R + size * 0.05); return <line x1={x0} y1={y0} x2={x1} y2={y1} className="nx-dial-pace" />; })()}
+      {target > 0 && <><circle cx={hx} cy={hy} r={size * 0.027} className="nx-dial-head-ring" /><circle cx={hx} cy={hy} r={size * 0.015} className="nx-dial-head" /></>}
     </svg>
     <div className="nx-dial-centre">{children}</div>
   </div>;
@@ -130,6 +134,7 @@ export function TrendChart({ points, height = 180, average, goal, band, unit, fo
       {markers.map(m => <g key={m.t} className="nx-marker"><line x1={x(m.t)} x2={x(m.t)} y1={pad.t} y2={pad.t + ih} /><circle cx={x(m.t)} cy={pad.t} r="3.5" /><title>{m.label}</title></g>)}
       {!scatter && line.length > 1 && <path d={`${d}L${last!.x},${pad.t + ih}L${line[0]!.x},${pad.t + ih}Z`} fill={`url(#${id}f)`} />}
       {average && sorted.map((p, i) => <circle key={i} cx={x(p.t)} cy={y(p.v)} r="1.7" className="nx-raw" />)}
+      {scatter && line.length > 1 ? <path d={d} className="nx-thread" /> : null}
       {!scatter && line.length > 1 ? <path d={d} className="nx-line nx-draw" style={{ ['--nx-len' as string]: W * 2 }} /> : null}
       {scatter ? line.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3.4" className={`nx-point${band && (sorted[i]!.v < band[0] || sorted[i]!.v > band[1]) ? ' is-out' : ''}`} style={{ ['--i' as string]: i }} />)
         : !average && line.length < 40 && line.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2.6" className="nx-point" />)}
@@ -148,7 +153,7 @@ export function BarChart({ bars, height = 150, target, unit, formatValue = v => 
   const [box, W] = useBoxWidth<HTMLDivElement>(340);
   const pad = { l: 36, r: 10, t: 14, b: 22 }, iw = Math.max(10, W - pad.l - pad.r), ih = height - pad.t - pad.b;
   const max = Math.max(1, ...bars.map(b => b.value || 0), target || 0) * 1.08, step = niceStep(max, 2);
-  const y = (v: number) => pad.t + ih - v / max * ih, bw = iw / Math.max(1, bars.length), gap = Math.min(4, bw * 0.28);
+  const y = (v: number) => pad.t + ih - v / max * ih, bw = iw / Math.max(1, bars.length), gap = bw * 0.52;
   const { index, setIndex, onKey } = useScrub(bars.length);
   const pick = (e: PointerEvent<HTMLDivElement>) => { const rect = e.currentTarget.getBoundingClientRect(); setIndex(clamp(Math.floor((e.clientX - rect.left - pad.l) / bw), 0, bars.length - 1)); };
   const active = index !== null ? bars[index] : null;
@@ -160,10 +165,12 @@ export function BarChart({ bars, height = 150, target, unit, formatValue = v => 
       {ticks.map(v => <g key={v}><line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} className="nx-grid" /><text x={pad.l - 8} y={y(v) + 3.5} textAnchor="end" className="nx-axis">{v >= 1000 ? `${(v / 1000).toFixed(v % 1000 ? 1 : 0)}k` : formatValue(v)}</text></g>)}
       {bars.map((b, i) => {
         const x0 = pad.l + i * bw + gap / 2, w = Math.max(1, bw - gap);
-        if (b.value === null) return <rect key={b.key} x={x0} y={pad.t + ih - 2} width={w} height="2" rx="1" className="nx-bar-missing" />;
-        const top = y(b.value);
-        return <rect key={b.key} x={x0} y={top} width={w} height={Math.max(1, pad.t + ih - top)} rx={Math.min(3, w / 2)}
-          className={`nx-bar${target && b.value > target ? ' is-over' : ''}${index === i ? ' is-active' : ''}${index !== null && index !== i ? ' is-dim' : ''}`} style={{ ['--i' as string]: i }} />;
+        if (b.value === null) return <circle key={b.key} cx={x0 + w / 2} cy={pad.t + ih - 3} r="1.6" className="nx-bar-missing" />;
+        const top = y(b.value), base = pad.t + ih, capped = target && b.value > target ? y(target) : top, state = `${index === i ? ' is-active' : ''}${index !== null && index !== i ? ' is-dim' : ''}`;
+        return <g key={b.key} className={`nx-bar-g${state}`} style={{ ['--i' as string]: i }}>
+          <rect x={x0} y={capped} width={w} height={Math.max(1, base - capped)} rx={w / 2} className={`nx-bar${i === bars.length - 1 ? ' is-now' : ''}`} />
+          {capped !== top && <rect x={x0} y={top} width={w} height={Math.max(1, capped - top - 2)} rx={Math.min(w / 2, (capped - top - 2) / 2)} className="nx-bar is-over" />}
+        </g>;
       })}
       {target ? <><line x1={pad.l} x2={W - pad.r} y1={y(target)} y2={y(target)} className="nx-target" /><text x={pad.l - 8} y={y(target) + 3.5} textAnchor="end" className="nx-axis nx-target-label">{target >= 1000 ? `${(target / 1000).toFixed(1)}k` : formatValue(target)}</text></> : null}
       {axis.map((a, i) => <text key={a.index} x={pad.l + a.index * bw + bw / 2} y={height - 6} textAnchor={i === 0 && a.index === 0 ? 'start' : i === axis.length - 1 && a.index === bars.length - 1 ? 'end' : 'middle'} className="nx-axis">{a.label}</text>)}
