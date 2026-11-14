@@ -3,6 +3,7 @@ import { accountCoach, accountCoachPhoto, type AccountIdentity } from './account
 import './account-coach.css';
 import { personalAssistantLabel } from './assistantBrand';
 import { AccountPilotWorkspace } from './AccountPilotWorkspace';
+import type { ChartScrub, OnChartScrub } from './noir/NoirCharts';
 import { ClientRoster } from './reports/ClientRoster';
 import { DailyBars, ExerciseBars, Figures, GlucosePoints, NutritionBars, ReportGlance, SleepBars, WeightTrend } from './reports/ReportCharts';
 import { exerciseDays, foodDays, periodDates, stepDays, summarize } from './reports/reportModel';
@@ -123,21 +124,21 @@ function CleanReport({grant,period}:{grant:Grant;period:Period}) {
   const counts=record(d.outcomes?.counts),latestBody=rows(d.bodyMeasurements?.measurements).slice(-1)[0];
   const sections:{key:ReportKey;title:string;node:ReactNode}[]=[
     {key:'weight',title:'Weight',node:<MetricSection title="Weight" data={d.weight} coverage={c.weight} stat={numeric(d.weight?.latestLb)!==null?`${number(d.weight?.latestLb)} lb latest`:undefined} provenance="Scale / Health Connect and explicit owner entries or corrections"
-      chart={d.weight&&<WeightTrend dates={dates} weight={d.weight}/>}><Summary data={d.weight} fields={['firstLb','latestLb','changeLb','samples']} labels={['First lb','Latest lb','Change lb','Readings']}/><NumbersTable data={rows(d.weight?.daily)} fields={['meanLb','minLb','maxLb','samples']} labels={['Mean lb','Min lb','Max lb','Readings']}/></MetricSection>},
+      chart={onScrub=>d.weight&&<WeightTrend onScrub={onScrub} dates={dates} weight={d.weight}/>}><Summary data={d.weight} fields={['firstLb','latestLb','changeLb','samples']} labels={['First lb','Latest lb','Change lb','Readings']}/><NumbersTable data={rows(d.weight?.daily)} fields={['meanLb','minLb','maxLb','samples']} labels={['Mean lb','Min lb','Max lb','Readings']}/></MetricSection>},
     {key:'nutrition',title:'Confirmed nutrition',node:<MetricSection title="Confirmed nutrition" data={d.nutrition} coverage={c.nutrition} stat={d.nutrition?`${foodDays(d.nutrition).length} of ${dates.length} days`:undefined} provenance="Confirmed local food ledger; photos and purchases alone never establish eating"
-      chart={d.nutrition&&<NutritionBars dates={dates} nutrition={d.nutrition}/>} note="Totals include known values only. Missing nutrients and unlogged meals remain gaps; this is not complete intake."><NutritionTable data={rows(d.nutrition?.daily)}/></MetricSection>},
+      chart={onScrub=>d.nutrition&&<NutritionBars onScrub={onScrub} dates={dates} nutrition={d.nutrition}/>} note="Totals include known values only. Missing nutrients and unlogged meals remain gaps; this is not complete intake."><NutritionTable data={rows(d.nutrition?.daily)}/></MetricSection>},
     {key:'steps',title:'Steps',node:<MetricSection title="Steps" data={d.steps} coverage={c.steps} stat={d.steps?`${stepDays(d.steps).length} days with data`:undefined} provenance="Owned local steps ledger"
-      chart={d.steps&&<DailyBars dates={dates} rows={rows(d.steps.daily)} value={row=>numeric(row.count)} unit="steps" label="Daily steps"/>}><NumbersTable data={rows(d.steps?.daily)} fields={['count']} labels={['Steps']}/></MetricSection>},
+      chart={onScrub=>d.steps&&<DailyBars onScrub={onScrub} dates={dates} rows={rows(d.steps.daily)} value={row=>numeric(row.count)} unit="steps" label="Daily steps"/>}><NumbersTable data={rows(d.steps?.daily)} fields={['count']} labels={['Steps']}/></MetricSection>},
     {key:'exercise',title:'Exercise',node:<MetricSection title="Exercise" data={d.exercise} coverage={c.exercise} stat={d.exercise?`${exerciseDays(d.exercise).length} active days`:undefined} provenance="Owner-reported exercise estimates; omitted duration stays unknown"
-      chart={d.exercise&&<ExerciseBars dates={dates} exercise={d.exercise}/>} note={exerciseMissing?`${exerciseMissing} ${exerciseMissing===1?'entry has':'entries have'} an unknown duration and ${exerciseMissing===1?'is':'are'} not counted in minutes.`:undefined}><NumbersTable data={rows(d.exercise?.daily)} fields={['entries','minutes','knownDurationEntries','missingDurationEntries','energyKcal']} labels={['Entries','Known min','With duration','Missing duration','Est. kcal']}/></MetricSection>},
+      chart={onScrub=>d.exercise&&<ExerciseBars onScrub={onScrub} dates={dates} exercise={d.exercise}/>} note={exerciseMissing?`${exerciseMissing} ${exerciseMissing===1?'entry has':'entries have'} an unknown duration and ${exerciseMissing===1?'is':'are'} not counted in minutes.`:undefined}><NumbersTable data={rows(d.exercise?.daily)} fields={['entries','minutes','knownDurationEntries','missingDurationEntries','energyKcal']} labels={['Entries','Known min','With duration','Missing duration','Est. kcal']}/></MetricSection>},
     {key:'manualGlucose',title:'Manual glucose',node:<MetricSection title="Manual glucose" data={d.manualGlucose} coverage={c.manualGlucose} stat={d.manualGlucose?`${number(d.manualGlucose.samples)} readings`:undefined} provenance="Owner-reported manual glucose; not sensor readings. Shaded band: 70–140 mg/dL"
-      chart={d.manualGlucose&&<GlucosePoints dates={dates} glucose={d.manualGlucose}/>}><NumbersTable data={rows(d.manualGlucose?.daily)} fields={['meanMgDl','minMgDl','maxMgDl','samples']} labels={['Mean mg/dL','Min mg/dL','Max mg/dL','Readings']}/></MetricSection>},
+      chart={onScrub=>d.manualGlucose&&<GlucosePoints onScrub={onScrub} dates={dates} glucose={d.manualGlucose}/>}><NumbersTable data={rows(d.manualGlucose?.daily)} fields={['meanMgDl','minMgDl','maxMgDl','samples']} labels={['Mean mg/dL','Min mg/dL','Max mg/dL','Readings']}/></MetricSection>},
     {key:'ringconnNight',title:'RingConn nights',node:<MetricSection title="RingConn nights" data={d.ringconnNight} coverage={c.ringconnNight} stat={d.ringconnNight?`${rows(d.ringconnNight.nights).length} nights`:undefined} provenance="RingConn provider estimates; missing metrics stay unknown"
-      chart={d.ringconnNight&&<SleepBars dates={dates} nights={rows(d.ringconnNight.nights)}/>}><NumbersTable data={rows(d.ringconnNight?.nights)} fields={['asleepMinutes','sessionMinutes','averageHeartRateBpm','restingHeartRateBpm','meanSpo2Percent']} labels={['Asleep min','Session min','Avg HR bpm','Resting HR bpm','Mean SpO₂ %']}/></MetricSection>},
+      chart={onScrub=>d.ringconnNight&&<SleepBars onScrub={onScrub} dates={dates} nights={rows(d.ringconnNight.nights)}/>}><NumbersTable data={rows(d.ringconnNight?.nights)} fields={['asleepMinutes','sessionMinutes','averageHeartRateBpm','restingHeartRateBpm','meanSpo2Percent']} labels={['Asleep min','Session min','Avg HR bpm','Resting HR bpm','Mean SpO₂ %']}/></MetricSection>},
     {key:'outcomes',title:'Outcomes',node:<MetricSection title="Outcomes" data={d.outcomes} coverage={c.outcomes} provenance="Explicit owner-reported outcomes only"
-      chart={d.outcomes&&<Figures items={[{label:'Wins',value:number(counts.wins)},{label:'Setbacks',value:number(counts.losses)},{label:'Unscored',value:number(counts.unscored)}]}/>}><Summary data={counts} fields={['wins','losses','unscored','total']} labels={['Wins','Setbacks','Unscored','Total']}/><NumbersTable data={rows(d.outcomes?.daily)} fields={['wins','losses','unscored']} labels={['Wins','Setbacks','Unscored']}/></MetricSection>},
+      chart={()=>d.outcomes&&<Figures items={[{label:'Wins',value:number(counts.wins)},{label:'Setbacks',value:number(counts.losses)},{label:'Unscored',value:number(counts.unscored)}]}/>}><Summary data={counts} fields={['wins','losses','unscored','total']} labels={['Wins','Setbacks','Unscored','Total']}/><NumbersTable data={rows(d.outcomes?.daily)} fields={['wins','losses','unscored']} labels={['Wins','Setbacks','Unscored']}/></MetricSection>},
     {key:'bodyMeasurements',title:'Body measurements',node:<MetricSection title="Body measurements" data={d.bodyMeasurements} coverage={c.bodyMeasurements} stat={latestBody?`Latest ${day(latestBody.date)}`:undefined} provenance="Owned body check-ins; flagged measurements stay missing"
-      chart={latestBody&&<Figures items={([['weight_lb','Weight lb'],['body_fat_pct','Body fat %'],['waist_in','Waist in'],['hips_in','Hips in']] as const).filter(([key])=>numeric(latestBody[key])!==null).map(([key,name])=>({label:name,value:number(latestBody[key])}))}/>}><NumbersTable data={rows(d.bodyMeasurements?.measurements)} fields={['weight_lb','body_fat_pct','neck_in','waist_in','hips_in']} labels={['Weight lb','Body fat %','Neck in','Waist in','Hips in']} source/></MetricSection>},
+      chart={()=>latestBody&&<Figures items={([['weight_lb','Weight lb'],['body_fat_pct','Body fat %'],['waist_in','Waist in'],['hips_in','Hips in']] as const).filter(([key])=>numeric(latestBody[key])!==null).map(([key,name])=>({label:name,value:number(latestBody[key])}))}/>}><NumbersTable data={rows(d.bodyMeasurements?.measurements)} fields={['weight_lb','body_fat_pct','neck_in','waist_in','hips_in']} labels={['Weight lb','Body fat %','Neck in','Waist in','Hips in']} source/></MetricSection>},
   ];
   const filled=sections.filter(item=>d[item.key]),empty=sections.filter(item=>!d[item.key]);
   return <section aria-label="Clean health report" className="cc-rep">
@@ -148,15 +149,16 @@ function CleanReport({grant,period}:{grant:Grant;period:Period}) {
     {empty.length>0&&<section className="cc-card cc-coach-empty-group" aria-label="No data this period"><h4>Nothing saved this period</h4>{empty.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}</section>}
   </div></section>;
 }
-function MetricSection({title,data,coverage,provenance,stat,chart,note,children}:{title:string;data:Row|null;coverage?:Coverage;provenance:string;stat?:string;chart?:ReactNode;note?:string;children:ReactNode}) {
+function MetricSection({title,data,coverage,provenance,stat,chart,note,children}:{title:string;data:Row|null;coverage?:Coverage;provenance:string;stat?:string;chart?:(onScrub:OnChartScrub)=>ReactNode;note?:string;children:ReactNode}) {
+  const [scrub,setScrub]=useState<ChartScrub|null>(null);
   const source=<p className="cc-coach-provenance">{provenance}</p>;
   const query=<p className="cc-coach-coverage">{coverage?`${coverage.queryComplete===true?'Query covered the requested range':'Query was limited'} · ${number(coverage.rowsRead)} rows checked · ${number(coverage.invalidRows)} invalid rows omitted`:'Query coverage is unavailable.'}</p>;
   if (!data) return <details className="cc-card cc-coach-empty cc-coach-empty-row">
     <summary><strong>{title}</strong><span>No entries in this period{coverage?.queryComplete===false?' · Limited query':''}{coverage&&coverage.invalidRows>0?' · Invalid rows omitted':''}</span></summary>
     <p>No local data for this period. This is unknown, not zero.</p>{source}{query}
   </details>;
-  return <section className="cc-card cc-rep-card"><header className="cc-rep-card-head"><h4>{title}</h4>{stat&&<span>{stat}</span>}</header>
-    {chart}{note&&<p className="cc-rep-note">{note}</p>}
+  return <section className="cc-card cc-rep-card"><header className="cc-rep-card-head"><h4>{title}</h4>{scrub?<span>{scrub.title} · {scrub.value}{scrub.unit && ` ${scrub.unit}`}</span>:stat&&<span>{stat}</span>}</header>
+    {chart?.(setScrub)}{note&&<p className="cc-rep-note">{note}</p>}
     <details className="cc-rep-numbers"><summary>Numbers</summary>{children}</details>
     <div className="cc-rep-foot">{source}{query}</div></section>;
 }
