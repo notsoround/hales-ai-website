@@ -1,0 +1,41 @@
+/* Welcome-back recap: a portrait chip beside the greeting and a small status card. Visual layer may be refined by the design pass. */
+.nx-today .nx-today-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.nx-today .nx-today-head > div { display: grid; gap: 4px; min-width: 0; }
+.nx-recap { position: relative; flex: none; }
+.nx-today .nx-recap span { letter-spacing: 0; text-transform: none; }
+.cc-app .nx-recap-chip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 14px 4px 4px; border-radius: 99px; cursor: pointer;
+  font: 500 12.5px/1 var(--nx-text); color: var(--nx-ink); background: rgba(255,255,255,.04); border: 1px solid var(--nx-hair); }
+.cc-app .nx-recap-chip:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; }
+.nx-recap-portrait { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex: none; }
+.nx-recap-portrait > * { width: 100% !important; height: 100% !important; }
+.nx-recap-portrait.is-large { width: 44px; height: 44px; }
+.nx-recap-chip.is-pulsing .nx-recap-portrait { overflow: visible; }
+.nx-recap-chip.is-pulsing .nx-recap-portrait::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--nx-a); }
+.nx-recap-chip.is-pulsing::after { content: ""; position: absolute; top: 2px; left: 28px; width: 9px; height: 9px; border-radius: 50%; background: var(--nx-a); box-shadow: 0 0 0 2px #04070a; }
+@media (prefers-reduced-motion: no-preference) {
+  .nx-recap-chip.is-pulsing .nx-recap-portrait::after { animation: nx-recap-pulse 2.2s ease-out infinite; }
+}
+@keyframes nx-recap-pulse { 0% { transform: scale(.9); opacity: .9; } 70%, 100% { transform: scale(1.35); opacity: 0; } }
+.nx-recap-card { position: absolute; right: 0; top: calc(100% + 10px); z-index: 30; width: min(340px, calc(100vw - 32px)); padding: 16px; border-radius: 22px; outline: none;
+  background: rgba(12,18,22,.94); border: 1px solid rgba(255,255,255,.1); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(0,0,0,.4); color: var(--nx-ink); font-family: var(--nx-text); }
+.cc-app[data-appearance=rose] .nx-recap-card { background: rgba(18,13,26,.94); }
+@media (prefers-reduced-motion: no-preference) { .nx-recap-card { animation: nx-recap-in .22s cubic-bezier(.2,.8,.2,1); transform-origin: top right; } }
+@keyframes nx-recap-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
+.nx-recap-card header { display: flex; align-items: center; gap: 12px; }
+.nx-recap-card header > div { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.nx-recap-card header small { font: 500 10.5px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-a); }
+.nx-recap-card header strong { font: 400 17px/1.25 var(--nx-display); letter-spacing: -.01em; }
+.cc-app .nx-recap-close { all: unset; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--nx-ink-3); background: rgba(255,255,255,.05); align-self: flex-start; }
+.nx-recap-card dl { margin: 14px 0 0; display: grid; }
+.nx-recap-card dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--nx-hair); font-size: 13px; }
+.nx-recap-card dt { color: var(--nx-ink-3); }
+.nx-recap-card dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.nx-recap-loading { margin: 14px 0 0; font-size: 13px; color: var(--nx-ink-3); }
+.nx-recap-actions { display: flex; gap: 8px; margin-top: 12px; }
+.cc-app .nx-recap-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; min-height: 42px; border-radius: 14px; cursor: pointer; font: 600 13.5px/42px var(--nx-text);
+  color: var(--nx-ink); background: rgba(255,255,255,.06); border: 1px solid var(--nx-hair); }
+.cc-app .nx-recap-actions button.is-primary { color: #021412; background: var(--nx-a); border-color: transparent; }
+.cc-app[data-appearance=rose] .nx-recap-actions button.is-primary { color: #12081f; }
+.cc-app .nx-recap-actions button:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; }
+.nx-today .nx-recap-chip > span:last-child { color: var(--nx-ink); font-size: 12.5px; font-weight: 500; }

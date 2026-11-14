@@ -1,0 +1,22 @@
+/* Connections list (Settings). Quiet rows, detail on tap. */
+.nx-connect { display: grid; gap: 10px; font-family: var(--nx-text); }
+.nx-connect-device { margin: 0; font: 500 11px/1.3 var(--nx-text); letter-spacing: .1em; text-transform: uppercase; color: var(--nx-ink-3); }
+.nx-connect ul { list-style: none; margin: 0; padding: 0; border-radius: 18px; overflow: hidden; border: 1px solid var(--nx-hair); background: rgba(255,255,255,.02); }
+.nx-connect li + li { border-top: 1px solid var(--nx-hair); }
+.cc-app .nx-connect-row { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 60px; cursor: pointer; color: var(--nx-ink); }
+.cc-app .nx-connect-row:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: -2px; }
+.nx-connect-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: color-mix(in oklab, var(--nx-a) 14%, transparent); color: var(--nx-a); flex: none; }
+.nx-connect-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.nx-connect-text b { font: 500 14.5px/1.2 var(--nx-text); }
+.nx-connect-text small { font: 400 12px/1.3 var(--nx-text); color: var(--nx-ink-3); }
+.nx-connect-badge { font: 500 10.5px/1 var(--nx-text); padding: 5px 8px; border-radius: 99px; color: var(--nx-ink-3); border: 1px solid var(--nx-hair); }
+.nx-connect-chevron { color: var(--nx-ink-3); transition: transform .2s; }
+.nx-connect-item[open] .nx-connect-chevron { transform: rotate(90deg); }
+.nx-connect-detail { padding: 4px 14px 16px 60px; font-size: 13.5px; }
+@media (max-width: 420px) { .nx-connect-detail { padding-left: 14px; } }
+.nx-connect-note { margin: 0; color: rgba(238,244,245,.72); font-size: 13px; line-height: 1.5; }
+.nx-connect-steps ol { margin: 0; padding-left: 18px; color: rgba(238,244,245,.8); display: grid; gap: 6px; }
+.cc-app .nx-connect-cta { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 14px; cursor: pointer; font: 600 14px/1 var(--nx-text); color: #021412; background: var(--nx-a); }
+.cc-app[data-appearance=rose] .nx-connect-cta { color: #12081f; }
+.nx-connect-row { list-style: none; }
+.nx-connect-row::-webkit-details-marker { display: none; }

@@ -1,0 +1,136 @@
+/* Noir library (account entry only): layered near-black surfaces, 1px hairlines, Outfit light headings,
+   accent only for primary actions and selection. Presentation only; the original /cupcake app is unchanged.
+   The :root prefix (and doubled classes) outrank the theme's :is() rules in assistant-appearance.css. */
+@import "@fontsource/outfit/300.css";
+
+:root .cc-app[data-entry=account] {
+  --lx-hair: rgba(255,255,255,.07);
+  --lx-hair-2: rgba(255,255,255,.11);
+  --lx-surface: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+  --lx-glass: rgba(255,255,255,.045);
+  --lx-ink: var(--cc-text, #eef4f5);
+  --lx-ink-2: rgba(238,244,245,.74);
+  --lx-ink-3: rgba(238,244,245,.58);
+  --lx-text: "Inter", -apple-system, "SF Pro Text", Roboto, sans-serif;
+  --lx-display: "Outfit", -apple-system, "SF Pro Display", Roboto, sans-serif;
+}
+:root .cc-app[data-entry=account][data-appearance=rose] { --lx-ink-2: rgba(243,239,250,.74); --lx-ink-3: rgba(243,239,250,.58); }
+
+:root .cc-app[data-entry=account] .cc-library-workspace { font-family: var(--lx-text); color: var(--lx-ink); }
+
+/* ---------- Hero ---------- */
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row { align-items: flex-end; gap: 16px; margin-top: 8px; }
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row .cc-eyebrow { display: block; margin-bottom: 10px; color: var(--lx-ink-3); font: 500 11px/1 var(--lx-text); letter-spacing: .12em; }
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row h2 { margin: 0; font: 300 32px/1.1 var(--lx-display); letter-spacing: -.025em; color: var(--lx-ink); }
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row h2 em { font-style: normal; color: var(--lx-ink-3); }
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row > .cc-secondary {
+  flex: none; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--lx-hair-2); background: var(--lx-glass); color: var(--lx-ink-2);
+}
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row > .cc-secondary svg { width: 17px; height: 17px; }
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-muted { margin: 12px 0 0; max-width: 46ch; font: 400 14px/1.5 var(--lx-text); color: var(--lx-ink-3); }
+
+/* ---------- Views: a quiet scrolling strip ---------- */
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-view-navigation { margin: 22px 0 14px; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tabs { gap: 4px; padding: 3px; border: 1px solid var(--lx-hair); border-radius: 14px; background: rgba(255,255,255,.03); scrollbar-width: none; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tabs::-webkit-scrollbar { display: none; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tabs button { min-height: 36px; padding: 0 13px; border: 0; border-radius: 11px; background: transparent; color: var(--lx-ink-3); font: 500 13px/1 var(--lx-text); transition: background .2s, color .2s; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tabs button:hover:not(:disabled) { color: var(--lx-ink-2); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tabs button[aria-selected=true] { background: color-mix(in oklab, var(--cc-pink) 15%, rgba(255,255,255,.04)); color: var(--lx-ink); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cc-pink) 28%, transparent); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-view-overflow { margin-top: 8px; color: var(--lx-ink-3); font: 400 11.5px/1.3 var(--lx-text); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-view-overflow button { min-width: 36px; min-height: 36px; width: 36px; height: 36px; padding: 0; border: 1px solid var(--lx-hair); border-radius: 50%; background: var(--lx-glass); color: var(--lx-ink-2); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-view-overflow button:disabled { opacity: .3; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-view-panel:focus-visible { outline-offset: 4px; border-radius: 12px; }
+
+/* ---------- Search: one large rounded field ---------- */
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-search.cc-library-search {
+  gap: 10px; min-height: 52px; margin: 0 0 16px; padding: 5px 5px 5px 16px; border: 1px solid var(--lx-hair-2); border-radius: 18px;
+  background: rgba(255,255,255,.045); color: var(--lx-ink); transition: border-color .2s, box-shadow .2s;
+}
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-search.cc-library-search:focus-within { border-color: color-mix(in oklab, var(--cc-pink) 50%, transparent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--cc-pink) 12%, transparent); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-search > svg { color: var(--lx-ink-3); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-search.cc-library-search input { min-height: 40px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: none; color: var(--lx-ink); font: 400 16px/1.3 var(--lx-text); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-search input::placeholder { color: var(--lx-ink-3); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-search .cc-secondary { min-height: 40px; padding: 0 16px; border: 0; border-radius: 13px; background: rgba(255,255,255,.08); color: var(--lx-ink); font: 500 13.5px/1 var(--lx-text); }
+
+/* ---------- Tools: context filter and import ---------- */
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tools { align-items: flex-end; gap: 10px; margin-bottom: 14px; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-filter { color: var(--lx-ink-3); font: 500 11px/1 var(--lx-text); letter-spacing: .12em; text-transform: uppercase; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-filter.cc-filter select {
+  min-height: 42px; margin-top: 8px; padding: 0 34px 0 14px; border: 1px solid var(--lx-hair); border-radius: 13px; -webkit-appearance: none; appearance: none;
+  background: rgba(255,255,255,.04) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c9d2d5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 13px center;
+  color: var(--lx-ink); font: 500 14px/1.2 var(--lx-text); letter-spacing: 0; text-transform: none;
+}
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tools > .cc-secondary { min-height: 42px; padding: 0 14px; border: 1px solid var(--lx-hair); border-radius: 13px; background: var(--lx-glass); color: var(--lx-ink-2); font: 500 13px/1 var(--lx-text); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tools > .cc-secondary:disabled { opacity: .45; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-small { font-size: 12.5px; line-height: 1.5; }
+:root .cc-app[data-entry=account] .cc-library-view-panel .cc-muted { color: var(--lx-ink-3); }
+
+/* ---------- Section headings and counts ---------- */
+:root .cc-app[data-entry=account] .cc-library-view-panel .cc-heading-row { align-items: baseline; gap: 6px 14px; flex-wrap: wrap; margin-top: 20px; }
+:root .cc-app[data-entry=account] .cc-library-view-panel h3 { font: 300 21px/1.2 var(--lx-display); letter-spacing: -.015em; color: var(--lx-ink); }
+:root .cc-app[data-entry=account] .cc-library-view-panel .cc-heading-row > .cc-muted { font: 400 12px/1.3 var(--lx-text); font-variant-numeric: tabular-nums; }
+
+/* ---------- Rows: sources, search results, channel messages ---------- */
+:root .cc-app[data-entry=account] .cc-library-workspace :is(.cc-library-item, .cc-search-result) {
+  margin: 10px 0; padding: 16px 16px 16px 18px; border: 1px solid var(--lx-hair); border-radius: 20px; background: var(--lx-surface); color: var(--lx-ink);
+  transition: background .2s, border-color .2s, transform .15s;
+}
+:root .cc-app[data-entry=account] .cc-library-workspace :is(.cc-library-item, .cc-search-result):hover { border-color: var(--lx-hair-2); background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.025)); }
+:root .cc-app[data-entry=account] .cc-library-workspace :is(.cc-library-item, .cc-search-result):active { transform: scale(.995); }
+:root .cc-app[data-entry=account] .cc-library-workspace :is(.cc-library-item, .cc-search-result):focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-kind.cc-kind { margin-bottom: 6px; color: var(--lx-ink-3); font: 500 11px/1.2 var(--lx-text); letter-spacing: .12em; }
+:root .cc-app[data-entry=account] .cc-library-workspace :is(.cc-library-item, .cc-search-result) strong { font: 500 15px/1.35 var(--lx-text); letter-spacing: -.005em; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-item.cc-library-item small { margin-top: 4px; color: var(--lx-ink-3); font: 400 12px/1.4 var(--lx-text); font-variant-numeric: tabular-nums; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-item .cc-status { gap: 4px; padding: 5px 9px; border: 1px solid var(--lx-hair); border-radius: 999px; background: rgba(255,255,255,.04); color: var(--lx-ink-2); font: 500 11.5px/1 var(--lx-text); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-item .cc-status svg { opacity: .7; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-item .cc-status.cc-status-ready { background: color-mix(in oklab, #4be08f 10%, transparent) !important; color: #9fe8c0 !important; border-color: color-mix(in oklab, #4be08f 22%, transparent); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-item .cc-status.cc-status-failed { background: color-mix(in oklab, #ffb547 12%, transparent) !important; color: #ffd39a !important; border-color: color-mix(in oklab, #ffb547 24%, transparent); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-search-result p { color: var(--lx-ink-2); font: 400 14px/1.55 var(--lx-text); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-search-result .cc-text-button { color: var(--cc-pink-bright, var(--cc-pink)); }
+
+/* ---------- Cards, projects, ask fold ---------- */
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-card { border: 1px solid var(--lx-hair); border-radius: 20px; background: var(--lx-surface); box-shadow: none; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-card h3 { font: 300 20px/1.2 var(--lx-display); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-model-badge.cc-model-badge { border: 1px solid var(--lx-hair); border-radius: 999px; background: rgba(255,255,255,.04); color: var(--lx-ink-2); font: 500 11px/1 var(--lx-text); letter-spacing: .04em; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-ask { margin: 22px 0 8px; border-top: 1px solid var(--lx-hair); padding-top: 6px; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-ask.cc-library-ask > summary { gap: 8px; color: var(--lx-ink); font: 500 14px/1.3 var(--lx-text); list-style: none; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-ask > summary::-webkit-details-marker { display: none; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-ask > summary::after { content: ""; width: 7px; height: 7px; margin: 0 6px 0 auto; border-right: 1.6px solid var(--lx-ink-3); border-bottom: 1.6px solid var(--lx-ink-3); transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-library-ask[open] > summary::after { transform: translateY(2px) rotate(225deg); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-strategy-box.cc-strategy-box { border: 1px solid var(--lx-hair); border-radius: 22px; background: radial-gradient(120% 200px at 100% 0%, color-mix(in oklab, var(--cc-ocean) 10%, transparent), transparent 70%), rgba(255,255,255,.03); }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-strategy-box h3 { font: 300 24px/1.15 var(--lx-display); }
+:root .cc-app[data-entry=account] .cc-library-workspace :is(.cc-secondary, .cc-primary) { border-radius: 14px; }
+:root .cc-app[data-entry=account] .cc-library-workspace .cc-secondary { border-color: var(--lx-hair); background: var(--lx-glass); }
+:root .cc-app[data-entry=account] .cc-library-workspace > :is(.cc-notice, .cc-error) { border-radius: 16px; font-size: 13.5px; }
+
+/* ---------- Saved audio (account archive, shown above the library): a quiet card ---------- */
+:root .cc-app[data-entry=account] .is-library [aria-label="Account audio archive"] { margin: 4px 0 26px; padding: 16px 16px 6px; border: 1px solid var(--lx-hair); border-radius: 20px; background: var(--lx-surface); }
+:root .cc-app[data-entry=account] .is-library [aria-label="Account audio archive"] > h3 { margin: 0 0 4px; font: 500 15px/1.3 var(--lx-text); color: var(--lx-ink); }
+:root .cc-app[data-entry=account] .is-library [aria-label="Account audio archive"] > .cc-muted { margin: 0 0 10px; font: 400 13px/1.5 var(--lx-text); color: var(--lx-ink-3); }
+:root .cc-app[data-entry=account] .is-library [aria-label="Account audio archive"] > .cc-secondary { min-height: 40px; padding: 0 16px; border: 1px solid var(--lx-hair); border-radius: 999px; background: var(--lx-glass); color: var(--lx-ink); font: 500 13.5px/1 var(--lx-text); }
+:root .cc-app[data-entry=account] .is-library [aria-label="Account audio archive"] > p[role=status] { font-size: 12.5px; }
+
+/* ---------- Opened source and saved answers ---------- */
+:root .cc-app[data-entry=account] .cc-detail.cc-detail.cc-detail { border: 1px solid var(--lx-hair-2); border-radius: 22px; background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0) 30%), #080c0f; box-shadow: 0 40px 120px -20px rgba(0,0,0,.95); font-family: var(--lx-text); }
+:root .cc-app[data-entry=account][data-appearance=rose] .cc-detail.cc-detail.cc-detail { background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0) 30%), #0b0911; }
+:root .cc-app[data-entry=account] .cc-detail.cc-detail.cc-detail > .cc-text-button:first-child { background: rgba(8,12,15,.9); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 0; color: var(--lx-ink-2); font: 500 14px/1 var(--lx-text); }
+:root .cc-app[data-entry=account][data-appearance=rose] .cc-detail.cc-detail.cc-detail > .cc-text-button:first-child { background: rgba(11,9,17,.9); }
+:root .cc-app[data-entry=account] .cc-detail > h2 { font: 300 28px/1.15 var(--lx-display); letter-spacing: -.02em; }
+:root .cc-app[data-entry=account] .cc-detail h3 { font: 300 20px/1.2 var(--lx-display); letter-spacing: -.01em; }
+:root .cc-app[data-entry=account] .cc-detail .cc-export-bar { border: 1px solid var(--lx-hair); border-radius: 18px; background: rgba(255,255,255,.03); }
+:root .cc-app[data-entry=account] .cc-detail .cc-export-bar > span { color: var(--lx-ink-2); }
+:root .cc-app[data-entry=account] .cc-detail .cc-export-bar.cc-export-bar button { min-height: 36px; padding: 0 12px; border: 1px solid var(--lx-hair); border-radius: 999px; background: var(--lx-glass); color: var(--lx-ink); font: 500 12.5px/1 var(--lx-text); }
+:root .cc-app[data-entry=account] .cc-detail .cc-card { border: 1px solid var(--lx-hair); border-radius: 18px; background: var(--lx-surface); }
+:root .cc-app[data-entry=account] .cc-detail.cc-detail.cc-detail pre { border: 1px solid var(--lx-hair); border-radius: 14px; background: rgba(0,0,0,.25); }
+:root .cc-app[data-entry=account] .cc-analysis.cc-analysis.cc-analysis { border: 1px solid var(--lx-hair); border-radius: 18px; background: var(--lx-surface); }
+:root .cc-app[data-entry=account] .cc-analysis-meta.cc-analysis-meta { color: var(--lx-ink-3); font: 400 11.5px/1.3 var(--lx-text); }
+:root .cc-app[data-entry=account] .cc-question-bubble { margin-left: auto; width: fit-content; max-width: 88%; padding: 10px 14px; border: 1px solid color-mix(in oklab, var(--cc-pink) 30%, transparent); border-radius: 18px 18px 6px 18px; background: color-mix(in oklab, var(--cc-pink) 18%, #0a0f12); }
+:root .cc-app[data-entry=account] .cc-detail .cc-ask.cc-ask textarea { border: 1px solid var(--lx-hair-2); border-radius: 18px; background: rgba(255,255,255,.04); }
+
+@media (max-width: 600px) {
+  :root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row h2 { font-size: 28px; }
+  :root .cc-app[data-entry=account] .cc-library-workspace .cc-library-tools > .cc-secondary { font-size: 12.5px; padding: 0 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .cc-app[data-entry=account] .cc-library-workspace :is(.cc-library-item, .cc-search-result) { transition: none; }
+}

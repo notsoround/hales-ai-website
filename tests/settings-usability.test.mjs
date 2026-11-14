@@ -11,7 +11,7 @@ const cacheDir = mkdtempSync(path.join(tmpdir(), 'cupcake-settings-usability-'))
 const server = await createServer({ cacheDir, plugins: [{ name: 'actual-settings-root', configureServer(server) { server.middlewares.use((req, _res, next) => { const route = req.url?.split('?')[0]; if (route === '/cupcake/account') req.url = '/tests/account-browser-preview.html'; if (route === '/cupcake') req.url = '/tests/assistant-integration-preview.html'; next(); }); } }], define: { 'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS': '"true"' }, server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), realpathSync('node_modules')] } } });
 await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const groups = ['Appearance', 'Account & security', 'Download my data', 'Close account access', 'App & updates', 'iPhone & Apple Health'];
+const groups = ['Appearance', 'Account & security', 'Download my data', 'Close account access', 'App & updates', 'Connections'];
 const health = { ok: true, devices: [], last_received_at: null, last_observed_at: null, metrics: [], coverage_note: 'Synthetic saved status only.' };
 const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const group = (page, title) => page.locator('.cc-settings-group').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + escaped(title) + '$') }) });
@@ -67,7 +67,7 @@ try {
       await openSettings(page); await page.locator('.cc-settings-scrim').click({ position: { x: 2, y: 2 } }); await returned(page);
       await page.reload(); await page.getByRole('button', { name: 'iPhone setup in Settings', exact: true }).click();
       await page.waitForFunction(() => { const section = document.getElementById('account-health-connection'); return section && document.activeElement === section && [...document.querySelectorAll('.cc-settings,.cc-settings-group')].filter(el => el.contains(section)).every(el => el.open); });
-      assert.equal(await group(page, 'iPhone & Apple Health').getAttribute('open'), '');
+      assert.equal(await group(page, 'Connections').getAttribute('open'), '');
       assert.equal(await page.getByRole('dialog', { name: 'Settings', exact: true }).getAttribute('aria-modal'), 'true');
       await page.keyboard.press('Escape'); await returned(page);
       await page.locator('.cc-account-note > summary').click(); await page.getByRole('button', { name: 'Open Reports', exact: true }).click();

@@ -15,6 +15,7 @@ import { ACCOUNT_SESSIONS } from '../src/components/cupcake/accountMode';
 import { accountCoachPhoto } from '../src/components/cupcake/accountSession';
 import { feedRequest } from '../src/components/cupcake/feedApi';
 import '../src/index.css';
+import { RICH, richData } from './account-rich-data';
 
 if (!import.meta.env.DEV || !ACCOUNT_SESSIONS) throw Error('Synthetic account preview requires a local opt-in test build.');
 const A = {account_id:'acc_synthetic_a',email:'a@example.invalid',name:'Synthetic A'};
@@ -145,6 +146,7 @@ window.fetch=async(input,init)=>{
     if(body.action==='quick_chat_list')return ok({threads:[]});
     return response(503,{ok:false,error:'account_action_not_ready',identity});
   }
+  if(RICH){const rich=richData(String(body.action));if(rich)return ok(rich);}
   if(['feed_get','outcome_list','exercise_list','exercise_log','exercise_delete'].includes(body.action)) {
     const remote=(window as unknown as {syntheticFeedServer?:(owner:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticFeedServer;
     if(remote){const result=await remote(owner.account_id,body);return response(result.status,{...result.value,identity});}

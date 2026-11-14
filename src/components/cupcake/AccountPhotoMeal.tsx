@@ -5,7 +5,7 @@ import { photoDraftStore, type PhotoIntent } from './accountFoodPhotoDraft';
 import { prepareFoodImage } from './prepareFoodImage';
 import { MealTimeInput } from './MealTimeInput';
 import { MealCamera } from './MealCamera';
-import { takeQueuedAccountMealPhoto } from './accountMealPhotoHandoff';
+import { FOOD_CAMERA_REQUESTED, MEAL_PHOTO_QUEUED, takeFoodCameraRequest, takeQueuedAccountMealPhoto } from './accountMealPhotoHandoff';
 import type { FoodMeal } from './DashboardView';
 import './account-photo-meal.css';
 
@@ -104,6 +104,10 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
   // A photo taken from Today's one-tap camera continues here with the default file time.
   const chooseRef = useRef(chooseFile); chooseRef.current = chooseFile;
   useEffect(() => { if (loading) return; const file = takeQueuedAccountMealPhoto(); if (file) void chooseRef.current(file); }, [loading]);
+  // Food opened from the tab bar starts in the live camera.
+  useEffect(() => { if (loading) return; const open = () => { if (takeFoodCameraRequest()) setCameraOpen(true); }; open(); window.addEventListener(FOOD_CAMERA_REQUESTED, open); return () => window.removeEventListener(FOOD_CAMERA_REQUESTED, open); }, [loading]);
+  // The live camera can also hand over a photo while Food is already open.
+  useEffect(() => { if (loading) return; const take = () => { const file = takeQueuedAccountMealPhoto(); if (file) void chooseRef.current(file); }; window.addEventListener(MEAL_PHOTO_QUEUED, take); return () => window.removeEventListener(MEAL_PHOTO_QUEUED, take); }, [loading]);
   const resume = (original: PhotoIntent) => { terminal.current.delete(original.request_id); current.current = original; setIntent(original); setRequest(null); setReceipt(null); setMissing(false); void check(original); };
   const another = () => { current.current = null; setIntent(null); setRequest(null); setReceipt(null); setError(''); setMissing(false); setNote(''); setFileTime(true); setConsumedAt(''); };
   const retry = async () => {
@@ -126,7 +130,7 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
         <label>Portion or meal note (optional)<textarea maxLength={1000} value={note} disabled={busy} rows={2} onChange={event => setNote(event.target.value)} placeholder="For example: half the rice, unsweetened drink…"/></label>
       </div></details>
     </>}
-    {input(picker)}<MealCamera open={cameraOpen} onClose={() => setCameraOpen(false)} onPhoto={file => void chooseFile(file)}/>
+    {input(picker)}<MealCamera open={cameraOpen} onOpenFoodLog={() => undefined} onClose={() => setCameraOpen(false)} onPhoto={file => void chooseFile(file)}/>
     {loading && <p role="status">Checking this device’s saved photo requests…</p>}
     {busy && <p role="status">Preserving your photo and checking its saved meal…</p>}
     {intent && <div className="cc-account-photo-progress">

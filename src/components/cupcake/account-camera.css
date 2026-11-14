@@ -1,32 +1,210 @@
-/* Account-app meal camera (MealCamera.tsx). Only the account entry renders it. */
-.cc-meal-camera { position: fixed; inset: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; padding: 0; border: 0; background: #05090c; color: #fff; overflow: hidden; --cc-cam-accent: var(--cc-pink-bright, #80eee1); --cc-cam-size: min(78vw, 56dvh, 460px); }
-.cc-meal-camera::backdrop { background: #05090c; }
-.cc-meal-camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s ease; }
-.cc-meal-camera-feed[data-live=true] { opacity: 1; }
-/* Dim everything outside the plate frame so the frame reads as the capture area. */
-.cc-meal-camera-scrim { position: absolute; left: 50%; top: 47%; width: var(--cc-cam-size); height: var(--cc-cam-size); transform: translate(-50%, -50%); border-radius: 32px; box-shadow: 0 0 0 200vmax rgba(3, 8, 11, .52); pointer-events: none; }
-.cc-meal-camera-frame { position: absolute; left: 50%; top: 47%; width: var(--cc-cam-size); height: var(--cc-cam-size); transform: translate(-50%, -50%); pointer-events: none; }
-.cc-meal-camera-frame i { position: absolute; width: 22%; height: 22%; border: 4px solid var(--cc-cam-accent); }
-.cc-meal-camera-frame i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 32px; }
-.cc-meal-camera-frame i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 32px; }
-.cc-meal-camera-frame i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 32px; }
-.cc-meal-camera-frame i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 32px; }
-.cc-meal-camera-frame[data-state=starting] i { animation: cc-cam-breathe 1.4s ease-in-out infinite; }
-.cc-meal-camera-frame[data-state=blocked] i { opacity: .4; }
-@keyframes cc-cam-breathe { 50% { opacity: .45; } }
-.cc-meal-camera-guide { position: absolute; left: 16px; right: 16px; top: max(20px, env(safe-area-inset-top)); text-align: center; text-shadow: 0 1px 12px rgba(0, 0, 0, .7); }
-.cc-meal-camera-guide h2 { margin: 8px 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
-.cc-meal-camera-guide p { margin: 0 auto; max-width: 30ch; font-size: 15px; color: #e3eef2; }
-.cc-meal-camera-flash { position: absolute; inset: 0; background: #fff; animation: cc-cam-flash .28s ease-out forwards; pointer-events: none; }
-@keyframes cc-cam-flash { from { opacity: .85; } to { opacity: 0; } }
-.cc-meal-camera-bar { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; justify-items: center; gap: 16px; padding: 20px 16px max(28px, calc(env(safe-area-inset-bottom) + 16px)); background: linear-gradient(to top, rgba(3, 8, 11, .85), transparent); }
-.cc-meal-camera-side { width: 56px; height: 56px; display: grid; place-items: center; align-content: center; gap: 2px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .14); color: #fff; backdrop-filter: blur(8px); }
-.cc-meal-camera-side small { font-size: 11px; line-height: 1; }
-span.cc-meal-camera-side { background: none; backdrop-filter: none; }
-.cc-meal-camera-side:focus-visible, .cc-meal-camera-shutter:focus-visible { outline: 3px solid var(--cc-cam-accent); outline-offset: 3px; }
-.cc-meal-camera-shutter { width: 80px; height: 80px; padding: 0; border: 4px solid #fff; border-radius: 50%; background: transparent; display: grid; place-items: center; }
-.cc-meal-camera-shutter span { width: 62px; height: 62px; border-radius: 50%; background: #fff; transition: transform .12s ease; }
-.cc-meal-camera-shutter:active span { transform: scale(.88); }
-.cc-meal-camera-shutter:disabled { opacity: .45; }
-.cc-meal-camera-native { min-height: 56px; display: inline-flex; align-items: center; gap: 8px; padding: 0 20px; white-space: nowrap; }
-@media (prefers-reduced-motion: reduce) { .cc-meal-camera-frame i, .cc-meal-camera-flash { animation: none; } .cc-meal-camera-flash { display: none; } }
+/* Account-app meal camera (MealCamera.tsx + camera/). Everything is scoped under .cc-cam.
+   Motion is transform/opacity only; prefers-reduced-motion turns all of it off. */
+@import "@fontsource/outfit/300.css";
+@import "@fontsource/inter/500.css";
+
+.cc-cam {
+  --cc-cam-accent: var(--cc-pink, #39e6d2);
+  --cc-cam-ocean: var(--cc-ocean, #328dff);
+  --cc-cam-glass: rgba(18, 18, 20, .36);
+  --cc-cam-hair: rgba(255, 255, 255, .16);
+  --cc-cam-ease: cubic-bezier(.22, .8, .24, 1);
+  position: fixed; inset: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
+  margin: 0; padding: 0; border: 0; background: #000; color: #fff; overflow: hidden;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+.cc-cam::backdrop { background: #000; }
+.cc-cam *, .cc-cam *::before, .cc-cam *::after { box-sizing: border-box; }
+
+.cc-cam-panel {
+  --cc-cam-size: min(74cqw, 46cqh, 440px);
+  --cc-cam-cy: 46%;
+  position: absolute; inset: 0; overflow: hidden; isolation: isolate; background: #000;
+  container-type: size; touch-action: none;
+  transition: transform .34s var(--cc-cam-ease), opacity .34s var(--cc-cam-ease);
+  animation: cc-cam-in .32s var(--cc-cam-ease) both;
+  opacity: calc(1 - var(--cc-cam-pull, 0) * .25);
+}
+@keyframes cc-cam-in { from { opacity: 0; transform: scale(1.015); } }
+
+/* Live feed + legibility shading */
+.cc-cam-stage { position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 50%; }
+.cc-cam-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .45s var(--cc-cam-ease); }
+.cc-cam-panel[data-state=live] .cc-cam-feed { opacity: 1; }
+.cc-cam-panel[data-facing=user] .cc-cam-feed { transform: scaleX(-1); }
+.cc-cam-shade {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, .55) 0, rgba(0, 0, 0, .18) 13%, transparent 24%),
+    linear-gradient(to top, rgba(0, 0, 0, .72) 0, rgba(0, 0, 0, .3) 20%, transparent 36%),
+    radial-gradient(ellipse 72% 48% at 50% var(--cc-cam-cy), transparent 58%, rgba(0, 0, 0, .34) 100%);
+}
+
+/* HUD fades in once the stream is up; close is always there. */
+.cc-cam-reticle, .cc-cam-status, .cc-cam-bottom, .cc-cam-context, .cc-cam-top-end {
+  opacity: 0; transition: opacity .55s var(--cc-cam-ease) .08s;
+}
+.cc-cam-panel:not([data-state=starting]) :is(.cc-cam-reticle, .cc-cam-status, .cc-cam-bottom, .cc-cam-context, .cc-cam-top-end) { opacity: 1; }
+.cc-cam-panel[data-state=starting] .cc-cam-bottom { opacity: .55; }
+
+/* Top bar */
+.cc-cam-top {
+  position: absolute; z-index: 3; top: max(14px, calc(env(safe-area-inset-top) + 6px));
+  left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
+  display: grid; grid-template-columns: 96px 1fr 96px; align-items: center;
+}
+.cc-cam-glass {
+  width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border-radius: 50%;
+  border: 1px solid var(--cc-cam-hair); background: var(--cc-cam-glass); color: #fff; cursor: pointer;
+  -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+  transition: transform .18s var(--cc-cam-ease), background-color .2s ease;
+}
+.cc-cam-glass:active { transform: scale(.92); }
+.cc-cam-glass[aria-pressed=true] { background: #fff; color: #111; }
+.cc-cam-top-end { display: flex; gap: 8px; justify-content: flex-end; }
+.cc-cam-context {
+  margin: 0; display: flex; align-items: center; justify-content: center; gap: 9px; min-width: 0;
+  font-size: 15px; line-height: 1; letter-spacing: -.005em; white-space: nowrap;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .45);
+}
+.cc-cam-context span:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.cc-cam-sep { width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, .55); flex: none; }
+.cc-cam-context time { font-family: Outfit, Inter, sans-serif; font-weight: 300; font-size: 16px; color: rgba(255, 255, 255, .78); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+
+/* Reticle */
+.cc-cam-reticle {
+  position: absolute; z-index: 1; left: 50%; top: var(--cc-cam-cy); width: var(--cc-cam-size); height: var(--cc-cam-size);
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.cc-cam-bezel, .cc-cam-center { filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, .55)); }
+.cc-cam-reticle-frame { position: absolute; inset: 0; transition: transform .55s cubic-bezier(.3, 1.35, .4, 1); animation: cc-cam-breathe 3.2s ease-in-out infinite; }
+@keyframes cc-cam-breathe { 0%, 100% { transform: scale(1); opacity: .82; } 50% { transform: scale(1.022); opacity: 1; } }
+.cc-cam-corner { position: absolute; width: 17%; height: 17%; overflow: visible; filter: drop-shadow(0 1px 2.5px rgba(0, 0, 0, .5)); }
+.cc-cam-corner path { fill: none; stroke: rgba(255, 255, 255, .92); stroke-width: 2px; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke .35s ease; }
+.cc-cam-corner[data-corner="0"] { top: 0; left: 0; }
+.cc-cam-corner[data-corner="90"] { top: 0; right: 0; rotate: 90deg; }
+.cc-cam-corner[data-corner="180"] { bottom: 0; right: 0; rotate: 180deg; }
+.cc-cam-corner[data-corner="270"] { bottom: 0; left: 0; rotate: 270deg; }
+.cc-cam-bezel { position: absolute; inset: 9%; width: 82%; height: 82%; overflow: visible; opacity: .55; animation: cc-cam-spin 90s linear infinite; transition: opacity .5s ease; }
+.cc-cam-bezel line { stroke: rgba(255, 255, 255, .34); stroke-width: 1px; vector-effect: non-scaling-stroke; transition: stroke .4s ease; }
+.cc-cam-bezel line[data-major=true] { stroke: rgba(255, 255, 255, .8); }
+@keyframes cc-cam-spin { to { transform: rotate(360deg); } }
+.cc-cam-scan { position: absolute; inset: 5%; overflow: hidden; border-radius: 22px; transition: opacity .4s ease; }
+.cc-cam-scan::before {
+  content: ""; position: absolute; left: 6%; right: 6%; top: 0; height: 34%;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--cc-cam-accent) 16%, transparent));
+  border-bottom: 1px solid color-mix(in srgb, var(--cc-cam-accent) 80%, white);
+  -webkit-mask: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent); mask: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent);
+  animation: cc-cam-scan 2.8s cubic-bezier(.45, 0, .55, 1) infinite; transform: translateY(-100%);
+}
+@keyframes cc-cam-scan { 0% { transform: translateY(-100%); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(295%); opacity: 0; } }
+.cc-cam-lockring { position: absolute; inset: 0; border-radius: 28px; border: 1px solid var(--cc-cam-accent); opacity: 0; }
+.cc-cam-center { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: rgba(255, 255, 255, .7); transition: transform .4s var(--cc-cam-ease), background-color .3s ease; }
+
+.cc-cam-reticle[data-track=steady] .cc-cam-reticle-frame { animation-duration: 1.6s; }
+.cc-cam-reticle[data-track=steady] .cc-cam-bezel { opacity: .8; }
+.cc-cam-reticle[data-track=locked] .cc-cam-reticle-frame { animation: none; transform: scale(.93); opacity: 1; }
+.cc-cam-reticle[data-track=locked] .cc-cam-corner path { stroke: var(--cc-cam-accent); }
+.cc-cam-reticle[data-track=locked] .cc-cam-corner { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .45)) drop-shadow(0 0 6px color-mix(in srgb, var(--cc-cam-accent) 70%, transparent)); }
+.cc-cam-reticle[data-track=locked] .cc-cam-bezel { opacity: 1; }
+.cc-cam-reticle[data-track=locked] .cc-cam-bezel line { stroke: color-mix(in srgb, var(--cc-cam-accent) 55%, transparent); }
+.cc-cam-reticle[data-track=locked] .cc-cam-bezel line[data-major=true] { stroke: var(--cc-cam-accent); }
+.cc-cam-reticle[data-track=locked] .cc-cam-scan { opacity: 0; }
+.cc-cam-reticle[data-track=locked] .cc-cam-lockring { animation: cc-cam-lock .7s var(--cc-cam-ease) both; }
+.cc-cam-reticle[data-track=locked] .cc-cam-center { background: var(--cc-cam-accent); transform: scale(1.4); }
+@keyframes cc-cam-lock { from { opacity: .85; transform: scale(.86); } to { opacity: 0; transform: scale(1.12); } }
+.cc-cam-panel[data-state=blocked] .cc-cam-reticle { opacity: .35; }
+.cc-cam-panel[data-state=blocked] .cc-cam-reticle-frame, .cc-cam-panel[data-state=blocked] .cc-cam-bezel { animation: none; }
+.cc-cam-panel[data-state=blocked] :is(.cc-cam-scan, .cc-cam-bezel) { display: none; }
+
+/* Status line under the reticle */
+.cc-cam-status {
+  position: absolute; z-index: 2; left: 50%; top: calc(var(--cc-cam-cy) + var(--cc-cam-size) / 2 + 20px); transform: translateX(-50%);
+  margin: 0; display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px 7px 11px; border-radius: 999px;
+  background: rgba(12, 12, 14, .5); border: 1px solid rgba(255, 255, 255, .1);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  font-size: 13px; font-weight: 500; line-height: 1; letter-spacing: .01em; color: rgba(255, 255, 255, .92); white-space: nowrap;
+}
+.cc-cam-status[data-empty=true] { visibility: hidden; }
+.cc-cam-status i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .6); animation: cc-cam-blink 1.4s ease-in-out infinite; }
+@keyframes cc-cam-blink { 50% { opacity: .3; } }
+.cc-cam-panel[data-track=steady] .cc-cam-status i { background: #fff; animation-duration: .7s; }
+.cc-cam-panel[data-track=locked] .cc-cam-status i { background: var(--cc-cam-accent); animation: none; box-shadow: 0 0 8px var(--cc-cam-accent); }
+.cc-cam-panel[data-state=blocked] .cc-cam-status i { animation: none; background: rgba(255, 255, 255, .4); box-shadow: none; }
+
+/* Bottom: numbers + controls */
+.cc-cam-bottom {
+  position: absolute; z-index: 3; left: 0; right: 0; bottom: 0;
+  padding: 0 max(20px, env(safe-area-inset-right)) max(26px, calc(env(safe-area-inset-bottom) + 14px)) max(20px, env(safe-area-inset-left));
+}
+.cc-cam-chips { list-style: none; margin: 0 0 22px; padding: 0; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.cc-cam-chips li {
+  display: inline-flex; align-items: baseline; gap: 5px; padding: 8px 13px; border-radius: 999px;
+  background: var(--cc-cam-glass); border: 1px solid rgba(255, 255, 255, .12);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+  font-size: 12px; font-weight: 500; line-height: 1; color: rgba(255, 255, 255, .7); letter-spacing: .01em;
+}
+.cc-cam-chips b { font-family: Outfit, Inter, sans-serif; font-weight: 300; font-size: 16px; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.cc-cam-chips li:first-child b { color: color-mix(in srgb, var(--cc-cam-accent) 55%, white); }
+.cc-cam-controls { display: grid; grid-template-columns: 1fr 76px 1fr; align-items: center; }
+.cc-cam-library {
+  justify-self: start; margin-left: 10px; width: 50px; height: 50px; display: grid; place-items: center; padding: 0; border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, .22); background: var(--cc-cam-glass); color: #fff; cursor: pointer;
+  -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+  transition: transform .18s var(--cc-cam-ease);
+}
+.cc-cam-library:active { transform: scale(.92); }
+.cc-cam-text {
+  justify-self: end; margin-right: 4px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 22px; background: none; cursor: pointer;
+  color: rgba(255, 255, 255, .9); font: 500 15px/1 Inter, system-ui, sans-serif; letter-spacing: -.005em; text-shadow: 0 1px 8px rgba(0, 0, 0, .4);
+}
+.cc-cam-text:active { opacity: .6; }
+
+.cc-cam-shutter {
+  position: relative; width: 76px; height: 76px; padding: 5px; border-radius: 50%; border: 3px solid #fff; background: transparent; cursor: pointer;
+  display: grid; place-items: stretch; transition: box-shadow .45s var(--cc-cam-ease), opacity .2s ease;
+}
+.cc-cam-shutter span { display: block; border-radius: 50%; background: #fff; transition: transform .16s var(--cc-cam-ease), background-color .16s ease; }
+.cc-cam-shutter::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--cc-cam-accent); opacity: 0; pointer-events: none; }
+.cc-cam-shutter:active span { transform: scale(.86); background: var(--cc-cam-accent); }
+.cc-cam-panel[data-capturing=true] .cc-cam-shutter span { transform: scale(.86); background: var(--cc-cam-accent); }
+.cc-cam-panel[data-capturing=true] .cc-cam-shutter::after { animation: cc-cam-pulse .5s var(--cc-cam-ease) both; }
+@keyframes cc-cam-pulse { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.45); } }
+.cc-cam-panel[data-track=locked] .cc-cam-shutter { box-shadow: 0 0 0 6px color-mix(in srgb, var(--cc-cam-accent) 22%, transparent), 0 0 28px color-mix(in srgb, var(--cc-cam-accent) 35%, transparent); }
+.cc-cam-shutter:disabled { opacity: .4; cursor: default; }
+.cc-cam-panel[data-state=blocked] .cc-cam-shutter span { background: color-mix(in srgb, var(--cc-cam-accent) 85%, white); }
+.cc-cam-spacer { display: block; }
+
+.cc-cam button:focus-visible { outline: 2px solid var(--cc-cam-accent); outline-offset: 3px; }
+.cc-cam-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Capture: flash, freeze, then the frame shrinks into the shutter. */
+.cc-cam-flash {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: radial-gradient(circle at 50% var(--cc-cam-cy), #fff 0, color-mix(in srgb, var(--cc-cam-accent) 40%, white) 70%);
+  animation: cc-cam-flash .26s ease-out both;
+}
+@keyframes cc-cam-flash { from { opacity: .9; } to { opacity: 0; } }
+.cc-cam-panel[data-capturing=true] .cc-cam-stage { animation: cc-cam-shrink .25s cubic-bezier(.55, 0, .3, 1) .14s both; }
+@keyframes cc-cam-shrink { to { transform: translate3d(0, 41cqh, 0) scale(.13); border-radius: 220px; opacity: .25; } }
+.cc-cam-panel[data-capturing=true] :is(.cc-cam-reticle, .cc-cam-status, .cc-cam-chips, .cc-cam-top) { opacity: 0; transition: opacity .14s ease; }
+
+/* Desktop / large screens: a centred portrait panel over a blurred backdrop. */
+@media (min-width: 760px) and (min-height: 600px) {
+  .cc-cam { background: transparent; }
+  .cc-cam::backdrop { background: rgba(4, 6, 9, .58); -webkit-backdrop-filter: blur(26px) saturate(1.2); backdrop-filter: blur(26px) saturate(1.2); }
+  .cc-cam-panel {
+    inset: auto; left: 50%; top: 50%; height: min(880px, calc(100dvh - 72px)); aspect-ratio: 10 / 18; translate: -50% -50%;
+    border-radius: 40px; box-shadow: 0 40px 120px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .09);
+  }
+  .cc-cam-top { top: 18px; left: 18px; right: 18px; }
+  .cc-cam-bottom { padding: 0 22px 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-cam-panel, .cc-cam-reticle-frame, .cc-cam-bezel, .cc-cam-scan::before, .cc-cam-lockring, .cc-cam-status i,
+  .cc-cam-shutter::after, .cc-cam-panel[data-capturing=true] .cc-cam-stage { animation: none !important; }
+  .cc-cam-scan, .cc-cam-flash { display: none; }
+  .cc-cam-panel, .cc-cam-reticle-frame, .cc-cam-glass, .cc-cam-library, .cc-cam-shutter span { transition: none; }
+}

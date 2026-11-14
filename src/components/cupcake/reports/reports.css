@@ -1,0 +1,184 @@
+/* Reports, Noir: layered near-blacks, one hairline, accent only on data and the primary action.
+   Scoped to the account entry so the original /cupcake app is untouched. */
+@import "@fontsource/outfit/200.css";
+@import "@fontsource/outfit/300.css";
+
+.cc-app[data-entry=account] .cc-coach {
+  --rp-hair: rgba(255,255,255,.07);
+  --rp-hair-2: rgba(255,255,255,.11);
+  --rp-s1: rgba(255,255,255,.028);
+  --rp-s2: rgba(255,255,255,.05);
+  --rp-ink: var(--cc-text);
+  --rp-ink-2: color-mix(in srgb, var(--cc-text) 66%, transparent);
+  --rp-ink-3: color-mix(in srgb, var(--cc-text) 46%, transparent);
+  --rp-num: 'Outfit', Inter, system-ui, sans-serif;
+  --nx-display: 'Outfit', Inter, system-ui, sans-serif;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: var(--rp-ink);
+  padding-bottom: 24px;
+}
+.cc-app[data-entry=account] .cc-coach p { margin: 0; }
+
+/* ---------- Page header ---------- */
+.cc-app[data-entry=account] .cc-coach .cc-coach-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 4px 0 18px; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-context .cc-eyebrow { display: block; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-coach .cc-coach-context h2 { margin: 8px 0 6px; font: 300 clamp(28px, 4vw, 36px)/1.12 var(--rp-num); letter-spacing: -.015em; color: var(--rp-ink); outline: none; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-context p { font-size: 13px; line-height: 1.5; color: var(--rp-ink-3); max-width: 52ch; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-context > .cc-secondary { flex: none; max-width: 46%; min-height: 36px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--rp-hair-2); background: var(--rp-s1); color: var(--rp-ink-2); font-size: 13px; font-weight: 500; box-shadow: none; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-context > .cc-secondary:hover { color: var(--rp-ink); background: var(--rp-s2); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-lens { color: var(--rp-ink-2); }
+
+/* Sections: a quiet segmented control, not two outlined buttons. */
+.cc-app[data-entry=account] .cc-coach .cc-coach-views { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin: 0 0 22px; padding: 3px; border-radius: 14px; border: 0; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach .cc-coach-views button { min-height: 40px; border-radius: 11px; border: 0; background: none; color: var(--rp-ink-3); font: 500 13.5px/1.2 Inter, system-ui, sans-serif; cursor: pointer; transition: background .2s, color .2s; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-views button[aria-selected=true] { background: rgba(255,255,255,.1); color: var(--rp-ink); box-shadow: 0 1px 2px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.06); }
+.cc-app[data-entry=account] .cc-coach .cc-coach-view[hidden] { display: none !important; }
+
+/* ---------- Client roster ---------- */
+.cc-app[data-entry=account] .cc-rep-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 10px; }
+.cc-app[data-entry=account] .cc-rep-roster-head .cc-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-quiet { min-height: 32px; padding: 4px 2px; border: 0; background: none; color: var(--rp-ink-3); font-size: 13px; font-weight: 500; text-decoration: none; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-quiet:hover { color: var(--rp-ink); }
+.cc-app[data-entry=account] .cc-rep-quiet-line { font-size: 13.5px; line-height: 1.55; color: var(--rp-ink-3); margin: 8px 2px 14px; }
+.cc-app[data-entry=account] .cc-rep-roster { list-style: none; margin: 0; padding: 0; border-radius: 20px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); overflow: hidden; }
+.cc-app[data-entry=account] .cc-rep-roster li + li { border-top: 1px solid var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-client { display: flex; align-items: center; gap: 14px; width: 100%; max-width: none; min-height: 76px; padding: 14px 16px; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background .18s; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-client:hover { background: rgba(255,255,255,.03); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-client:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: -2px; border-radius: 20px; }
+.cc-app[data-entry=account] .cc-rep-avatar { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font: 300 19px/1 var(--rp-num); color: var(--cc-pink-bright, var(--cc-pink)); background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--cc-pink) 34%, transparent), color-mix(in srgb, var(--cc-pink) 10%, transparent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-pink) 28%, transparent); }
+.cc-app[data-entry=account] .cc-rep-avatar[data-tone=b] { color: color-mix(in srgb, var(--cc-ocean) 50%, #fff); background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--cc-ocean) 38%, transparent), color-mix(in srgb, var(--cc-ocean) 12%, transparent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-ocean) 30%, transparent); }
+.cc-app[data-entry=account] .cc-rep-client-text { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.cc-app[data-entry=account] .cc-rep-client-text strong { font-size: 16px; font-weight: 600; color: var(--rp-ink); overflow-wrap: anywhere; }
+.cc-app[data-entry=account] .cc-rep-client-text span { font-size: 13px; color: var(--rp-ink-2); }
+.cc-app[data-entry=account] .cc-rep-client-text small { font-size: 12px; color: var(--rp-ink-3); font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .cc-rep-chevron { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--rp-ink-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Report header ---------- */
+.cc-app[data-entry=account] .cc-coach .cc-coach-context.cc-rep-head { display: block; margin: 0 0 14px; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-views[hidden] { display: none; }
+.cc-app[data-entry=account] .cc-rep-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 2px 6px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-title h2 { margin: 0; font: 600 11px/1.4 Inter, system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--cc-pink-bright, var(--cc-pink)); }
+.cc-app[data-entry=account] .cc-rep-title span { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-head .cc-rep-lens { font-size: 12px; line-height: 1.45; color: var(--rp-ink-3); flex: 1 1 260px; min-width: 0; max-width: none; }
+.cc-app[data-entry=account] .cc-rep-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 22px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-back { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 12px 0 4px; border: 0; border-radius: 999px; background: none; color: var(--cc-pink-bright, var(--cc-pink)); font: 500 14px/1 Inter, system-ui, sans-serif; cursor: pointer; }
+.cc-app[data-entry=account] .cc-rep-back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cc-app[data-entry=account] .cc-rep-back:focus-visible, .cc-app[data-entry=account] .cc-rep-seg button:focus-visible, .cc-app[data-entry=account] .cc-rep-numbers > summary:focus-visible, .cc-app[data-entry=account] .cc-coach-empty-row > summary:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+.cc-app[data-entry=account] .cc-rep-seg { display: inline-grid; grid-auto-flow: column; gap: 2px; padding: 3px; border-radius: 12px; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-seg button { min-height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--rp-ink-3); font: 500 13px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-seg button[aria-pressed=true] { background: rgba(255,255,255,.1); color: var(--rp-ink); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.cc-app[data-entry=account] .cc-rep-range-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; margin: 0 2px; }
+.cc-app[data-entry=account] .cc-rep-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .cc-rep-through { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-rep-through input { min-height: 32px; padding: 4px 10px; border: 0; border-radius: 9px; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair); color: var(--rp-ink-2); font: 500 13px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; color-scheme: dark; }
+.cc-app[data-entry=account] .cc-rep-through input:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+
+/* ---------- At a glance ---------- */
+.cc-app[data-entry=account] .cc-rep-glance { margin: 22px 0 32px; }
+.cc-app[data-entry=account] .cc-rep-headline { margin: 0 2px; font: 300 clamp(26px, 6.4vw, 34px)/1.15 var(--rp-num); letter-spacing: -.015em; color: var(--rp-ink); text-wrap: balance; }
+.cc-app[data-entry=account] .cc-rep-details { margin: 8px 2px 0; font-size: 14px; line-height: 1.5; color: var(--rp-ink-2); }
+.cc-app[data-entry=account] .cc-rep-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 20px 0 0; border-radius: 20px; overflow: hidden; background: var(--rp-hair); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-rep-kpi { min-width: 0; padding: 16px 16px 15px; background: color-mix(in srgb, var(--cc-bg) 88%, #fff 3%); }
+.cc-app[data-entry=account] .cc-rep-kpi dt { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-rep-kpi dd { margin: 0; }
+.cc-app[data-entry=account] .cc-rep-kpi dd:first-of-type { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; margin-top: 8px; }
+.cc-app[data-entry=account] .cc-rep-num { font: 200 clamp(34px, 9.5vw, 44px)/1 var(--rp-num); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--rp-ink); }
+.cc-app[data-entry=account] .cc-rep-kpi[data-kpi=weight] .cc-rep-num { color: color-mix(in srgb, var(--cc-pink-bright, var(--cc-pink)) 80%, #fff); }
+.cc-app[data-entry=account] .cc-rep-unit { font-size: 12px; color: var(--rp-ink-3); white-space: nowrap; }
+.cc-app[data-entry=account] .cc-rep-kpi .cc-rep-kpi-note { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--rp-ink-3); font-variant-numeric: tabular-nums; }
+
+/* ---------- Sections ---------- */
+.cc-app[data-entry=account] .cc-rep-section-head { margin: 0 2px 14px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-section-head h3 { margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-section-head .cc-coach-provenance { max-width: 70ch; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-grid > .cc-card { margin: 0; min-width: 0; padding: 18px 18px 14px; border: 0; border-radius: 20px; background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.018)); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-rep-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-card-head h4 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.005em; color: var(--rp-ink); }
+.cc-app[data-entry=account] .cc-rep-card-head span { font-size: 12.5px; color: var(--rp-ink-3); font-variant-numeric: tabular-nums; text-align: right; }
+.cc-app[data-entry=account] .cc-rep-chart { margin: 0 -4px; }
+.cc-app[data-entry=account] .cc-rep-chart .nx-bar:not(.is-over) { fill: color-mix(in srgb, var(--nx-a) 86%, var(--cc-bg)); }
+.cc-app[data-entry=account] .cc-rep-chart .nx-bar.is-active { fill: var(--nx-a); }
+.cc-app[data-entry=account] .cc-rep-points .nx-line, .cc-app[data-entry=account] .cc-rep-points svg > path[fill] { display: none; }
+.cc-app[data-entry=account] .cc-rep-points .nx-point { r: 3.4px; fill: var(--nx-a2); }
+.cc-app[data-entry=account] .cc-rep-points .nx-band { opacity: .1; fill: var(--nx-a2); }
+.cc-app[data-entry=account] .cc-rep-note { margin: 10px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--rp-ink-2); }
+.cc-app[data-entry=account] .cc-rep-figures { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 2px 0 4px; }
+.cc-app[data-entry=account] .cc-rep-figures dt { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-rep-figures dd { margin: 6px 0 0; font: 200 32px/1 var(--rp-num); font-variant-numeric: tabular-nums; color: var(--rp-ink); }
+
+/* Numbers: the full table stays one tap away. */
+.cc-app[data-entry=account] .cc-rep-numbers { margin: 12px 0 0; border-top: 1px solid var(--rp-hair); }
+.cc-app[data-entry=account] .cc-rep-numbers > summary { display: flex; align-items: center; gap: 6px; min-height: 40px; cursor: pointer; list-style: none; font-size: 13px; font-weight: 500; color: var(--rp-ink-2); }
+.cc-app[data-entry=account] .cc-rep-numbers > summary::-webkit-details-marker { display: none; }
+.cc-app[data-entry=account] .cc-rep-numbers > summary::after { content: ''; width: 7px; height: 7px; margin-left: 2px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; opacity: .7; }
+.cc-app[data-entry=account] .cc-rep-numbers[open] > summary::after { transform: rotate(225deg) translateY(-1px); }
+.cc-app[data-entry=account] .cc-rep-numbers .cc-coach-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.cc-app[data-entry=account] .cc-rep-numbers .cc-coach-summary dt { font-size: 11px; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-rep-numbers .cc-coach-summary dd { margin: 3px 0 0; font: 300 18px/1.1 var(--rp-num); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-numbers table { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-numbers :is(th, td) { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--rp-hair); font-weight: 400; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-numbers thead th { font-size: 11px; color: var(--rp-ink-3); font-weight: 500; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-numbers tbody th { color: var(--rp-ink-2); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-numbers td small { color: var(--rp-ink-3); }
+
+/* Provenance and coverage: small, quiet, never deleted. */
+.cc-app[data-entry=account] .cc-rep-foot { display: flex; flex-wrap: wrap; gap: 0 10px; margin-top: 8px; }
+.cc-app[data-entry=account] .cc-coach :is(.cc-coach-provenance, .cc-coach-coverage) { font-size: 11.5px; line-height: 1.55; color: var(--rp-ink-3); }
+
+/* Sections without data: one quiet line each, details on demand. */
+.cc-app[data-entry=account] .cc-coach .cc-rep-grid > .cc-coach-empty-group { padding: 12px 18px 6px; background: var(--rp-s1); }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-group > h4 { margin: 4px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-group > details.cc-card.cc-coach-empty-row { margin: 0; padding: 0; border: 0; border-top: 1px solid var(--rp-hair); border-radius: 0; background: none; box-shadow: none; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-group > h4 + details.cc-coach-empty-row { border-top: 0; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-row > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; cursor: pointer; list-style: none; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-row > summary::-webkit-details-marker { display: none; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-row > summary strong { font-size: 14px; font-weight: 500; color: var(--rp-ink-2); }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-row > summary span { flex: none; font-size: 12.5px; color: var(--rp-ink-3); text-align: right; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-row > summary::after { content: none; }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-row > p { margin: 0 0 6px; font-size: 12.5px; line-height: 1.55; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-coach .cc-coach-empty-row[open] { padding-bottom: 10px; }
+
+.cc-app[data-entry=account] .cc-rep-error { display: grid; gap: 12px; justify-items: start; padding: 16px 18px; border-radius: 20px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-rep-footnote { display: grid; gap: 12px; justify-items: start; margin: 30px 2px 0; padding-top: 18px; border-top: 1px solid var(--rp-hair); }
+.cc-app[data-entry=account] .cc-rep-footnote p { font-size: 11.5px; line-height: 1.55; color: var(--rp-ink-3); max-width: 70ch; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-footnote .cc-secondary { min-height: 36px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--rp-hair-2); background: var(--rp-s1); color: var(--rp-ink-2); font-size: 13px; font-weight: 500; box-shadow: none; }
+
+/* ---------- Meal photos ---------- */
+.cc-app[data-entry=account] .cc-rep-photos { margin-top: 30px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-photos > h3 { margin: 0 2px 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-rep-photos > p { margin: 0 2px 12px; font-size: 11.5px; line-height: 1.55; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-coach .cc-rep-photos .cc-coach-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-photos .cc-coach-photos > .cc-card { margin: 0; padding: 14px; border: 0; border-radius: 18px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); display: grid; gap: 10px; }
+.cc-app[data-entry=account] .cc-rep-photos .cc-coach-photos p { font-size: 12.5px; color: var(--rp-ink-2); font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .cc-rep-photos .cc-coach-photos img { margin: 0; border-radius: 12px; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-photos .cc-secondary { justify-self: start; min-height: 38px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair-2); color: var(--rp-ink); font-size: 13px; font-weight: 500; }
+
+/* ---------- My sharing & clients: quiet rows, no heavy outlines ---------- */
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine > .cc-muted:first-child { font-size: 13px; color: var(--rp-ink-3); margin: 0 2px 14px; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-card { border: 0; border-radius: 20px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine :is(.cc-connection-list li, .cc-invitation-secret, .cc-invitation-disclosure) { border: 0; border-radius: 14px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-card { border: 0; border-radius: 16px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine :is(.cc-grant-scopes > span, .cc-coach-lens-scopes > span) { border: 0; background: var(--rp-s2); color: var(--rp-ink-2); font-weight: 500; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-secondary { border-radius: 999px; border: 0; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair-2); color: var(--rp-ink); font-weight: 500; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-secondary[aria-pressed=true] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-pink) 60%, transparent); color: var(--cc-pink-bright, var(--cc-pink)); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine :is(input:not([type=checkbox]), select) { border: 0; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair-2); }
+
+/* ---------- Wider screens ---------- */
+@media (min-width: 900px) {
+  .cc-app[data-entry=account] .cc-coach .cc-rep-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .cc-app[data-entry=account] .cc-coach .cc-rep-grid > .cc-coach-empty-group { grid-column: 1 / -1; }
+  .cc-app[data-entry=account] .cc-rep-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cc-app[data-entry=account] .cc-rep-kpi { padding: 20px 20px 18px; }
+  .cc-app[data-entry=account] .cc-rep-headline { font-size: 40px; }
+}
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-coach .cc-coach-context { flex-direction: column; gap: 12px; }
+  .cc-app[data-entry=account] .cc-coach .cc-coach-context > .cc-secondary { max-width: 100%; }
+}
+@media (max-width: 359px) {
+  .cc-app[data-entry=account] .cc-rep-kpi { padding: 14px 12px 13px; }
+  .cc-app[data-entry=account] .cc-rep-num { font-size: 30px; }
+  .cc-app[data-entry=account] .cc-coach .cc-rep-seg button { padding: 0 10px; }
+  .cc-app[data-entry=account] .cc-coach .cc-rep-grid > .cc-card { padding: 16px 14px 12px; }
+}

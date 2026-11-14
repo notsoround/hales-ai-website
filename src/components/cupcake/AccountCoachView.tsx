@@ -3,6 +3,9 @@ import { accountCoach, accountCoachPhoto, type AccountIdentity } from './account
 import './account-coach.css';
 import { personalAssistantLabel } from './assistantBrand';
 import { AccountPilotWorkspace } from './AccountPilotWorkspace';
+import { ClientRoster } from './reports/ClientRoster';
+import { DailyBars, ExerciseBars, Figures, GlucosePoints, NutritionBars, ReportGlance, SleepBars, WeightTrend } from './reports/ReportCharts';
+import { exerciseDays, foodDays, periodDates, stepDays, summarize } from './reports/reportModel';
 
 type Row = Record<string, unknown>;
 type Scope = 'clean-report' | 'meal-photo';
@@ -25,6 +28,7 @@ const savedTime = (value:unknown) => typeof value === 'string' && Number.isFinit
 const today = () => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const label = (name:unknown,fallback='Authorized owner') => typeof name === 'string' && name.trim() ? name.trim() : fallback;
 const scopeLabel = (scope:Scope) => scope === 'clean-report' ? 'Health report' : 'Meal photos';
+const until = (expires:number) => new Date(expires*1000).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 const failure = (error:unknown) => error instanceof Error ? error.message : 'The authorized view could not load.';
 function periodFor(end:string,days:7|30):Period|null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(end) || end>today()) return null;
@@ -40,10 +44,10 @@ function grants(value:unknown,identity:AccountIdentity,owned=false):Grant[] {
 const activeGrant = (grant:Grant) => grant.revoked===null && grant.created<=Date.now()/1000 && grant.expires>Date.now()/1000;
 
 export function AccountCoachView({identity,onPersonal,assistantName='Cupcake'}:{identity:AccountIdentity;onPersonal:()=>void;assistantName?:string}) {
-  const [received,setReceived]=useState<Grant[]>([]),[selected,setSelected]=useState<Grant|null>(null);
+  const [received,setReceived]=useState<Grant[]>([]),[selected,setSelected]=useState<Grant|null>(null),[lastOpened,setLastOpened]=useState<string|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState('');
   const [days,setDays]=useState<7|30>(7),[end,setEnd]=useState(today);
-  const epoch=useRef(0);
+  const epoch=useRef(0),heading=useRef<HTMLHeadingElement>(null);
   const cancel=useCallback(()=>{epoch.current++;},[]);
   const reload=useCallback(async()=>{
     const attempt=++epoch.current;setReceived([]);setSelected(null);setLoading(true);setError('');
@@ -62,24 +66,38 @@ export function AccountCoachView({identity,onPersonal,assistantName='Cupcake'}:{
   // Two clear jobs: reading what others shared with you, and managing what you share.
   const [view,setView]=useState<'received'|'mine'|null>(null);
   const shown=view??(received.length?'received':'mine');
+  const open=(grant:Grant|null)=>{const next=grant&&received.find(item=>item.id===grant.id&&activeGrant(item))||null;setSelected(next);if(next){setLastOpened(next.id);requestAnimationFrame(()=>heading.current?.focus());}};
+  const reading=shown==='received'&&selected;
   return <section className="cc-coach" aria-label="Authorized reports">
-    <div className="cc-coach-context"><div><span className="cc-eyebrow">AUTHORIZED VIEW</span><h2>{shown==='mine'?'Your sharing & clients':selected?`Report — ${label(selected.ownerDisplayName)}`:'Reports shared with you'}</h2><p>Signed in as {identity.name||identity.email}. Your personal {assistantName} stays separate from these authorized views.</p></div><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>
-    <div className="cc-coach-views" role="tablist" aria-label="Reports sections" onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?'received':event.key==='End'?'mine':shown==='received'?'mine':'received';setView(next);document.getElementById(`cc-reports-tab-${next}`)?.focus();}}><button type="button" role="tab" id="cc-reports-tab-received" aria-controls="cc-reports-panel-received" tabIndex={shown==='received'?0:-1} aria-selected={shown==='received'} onClick={()=>setView('received')}>Shared with me{received.length?` · ${received.length}`:''}</button><button type="button" role="tab" id="cc-reports-tab-mine" aria-controls="cc-reports-panel-mine" tabIndex={shown==='mine'?0:-1} aria-selected={shown==='mine'} onClick={()=>setView('mine')}>My sharing &amp; clients</button></div>
+    {reading?<div className="cc-coach-context cc-rep-head">
+      <div className="cc-rep-bar"><button type="button" className="cc-rep-back" onClick={()=>setSelected(null)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>All clients</button>
+        <div className="cc-rep-seg" role="group" aria-label="Report period">{([7,30] as const).map(value=><button type="button" key={value} aria-pressed={days===value} onClick={()=>setDays(value)}>{value} days</button>)}</div></div>
+      <div className="cc-rep-title"><h2 ref={heading} tabIndex={-1}><span className="cc-sr-only">Report — </span>{label(selected.ownerDisplayName)}</h2>{period&&<span>{rangeText(period)}</span>}</div>
+      <div className="cc-rep-range-row"><p className="cc-rep-lens" role="note" aria-label="Whose information is shown">{selected.scopes.map(scopeLabel).join(' · ')} · shared with you until {until(selected.expires)} CT</p><label className="cc-rep-through">Through<input type="date" aria-label="Report end date" max={today()} value={end} onChange={event=>setEnd(event.target.value)}/></label></div>
+    </div>:<div className="cc-coach-context"><div><span className="cc-eyebrow">AUTHORIZED VIEW</span>
+      <h2 ref={heading} tabIndex={-1}>{shown==='mine'?'Your sharing & clients':'Reports shared with you'}</h2>
+      <p>Signed in as {identity.name||identity.email}. Your personal {assistantName} stays separate from these authorized views.</p>
+    </div><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>}
+    <div className="cc-coach-views" role="tablist" hidden={!!reading} aria-label="Reports sections" onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?'received':event.key==='End'?'mine':shown==='received'?'mine':'received';setView(next);document.getElementById(`cc-reports-tab-${next}`)?.focus();}}><button type="button" role="tab" id="cc-reports-tab-received" aria-controls="cc-reports-panel-received" tabIndex={shown==='received'?0:-1} aria-selected={shown==='received'} onClick={()=>setView('received')}>Shared with me{received.length?` · ${received.length}`:''}</button><button type="button" role="tab" id="cc-reports-tab-mine" aria-controls="cc-reports-panel-mine" tabIndex={shown==='mine'?0:-1} aria-selected={shown==='mine'} onClick={()=>setView('mine')}>My sharing &amp; clients</button></div>
     <div className="cc-coach-view" role="tabpanel" id="cc-reports-panel-mine" aria-labelledby="cc-reports-tab-mine" hidden={shown!=='mine'}><p className="cc-muted">Choose who can see your reports and meal photos, invite clients, and revoke access at any time.</p><AccountPilotWorkspace identity={identity} onSharingChanged={()=>void reload()}/><OwnedGrants identity={identity}/></div>
     <div className="cc-coach-view" role="tabpanel" id="cc-reports-panel-received" aria-labelledby="cc-reports-tab-received" hidden={shown!=='received'}>
-    <div className="cc-coach-controls"><label className="cc-label">Whose data<select aria-label="Authorized owner" value={selected?.id||''} disabled={loading} onChange={event=>setSelected(received.find(grant=>grant.id===event.target.value&&activeGrant(grant))||null)}><option value="">Choose an authorized owner</option>{received.map(grant=><option key={grant.id} value={grant.id}>{label(grant.ownerDisplayName)} · {grant.scopes.map(scopeLabel).join(' + ')}</option>)}</select></label><button className="cc-text-button" onClick={()=>void reload()} disabled={loading}>Reload authorizations</button></div>
-    {loading&&<p role="status">Checking active authorizations…</p>}{error&&<p role="alert">{error}</p>}
-    {!loading&&!error&&!received.length&&<p>No active reports have been shared with this account. The owner must authorize your existing account before a report can appear. There is no public account search here.</p>}
-    {selected&&<><div className="cc-coach-lens" role="note" aria-label="Whose information is shown"><span className="cc-coach-lens-who"><strong>{label(selected.ownerDisplayName)}</strong> shared this with you</span><span className="cc-coach-lens-scopes">{selected.scopes.map(scope=><span key={scope}>{scopeLabel(scope)}</span>)}</span><p className="cc-muted">Authorized for {selected.scopes.map(scopeLabel).join(' and ')} until {new Date(selected.expires*1000).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})} CT. Each permission is checked separately, and the owner can revoke it at any time.</p></div><div className="cc-coach-period"><div role="group" aria-label="Report period">{([7,30] as const).map(value=><button className="cc-secondary" key={value} aria-pressed={days===value} onClick={()=>setDays(value)}>{value} days</button>)}</div><label className="cc-label">Through<input type="date" aria-label="Report end date" max={today()} value={end} onChange={event=>setEnd(event.target.value)}/></label></div>
+    {!selected&&<>
+      <div className="cc-rep-roster-head"><span className="cc-eyebrow">Clients{received.length?` · ${received.length}`:''}</span><button className="cc-text-button cc-rep-quiet" onClick={()=>void reload()} disabled={loading} aria-label="Reload authorizations">Reload</button></div>
+      {loading&&<p role="status" className="cc-rep-quiet-line">Checking active authorizations…</p>}{error&&<p role="alert">{error}</p>}
+      {!loading&&!error&&!received.length&&<p className="cc-rep-quiet-line">No active reports have been shared with this account. The owner must authorize your existing account before a report can appear. There is no public account search here.</p>}
+      {received.length>0&&<ClientRoster grants={received} name={grant=>label(grant.ownerDisplayName)} scopeLabel={scope=>scopeLabel(scope as Scope)} onOpen={grant=>open(grant as Grant)} focusId={lastOpened}/>}
+    </>}
+    {selected&&<>
       {!period?<p role="alert">Choose a valid past or current Chicago date.</p>:<GrantView key={`${selected.id}:${period.start}:${period.end}`} grant={selected} period={period}/>}
+      <div className="cc-rep-footnote"><p>Chicago time. Each permission is checked separately, and the owner can revoke it at any time. Signed in as {identity.name||identity.email}; your personal {assistantName} stays separate from this view.</p><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>
     </>}
     </div>
   </section>;
 }
 function GrantView({grant,period}:{grant:Grant;period:Period}) {
-  return <><p>{rangeText(period)} · Chicago time. Missing data stays unknown.</p>
-    {grant.scopes.includes('clean-report')?<CleanReport grant={grant} period={period}/>:<p>Health report access was not shared. A meal-photo permission does not include health numbers.</p>}
-    {grant.scopes.includes('meal-photo')?<MealPhotos grant={grant} period={period}/>:<p>Meal-photo access was not shared. Health report access does not include original images.</p>}
+  return <>
+    {grant.scopes.includes('clean-report')?<CleanReport grant={grant} period={period}/>:<p className="cc-rep-quiet-line">Health report not shared. Meal-photo access does not include health numbers.</p>}
+    {grant.scopes.includes('meal-photo')?<MealPhotos grant={grant} period={period}/>:<p className="cc-rep-quiet-line">Meal photos not shared. Health report access does not include original images.</p>}
   </>;
 }
 function CleanReport({grant,period}:{grant:Grant;period:Period}) {
@@ -95,34 +113,52 @@ function CleanReport({grant,period}:{grant:Grant;period:Period}) {
       if(alive)setData(report);
     }).catch(reason=>{if(alive)setError(failure(reason));}).finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};
   },[grant,period,retry]);
-  if(loading)return <p role="status">Loading authorized health numbers…</p>;
-  if(error)return <div role="alert"><p>{error} No earlier report is shown.</p><button className="cc-secondary" onClick={()=>setRetry(value=>value+1)}>Retry health report</button></div>;
-  if(!data)return null;
-  const d=data.data;
+  const dates=useMemo(()=>periodDates(period.start,period.end),[period]);
+  const insight=useMemo(()=>data?summarize(data.data,dates):null,[data,dates]);
+  if(loading)return <p role="status" className="cc-rep-quiet-line">Loading authorized health numbers…</p>;
+  if(error)return <div role="alert" className="cc-rep-error"><p>{error} No earlier report is shown.</p><button className="cc-secondary" onClick={()=>setRetry(value=>value+1)}>Retry health report</button></div>;
+  if(!data||!insight)return null;
+  const d=data.data,c=data.coverage;
+  const exerciseMissing=rows(d.exercise?.daily).reduce((sum,row)=>sum+(numeric(row.missingDurationEntries)??0),0);
+  const counts=record(d.outcomes?.counts),latestBody=rows(d.bodyMeasurements?.measurements).slice(-1)[0];
   const sections:{key:ReportKey;title:string;node:ReactNode}[]=[
-    {key:'weight',title:'Weight',node:<MetricSection title="Weight" data={d.weight} coverage={data.coverage.weight} provenance="Scale / Health Connect and explicit owner entries or corrections"><Summary data={d.weight} fields={['firstLb','latestLb','changeLb','samples']} labels={['First lb','Latest lb','Change lb','Readings']}/><NumbersTable data={rows(d.weight?.daily)} fields={['meanLb','minLb','maxLb','samples']} labels={['Mean lb','Min lb','Max lb','Readings']}/></MetricSection>},
-    {key:'bodyMeasurements',title:'Body measurements',node:<MetricSection title="Body measurements" data={d.bodyMeasurements} coverage={data.coverage.bodyMeasurements} provenance="Owned body check-ins; flagged measurements stay missing"><NumbersTable data={rows(d.bodyMeasurements?.measurements)} fields={['weight_lb','body_fat_pct','neck_in','waist_in','hips_in']} labels={['Weight lb','Body fat %','Neck in','Waist in','Hips in']} source/></MetricSection>},
-    {key:'manualGlucose',title:'Manual glucose',node:<MetricSection title="Manual glucose" data={d.manualGlucose} coverage={data.coverage.manualGlucose} provenance="Owner-reported manual glucose; not sensor readings"><NumbersTable data={rows(d.manualGlucose?.daily)} fields={['meanMgDl','minMgDl','maxMgDl','samples']} labels={['Mean mg/dL','Min mg/dL','Max mg/dL','Readings']}/></MetricSection>},
-    {key:'exercise',title:'Exercise',node:<MetricSection title="Exercise" data={d.exercise} coverage={data.coverage.exercise} provenance="Owner-reported exercise estimates; omitted duration stays unknown"><NumbersTable data={rows(d.exercise?.daily)} fields={['entries','minutes','knownDurationEntries','missingDurationEntries','energyKcal']} labels={['Entries','Known min','With duration','Missing duration','Est. kcal']}/></MetricSection>},
-    {key:'outcomes',title:'Outcomes',node:<MetricSection title="Outcomes" data={d.outcomes} coverage={data.coverage.outcomes} provenance="Explicit owner-reported outcomes only"><Summary data={record(d.outcomes?.counts)} fields={['wins','losses','unscored','total']} labels={['Wins','Setbacks','Unscored','Total']}/><NumbersTable data={rows(d.outcomes?.daily)} fields={['wins','losses','unscored']} labels={['Wins','Setbacks','Unscored']}/></MetricSection>},
-    {key:'steps',title:'Steps',node:<MetricSection title="Steps" data={d.steps} coverage={data.coverage.steps} provenance="Owned local steps ledger"><NumbersTable data={rows(d.steps?.daily)} fields={['count']} labels={['Steps']}/></MetricSection>},
-    {key:'ringconnNight',title:'RingConn nights',node:<MetricSection title="RingConn nights" data={d.ringconnNight} coverage={data.coverage.ringconnNight} provenance="RingConn provider estimates; missing metrics stay unknown"><NumbersTable data={rows(d.ringconnNight?.nights)} fields={['asleepMinutes','sessionMinutes','averageHeartRateBpm','restingHeartRateBpm','meanSpo2Percent']} labels={['Asleep min','Session min','Avg HR bpm','Resting HR bpm','Mean SpO₂ %']}/></MetricSection>},
-    {key:'nutrition',title:'Confirmed nutrition',node:<MetricSection title="Confirmed nutrition" data={d.nutrition} coverage={data.coverage.nutrition} provenance="Confirmed local food ledger; photos and purchases alone never establish eating"><NutritionTable data={rows(d.nutrition?.daily)}/><p>Totals include known values only. Missing nutrients and unlogged meals remain gaps; this is not complete intake.</p></MetricSection>},
+    {key:'weight',title:'Weight',node:<MetricSection title="Weight" data={d.weight} coverage={c.weight} stat={numeric(d.weight?.latestLb)!==null?`${number(d.weight?.latestLb)} lb latest`:undefined} provenance="Scale / Health Connect and explicit owner entries or corrections"
+      chart={d.weight&&<WeightTrend dates={dates} weight={d.weight}/>}><Summary data={d.weight} fields={['firstLb','latestLb','changeLb','samples']} labels={['First lb','Latest lb','Change lb','Readings']}/><NumbersTable data={rows(d.weight?.daily)} fields={['meanLb','minLb','maxLb','samples']} labels={['Mean lb','Min lb','Max lb','Readings']}/></MetricSection>},
+    {key:'nutrition',title:'Confirmed nutrition',node:<MetricSection title="Confirmed nutrition" data={d.nutrition} coverage={c.nutrition} stat={d.nutrition?`${foodDays(d.nutrition).length} of ${dates.length} days`:undefined} provenance="Confirmed local food ledger; photos and purchases alone never establish eating"
+      chart={d.nutrition&&<NutritionBars dates={dates} nutrition={d.nutrition}/>} note="Totals include known values only. Missing nutrients and unlogged meals remain gaps; this is not complete intake."><NutritionTable data={rows(d.nutrition?.daily)}/></MetricSection>},
+    {key:'steps',title:'Steps',node:<MetricSection title="Steps" data={d.steps} coverage={c.steps} stat={d.steps?`${stepDays(d.steps).length} days with data`:undefined} provenance="Owned local steps ledger"
+      chart={d.steps&&<DailyBars dates={dates} rows={rows(d.steps.daily)} value={row=>numeric(row.count)} unit="steps" label="Daily steps"/>}><NumbersTable data={rows(d.steps?.daily)} fields={['count']} labels={['Steps']}/></MetricSection>},
+    {key:'exercise',title:'Exercise',node:<MetricSection title="Exercise" data={d.exercise} coverage={c.exercise} stat={d.exercise?`${exerciseDays(d.exercise).length} active days`:undefined} provenance="Owner-reported exercise estimates; omitted duration stays unknown"
+      chart={d.exercise&&<ExerciseBars dates={dates} exercise={d.exercise}/>} note={exerciseMissing?`${exerciseMissing} ${exerciseMissing===1?'entry has':'entries have'} an unknown duration and ${exerciseMissing===1?'is':'are'} not counted in minutes.`:undefined}><NumbersTable data={rows(d.exercise?.daily)} fields={['entries','minutes','knownDurationEntries','missingDurationEntries','energyKcal']} labels={['Entries','Known min','With duration','Missing duration','Est. kcal']}/></MetricSection>},
+    {key:'manualGlucose',title:'Manual glucose',node:<MetricSection title="Manual glucose" data={d.manualGlucose} coverage={c.manualGlucose} stat={d.manualGlucose?`${number(d.manualGlucose.samples)} readings`:undefined} provenance="Owner-reported manual glucose; not sensor readings. Shaded band: 70–140 mg/dL"
+      chart={d.manualGlucose&&<GlucosePoints dates={dates} glucose={d.manualGlucose}/>}><NumbersTable data={rows(d.manualGlucose?.daily)} fields={['meanMgDl','minMgDl','maxMgDl','samples']} labels={['Mean mg/dL','Min mg/dL','Max mg/dL','Readings']}/></MetricSection>},
+    {key:'ringconnNight',title:'RingConn nights',node:<MetricSection title="RingConn nights" data={d.ringconnNight} coverage={c.ringconnNight} stat={d.ringconnNight?`${rows(d.ringconnNight.nights).length} nights`:undefined} provenance="RingConn provider estimates; missing metrics stay unknown"
+      chart={d.ringconnNight&&<SleepBars dates={dates} nights={rows(d.ringconnNight.nights)}/>}><NumbersTable data={rows(d.ringconnNight?.nights)} fields={['asleepMinutes','sessionMinutes','averageHeartRateBpm','restingHeartRateBpm','meanSpo2Percent']} labels={['Asleep min','Session min','Avg HR bpm','Resting HR bpm','Mean SpO₂ %']}/></MetricSection>},
+    {key:'outcomes',title:'Outcomes',node:<MetricSection title="Outcomes" data={d.outcomes} coverage={c.outcomes} provenance="Explicit owner-reported outcomes only"
+      chart={d.outcomes&&<Figures items={[{label:'Wins',value:number(counts.wins)},{label:'Setbacks',value:number(counts.losses)},{label:'Unscored',value:number(counts.unscored)}]}/>}><Summary data={counts} fields={['wins','losses','unscored','total']} labels={['Wins','Setbacks','Unscored','Total']}/><NumbersTable data={rows(d.outcomes?.daily)} fields={['wins','losses','unscored']} labels={['Wins','Setbacks','Unscored']}/></MetricSection>},
+    {key:'bodyMeasurements',title:'Body measurements',node:<MetricSection title="Body measurements" data={d.bodyMeasurements} coverage={c.bodyMeasurements} stat={latestBody?`Latest ${day(latestBody.date)}`:undefined} provenance="Owned body check-ins; flagged measurements stay missing"
+      chart={latestBody&&<Figures items={([['weight_lb','Weight lb'],['body_fat_pct','Body fat %'],['waist_in','Waist in'],['hips_in','Hips in']] as const).filter(([key])=>numeric(latestBody[key])!==null).map(([key,name])=>({label:name,value:number(latestBody[key])}))}/>}><NumbersTable data={rows(d.bodyMeasurements?.measurements)} fields={['weight_lb','body_fat_pct','neck_in','waist_in','hips_in']} labels={['Weight lb','Body fat %','Neck in','Waist in','Hips in']} source/></MetricSection>},
   ];
   const filled=sections.filter(item=>d[item.key]),empty=sections.filter(item=>!d[item.key]);
-  return <section aria-label="Clean health report"><h3>Health numbers</h3><p>Only numbers the owner saved. Private notes, messages, purchases and guessed meals are never included, and a missing day is left blank, not counted as zero.</p><div className="cc-coach-grid">
+  return <section aria-label="Clean health report" className="cc-rep">
+    <ReportGlance insight={insight}/>
+    <div className="cc-rep-section-head"><h3>Health numbers</h3><p className="cc-coach-provenance">Only numbers the owner saved. Private notes, messages, purchases and guessed meals are never included, and a missing day is left blank, not counted as zero.</p></div>
+    <div className="cc-coach-grid cc-rep-grid">
     {filled.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}
-    {empty.length>0&&<section className="cc-card cc-coach-empty-group" aria-label="No data this period"><h4>No data this period</h4><p className="cc-coach-provenance">Nothing saved for these in the dates above. Open one to see what was checked.</p>{empty.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}</section>}
+    {empty.length>0&&<section className="cc-card cc-coach-empty-group" aria-label="No data this period"><h4>Nothing saved this period</h4>{empty.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}</section>}
   </div></section>;
 }
-function MetricSection({title,data,coverage,provenance,children}:{title:string;data:Row|null;coverage?:Coverage;provenance:string;children:ReactNode}) {
+function MetricSection({title,data,coverage,provenance,stat,chart,note,children}:{title:string;data:Row|null;coverage?:Coverage;provenance:string;stat?:string;chart?:ReactNode;note?:string;children:ReactNode}) {
   const source=<p className="cc-coach-provenance">{provenance}</p>;
   const query=<p className="cc-coach-coverage">{coverage?`${coverage.queryComplete===true?'Query covered the requested range':'Query was limited'} · ${number(coverage.rowsRead)} rows checked · ${number(coverage.invalidRows)} invalid rows omitted`:'Query coverage is unavailable.'}</p>;
   if (!data) return <details className="cc-card cc-coach-empty cc-coach-empty-row">
-    <summary><strong>{title}</strong><span>Unknown{coverage?.queryComplete===false?' · Limited query':''}{coverage&&coverage.invalidRows>0?' · Invalid rows omitted':''}</span></summary>
+    <summary><strong>{title}</strong><span>No entries in this period{coverage?.queryComplete===false?' · Limited query':''}{coverage&&coverage.invalidRows>0?' · Invalid rows omitted':''}</span></summary>
     <p>No local data for this period. This is unknown, not zero.</p>{source}{query}
   </details>;
-  return <section className="cc-card"><h4>{title}</h4>{source}{children}{query}</section>;
+  return <section className="cc-card cc-rep-card"><header className="cc-rep-card-head"><h4>{title}</h4>{stat&&<span>{stat}</span>}</header>
+    {chart}{note&&<p className="cc-rep-note">{note}</p>}
+    <details className="cc-rep-numbers"><summary>Numbers</summary>{children}</details>
+    <div className="cc-rep-foot">{source}{query}</div></section>;
 }
 function Summary({data,fields,labels}:{data:Row|null;fields:string[];labels:string[]}) {return <dl className="cc-coach-summary">{fields.map((field,index)=><div key={field}><dt>{labels[index]}</dt><dd>{number(data?.[field])}</dd></div>)}</dl>;}
 function NumbersTable({data,fields,labels,source=false}:{data:Row[];fields:string[];labels:string[];source?:boolean}) {
@@ -141,7 +177,7 @@ function MealPhotos({grant,period}:{grant:Grant;period:Period}) {
       if(alive){setEntries(rows(mealPhotos.entries).filter(row=>typeof row.mealId==='string'&&typeof row.savedAt==='string'));setCoverage(mealPhotos.coverage);}
     }).catch(reason=>{if(alive)setError(failure(reason));}).finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};
   },[grant,period,retry]);
-  return <section aria-label="Authorized meal photos"><h3>Meal photos</h3><p>Saved originals shared separately from health numbers. A saved photo or its timestamp does not confirm that a meal was eaten.</p>{loading?<p role="status">Loading authorized photo references…</p>:error?<div role="alert"><p>{error} No earlier photos are shown.</p><button className="cc-secondary" onClick={()=>setRetry(value=>value+1)}>Retry meal photos</button></div>:<><p className="cc-muted">{coverage?.queryComplete===true?'Photo query covered the requested range.':'Photo query coverage is limited or unavailable.'} {entries.length?`${entries.length} saved references.`:'No saved photo references in this period.'}</p><div className="cc-coach-photos">{entries.slice(0,limit).map(entry=><MealPhoto key={String(entry.mealId)} grant={grant} entry={entry}/>)}</div>{entries.length>limit&&<button className="cc-secondary" onClick={()=>setLimit(value=>value+12)}>Show more photo references</button>}</>}</section>;
+  return <section aria-label="Authorized meal photos" className="cc-rep-photos"><h3>Meal photos</h3><p>Saved originals shared separately from health numbers. A saved photo or its timestamp does not confirm that a meal was eaten.</p>{loading?<p role="status">Loading authorized photo references…</p>:error?<div role="alert"><p>{error} No earlier photos are shown.</p><button className="cc-secondary" onClick={()=>setRetry(value=>value+1)}>Retry meal photos</button></div>:<><p className="cc-muted">{coverage?.queryComplete===true?'Photo query covered the requested range.':'Photo query coverage is limited or unavailable.'} {entries.length?`${entries.length} saved references.`:'No saved photo references in this period.'}</p><div className="cc-coach-photos">{entries.slice(0,limit).map(entry=><MealPhoto key={String(entry.mealId)} grant={grant} entry={entry}/>)}</div>{entries.length>limit&&<button className="cc-secondary" onClick={()=>setLimit(value=>value+12)}>Show more photo references</button>}</>}</section>;
 }
 function MealPhoto({grant,entry}:{grant:Grant;entry:Row}) {
   const [url,setUrl]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);

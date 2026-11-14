@@ -7,6 +7,7 @@ import ReceiptWorkspace from './ReceiptWorkspace';
 import ConversationPanel, { AnalysisCard } from './ConversationPanel';
 import { libraryRequest, parseConversationImport, uploadLabel, type Analysis, type Conversation, type ImportCandidate, type Project, type Source } from './library';
 import './library-layout.css';
+import './noir/assistant/noir-library.css';
 import { ACCOUNT_SESSIONS } from './accountMode';
 
 type SearchResult = Source & { id: string; documentId: string; title: string; text: string; project?: string; kind?: string };

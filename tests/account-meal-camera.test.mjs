@@ -29,8 +29,8 @@ try {
     const { page, context, errors } = await open(width);
     await page.getByRole('button', { name: 'Take meal photo', exact: true }).click();
     const camera = page.getByRole('dialog', { name: 'Meal camera' });
-    await camera.getByRole('heading', { name: 'Take a photo of your meal' }).waitFor();
-    await page.waitForFunction(() => document.querySelector('.cc-meal-camera-feed')?.dataset.live === 'true' && document.querySelector('.cc-meal-camera-feed').videoWidth > 0);
+    await camera.getByRole('button', { name: 'Close camera' }).waitFor();
+    await page.waitForFunction(() => document.querySelector('.cc-cam-feed')?.videoWidth > 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     if (shots) await page.screenshot({ path: `${shots}/camera-live-${width}.png` });
     await camera.getByRole('button', { name: 'Take meal photo' }).click();
@@ -44,7 +44,7 @@ try {
   const { page, context, errors } = await open(390, true);
   await page.getByRole('button', { name: 'Take meal photo', exact: true }).click();
   const camera = page.getByRole('dialog', { name: 'Meal camera' });
-  await camera.getByText('Camera access is off').waitFor();
+  await camera.getByText('Camera off', { exact: false }).first().waitFor();
   await camera.getByRole('button', { name: 'Open phone camera' }).waitFor();
   assert.equal(await camera.getByLabel('Take meal photo file').getAttribute('capture'), 'environment');
   if (shots) await page.screenshot({ path: `${shots}/camera-blocked-390.png` });

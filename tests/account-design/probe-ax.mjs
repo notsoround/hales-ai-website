@@ -8,8 +8,9 @@ const cdp=await v.c.newCDPSession(p);
 const tree=async()=>{const {nodes}=await cdp.send('Accessibility.getFullAXTree');const by=new Map(nodes.map(n=>[n.nodeId,n]));const out=[];
   const walk=id=>{const n=by.get(id);if(!n)return;const r=n.role?.value,nm=n.name?.value;if(!n.ignored&&['heading','region','button','tab','tabpanel','textbox','combobox','checkbox','navigation','dialog'].includes(r))out.push(`${r} "${nm}"${n.properties?.find(x=>x.name==='level')?' L'+n.properties.find(x=>x.name==='level').value.value:''}`);(n.childIds||[]).forEach(walk);};
   walk(nodes[0].nodeId);return out.join('\n');};
+await p.locator('.cc-notyet-toggle').click();await p.waitForTimeout(200);/* Food today and Weight sit under More detail */
 const today=await tree();console.log('=== Today\n'+today);
-if(Number(process.env.W||390)<900)assert.ok(today.indexOf('Not logged yet')>today.indexOf('Libre CGM'),'Not logged yet is read after the cards above it');
+if(Number(process.env.W||390)<900)assert.ok(today.indexOf('More detail')>today.indexOf('Libre CGM'),'More detail is read after the cards above it');
 assert.match(today,/heading "Food today" L3/,'Food today is a heading like the other cards');
 await nav(p,'Assistant');await p.waitForTimeout(500);const sheet=await tree();console.log('=== Assistant open\n'+sheet);
 if(Number(process.env.W||390)<=600){assert.doesNotMatch(sheet,/Good afternoon|Open calendar|Sign out/,'the page behind the phone assistant is not reachable');assert.match(sheet,/navigation "Cupcake"/,'the tab bar stays reachable');}
