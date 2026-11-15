@@ -1,0 +1,23 @@
+/* Labs camera comments: a speech line above the reticle. Uses the camera's own tokens only. */
+.cc-cam-quip {
+  position: absolute; z-index: 2; left: 16px; right: 16px; top: calc(var(--cc-cam-cy, 46%) - var(--cc-cam-size, 300px) / 2 - 18px);
+  transform: translateY(-100%); margin: 0; pointer-events: none; text-align: center;
+}
+.cc-cam-quip[data-empty=true] { visibility: hidden; }
+.cc-cam-quip span {
+  display: inline-block; max-width: 360px; padding: 9px 15px; border-radius: 18px 18px 18px 6px;
+  background: rgba(12, 12, 14, .58); border: 1px solid color-mix(in srgb, var(--cc-cam-accent, #39e6d2) 45%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  font-size: 15px; font-weight: 600; line-height: 1.25; letter-spacing: .005em; color: #fff;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .28);
+  animation: cc-cam-quip 4.2s var(--cc-cam-ease, ease) both;
+}
+@keyframes cc-cam-quip {
+  0% { opacity: 0; transform: translateY(6px) scale(.96); }
+  8%, 86% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-cam-quip span { animation-name: cc-cam-quip-fade; }
+  @keyframes cc-cam-quip-fade { 0%, 100% { opacity: 0; } 6%, 88% { opacity: 1; } }
+}
