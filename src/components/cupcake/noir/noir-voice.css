@@ -1,0 +1,25 @@
+/* Live voice inside the Assistant, Noir language: one line of facts, one primary action, saved conversations as ruled rows. */
+.cc-app[data-entry=account] .cc-account-voice { display: grid; gap: 12px; font-family: var(--nx-text); }
+.cc-app[data-entry=account] .cc-account-voice .cc-talk-heading { margin: 4px 0 0; font: 300 26px/1.15 var(--nx-display); letter-spacing: -.02em; }
+.cc-app[data-entry=account] .nx-voice-facts { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-voice-about summary { cursor: pointer; font: 500 12.5px/1.6 var(--nx-text); color: var(--nx-ink-3); list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.cc-app[data-entry=account] .nx-voice-about summary::-webkit-details-marker { display: none; }
+.cc-app[data-entry=account] .nx-voice-about summary::after { content: "›"; transition: transform .2s; }
+.cc-app[data-entry=account] .nx-voice-about[open] summary::after { transform: rotate(90deg); }
+.cc-app[data-entry=account] .nx-voice-about p { margin: 6px 0 0; }
+.cc-app[data-entry=account] .cc-account-voice > .cc-action-row { margin-top: 4px; }
+.cc-app[data-entry=account] .cc-account-voice > .cc-action-row .cc-primary { flex: 1 1 100%; min-height: 60px; border-radius: 20px; font: 600 16px/1 var(--nx-text); color: #021412; }
+.cc-app[data-entry=account][data-appearance=rose] .cc-account-voice > .cc-action-row .cc-primary { color: #12081f; }
+.cc-app[data-entry=account] .cc-account-voice .cc-mic-line { margin: 0; text-align: center; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-account-voice .cc-fold > summary { font: 500 12.5px/1.6 var(--nx-text); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-voice-history { margin-top: 10px; padding-top: 16px; border-top: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .cc-voice-history > .cc-heading-row h3 { font: 500 11px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-voice-history > .cc-heading-row .cc-text-button { font-size: 12.5px; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-voice-history > .cc-heading-row + p { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.cc-app[data-entry=account] .cc-voice-history > article.cc-card:not(.cc-voice-saved) { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 0; margin: 0; border: 0; border-bottom: 1px solid var(--nx-hair); border-radius: 0; background: none; }
+.cc-app[data-entry=account] .cc-voice-history > article.cc-card:not(.cc-voice-saved) strong { font: 400 14px/1.3 var(--nx-text); font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .cc-voice-history > article.cc-card:not(.cc-voice-saved) .cc-secondary { min-height: 36px; padding: 0 14px; border-radius: 99px; font: 500 12.5px/1 var(--nx-text); }
+.cc-app[data-entry=account] .cc-voice-provisional { border: 1px dashed var(--nx-hair); border-radius: 18px; }
+.cc-app[data-entry=account] .cc-voice-history > article.cc-card:not(.cc-voice-saved) .cc-action-row { flex-wrap: nowrap; gap: 12px; align-items: center; margin: 0; }
+.cc-app[data-entry=account] .cc-voice-history > article.cc-card:not(.cc-voice-saved) .cc-action-row > * { width: auto; flex: none; white-space: nowrap; min-height: 36px; }
+.cc-app[data-entry=account] .cc-voice-history > article.cc-card:not(.cc-voice-saved) .cc-text-button { font-size: 12.5px; }
