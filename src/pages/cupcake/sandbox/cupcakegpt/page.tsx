@@ -590,7 +590,8 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   return (
     <div className="space-y-4">
       <div className="cc-snap-head">
-        <button type="button" className="cc-text-button" onClick={() => onBack?.()}><ArrowLeft size={17}/>Back to Today</button>
+        {/* The account app's tab bar already has Today; the link only repeated it. */}
+        {!ACCOUNT_SESSIONS && <button type="button" className="cc-text-button" onClick={() => onBack?.()}><ArrowLeft size={17}/>Back to Today</button>}
         <h2 className="cc-snap-title">Food</h2>
       </div>
       <AccountFoodSections>
