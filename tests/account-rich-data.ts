@@ -68,6 +68,11 @@ export function richData(action: string): Record<string, unknown> | null {
       const entries = rows.map(([outcome, title, d], i) => ({ id: `o-${i}`, date: dayOf(NOW - d * D), title, outcome, note: `${title}. Reported by you.`, source: { type: 'owner-request', reference: `r-${i}`, description: 'You reported this outcome.' }, metrics: i === 1 ? { steps: 9120 } : {}, evidenceType: 'owner-reported-outcome', createdAt: new Date(NOW - d * D).toISOString() }));
       return { entries, nextCursor: null, counts: { wins: entries.filter(e => e.outcome === 'win').length, losses: entries.filter(e => e.outcome === 'loss').length, unscored: entries.filter(e => e.outcome === 'unscored').length, total: entries.length } };
     }
+    case 'coach_plan_get': return { plan: { meal_plan: { title: 'Lean week', groceries: 'Salmon fillets x4\nGreek yogurt, 2 tubs\nBerries\nBaby spinach\nBrown rice\nEggs, dozen\nChicken thighs\nNotes: check olive oil', meals: [
+      { name: 'Breakfast', kcal: 420, items: ['Greek yogurt', 'Berries', 'Granola, small handful'] },
+      { name: 'Lunch', kcal: 640, items: ['Chicken grain bowl', 'Spinach', 'Olive oil dressing'] },
+      { name: 'Dinner', kcal: 690, items: ['Salmon', 'Brown rice', 'Roasted vegetables'] },
+      { name: 'Snack', items: ['Protein shake'] }] } } };
     default: return null;
   }
 }

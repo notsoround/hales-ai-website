@@ -4,6 +4,7 @@ import { AccountRequestError } from './accountSession';
 import { personalStorage } from './personalStorage';
 import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, rebasePlanDraft, samePlan, PLAN_DRAFT_KEY, type MealPlan, type PlanDraft, type PlanIntent } from './foodPlanModel';
 import './account-food-plan.css';
+import './noir/noir-plan.css';
 import { parsePlanText } from './planImport';
 import { useLab } from './labsFlags';
 import { useDataChanged } from './dataChanges';
@@ -23,6 +24,8 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [newItem, setNewItem] = useState(''), [addError, setAddError] = useState('');
   // The raw list text stays folded once the checklist shows the items, so the list is not on screen twice.
   const [textOpen, setTextOpen] = useState(false);
+  // A saved plan opens as a plan to read; the form appears on Edit, or by itself when there is nothing saved or a draft is in progress.
+  const [editingPlan, setEditingPlan] = useState(false);
   const planBuilder = useLab('plan-builder');
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -30,7 +33,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const checklistHeading = useRef<HTMLHeadingElement>(null), focusChecklist = useRef(false);
   const both = section === 'both', planTitle = useRef<HTMLInputElement>(null), shopHeading = useRef<HTMLHeadingElement>(null);
   // Side by side, both halves are already on screen: move focus instead of switching sections.
-  const toPlan = both ? () => planTitle.current?.focus() : onPlan;
+  const toPlan = both ? () => { setEditingPlan(true); requestAnimationFrame(() => planTitle.current?.focus()); } : onPlan;
   const toGroceries = both ? () => shopHeading.current?.focus() : onGroceries;
   useEffect(() => {
     if (!choosingItems && focusChecklist.current) { focusChecklist.current = false; checklistHeading.current?.focus(); }
@@ -42,6 +45,9 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const groceries = groceryItems(draft.groceries);
   const suggestions = missingGroceryItems(draft.groceries, draft.meals.flatMap(meal => groceryItems(meal.items).map(item => item.label)));
   const selected = suggestions.filter(item => selectedItems.includes(item));
+  const reading = !editingPlan && !dirty && !!base?.meals.length;
+  const plannedKcal = draft.meals.reduce((sum, meal) => sum + (meal.kcal.trim() && Number.isFinite(Number(meal.kcal)) ? Number(meal.kcal) : 0), 0), unknownKcal = draft.meals.filter(meal => !meal.kcal.trim()).length;
+  const checkedCount = groceries.filter(item => item.checked).length;
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -120,8 +126,8 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
     } catch (cause) { setShoppingError(cause instanceof Error ? cause.message : 'These items could not be added. Your notes are unchanged.'); }
   };
   return <section className={`cc-food-plan${both ? ' cc-food-plan-both' : ''}`} aria-label={both ? 'Meal plan and grocery workspace' : section === 'plan' ? 'Meal plan workspace' : 'Grocery workspace'}>
-    <div className="cc-heading-row"><h3>{both ? 'Your meal plan & groceries' : section === 'plan' ? 'Your meal plan' : 'Your groceries'}</h3><button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Reload saved plan</button></div>
-    <p className="cc-muted">{both ? 'Plan meals in your own words and shop for them. This reference plan is separate from meals you actually ate.' : section === 'plan' ? 'Plan meals in your own words. This reference plan is separate from meals you actually ate.' : 'Keep your grocery list and shopping notes with your meal plan.'}</p>
+    <div className="cc-heading-row"><h3>{both ? 'Your meal plan & groceries' : section === 'plan' ? 'Your meal plan' : 'Your groceries'}</h3><button type="button" className="cc-secondary nx-plan-reload" disabled={busy} onClick={() => void refresh()}>Reload saved plan</button></div>
+    <p className="cc-muted nx-plan-intro">{both ? 'Plan meals in your own words and shop for them. This reference plan is separate from meals you actually ate.' : section === 'plan' ? 'Plan meals in your own words. This reference plan is separate from meals you actually ate.' : 'Keep your grocery list and shopping notes with your meal plan.'}</p>
     {!loaded && !error && <p role="status">Loading your saved plan…</p>}
     {error && <p role="alert" className="cc-error">{error}</p>}
     {notice && <p role="status" className="cc-muted">{notice}</p>}
@@ -129,7 +135,12 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
     {loaded && <>
       <p className="cc-plan-save-state" role="status">{pending ? 'Save unconfirmed · original request kept for retry' : dirty ? 'Unsaved changes · draft kept in this browser tab' : base ? 'Saved plan loaded from your account' : 'No saved meal plan yet'}</p>
       <fieldset disabled={busy || !!pending} className="cc-plan-fields">
-        {(() => { const planPart = <>
+        {(() => { const planPart = reading ? <div className="nx-plan-read">
+          <header><div><h4>{draft.title || 'Meal plan'}</h4><p>{plannedKcal > 0 ? `${Math.round(plannedKcal).toLocaleString('en-US')} kcal planned` : `${draft.meals.length} planned ${draft.meals.length === 1 ? 'meal' : 'meals'}`}{plannedKcal > 0 && unknownKcal > 0 ? ` · ${unknownKcal} without calories` : ''}</p></div>
+            <button type="button" className="cc-secondary nx-plan-edit" onClick={() => { setEditingPlan(true); requestAnimationFrame(() => planTitle.current?.focus()); }}>Edit plan</button></header>
+          <ol>{draft.meals.map((meal, index) => <li key={index}><div><strong>{meal.name}</strong><span>{meal.items.split('\n').map(item => item.trim()).filter(Boolean).join(' · ')}</span></div>{meal.kcal.trim() ? <b>{Math.round(Number(meal.kcal)).toLocaleString('en-US')}<small>kcal</small></b> : <b className="is-unknown">—</b>}</li>)}</ol>
+          {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">{both ? '↓' : '→'}</span></button>}
+        </div> : <>
           <details className="cc-plan-import"><summary>Paste or upload a plan</summary><div>
             <p className="cc-muted cc-small">A routine, a meal plan or a coach’s notes. Headings such as “Monday” or “Lunch:” become planned meals and the lines under them become items. Nothing is saved until you choose Save plan &amp; groceries.</p>
             <label>Plan text<textarea rows={5} maxLength={20000} value={importText} placeholder={'Monday:\n- Oats with berries\n- Greek yogurt\nLunch 550 kcal:\n- Chicken quinoa bowl'} onChange={event => { setImportText(event.target.value); setImportNote(''); }}/></label>
@@ -145,7 +156,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             <label>Meal {index + 1} planned calories (optional)<input type="number" inputMode="decimal" min={0} max={20000} step="any" placeholder="Unknown" value={meal.kcal} onChange={event => edit({ ...draft, meals: draft.meals.map((item, at) => at === index ? { ...item, kcal: event.target.value } : item) })}/></label>
           </article>)}
           <button type="button" className="cc-secondary" disabled={draft.meals.length >= 10} onClick={() => edit({ ...draft, meals: [...draft.meals, { original: null, name: '', items: '', kcal: '' }] })}>Add planned meal</button>
-          <p className="cc-muted cc-small">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
+          <p className="cc-muted cc-small nx-plan-hint">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
           {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">{both ? '↓' : '→'}</span></button>}
         </>; const groceryPart = <>
           <div className="cc-card cc-shopping-builder">
@@ -163,8 +174,9 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             </fieldset>}
           </div>
           <div className="cc-grocery-checklist" aria-label="Grocery checklist">
-            <div className="cc-heading-row"><h4 ref={checklistHeading} tabIndex={-1} className="cc-shopping-heading">Shopping checklist</h4><span className="cc-muted cc-small">{groceries.filter(item => item.checked).length} of {groceries.length} checked</span></div>
-            <p className="cc-muted cc-small">Check off items as you shop, then Save plan &amp; groceries.</p>
+            <div className="cc-heading-row"><h4 ref={checklistHeading} tabIndex={-1} className="cc-shopping-heading">Shopping checklist</h4><span className="cc-muted cc-small">{checkedCount} of {groceries.length} checked</span></div>
+            {groceries.length > 0 && <div className="nx-grocery-progress" aria-hidden="true"><i style={{ width: `${checkedCount / groceries.length * 100}%` }}/></div>}
+            <p className="cc-muted cc-small nx-plan-intro">Check off items as you shop, then Save plan &amp; groceries.</p>
             {groceries.flatMap(item => [...groceryHeadings(draft.groceries).filter(heading => heading.line < item.line && !groceries.some(other => other.line < item.line && other.line > heading.line) ).map(heading => <p className="cc-grocery-section" key={`h${heading.line}`}>{heading.label}</p>), <label className="cc-grocery-item" key={item.line}><input type="checkbox" checked={item.checked} onChange={event => edit({ ...draft, groceries: checkGroceryItem(draft.groceries, item.line, event.target.checked) })}/><span className={item.checked ? 'cc-grocery-checked' : ''}>{item.label}</span></label>])}
             {!groceries.length && <p className="cc-muted">Add an item below, or type your list in Grocery notes, one item per line.</p>}
             {groceryNotes(draft.groceries).length > 0 && <ul className="cc-grocery-notes" aria-label="Shopping notes">{groceryNotes(draft.groceries).map(note => <li key={note.line}>{note.text}</li>)}</ul>}
@@ -183,7 +195,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
           return both ? <div className="cc-plan-split"><div className="cc-plan-col" role="group" aria-labelledby="cc-plan-col-plan"><h4 id="cc-plan-col-plan" className="cc-plan-col-title">Meal plan</h4>{planPart}</div><div className="cc-plan-col" role="group" aria-labelledby="cc-plan-col-groceries"><h4 id="cc-plan-col-groceries" className="cc-plan-col-title">Groceries</h4>{groceryPart}</div></div> : section === 'plan' ? planPart : groceryPart; })()}
       </fieldset>
       {dirty && validation && !pending && <p className="cc-muted cc-small">{validation}</p>}
-      <div className="cc-plan-actions"><button type="button" className="cc-primary" disabled={busy || latest !== undefined || (!pending && (!dirty || !!validation))} onClick={() => void save()}>{busy ? 'Confirming saved plan…' : pending ? 'Retry same plan save' : 'Save plan & groceries'}</button></div>
+      <div className={`cc-plan-actions nx-plan-save${dirty || pending ? ' is-dirty' : ''}`}><button type="button" className="cc-primary" disabled={busy || latest !== undefined || (!pending && (!dirty || !!validation))} onClick={() => void save()}>{busy ? 'Confirming saved plan…' : pending ? 'Retry same plan save' : 'Save plan & groceries'}</button></div>
     </>}
   </section>;
 }

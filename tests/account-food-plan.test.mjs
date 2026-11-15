@@ -150,7 +150,7 @@ try {
   release(); await saved(p);
   assert.deepEqual(plans.A, { meals: [{ name: 'Synthetic planned breakfast', items: ['Oats', 'Fruit'] }], title: 'Owner-entered reference', groceries: 'Synthetic oats — 1 bag\nSynthetic fruit — 3' });
   assert.equal(plans.A.meals[0].kcal, undefined);
-  await p.reload(); await tab(p, 'Meal plan'); await p.getByLabel('Meal 1 name', { exact: true }).waitFor(); assert.equal(await p.getByLabel('Meal 1 name', { exact: true }).inputValue(), 'Synthetic planned breakfast');
+  await p.reload(); await tab(p, 'Meal plan'); await p.getByRole('button', { name: 'Edit plan', exact: true }).click(); await p.getByLabel('Meal 1 name', { exact: true }).waitFor(); assert.equal(await p.getByLabel('Meal 1 name', { exact: true }).inputValue(), 'Synthetic planned breakfast');
   await tab(p, 'Groceries'); assert.equal(await (await notes(p)).inputValue(), plans.A.groceries);
   await tab(p, 'Food log'); assert.equal(await p.getByRole('button', { name: 'Add meal', exact: true }).isVisible(), true); assert.equal(await p.locator('.cc-nutrition-timeline-item').count(), 0);
   await p.getByRole('tab', { name: 'Food log', exact: true }).focus(); await p.keyboard.press('ArrowRight'); assert.equal(await p.getByRole('tab', { name: 'Meal plan', exact: true }).getAttribute('aria-selected'), 'true');
