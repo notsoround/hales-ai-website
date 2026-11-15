@@ -8,6 +8,7 @@ import { acquireMicrophone, microphoneConstraints, microphoneMessage, readInputD
 import VoiceInputCheck from './VoiceInputCheck';
 import { closeVoiceTransport } from './voiceHistory';
 import './account-live-voice.css';
+import './noir/noir-voice.css';
 
 type MediaState = 'idle' | 'connecting' | 'live' | 'ending';
 type ProvisionalLine = { role: 'user' | 'assistant'; text: string };
@@ -270,9 +271,13 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
   const resultMessages = result?.messages || [];
   return <section className="cc-account-voice" aria-label="Account live voice">
     <h2 className="cc-talk-heading">Live voice with {assistantName}</h2>
-    <p className="cc-muted">Talk back and forth using your microphone. Voice uses your account’s shared AI allowance alongside text, photo estimates and transcription.</p>
-    <p className="cc-muted cc-small">Starting sends your microphone audio and saved account context to the voice provider.</p>
-    {config && <p className="cc-muted cc-small">Up to {config.maxSeconds} seconds per conversation. Starting reserves ${(config.reservedMicros / 1000000).toFixed(2)} of that allowance while provider usage is checked; this reservation is not an invoice.</p>}
+    {/* The facts that matter before you tap stay on screen in one line; the full wording is one tap away. */}
+    <p className="cc-muted cc-small nx-voice-facts">{config ? <>Up to {config.maxSeconds} seconds per conversation · reserves ${(config.reservedMicros / 1000000).toFixed(2)} of your AI allowance · </> : null}your audio and saved context go to the voice provider</p>
+    <details className="nx-voice-about"><summary>How voice works</summary>
+      <p className="cc-muted cc-small">Talk back and forth using your microphone. Voice uses your account’s shared AI allowance alongside text, photo estimates and transcription.</p>
+      <p className="cc-muted cc-small">Starting sends your microphone audio and saved account context to the voice provider.</p>
+      {config && <p className="cc-muted cc-small">Starting reserves ${(config.reservedMicros / 1000000).toFixed(2)} of that allowance while provider usage is checked; this reservation is not an invoice.</p>}
+    </details>
     {!config?.available && <p role="status" className="cc-muted">{config ? `Live voice is currently unavailable. You can still use Text or Record.` : 'Checking live voice availability…'}</p>}
     <div className="cc-action-row">
       {!pending && mediaState === 'idle' && <button className="cc-primary" disabled={!active || disabled || testing || checking || !config?.available} onClick={() => void connect('start')}><Headphones size={20}/>Start conversation</button>}

@@ -153,14 +153,16 @@ function MetricSection({title,data,coverage,provenance,stat,chart,note,children}
   const [scrub,setScrub]=useState<ChartScrub|null>(null);
   const source=<p className="cc-coach-provenance">{provenance}</p>;
   const query=<p className="cc-coach-coverage">{coverage?`${coverage.queryComplete===true?'Query covered the requested range':'Query was limited'} · ${number(coverage.rowsRead)} rows checked · ${number(coverage.invalidRows)} invalid rows omitted`:'Query coverage is unavailable.'}</p>;
+  const clean=coverage?.queryComplete===true&&coverage.invalidRows===0;
   if (!data) return <details className="cc-card cc-coach-empty cc-coach-empty-row">
     <summary><strong>{title}</strong><span>No entries in this period{coverage?.queryComplete===false?' · Limited query':''}{coverage&&coverage.invalidRows>0?' · Invalid rows omitted':''}</span></summary>
     <p>No local data for this period. This is unknown, not zero.</p>{source}{query}
   </details>;
   return <section className="cc-card cc-rep-card"><header className="cc-rep-card-head"><h4>{title}</h4>{scrub?<span>{scrub.title} · {scrub.value}{scrub.unit && ` ${scrub.unit}`}</span>:stat&&<span>{stat}</span>}</header>
     {chart?.(setScrub)}{note&&<p className="cc-rep-note">{note}</p>}
-    <details className="cc-rep-numbers"><summary>Numbers</summary>{children}</details>
-    <div className="cc-rep-foot">{source}{query}</div></section>;
+    {/* A clean, complete query needs no footnote on screen: its source and row counts sit with the numbers. Anything limited or dropped stays visible. */}
+    <details className="cc-rep-numbers"><summary>{clean?'Numbers & source':'Numbers'}</summary>{children}{clean&&<div className="cc-rep-foot">{source}{query}</div>}</details>
+    {!clean&&<div className="cc-rep-foot">{source}{query}</div>}</section>;
 }
 function Summary({data,fields,labels}:{data:Row|null;fields:string[];labels:string[]}) {return <dl className="cc-coach-summary">{fields.map((field,index)=><div key={field}><dt>{labels[index]}</dt><dd>{number(data?.[field])}</dd></div>)}</dl>;}
 function NumbersTable({data,fields,labels,source=false}:{data:Row[];fields:string[];labels:string[];source?:boolean}) {
