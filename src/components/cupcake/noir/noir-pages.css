@@ -1,0 +1,53 @@
+/* Noir for the pages behind Today (account app only): meal details, the empty assistant chat, Library's saved audio and Settings. */
+
+/* ---------- Meal details: a sheet with one hero number ---------- */
+.cc-app[data-entry=account] .cc-meal-dialog { border: 0; border-radius: 28px; padding: 22px 22px 26px; color: var(--nx-ink); font-family: var(--nx-text);
+  background: linear-gradient(180deg, #0c1518, #070c0e); box-shadow: 0 0 0 1px rgba(255,255,255,.09), 0 40px 120px -20px #000, 0 -24px 80px -34px color-mix(in oklab, var(--nx-a) 40%, transparent); }
+.cc-app[data-entry=account][data-appearance=rose] .cc-meal-dialog { background: linear-gradient(180deg, #130f1d, #0a0811); }
+.cc-app[data-entry=account] .cc-meal-dialog::backdrop { background: rgba(0,0,0,.66); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.cc-app[data-entry=account] .cc-meal-dialog-head h2 { font: 500 11px/1 var(--nx-text); letter-spacing: .14em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-meal-dialog-head .cc-text-button { width: 40px; height: 40px; min-height: 40px; justify-content: center; border-radius: 50%; background: rgba(255,255,255,.06); color: var(--nx-ink-2, rgba(238,244,245,.7)); }
+.cc-app[data-entry=account] .cc-meal-dialog-head .cc-text-button svg { width: 18px; height: 18px; }
+.cc-app[data-entry=account] .cc-meal-navigation { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 10px; margin: 6px 0 18px; }
+.cc-app[data-entry=account] .cc-meal-navigation > span { order: 0; grid-column: 2; grid-row: 1; text-align: center; font: 500 12px/1 var(--nx-text); color: var(--nx-ink-3); font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .cc-meal-navigation button { grid-row: 1; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.06); font-size: 0 !important; gap: 0; color: var(--nx-ink); overflow: hidden; justify-content: center; }
+.cc-app[data-entry=account] .cc-meal-navigation button:first-of-type { grid-column: 1; } .cc-app[data-entry=account] .cc-meal-navigation button:last-of-type { grid-column: 3; }
+.cc-app[data-entry=account] .cc-meal-navigation button svg { width: 18px; height: 18px; }
+.cc-app[data-entry=account] .cc-meal-dialog > h3 { margin: 0 0 8px; font: 300 26px/1.15 var(--nx-display); letter-spacing: -.02em; text-wrap: balance; }
+.cc-app[data-entry=account] .cc-meal-dialog > h3 + p { margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: var(--nx-ink-2, rgba(238,244,245,.7)); }
+.cc-app[data-entry=account] .cc-meal-dialog > h3 + p strong { font-weight: 500; color: var(--nx-ink-2, rgba(238,244,245,.7)); }
+.cc-app[data-entry=account] .cc-meal-macros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 18px 0 20px; border-bottom: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .cc-meal-macros > div { background: none; border: 0; border-radius: 0; border-left: 1px solid var(--nx-hair); padding: 14px 0 14px 12px; display: grid; gap: 8px; min-width: 0; }
+.cc-app[data-entry=account] .cc-meal-macros > div:first-child { grid-column: 1 / -1; border-left: 0; border-bottom: 1px solid var(--nx-hair); padding: 4px 0 18px; }
+.cc-app[data-entry=account] .cc-meal-macros > div:nth-child(3n+2) { border-left: 0; padding-left: 0; }
+.cc-app[data-entry=account] .cc-meal-macros small { font: 500 10.5px/1 var(--nx-text); letter-spacing: .14em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-meal-macros strong { font: 300 22px/1 var(--nx-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--nx-ink); white-space: nowrap; }
+.cc-app[data-entry=account] .cc-meal-macros > div:first-child strong { font: 200 60px/.95 var(--nx-display); letter-spacing: -.045em; }
+.cc-app[data-entry=account] .cc-meal-dialog .cc-portion-label { font: 500 10.5px/1 var(--nx-text); letter-spacing: .14em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-meal-dialog .cc-portion-chips { gap: 0; padding: 4px; border-radius: 14px; background: rgba(255,255,255,.04); }
+.cc-app[data-entry=account] .cc-meal-dialog .cc-portion-chips button { border: 0; border-radius: 10px; background: transparent; min-height: 44px; font: 300 19px/1 var(--nx-display); color: var(--nx-ink-2, rgba(238,244,245,.7)); }
+.cc-app[data-entry=account] .cc-meal-dialog .cc-portion-chips button[aria-pressed=true] { background: rgba(255,255,255,.1); color: var(--nx-ink); opacity: 1; }
+.cc-app[data-entry=account] .cc-meal-dialog .cc-secondary { border: 0; background: rgba(255,255,255,.06); border-radius: 99px; min-height: 46px; }
+.cc-app[data-entry=account] .cc-meal-estimate-details { border: 0; border-top: 1px solid var(--nx-hair); border-radius: 0; background: none; padding-inline: 0; }
+.cc-app[data-entry=account] .cc-meal-estimate-details > summary { font: 500 14px/1 var(--nx-text); color: var(--nx-ink-2, rgba(238,244,245,.7)); min-height: 48px; display: flex; align-items: center; }
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-meal-dialog { position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 90dvh; border-radius: 30px 30px 0 0; padding-bottom: calc(26px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 600px) and (prefers-reduced-motion: no-preference) { .cc-app[data-entry=account] .cc-meal-dialog[open] { animation: nx-sheet-up .32s cubic-bezier(.2,.85,.25,1); } }
+@keyframes nx-sheet-up { from { transform: translateY(40%); opacity: 0; } }
+
+/* ---------- Assistant: an empty chat still has her in it ---------- */
+.nx-chat-empty { display: grid; justify-items: center; align-content: center; gap: 10px; flex: 1; min-height: 180px; padding: 24px 20px; text-align: center; }
+.nx-chat-empty strong { font: 300 28px/1.12 var(--nx-display, Outfit, sans-serif); letter-spacing: -.02em; color: var(--nx-ink); text-wrap: balance; }
+.nx-chat-empty span { max-width: 30ch; font: 400 13.5px/1.5 var(--nx-text, Inter, sans-serif); color: var(--nx-ink-2, rgba(238,244,245,.7)); }
+@media (prefers-reduced-motion: no-preference) { .nx-chat-empty { animation: nx-md-fade .5s ease both; } }
+@keyframes nx-md-fade { from { opacity: 0; } }
+
+/* ---------- Library: saved audio as a quiet section, not the first card ---------- */
+.cc-app[data-entry=account] .cc-shell .cc-card:has(> h3:first-child + .cc-muted) { background: none; border: 0; border-bottom: 1px solid var(--nx-hair); border-radius: 0; padding: 4px 0 18px; box-shadow: none; }
+.cc-app[data-entry=account] .cc-shell .cc-card:has(> h3:first-child + .cc-muted) > h3 { font: 500 15px/1.2 var(--nx-text); margin: 0 0 6px; }
+.cc-app[data-entry=account] .cc-shell .cc-card:has(> h3:first-child + .cc-muted) > .cc-muted { font-size: 13px; line-height: 1.5; margin: 0 0 12px; max-width: 46ch; }
+
+/* ---------- Settings ---------- */
+.cc-app[data-entry=account] .cc-settings-head strong { font: 300 24px/1.1 var(--nx-display); letter-spacing: -.02em; }
+.cc-app[data-entry=account] .cc-settings-close { border: 0; background: rgba(255,255,255,.06); }
