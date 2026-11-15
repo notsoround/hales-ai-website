@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import './noir/noir-gate.css';
 import { accountControl, initializeSessionBoundary, invalidateSession, restoreSession, sessionSnapshot, signIn, subscribeSession, verifySession, type AccountIdentity } from './accountSession';
 import './account-session.css';
 import { AccountInvitationEntry } from './AccountInvitationEntry';
@@ -59,7 +60,7 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   return <main className="cc-app cc-account-gate" data-appearance={brand.appearance}><form className="cc-unlock" onSubmit={event => void submit(event)}>
     <img src={assistantIcon(brand.persona)} alt={brand.name}/><span className="cc-eyebrow">YOUR PRIVATE {brand.name.toUpperCase()}</span>
     <h1>{recovering ? 'Recover your account' : `Sign in to ${brand.name}`}</h1>
-    <p>Your identity comes from your account. Your assistant’s name and appearance are separate choices.</p>
+    <p>{recovering ? 'Enter your recovery code and choose a new password.' : brand.persona === 'cupcake' ? 'There you are. Let’s see what you’ve been up to.' : 'Welcome back. Your numbers are waiting.'}</p>
     {nativeConnection && <p role="status">Sign in to review the Android app connection. Nothing connects until you approve it.</p>}
     {nativeHealthConnection && <p role="status">Sign in to choose which health types the Android app may upload. Nothing uploads until you approve it.</p>}
     <label className="cc-label">Email<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} disabled={busy||session.checking}/></label>
