@@ -182,3 +182,14 @@
   .cc-app[data-entry=account] .cc-coach .cc-rep-seg button { padding: 0 10px; }
   .cc-app[data-entry=account] .cc-coach .cc-rep-grid > .cc-card { padding: 16px 14px 12px; }
 }
+
+/* ---------- Noir alignment: ruled, not boxed; ink numerals, colour only for meaning ---------- */
+.cc-app[data-entry=account] .cc-rep-kpis { gap: 0; border-radius: 0; overflow: visible; background: none; box-shadow: none; border-block: 1px solid var(--rp-hair); padding: 18px 0; row-gap: 18px; }
+.cc-app[data-entry=account] .cc-rep-kpi { background: none; padding: 0 14px; border-left: 1px solid var(--rp-hair); }
+.cc-app[data-entry=account] .cc-rep-kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
+.cc-app[data-entry=account] .cc-rep-kpi[data-kpi=weight] .cc-rep-num { color: inherit; }
+.cc-app[data-entry=account] .cc-shell .cc-coach .cc-rep-card { background: none; border: 0; border-top: 1px solid var(--rp-hair); border-radius: 0; box-shadow: none; padding: 22px 0 6px; }
+@media (min-width: 900px) {
+  .cc-app[data-entry=account] .cc-rep-kpi:nth-child(odd) { padding-left: 14px; border-left: 1px solid var(--rp-hair); }
+  .cc-app[data-entry=account] .cc-rep-kpi:first-child { padding-left: 0; border-left: 0; }
+}

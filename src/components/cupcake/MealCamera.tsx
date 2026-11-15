@@ -47,10 +47,13 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
   const native = useRef<HTMLInputElement>(null), library = useRef<HTMLInputElement>(null);
   const swipe = useRef<{ id: number; y: number; dy: number } | null>(null);
   const [capturing, setCapturing] = useState(false);
+  // Between the tap and the photo: the phone is still focusing and exposing, so the view stays live and asks you to hold still.
+  const [taking, setTaking] = useState(false);
+  const [focus, setFocus] = useState<{ x: number; y: number; key: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const camera = useCameraStream(open, video);
   const { state } = camera;
-  const track = useStillness(open && state === 'live' && !capturing, video);
+  const track = useStillness(open && state === 'live' && !capturing && !taking, video);
 
   useEffect(() => {
     const node = dialog.current;
@@ -59,7 +62,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     if (!node.open) node.showModal();
-    setCapturing(false); setNow(new Date());
+    setCapturing(false); setTaking(false); setNow(new Date());
     const clock = window.setInterval(() => setNow(new Date()), 20_000);
     return () => { window.clearInterval(clock); if (node.open) node.close(); document.body.style.overflow = overflow; previous?.focus({ preventScroll: true }); };
   }, [open]);
@@ -68,21 +71,20 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
 
   const shoot = () => {
     const el = video.current;
-    if (capturing) return;
+    if (capturing || taking) return;
     if (state !== 'live' || !el || !el.videoWidth) { if (state === 'blocked') native.current?.click(); return; }
     navigator.vibrate?.(10);
-    const canvas = document.createElement('canvas');
-    canvas.width = el.videoWidth; canvas.height = el.videoHeight;
-    canvas.getContext('2d')?.drawImage(el, 0, 0, canvas.width, canvas.height);
-    el.pause();
-    setCapturing(true);
+    setTaking(true);
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const settle = new Promise(resolve => window.setTimeout(resolve, reduced ? 0 : 430));
-    const blob = new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-    void Promise.all([blob, settle]).then(([image]) => {
+    const settle = () => new Promise(resolve => window.setTimeout(resolve, reduced ? 0 : 430));
+    // The frame on screen: shown frozen while the real photo is taken, and the fallback when the browser has no still-photo API.
+    const frame = () => { const canvas = document.createElement('canvas'); canvas.width = el.videoWidth; canvas.height = el.videoHeight; canvas.getContext('2d')?.drawImage(el, 0, 0, canvas.width, canvas.height); return new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92)); };
+    // A real still (full sensor, focused for the shot) where the phone offers one. The preview keeps running until it returns.
+    const photo = camera.frameOnly ? Promise.resolve(null) : camera.takeStill();
+    void photo.then(async still => { const image = still || await frame(); el.pause(); setTaking(false); setCapturing(true); await settle(); return image; }).then(image => {
       if (!image) { setCapturing(false); void el.play().catch(() => undefined); return; }
       const stamp = Date.now();
-      deliver(new File([image], `meal-${stamp}.jpg`, { type: 'image/jpeg', lastModified: stamp }));
+      deliver(new File([image], `meal-${stamp}.jpg`, { type: image.type === 'image/png' ? 'image/png' : 'image/jpeg', lastModified: stamp }));
     });
   };
 
@@ -114,6 +116,10 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
     const el = event.currentTarget;
     el.style.transition = '';
     if (s.dy > SWIPE_CLOSE && event.type === 'pointerup') { onClose(); return; }
+    if (s.dy < 6 && event.type === 'pointerup' && state === 'live' && camera.canFocus) {
+      const box = el.getBoundingClientRect(), x = (event.clientX - box.left) / box.width, y = (event.clientY - box.top) / box.height;
+      camera.focusAt(x, y); setFocus({ x: event.clientX - box.left, y: event.clientY - box.top, key: Date.now() });
+    }
     el.style.transform = '';
     el.style.removeProperty('--cc-cam-pull');
   };
@@ -122,11 +128,11 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
   const meal = context?.mealLabel?.trim() || mealForTime(now);
   const kcal = wholeNumber(context?.caloriesLeft), protein = wholeNumber(context?.proteinLeftG);
   const live = state === 'live';
-  const status = state === 'blocked' ? 'Camera off · tap the shutter' : state === 'starting' ? '' : statusVoice()[track];
+  const status = state === 'blocked' ? 'Camera off · tap the shutter' : state === 'starting' ? '' : taking ? 'Hold still…' : statusVoice()[track];
   const announce = state === 'blocked' ? 'Camera access is off. The shutter opens your phone camera.' : live ? 'Camera ready.' : '';
 
   return <dialog ref={dialog} className="cc-cam" aria-label="Meal camera" onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <div className="cc-cam-panel" data-state={state} data-track={track} data-capturing={capturing} data-facing={camera.facing}
+    <div className="cc-cam-panel" data-state={state} data-track={track} data-capturing={capturing} data-taking={taking} data-facing={camera.facing}
       onPointerDown={swipeStart} onPointerMove={swipeMove} onPointerUp={swipeEnd} onPointerCancel={swipeEnd}>
       <div className="cc-cam-stage">
         <video ref={video} className="cc-cam-feed" playsInline muted autoPlay aria-hidden="true"/>
@@ -134,6 +140,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
       </div>
       <Reticle track={state === 'blocked' ? 'search' : track} live={live}/>
       {capturing && <div className="cc-cam-flash" aria-hidden="true"/>}
+      {focus && <i key={focus.key} className="cc-cam-focus" style={{ left: focus.x, top: focus.y }} aria-hidden="true" onAnimationEnd={() => setFocus(null)}/>}
 
       <header className="cc-cam-top">
         <button type="button" className="cc-cam-glass cc-cam-close" aria-label="Close camera" onClick={onClose}><X size={20} strokeWidth={1.75}/></button>
@@ -153,7 +160,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
         </ul>}
         <div className="cc-cam-controls">
           <button type="button" className="cc-cam-library" aria-label="Choose from library" onClick={() => library.current?.click()}><Images size={22} strokeWidth={1.6}/></button>
-          <button type="button" className="cc-cam-shutter" aria-label={state === 'blocked' ? 'Open phone camera' : 'Take meal photo'} disabled={state === 'starting' || capturing} onClick={shoot}><span/></button>
+          <button type="button" className="cc-cam-shutter" aria-label={state === 'blocked' ? 'Open phone camera' : 'Take meal photo'} disabled={state === 'starting' || capturing || taking} onClick={shoot}><span/></button>
           {onOpenFoodLog
             ? <button type="button" className="cc-cam-text" onClick={() => { onClose(); onOpenFoodLog(); }}>Food log</button>
             : <span className="cc-cam-spacer" aria-hidden="true"/>}

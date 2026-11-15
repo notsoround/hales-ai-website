@@ -208,3 +208,9 @@
   .cc-cam-scan, .cc-cam-flash { display: none; }
   .cc-cam-panel, .cc-cam-reticle-frame, .cc-cam-glass, .cc-cam-library, .cc-cam-shutter span { transition: none; }
 }
+/* Tap to focus: a ring where you tapped, gone in under a second. */
+.cc-cam .cc-cam-focus { position: absolute; z-index: 3; width: 68px; height: 68px; margin: -34px 0 0 -34px; border-radius: 50%; border: 1.5px solid var(--cc-pink, #2fe0c8); box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; animation: cc-cam-focus .9s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes cc-cam-focus { 0% { transform: scale(1.35); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: scale(.94); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cc-cam .cc-cam-focus { animation-duration: .01s; } }
+/* Taking the photo: the shutter fills while the phone focuses and exposes. */
+.cc-cam [data-taking=true] .cc-cam-shutter span { transform: scale(.86); background: var(--cc-cam-accent); }
