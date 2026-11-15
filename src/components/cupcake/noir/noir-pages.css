@@ -51,3 +51,6 @@
 /* ---------- Settings ---------- */
 .cc-app[data-entry=account] .cc-settings-head strong { font: 300 24px/1.1 var(--nx-display); letter-spacing: -.02em; }
 .cc-app[data-entry=account] .cc-settings-close { border: 0; background: rgba(255,255,255,.06); }
+
+/* ---------- Errors: a calm warm note, not a pink slab ---------- */
+.cc-app[data-entry=account] .cc-shell .cc-error, .cc-app[data-entry=account] .cc-meal-dialog .cc-error { background: color-mix(in oklab, var(--nx-warm) 9%, transparent); border: 0; border-left: 2px solid var(--nx-warm); border-radius: 0 12px 12px 0; color: var(--nx-ink); padding: 12px 14px; font-size: 14px; line-height: 1.45; }
