@@ -1,0 +1,109 @@
+/* Noir Light ("Porcelain"): the account app's light theme. Chosen in Settings → Appearance → Theme.
+   Everything here sits under :root[data-cc-scheme=light], which only the account entry ever sets (accountScheme.ts),
+   so the dark Noir look and the original /cupcake app are untouched. Designed, not inverted: porcelain grounds,
+   white cards lifted by a soft shadow instead of glow, deep turquoise / violet that read as text (AA) and as ink on a dial.
+   Colour first through the shared tokens; the per-component rules below only replace hard-coded dark values.
+   Token blocks repeat [class] so they outrank the generated layer (noir-light.generated.css) and any load order. */
+
+/* ---------- Tokens ---------- */
+:root[data-cc-scheme=light] .cc-app[class][class][class][class] {
+  color-scheme: light;
+  --cc-bg: #f4f6f7; --cc-surface: #ffffff; --cc-surface-2: #eef1f3;
+  --cc-border: rgba(12,24,28,.1); --cc-line: rgba(12,24,28,.08);
+  --cc-text: #0c1417; --cc-text-2: #424b50; --cc-text-3: #5f686d;
+  --cc-pink: #007a70; --cc-pink-strong: #007a70; --cc-pink-bright: #006a61; --cc-pink-hover: #006a61; --cc-pink-ring: #007a70; --cc-pink-subtle: rgba(0,122,112,.1);
+  --cc-ocean: #1767d1; --cc-ink: #ffffff; --cc-accent-wash: rgba(0,122,112,.07); --cc-edge-glow: rgba(23,103,209,.08);
+  --cc-win: #8a6500; --cc-win-ink: #8a6500;
+  --nx-a: var(--cc-pink); --nx-a2: var(--cc-ocean); --nx-warm: #a85b00; --nx-good: var(--cc-pink); --nx-bad: #c02a3e;
+  --nx-ink: #0c1417; --nx-ink-2: rgba(12,20,23,.74); --nx-ink-3: rgba(12,20,23,.62); --nx-hair: rgba(12,24,28,.09);
+  --nx-surface: rgba(12,24,28,.035); --nx-surface-2: rgba(12,24,28,.06);
+  --nx-card: #ffffff; --nx-card-shadow: 0 1px 2px rgba(16,30,36,.04), 0 8px 28px -12px rgba(16,30,36,.12);
+  --ax-hair: rgba(12,24,28,.09); --ax-hair-2: rgba(12,24,28,.14); --ax-glass: rgba(12,24,28,.04); --ax-glass-2: rgba(12,24,28,.07);
+  --ax-ink: #0c1417; --ax-ink-2: rgba(12,20,23,.74); --ax-ink-3: rgba(12,20,23,.62); --ax-panel: #f9fafb;
+  --lx-hair: rgba(12,24,28,.09); --lx-hair-2: rgba(12,24,28,.14); --lx-surface: #ffffff; --lx-glass: rgba(12,24,28,.04);
+  --lx-ink: #0c1417; --lx-ink-2: rgba(12,20,23,.74); --lx-ink-3: rgba(12,20,23,.62);
+  /* Category colours: the light set Robyn's page and the weekly email already use. */
+  --ds-food-ink: #C2264B; --ds-food: #FF5C7A; --ds-food-prev: #FFD0D9; --ds-food-tint: #FFF0F3;
+  --ds-steps-ink: #A84B00; --ds-steps: #FF9500; --ds-steps-prev: #FFDDB0; --ds-steps-tint: #FFF5E8;
+  --ds-exercise-ink: #1E7B34; --ds-exercise: #34C759; --ds-exercise-prev: #C5EDD0; --ds-exercise-tint: #EEFAF1;
+  --ds-sleep-ink: #4B48C8; --ds-sleep: #7A78F0; --ds-sleep-prev: #D5D4FA; --ds-sleep-tint: #F1F1FE;
+  --ds-body-ink: #0B6E99; --ds-body: #32ADE6; --ds-body-prev: #C4E7F7; --ds-body-tint: #EDF8FD;
+  --ds-wins-ink: #8A6500; --ds-wins: #F5B800; --ds-wins-prev: #F7E3A6; --ds-wins-tint: #FEF9E9;
+  --ds-glucose-ink: #8E3CC0; --ds-glucose: #BF5AF2; --ds-glucose-prev: #E8CCF9; --ds-glucose-tint: #F9F0FE;
+  --ds-summary-ink: #0A6CD6; --ds-summary: #0A84FF; --ds-summary-prev: #BBD9FB; --ds-summary-tint: #EEF5FE;
+  /* Portrait art keeps its own colours; only the surround changes. */
+  color: var(--cc-text);
+}
+:root[data-cc-scheme=light] .cc-app[class][class][class][class][data-appearance=rose] {
+  --cc-bg: #f6f4f9; --cc-surface: #ffffff; --cc-surface-2: #f0edf5;
+  --cc-border: rgba(30,16,52,.1); --cc-line: rgba(30,16,52,.08);
+  --cc-text: #150e21; --cc-text-2: #473e55; --cc-text-3: #62597a;
+  --cc-pink: #6b3cc9; --cc-pink-strong: #6b3cc9; --cc-pink-bright: #5a2fb5; --cc-pink-hover: #5a2fb5; --cc-pink-ring: #6b3cc9; --cc-pink-subtle: rgba(107,60,201,.1);
+  --cc-ocean: #4a2fa8; --cc-accent-wash: rgba(107,60,201,.07); --cc-edge-glow: rgba(74,47,168,.08);
+  --nx-ink: #150e21; --nx-ink-2: rgba(21,14,33,.74); --nx-ink-3: rgba(21,14,33,.62); --nx-hair: rgba(30,16,52,.09);
+  --nx-surface: rgba(30,16,52,.035); --nx-surface-2: rgba(30,16,52,.06);
+  --nx-card-shadow: 0 1px 2px rgba(30,16,52,.04), 0 8px 28px -12px rgba(30,16,52,.14);
+  --ax-hair: rgba(30,16,52,.09); --ax-hair-2: rgba(30,16,52,.14); --ax-ink: #150e21; --ax-ink-2: rgba(21,14,33,.74); --ax-ink-3: rgba(21,14,33,.62); --ax-panel: #faf9fc;
+  --lx-hair: rgba(30,16,52,.09); --lx-hair-2: rgba(30,16,52,.14); --lx-ink: #150e21; --lx-ink-2: rgba(21,14,33,.74); --lx-ink-3: rgba(21,14,33,.62);
+}
+/* Hot accent: richer, still AA on porcelain. */
+:root[data-cc-scheme=light][data-accent-heat=hot] .cc-app[class][class][class][class][data-appearance=caribbean] { --cc-pink: #00756a; --cc-pink-strong: #00756a; --cc-ocean: #0f5ec4; }
+:root[data-cc-scheme=light][data-accent-heat=hot] .cc-app[class][class][class][class][data-appearance=rose] { --cc-pink: #6a2fd6; --cc-pink-strong: #6a2fd6; --cc-ocean: #4a22b0; }
+
+/* ---------- Ground ---------- */
+:root[data-cc-scheme=light] body:has(.cc-app[data-entry=account]), :root[data-cc-scheme=light] body:has(.cc-account-gate) { background: var(--cc-bg, #f4f6f7); }
+:root[data-cc-scheme=light] .cc-app[class][data-entry=account],
+:root[data-cc-scheme=light] .cc-app[class].cc-account-gate {
+  background: radial-gradient(110% 520px at 50% -120px, color-mix(in oklab, var(--cc-pink) 9%, transparent), transparent 70%), var(--cc-bg);
+  background-attachment: fixed;
+}
+
+/* ---------- Dark islands: the live camera and full-screen photos stay dark, like a camera app ---------- */
+:root[data-cc-scheme=light] .cc-app[class] :is(.cc-cam, .cc-photo-viewer)[class] {
+  color-scheme: dark;
+  --cc-text: #edf8fc; --cc-text-2: #b7ccd5; --cc-text-3: #9fb7c2; --cc-bg: #050a0d; --cc-surface: #0c171d; --cc-surface-2: #132631; --cc-border: #29434f; --cc-line: #29434f;
+  --cc-pink: #39e6d2; --cc-pink-strong: #39e6d2; --cc-pink-bright: #80eee1; --cc-ocean: #328dff; --cc-ink: #042d33;
+  --nx-a: var(--cc-pink); --nx-a2: var(--cc-ocean); --nx-ink: #eef4f5; --nx-ink-2: rgba(238,244,245,.7); --nx-ink-3: rgba(238,244,245,.48); --nx-hair: rgba(255,255,255,.07);
+  --nx-surface: rgba(255,255,255,.028); --nx-surface-2: rgba(255,255,255,.05);
+}
+:root[data-cc-scheme=light] .cc-app[class][data-appearance=rose] :is(.cc-cam, .cc-photo-viewer)[class] {
+  --cc-text: #f3eefb; --cc-text-2: #d0c2e4; --cc-text-3: #b6a4ce; --cc-bg: #09070d; --cc-surface: #16111f; --cc-surface-2: #241a31; --cc-border: #4c3b63; --cc-line: #352841;
+  --cc-pink: #ae78ff; --cc-pink-strong: #ae78ff; --cc-pink-bright: #d6b8ff; --cc-ocean: #8650d5; --cc-ink: #180d27;
+}
+
+/* ---------- Surfaces: white cards lifted by shadow, not washes ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-shell :is(.cc-card, .cc-dashboard-card) {
+  background: var(--nx-card); border-color: var(--nx-hair); box-shadow: var(--nx-card-shadow);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-shell .cc-secondary,
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-top > :is(.cc-secondary, .cc-settings-trigger, button, .cc-settings > summary),
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-top > .cc-settings > summary {
+  background: var(--nx-card); border-color: var(--nx-hair); box-shadow: 0 1px 2px rgba(16,30,36,.06);
+}
+:root[data-cc-scheme=light] .cc-app[class] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) {
+  background-color: #fff; border-color: rgba(12,24,28,.14);
+}
+:root[data-cc-scheme=light] .cc-app[class] :is(input, select, textarea):focus-visible { border-color: var(--cc-pink); }
+:root[data-cc-scheme=light] .cc-app[class] .cc-shell .cc-primary,
+:root[data-cc-scheme=light] .cc-app[class] .cc-unlock .cc-primary {
+  color: #fff; box-shadow: 0 10px 26px -14px color-mix(in oklab, var(--cc-pink) 70%, transparent), inset 0 1px 0 rgba(255,255,255,.22);
+}
+
+/* ---------- Segmented controls: a white thumb on a tinted track (the iOS pattern) ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.cc-food-sections, .cc-dashboard-range, .cc-nutrition-scale, .cc-coach-views, .cc-rep-seg, .cc-assistant-modes) {
+  background: rgba(118,118,128,.12); border-color: transparent;
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.cc-food-sections button[aria-selected=true], .cc-dashboard-range button[aria-selected=true], .cc-nutrition-scale button[aria-pressed=true], .cc-coach .cc-coach-views button[aria-selected=true], .cc-coach .cc-rep-seg button[aria-pressed=true], .cc-assistant-modes-thumb) {
+  background: #fff; color: var(--nx-ink); box-shadow: 0 1px 2px rgba(16,30,36,.1), 0 3px 8px -2px rgba(16,30,36,.1);
+}
+
+/* ---------- Sheets and scrims: dim with ink, never with white ---------- */
+:root[data-cc-scheme=light] .cc-app[class] .cc-settings[open] .cc-settings-scrim { background: rgba(12,20,23,.28); }
+
+/* ---------- Tab bar camera: the cut-out ring takes the porcelain ground ---------- */
+@media (max-width: 1023px) {
+  :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-nav button:nth-child(2) {
+    color: #fff;
+    box-shadow: 0 0 0 5px var(--cc-bg), 0 0 0 6px color-mix(in oklab, var(--nx-a) 30%, transparent), 0 14px 30px -10px color-mix(in oklab, var(--nx-a) 60%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+}

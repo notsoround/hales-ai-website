@@ -6,6 +6,9 @@ import { restoreSession, sessionSnapshot, subscribeSession } from '../src/compon
 import { MealPlanCard } from '../src/components/cupcake/robyn/CoachSections';
 import type { Coach } from '../src/components/cupcake/robyn/viewerApi';
 import '../src/index.css';
+import '../src/components/cupcake/accountScheme';
+import '../src/components/cupcake/noir/noir-light.generated.css';
+import '../src/components/cupcake/noir/noir-light.css';
 
 if (!import.meta.env.DEV) throw Error('Synthetic food plan preview is development only.');
 const owners = { A: { account_id: 'acc_plan_a', email: 'a@example.invalid', name: 'Synthetic A' }, B: { account_id: 'acc_plan_b', email: 'b@example.invalid', name: 'Synthetic B' } };

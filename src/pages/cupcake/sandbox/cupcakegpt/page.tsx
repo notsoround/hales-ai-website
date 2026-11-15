@@ -61,6 +61,8 @@ import { PRIVATE_ACCESS_STORAGE, readPrivateAccess, savePrivateAccess, clearPriv
 import { TodayEnergy, useTodayExercise } from '../../../../components/cupcake/TodayEnergy';
 import { AccentHeatToggle } from '../../../../components/cupcake/AccentHeatToggle';
 import { useAccentHeat } from '../../../../components/cupcake/useAccentHeat';
+import { useAccountScheme } from '../../../../components/cupcake/accountScheme';
+import { AccountSchemeSettings } from '../../../../components/cupcake/AccountSchemeSettings';
 import { useCupcakeViewport } from '../../../../components/cupcake/useCupcakeViewport';
 import { ToneIcon } from '../../../../components/cupcake/design/ToneIcon';
 import { Sparkline } from '../../../../components/cupcake/design/Visuals';
@@ -73,6 +75,8 @@ import '../../../../components/cupcake/account-food.css';
 import '../../../../components/cupcake/account-reports.css';
 import '../../../../components/cupcake/account-base.css';
 import '../../../../components/cupcake/noir/account-noir.css';
+import '../../../../components/cupcake/noir/noir-light.generated.css';
+import '../../../../components/cupcake/noir/noir-light.css';
 import { queueAccountMealPhoto, requestFoodCamera } from '../../../../components/cupcake/accountMealPhotoHandoff';
 import { MealCamera } from '../../../../components/cupcake/MealCamera';
 import { lastLoggedMeal } from '../../../../components/cupcake/nutritionModel';
@@ -267,6 +271,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const [speak, setSpeak] = useState(false);
   const [access, setAccess] = useState<AccessGate>(() => (accountIdentity ? 'ready' : readPrivateAccess() ? 'opening' : 'form'));
   const [accentHeat, setAccentHeat] = useAccentHeat();
+  const [schemeChoice, setSchemeChoice] = useAccountScheme();
   const [keyInput, setKeyInput] = useState(readPrivateAccess);
   const [unlocking, setUnlocking] = useState(false);
   const [accessError, setAccessError] = useState('');
@@ -372,7 +377,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app" data-appearance={appearance.appearance}><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'var(--cc-pink)'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
   return <div className="cc-app" data-appearance={appearance.appearance} data-entry={ACCOUNT_SESSIONS?'account':undefined}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong className="cc-account-identity">{accountIdentity?personalAssistantLabel(assistantName,accountIdentity.name||accountIdentity.email):assistantName}</strong><small>Your private companion</small><span className="cc-version" title="App version">{ACCOUNT_SESSIONS?'':'Original · '}v{CUPCAKE_VERSION}</span></div><CupcakeSettings>
-      <SettingsGroup title="Appearance"><AssistantAppearanceSettings {...appearance}/><AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/></SettingsGroup>
+      <SettingsGroup title="Appearance"><AssistantAppearanceSettings {...appearance}/>{ACCOUNT_SESSIONS&&<AccountSchemeSettings choice={schemeChoice} onChange={setSchemeChoice}/>}<AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/></SettingsGroup>
       {accountIdentity&&<><SettingsGroup title="Account & security"><AccountControls identity={accountIdentity} assistantName={assistantName} includePrivacy={false}/></SettingsGroup><SettingsGroup title="Download my data"><AccountSelfExport/></SettingsGroup><SettingsGroup title="Close account access" danger><AccountClosureControls owner={accountIdentity.account_id}/></SettingsGroup></>}
       <SettingsGroup title="App & updates"><AppUpdateNotice busy={mediaBusy} part="check"/>{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}{!ACCOUNT_SESSIONS&&<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}</SettingsGroup>
       {ACCOUNT_SESSIONS&&<SettingsGroup title="Connections"><ConnectionsHub assistantName={assistantName} appleHealth={<AccountAppleHealth/>} iphoneInstall={<AccountInstallInstructions/>} canInstall={!!install} onInstall={promptInstall}/></SettingsGroup>}

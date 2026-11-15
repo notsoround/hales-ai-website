@@ -14,6 +14,9 @@ import '../src/components/cupcake/design/tokens.css';
 import '../src/components/cupcake/design/cupcake-theme.css';
 import '../src/components/cupcake/pulse.css';
 import '../src/components/cupcake/assistant-appearance.css';
+import '../src/components/cupcake/accountScheme';
+import '../src/components/cupcake/noir/noir-light.generated.css';
+import '../src/components/cupcake/noir/noir-light.css';
 
 if (!import.meta.env.DEV) throw Error('Synthetic photo preview is development only.');
 const params = new URLSearchParams(location.search);
