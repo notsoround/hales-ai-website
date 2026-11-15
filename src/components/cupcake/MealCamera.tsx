@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Flashlight, FlashlightOff, Images, SwitchCamera, X } from 'lucide-react';
 import { Reticle } from './camera/Reticle';
+import { CameraQuip } from './camera/CameraQuip';
+import { useLab } from './labsFlags';
 import { useCameraStream } from './camera/useCameraStream';
 import { useStillness } from './camera/useStillness';
 import { clockTime, mealForTime, wholeNumber } from './camera/mealContext';
@@ -53,6 +55,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
   const [now, setNow] = useState(() => new Date());
   const camera = useCameraStream(open, video);
   const { state } = camera;
+  const quips = useLab('camera-quips');
   const track = useStillness(open && state === 'live' && !capturing && !taking, video);
 
   useEffect(() => {
@@ -139,6 +142,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
         <div className="cc-cam-shade" aria-hidden="true"/>
       </div>
       <Reticle track={state === 'blocked' ? 'search' : track} live={live}/>
+      {quips && <CameraQuip active={open && state === 'live' && !capturing && !taking} video={video}/>}
       {capturing && <div className="cc-cam-flash" aria-hidden="true"/>}
       {focus && <i key={focus.key} className="cc-cam-focus" style={{ left: focus.x, top: focus.y }} aria-hidden="true" onAnimationEnd={() => setFocus(null)}/>}
 
