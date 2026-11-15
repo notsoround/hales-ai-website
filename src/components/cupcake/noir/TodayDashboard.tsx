@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Camera, ChevronRight, Dumbbell, Lightbulb, Mic, Radio, RotateCw } from 'lucide-react';
 import { spendSourceLabel } from '../savesModel';
-import { BarChart, Spark, TrendChart, type ChartScrub } from './NoirCharts';
+import { BarChart, TrendChart, type ChartScrub } from './NoirCharts';
 import { libraryRequest } from '../library';
 import { loadWeightPage, type WeightRecord } from '../weightApi';
 import { parseGlucoseEntries, type GlucoseReading } from '../glucoseApi';
@@ -142,6 +142,11 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
             {spend.checkedAt && !spend.loading ? <span>Checked {clock(spend.checkedAt)}</span> : null}<RotateCw size={15} aria-hidden="true" className={spend.loading ? 'is-spinning' : undefined} />
           </button>
         </div>}
+        <button type="button" className="nx-spend nx-weightline" onClick={onOpenHistory} aria-label={latestW ? `Weight ${latestW.weightLb.toFixed(1)} pounds${wDelta !== null ? `, ${wDelta <= 0 ? 'down' : 'up'} ${Math.abs(wDelta).toFixed(1)} this week` : ''}. Open history` : 'Weight, no weigh-in. Open history'}>
+          <span className="nx-spend-main"><small>Weight</small><b>{latestW ? latestW.weightLb.toFixed(1) : '—'}{latestW ? <i> lb</i> : null}</b>
+            <span>{latestW ? wDelta !== null ? `${wDelta <= 0 ? '−' : '+'}${Math.abs(wDelta).toFixed(1)} this week · weighed ${shortDate(Date.parse(latestW.measuredAt))}` : `Weighed ${shortDate(Date.parse(latestW.measuredAt))}` : 'No weigh-in yet'}</span></span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
         <div className="nx-macros" aria-label="Macros today">
           {([['Protein', macros.protein, 150], ['Carbs', macros.carbs, 220], ['Fat', macros.fat, 70]] as const).map(([label, value, goal]) =>
             <div key={label}><b>{Math.round(value)}<small>g</small></b><span>{label}</span><i><u style={{ width: `${Math.min(100, value / goal * 100)}%` }} /></i></div>)}
@@ -158,27 +163,6 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
       </div>
 
       <div className="nx-today-side">
-        <div className="nx-tiles">
-          <button type="button" className="nx-tile" onClick={onOpenHistory} aria-label={latestG ? `Glucose ${latestG.valueMgDl} milligrams per deciliter at ${clock(latestG.at)}` : 'Glucose, no recent reading'}>
-            <small>Glucose</small>
-            <b>{latestG ? latestG.valueMgDl : '—'}<sub>mg/dL</sub></b>
-            <span className={latestG ? latestG.valueMgDl > 180 ? 'nx-bad' : latestG.valueMgDl > 140 || latestG.valueMgDl < 70 ? 'nx-warn' : 'nx-good' : 'nx-dim'}>{latestG ? `${latestG.valueMgDl >= 70 && latestG.valueMgDl <= 140 ? 'In range' : 'Out of range'} · ${clock(latestG.at)}` : 'No reading'}</span>
-            <Spark values={glucose.slice(-12).map(g => g.valueMgDl)} className="nx-c-a" />
-          </button>
-          <button type="button" className="nx-tile" onClick={onOpenHistory} aria-label={latestW ? `Weight ${latestW.weightLb.toFixed(1)} pounds` : 'Weight, no weigh-in'}>
-            <small>Weight</small>
-            <b>{latestW ? latestW.weightLb.toFixed(1) : '—'}<sub>lb</sub></b>
-            <span className={wDelta === null ? 'nx-dim' : wDelta <= 0 ? 'nx-good' : 'nx-warn'}>{wDelta === null ? latestW ? shortDate(Date.parse(latestW.measuredAt)) : 'No weigh-in' : `${wDelta <= 0 ? '−' : '+'}${Math.abs(wDelta).toFixed(1)} this week`}</span>
-            <Spark values={(weight || []).slice(-30).map(m => m.weightLb)} className="nx-c-a2" />
-          </button>
-          <button type="button" className="nx-tile" onClick={onOpenHistory} aria-label={lastNight ? `Slept ${hm(lastNight.asleepMinutes!)}` : 'Sleep, no night uploaded'}>
-            <small>Sleep</small>
-            <b>{lastNight ? hm(lastNight.asleepMinutes!) : '—'}</b>
-            <span className={lastNight && avgSleep !== null ? lastNight.asleepMinutes! >= avgSleep ? 'nx-good' : 'nx-warn' : 'nx-dim'}>{lastNight && avgSleep !== null ? `${lastNight.asleepMinutes! >= avgSleep ? '+' : '−'}${Math.round(Math.abs(lastNight.asleepMinutes! - avgSleep))}m vs avg` : lastNight ? 'Last night' : 'No night yet'}</span>
-            <Spark values={nights.map(n => n.asleepMinutes!)} className="nx-c-sleep" />
-          </button>
-        </div>
-
         {intake && intake.some(d => d.meals.length) && <article className="nx-panel">
           <header><div><h3>Intake</h3><p>{intakeScrub ? `${intakeScrub.title} · ${intakeScrub.value}${intakeScrub.unit ? ` ${intakeScrub.unit}` : ''}` : (() => { const logged = intake.filter(d => d.meals.length && d.day !== today); const avg = logged.length ? logged.reduce((s, d) => s + d.calories, 0) / logged.length : null; return avg === null ? 'Last 14 days' : `Average ${fmtInt(avg)} kcal on ${logged.length} logged days`; })()}</p></div>
             <button type="button" className="nx-link" onClick={onOpenFood}>Food log<ChevronRight size={14} aria-hidden="true" /></button></header>

@@ -20,7 +20,7 @@ function CGMCard() {
       const result = await client.read(controller.signal);
       if (alive.current && !controller.signal.aborted) { receivedAt.current = performance.now(); shown.current = result.reason !== 'unsupported_account'; setData(result); }
     } catch (cause) {
-      if (alive.current && !controller.signal.aborted && !(cause instanceof DOMException && cause.name === 'AbortError')) setError('Saved CGM source could not be checked. Manual readings are unchanged.');
+      if (alive.current && !controller.signal.aborted && !(cause instanceof DOMException && cause.name === 'AbortError')) setError('The sensor can’t be reached right now. Your manual readings still count.');
     } finally { if (pending.current === controller) { pending.current = null; if (alive.current) setBusy(false); } }
   }, [client]);
   useEffect(() => {
