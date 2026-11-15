@@ -46,6 +46,11 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === 'react') return hooks;
       if (name === 'react/jsx-runtime') return { jsx: node, jsxs: node, Fragment: 'fragment' };
       if (name === 'lucide-react') return new Proxy({}, { get: () => emptyComponent });
+      if (name === './NativeHealthSyncDetail') return { NativeHealthSyncDetail: emptyComponent };
+      if (name === './accountMode') return { ACCOUNT_SESSIONS: false, cupcakeHref: href => href };
+      if (name === './dataChanges') return { useDataChanged() {} };
+      if (name === './noir/OutcomeBalance') return { OutcomeBalance: emptyComponent };
+      if (name === './personalStorage') return { personalStorage: kind => context[kind] };
       if (name === './WeightHistoryConnected') return { WeightHistoryConnected: emptyComponent };
       if (name === './NativeHealthSyncDetail') return { NativeHealthSyncDetail: emptyComponent };
       // These assertions exercise the original scorecard UI; Noir is covered by the account design harness.
