@@ -13,7 +13,7 @@ W=390 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/probe-ax.mj
 ```
 
 ```bash
-RICH=1 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/native-feel.mjs    # app behaviour: installs as its own app (manifests, icons, shortcuts), Back closes layers, offline line, in-app confirm sheet, camera shortcut
+RICH=1 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/native-feel.mjs    # app behaviour: installs as its own app (manifests, icons, shortcuts), Back closes layers, offline line, pull to refresh on Today (installed app only, off while a layer is open), in-app confirm sheet, camera shortcut
 RICH=1 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/native-audit.mjs   # report only: touch targets under 44px, selectable controls, inputs that would zoom; writes native-audit.json
 ```
 

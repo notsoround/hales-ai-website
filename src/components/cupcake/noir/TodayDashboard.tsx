@@ -1,6 +1,6 @@
 /** Today's instrument panel for the account app: the calorie dial, one camera button with voice beside it,
  *  a strip of three key readings, and touchable charts for intake, glucose and weight. Everything below it is drill-down. */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, ChevronRight, Dumbbell, Lightbulb, Mic, Radio, RotateCw } from 'lucide-react';
 import { spendSourceLabel } from '../savesModel';
 import { BarChart, TrendChart, type ChartScrub } from './NoirCharts';
@@ -10,6 +10,7 @@ import { parseGlucoseEntries, type GlucoseReading } from '../glucoseApi';
 import { parseRingconnNight, type RingconnNight } from '../ringconnApi';
 import { addDays, nutritionDay, nutritionDays, type NutritionHistory, type NutritionSettings } from '../nutritionModel';
 import { useDataChanged } from '../dataChanges';
+import { PullRefresh } from '../PullRefresh';
 import { todayLine } from './voice';
 import './noir-today.css';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
@@ -99,6 +100,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
     sleepLastNight: !!lastNight && lastNight.nightId >= addDays(today, -1),
   } : null;
   const [metric, setMetric] = useState('cal');
+  const pullArea = useRef<HTMLElement>(null);
   const [intakeScrub, setIntakeScrub] = useState<ChartScrub | null>(null);
   const [glucoseScrub, setGlucoseScrub] = useState<ChartScrub | null>(null);
   const [weightScrub, setWeightScrub] = useState<ChartScrub | null>(null);
@@ -126,7 +128,8 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
       chip: sleepNight ? hm(sleepNight.asleepMinutes!) : '—', spoken: sleepNight ? `Slept ${Math.floor(sleepNight.asleepMinutes! / 60)} hours ${Math.round(sleepNight.asleepMinutes! % 60)} minutes last night, an estimate from your ring` : 'Sleep, no night uploaded', drill: { label: 'History', run: onOpenHistory },
       facts: sleepNight ? [{ k: 'Asleep', v: `${hm(sleepNight.asleepMinutes!)} h` }, ...(avgSleep !== null ? [{ k: 'Your average', v: `${hm(avgSleep)} h` }] : []), { k: 'Against 8 hours', v: sleepNight.asleepMinutes! >= SLEEP_GOAL ? 'Reached' : `${hm(SLEEP_GOAL - sleepNight.asleepMinutes!)} short` }, { k: 'Source', v: 'Ring estimate' }] : [{ k: 'Last night', v: 'Not uploaded' }] },
   ];
-  return <section className="nx-today" aria-label="Today at a glance">
+  return <section ref={pullArea} className="nx-today" aria-label="Today at a glance">
+    <PullRefresh target={pullArea} />
     <header className="nx-today-head"><div><span>{dateLine}</span><h2 className="nx-say">{nutrition.loading && !day ? <>&nbsp;</> : <>{say.before}<em>{say.accent}</em>{say.after}</>}</h2></div>
       <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={onOpenHistory} /></header>
     <div className="nx-today-top">

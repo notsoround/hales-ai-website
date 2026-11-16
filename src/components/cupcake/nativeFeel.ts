@@ -4,18 +4,24 @@ import { useEffect, useRef, useState } from 'react';
 import { ACCOUNT_SESSIONS } from './accountMode';
 
 type Watcher = { onclose: (() => void) | null; destroy: () => void };
+/** How many layers registered through useBackClose are open right now (sheets, panels, the recap card). */
+let openLayers = 0;
+export function openLayerCount() { return openLayers; }
 /** While `open`, the phone's Back button or gesture closes this layer instead of leaving the screen (Android Chrome's
- *  close-request signal; Escape on a keyboard). History is not touched, so tab Back keeps working underneath. */
+ *  close-request signal; Escape on a keyboard). History is not touched, so tab Back keeps working underneath.
+ *  An open layer is also counted, so page gestures (pull to refresh) stay off while it is up. */
 export function useBackClose(open: boolean, onClose: () => void) {
   const latest = useRef(onClose); latest.current = onClose;
   useEffect(() => {
     if (!open || !ACCOUNT_SESSIONS) return;
+    openLayers++;
+    const release = () => { openLayers = Math.max(0, openLayers - 1); };
     const Ctor = (window as unknown as { CloseWatcher?: new () => Watcher }).CloseWatcher;
-    if (!Ctor) return;
+    if (!Ctor) return release;
     let watcher: Watcher;
-    try { watcher = new Ctor(); } catch { return; }
+    try { watcher = new Ctor(); } catch { return release; }
     watcher.onclose = () => latest.current();
-    return () => { watcher.onclose = null; try { watcher.destroy(); } catch { /* already closed */ } };
+    return () => { release(); watcher.onclose = null; try { watcher.destroy(); } catch { /* already closed */ } };
   }, [open]);
 }
 
