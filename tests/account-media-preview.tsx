@@ -6,6 +6,7 @@ import ReceiptWorkspace from '../src/components/cupcake/ReceiptWorkspace';
 import { ACCOUNT_SESSIONS } from '../src/components/cupcake/accountMode';
 import { restoreSession } from '../src/components/cupcake/accountSession';
 import { libraryRequest } from '../src/components/cupcake/library';
+import { photoDraftStore, type PhotoIntent } from '../src/components/cupcake/accountFoodPhotoDraft';
 import '../src/index.css';
 
 if (!import.meta.env.DEV) throw Error('Synthetic media preview is development only.');
@@ -21,7 +22,9 @@ const receipts = [
   { id: 'receipt_' + 'b'.repeat(32), status: 'extraction_failed', merchant: 'Synthetic failed receipt', createdAt: now, date: now.slice(0, 10), total: null, currency: null, tip: null, tax: null, lineItems: [], matchedTransactionId: null as string | null },
   { id: 'receipt_' + 'c'.repeat(32), status: 'matched', merchant: 'Synthetic matched receipt', createdAt: now, date: now.slice(0, 10), total: 8, currency: 'USD', tip: 0, tax: 0, lineItems: [], matchedTransactionId: 'synthetic-confirmed' },
 ];
-const fixture = { requests: [] as Record<string, unknown>[], blocked: [] as string[], mediaRequests: 0, inputClicks: 0, request: libraryRequest };
+const fixture = { requests: [] as Record<string, unknown>[], blocked: [] as string[], mediaRequests: 0, inputClicks: 0, request: libraryRequest,
+  photoUploads: [] as { body: PhotoIntent; durable: boolean }[] };
+let uploaded: (typeof pending & { source: string; logDestination: string; logState: string; accountLoggedAt: string; countedInTotals: boolean }) | undefined;
 (window as unknown as { mediaFixture: typeof fixture }).mediaFixture = fixture;
 const nativeFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
@@ -30,15 +33,29 @@ window.fetch = async (input, init) => {
   const body = JSON.parse(String(init?.body || '{}'));
   const response = (data: object) => Response.json({ ok: true, ...data, ...(ACCOUNT_SESSIONS ? { identity } : {}) });
   if (ACCOUNT_SESSIONS && url.href === 'https://automate.hales.ai/api/account/session') return response({});
+  if (ACCOUNT_SESSIONS && ['https://automate.hales.ai/api/account/data', 'https://automate.hales.ai/api/account/food/photo/analyze'].includes(url.href)) {
+    const headers = new Headers(init?.headers);
+    if (init?.method !== 'POST' || init.credentials !== 'include' || headers.get('X-Cupcake-Request') !== 'account' || headers.get('X-Cupcake-Account-Context') !== identity.account_id || headers.has('X-Cupcake-Key')) {
+      fixture.blocked.push(url.href); throw Error('Synthetic account transport was not scoped to the signed-in owner.');
+    }
+    if (url.pathname.endsWith('/food/photo/analyze')) {
+      const intent = body as PhotoIntent;
+      const durable = (await photoDraftStore().list()).some(saved => JSON.stringify(saved) === JSON.stringify(intent));
+      fixture.photoUploads.push({ body: intent, durable });
+      uploaded = { ...pending, id: 'meal_' + intent.request_id.replaceAll('-', ''), description: 'Synthetic newly logged photo', consumedAt: intent.consumed_at,
+        source: 'account-photo-estimate', logDestination: 'account-local', logState: 'logged', accountLoggedAt: now, countedInTotals: true };
+      return response({ request: { request_id: intent.request_id, attempt: 'synthetic-photo-attempt', meal_id: uploaded.id, status: 'completed', error: null, dispatched: true }, meal: uploaded });
+    }
+  }
   if (url.href !== (ACCOUNT_SESSIONS ? 'https://automate.hales.ai/api/account/data' : 'https://automate.hales.ai/cupcake-library')) {
     if (!ACCOUNT_SESSIONS && url.href.startsWith('https://automate.hales.ai/webhook/cupcake-feed')) return response({ items: [], coverage: { scope: 'food-history', complete: true } });
     fixture.blocked.push(url.href); throw Error('External request blocked in isolated media preview.');
   }
   fixture.requests.push(body);
-  if (body.action === 'food_list') return response({ meals });
-  if (body.action === 'food_history') return response({ meals: [meal], total: 1, pendingCount: 2, undatedLoggedCount: 0, hasMore: false });
+  if (body.action === 'food_list') return response({ meals: uploaded ? [uploaded, ...meals] : meals });
+  if (body.action === 'food_history') return response({ meals: uploaded ? [uploaded, meal] : [meal], total: uploaded ? 2 : 1, pendingCount: 2, undatedLoggedCount: 0, hasMore: false });
   if (body.action === 'food_settings_get') return response({ settings: { calorieTarget: null, expenditureEstimate: null, effectiveFrom: null } });
-  if (body.action === 'food_get') return response({ meal: meals.find(item => item.id === body.mealId) });
+  if (body.action === 'food_get') return response({ meal: uploaded?.id === body.mealId ? uploaded : meals.find(item => item.id === body.mealId) });
   if (body.action === 'food_photo') return response({ photo: { dataUrl: image } });
   if (body.action === 'receipt_list') return response({ receipts });
   if (body.action === 'receipt_get') return response({ receipt: receipts.find(item => item.id === body.receiptId), ...(body.includeImage ? { image } : {}) });

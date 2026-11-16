@@ -21,17 +21,21 @@ async function open(entry) {
   await page.goto(base + entry); await page.getByRole('heading', { name: 'Food', exact: true }).waitFor();
   return { context, page };
 }
-async function snapshot(page) { return page.evaluate(() => ({ requests: window.mediaFixture.requests, blocked: window.mediaFixture.blocked, mediaRequests: window.mediaFixture.mediaRequests, inputClicks: window.mediaFixture.inputClicks })); }
+async function snapshot(page) { return page.evaluate(() => ({ requests: window.mediaFixture.requests, blocked: window.mediaFixture.blocked, mediaRequests: window.mediaFixture.mediaRequests, inputClicks: window.mediaFixture.inputClicks, photoUploads: window.mediaFixture.photoUploads })); }
 try {
   const { context, page } = await open('/cupcake/account');
   await page.getByRole('heading', { name: 'Log a food photo', exact: true }).waitFor();
-  assert.equal(await page.locator('input[type=file]').count(), 2);
-  assert.equal(await page.getByRole('button', { name: /Take photo|Choose existing photo|Add food photo/ }).count(), 0);
+  assert.equal(await page.getByLabel('Choose meal photo file', { exact: true }).count(), 1);
+  await page.getByRole('button', { name: 'Take meal photo', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Choose meal photo', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: /^(Take photo|Choose existing photo|Add food photo)$/ }).count(), 0);
+  const initial = await snapshot(page);
+  assert.equal(initial.mediaRequests, 0); assert.equal(initial.inputClicks, 0); assert.deepEqual(initial.photoUploads, []);
   await page.locator('.cc-nutrition-timeline-item button').filter({ hasText: 'Synthetic saved lunch' }).click();
   const saved = page.getByRole('dialog');
   await saved.getByRole('heading', { name: 'Synthetic saved lunch' }).waitFor();
   await saved.getByAltText('Saved photo: Synthetic saved lunch').waitFor();
-  assert.equal(await saved.getByAltText('Saved photo: Synthetic saved lunch').evaluate(image => image.complete && image.naturalWidth > 0), true);
+  await page.waitForFunction(() => { const image = document.querySelector('img[alt="Saved photo: Synthetic saved lunch"]'); return image?.complete && image.naturalWidth > 0; });
   await page.keyboard.press('Escape');
   for (const description of ['Synthetic pending lunch', 'Synthetic failed photo']) {
     await page.locator('.cc-snap-recent-item').filter({ hasText: description }).first().click();
@@ -39,6 +43,18 @@ try {
     assert.equal(await page.getByRole('button', { name: /Retry analysis|Apply correction|Add to food log/ }).count(), 0);
     await page.keyboard.press('Escape');
   }
+  const beforeChoice = await snapshot(page);
+  assert.equal(beforeChoice.mediaRequests, 0); assert.equal(beforeChoice.inputClicks, 0); assert.deepEqual(beforeChoice.photoUploads, []);
+  const [picker] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Choose meal photo', exact: true }).click()]);
+  assert.deepEqual((await snapshot(page)).photoUploads, [], 'opening the picker alone does not upload');
+  await picker.setFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: png });
+  await page.getByRole('heading', { name: 'Meal saved to your food log', exact: true }).waitFor();
+  const afterChoice = await snapshot(page);
+  assert.equal(afterChoice.photoUploads.length, 1);
+  const { body: upload, durable } = afterChoice.photoUploads[0];
+  assert.equal(durable, true); assert.equal(upload.confirm_consumed, true); assert.equal(upload.estimate_visible_portion, true);
+  assert.equal(upload.photo_time_basis, 'file_last_modified'); assert.equal(upload.consumed_at, upload.photo_taken_at);
+  assert.ok(afterChoice.requests.some(request => request.action === 'food_get' && request.mealId === 'meal_' + upload.request_id.replaceAll('-', '')));
   await page.getByRole('button', { name: 'Receipts preview', exact: true }).click();
   await page.getByText('Receipt capture and bank search unavailable', { exact: true }).waitFor();
   assert.equal(await page.locator('input[type=file]').count(), 0);
@@ -53,7 +69,7 @@ try {
   // Preserve the existing supported confirmation transport; no live bank search or record write.
   await page.evaluate(async () => window.mediaFixture.request({ action: 'receipt_confirm_match', receiptId: 'receipt_' + 'a'.repeat(32), transactionId: 'synthetic-saved-candidate', acknowledgeDifferences: true }));
   const account = await snapshot(page);
-  assert.deepEqual(account.blocked, []); assert.equal(account.mediaRequests, 0); assert.equal(account.inputClicks, 0);
+  assert.deepEqual(account.blocked, []); assert.equal(account.mediaRequests, 0); assert.equal(account.inputClicks, 1); assert.equal(account.photoUploads.length, 1);
   assert.equal(account.requests.some(request => unsupported.has(request.action)), false);
   assert.ok(account.requests.some(request => request.action === 'food_photo'));
   assert.ok(account.requests.some(request => request.action === 'receipt_get' && request.includeImage));

@@ -31,7 +31,9 @@ async function measure(page, label, width) {
   assert.equal(value.width, width, `${label}: layout viewport`);
   assert.ok(value.scroll <= width, `${label}: document overflow ${value.scroll}>${width}`);
   assert.ok(value.inner <= width, `${label}: expanded innerWidth`);
-  assert.match(value.policy, /maximum-scale=1/);
+  assert.match(value.policy, /(?:^|,\s*)width=device-width(?:,|$)/);
+  assert.match(value.policy, /(?:^|,\s*)initial-scale=1(?:,|$)/);
+  assert.doesNotMatch(value.policy, /user-scalable\s*=\s*no|maximum-scale\s*=\s*1(?:\.0+)?(?:\s*,|$)/i);
   if (value.panel) {
     assert.ok(value.panel.left >= -1 && value.panel.right <= width + 1, `${label}: panel outside viewport`);
     assert.ok(value.panel.scroll <= value.panel.client + 1, `${label}: panel has horizontal overflow ${JSON.stringify(value)}`);

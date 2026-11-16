@@ -2,8 +2,9 @@ import ts from 'typescript';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { acquireMicrophone, microphoneConstraints, microphoneMessage } from '../src/components/cupcake/voiceInput.ts';
-import { closeVoiceTransport, drainVoiceTransport, TalkLineDrain, VoiceEndingCoordinator } from '../src/components/cupcake/voiceHistory.ts';
+import { importCupcakeSource } from './cupcake-source-fixture.mjs';
+const { acquireMicrophone, microphoneConstraints, microphoneMessage } = await importCupcakeSource('voiceInput.ts');
+const { closeVoiceTransport, drainVoiceTransport, TalkLineDrain, VoiceEndingCoordinator } = await importCupcakeSource('voiceHistory.ts');
 
 const source = readFileSync('src/components/cupcake/CupcakeStudio.tsx', 'utf8');
 const ast = ts.createSourceFile('studio.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -28,6 +29,8 @@ function scenario({ deadline = 1000, meeting = false } = {}) {
   const ref = current => ({ current });
   const scope = {
     keepMediaOnHide: false, recording: false, busy: false, micTesting: false, voice: 'idle', mode: 'talk', active: true, inputDevice: '', title: '', autoAnalyze: false,
+    ACCOUNT_SESSIONS: false, get voiceActive() { return this.voice !== 'idle'; }, get anyMicTesting() { return this.micTesting; },
+    storageScope: { namespace: '', generation: 0 }, deviceStorage: { getItem: () => null, setItem() {} }, archiveUpload: ref(null),
     captureAcquisition: ref(null), captureGeneration: ref(0), voiceAcquisition: ref(null), voiceGeneration: ref(0), mounted: ref(true),
     stoppingVoice: ref(false), endingVoice: ref(new VoiceEndingCoordinator()), voiceMic: ref(null), call: ref(null), remoteId: ref(null),
     talkLocalId: ref(''), talkStarted: ref(''), talkCapture: ref(null), lineDrain: ref(new TalkLineDrain()), linesRef: ref([]), players: ref(new Map()),
@@ -50,7 +53,7 @@ function scenario({ deadline = 1000, meeting = false } = {}) {
     // Talk-about-this-call seed (added with the missed-call Talk card); no call is pre-selected in these startup tests.
     callSeed:null,setCallSeed:()=>{},TALK_SEED_KEY:'synthetic-talk-seed',
     // Talk preloads the Daily SDK alongside the permission prompt; any call object creation counts as a provider session.
-    loadDaily:async()=>({createCallObject(){events.push('provider-request');throw Error('Provider must never be reached by pending-permission tests');}}),sessionStorage:{setItem(){},getItem(){return null;},removeItem(){}},
+    loadDaily:async()=>({createCallObject(){events.push('provider-request');throw Error('Provider must never be reached by pending-permission tests');}}),tabStorage:{setItem(){},getItem(){return null;},removeItem(){}},
   };
   vm.createContext(scope); vm.runInContext(js, scope);
   const start = () => meeting ? scope.startRecording(true) : scope.mode === 'record' ? scope.startRecording(false) : scope.startVoice();
@@ -92,13 +95,15 @@ await assert.rejects(acquireMicrophone(() => { attempted = true; return Promise.
 const rapid=scenario();rapid.scope.setVoice=value=>rapid.events.push(['voice',value]);
 const first=rapid.start(),second=rapid.start();await tick();assert.equal(rapid.events.filter(e=>e==='permission-request').length,1,'same-render double start asks for only one microphone');await rapid.scope.endVoice();await Promise.all([first,second]);
 for(const cancellation of ['button','unmount']){
-  const t=scenario(),writing=deferred();t.scope.mode='record';const cleanup=t.scope.mountEffect();
+  const t=scenario(),writing=deferred(),entered=deferred();t.scope.mode='record';const cleanup=t.scope.mountEffect();
   const drafts=new Map([['existing-recording',{audio:'preserve me'}]]);
-  t.scope.putDraft=async draft=>{await writing.promise;drafts.set(draft.id,draft);};
+  t.scope.putDraft=async draft=>{entered.resolve(draft.id);await writing.promise;drafts.set(draft.id,draft);};
   t.scope.deleteDraft=async id=>{t.events.push(['draft-deleted',id]);drafts.delete(id);};
-  const pending=t.start();t.mic.resolve(stream());await tick();
+  const pending=t.start();t.mic.resolve(stream());
+  const started=await Promise.race([entered.promise,pending.then(()=>null)]);assert.ok(started,'startup reached the empty draft write before cancellation');
   if(cancellation==='unmount')cleanup();else t.scope.cancelRecordingStart();
   writing.resolve();await pending;
+  assert.ok(t.events.some(event=>Array.isArray(event)&&event[0]==='draft-deleted'&&event[1]===started),'the interrupted new draft was deleted');
   assert.deepEqual([...drafts.keys()],['existing-recording'],`only the new empty draft removed after ${cancellation}`);
   assert.equal(drafts.get('existing-recording').audio,'preserve me');assert.ok(!t.events.includes('recorder-created'));
 }

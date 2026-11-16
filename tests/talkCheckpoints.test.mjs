@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {TalkCheckpointRecovery, remoteTalkSummary} from '../src/components/cupcake/talkCheckpoints.ts';
-import {TalkLineDrain,VoiceEndingCoordinator,closeVoiceTransport,persistTalk,readTalks,saveTalk,continuationContext,startingContextFor,validStartingContext} from '../src/components/cupcake/voiceHistory.ts';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 import vm from 'node:vm';
+import { importCupcakeSource } from './cupcake-source-fixture.mjs';
+const {TalkCheckpointRecovery, remoteTalkSummary} = await importCupcakeSource('talkCheckpoints.ts');
+const {TalkLineDrain,VoiceEndingCoordinator,closeVoiceTransport,persistTalk,readTalks,saveTalk,continuationContext,startingContextFor,validStartingContext} = await importCupcakeSource('voiceHistory.ts');
 function storage(){const m=new Map();return {get length(){return m.size},key:i=>[...m.keys()][i],getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v)}}
 const line=text=>({role:'You',text});
 const response=p=>({session:{id:p.sessionId,version:p.version,documentId:'doc_synthetic',...(p.startingContext?{startingContext:p.startingContext}:{})},libraryStatus:'indexed'});

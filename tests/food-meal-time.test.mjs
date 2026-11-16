@@ -93,6 +93,8 @@ let logMode = 'cancel';
 const requests = [];
 const nutritionReload = async () => {};
 const snap = surface('src/pages/cupcake/sandbox/cupcakegpt/page.tsx', 'SnapView', {}, {
+  // This legacy flow delivers no cross-screen account data-change event.
+  '../../../../components/cupcake/dataChanges': { useDataChanged() {} },
   '../../../../components/cupcake/nutritionApi': { useNutritionData: () => ({ history: null, reload: nutritionReload }) },
   '../../../../components/cupcake/MealTimeInput': { MealTimeInput },
   '../../../../components/cupcake/libraryApproval': { LibraryApprovalCancelled },

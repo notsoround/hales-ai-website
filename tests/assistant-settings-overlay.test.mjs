@@ -18,7 +18,8 @@ async function topmost(control) {
   await control.scrollIntoViewIfNeeded();
   const result = await control.evaluate(el => {
     const r = el.getBoundingClientRect();
-    const points = [[.5, .5], [.15, .15], [.85, .15], [.15, .85], [.85, .85]];
+    // Sample the center and edges inside the controls' rounded corners.
+    const points = [[.5, .5], [.15, .5], [.85, .5], [.5, .15], [.5, .85]];
     return points.map(([x, y]) => {
       const hit = document.elementFromPoint(r.left + r.width * x, r.top + r.height * y);
       return { topmost: !!hit && (hit === el || el.contains(hit)), hit: hit?.className?.baseVal ?? hit?.className ?? null };
@@ -53,6 +54,8 @@ try {
         if (config.width < 600) await summary.press('Enter');
         else await summary.click();
         await page.waitForFunction(() => document.querySelector('.cc-settings')?.open);
+        const appearance = page.locator('.cc-settings-group > summary').filter({ hasText: /^Appearance$/ });
+        if (!await appearance.evaluate(summary => summary.parentElement.open)) await appearance.click();
         await topmost(page.getByRole('combobox', { name: 'Assistant appearance' }));
         await topmost(page.getByRole('button', { name: 'Close settings', exact: true }));
         assert.equal(await assistant.isVisible(), true, 'Settings must keep the assistant mounted and open');

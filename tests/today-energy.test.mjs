@@ -1,13 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildMetabolicSeries,monotonePath,sampleNetAt,SERIES_INTERVALS_PER_DAY} from '../src/components/cupcake/metabolicSeries.ts';
-import {nutritionDays,nutritionDayStart} from '../src/components/cupcake/nutritionModel.ts';
-import {preparedPurchases} from '../src/components/cupcake/purchases.ts';
-import {chicagoHourOnDay,closestReading,loadGlucoseReadings,parseGlucoseEntries} from '../src/components/cupcake/glucoseApi.ts';
-import {ExerciseUnavailableError,listExercises,logExercise,deleteExercise} from '../src/components/cupcake/exerciseApi.ts';
-import {estimateExerciseBurn} from '../src/components/cupcake/exerciseEstimate.ts';
-import {normalizeAccentHeat} from '../src/components/cupcake/accentHeat.ts';
-import {StepsUnavailableError,latestSteps,parseStepsDay,stepsDayLabel} from '../src/components/cupcake/stepsApi.ts';
+import { importCupcakeSource } from './cupcake-source-fixture.mjs';
+const {buildMetabolicSeries,monotonePath,sampleNetAt,SERIES_INTERVALS_PER_DAY} = await importCupcakeSource('metabolicSeries.ts');
+const {nutritionDays,nutritionDayStart} = await importCupcakeSource('nutritionModel.ts');
+const {preparedPurchases} = await importCupcakeSource('purchases.ts');
+const {chicagoHourOnDay,closestReading,loadGlucoseReadings,parseGlucoseEntries} = await importCupcakeSource('glucoseApi.ts');
+const {ExerciseUnavailableError,listExercises,logExercise,deleteExercise} = await importCupcakeSource('exerciseApi.ts');
+const {estimateExerciseBurn} = await importCupcakeSource('exerciseEstimate.ts');
+const {normalizeAccentHeat} = await importCupcakeSource('accentHeat.ts');
+const {StepsUnavailableError,latestSteps,parseStepsDay,stepsDayLabel} = await importCupcakeSource('stepsApi.ts');
 
 const now=new Date('2026-10-18T19:00:00Z'); // 2:00 PM Chicago
 const settings={calorieTarget:2000,expenditureEstimate:2400,effectiveFrom:'2026-10-01',versions:[]};

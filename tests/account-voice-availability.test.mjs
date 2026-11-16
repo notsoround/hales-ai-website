@@ -23,8 +23,9 @@ try {
     await page.goto(base + 'cupcake/account?tab=talk');
     const panel = page.locator('#cupcake-assistant');
     await panel.getByRole('heading', { name: 'Live voice with ' + name, exact: true }).waitFor();
-    assert.equal(await panel.getByRole('button', { name: 'Live voice unavailable', exact: true }).isDisabled(), true);
-    await panel.getByText(`Live voice is not available for account sign-in yet. Choose Text to chat with ${name}, or Record to save audio and transcribe a complete clip up to three minutes.`, { exact: true }).waitFor();
+    await panel.getByText('Live voice is currently unavailable. You can still use Text or Record.', { exact: true }).waitFor();
+    assert.equal(await panel.getByRole('button', { name: 'Start conversation', exact: true }).isDisabled(), true);
+    await panel.getByText('No saved voice conversations loaded.', { exact: true }).waitFor();
     assert.equal(await panel.getByText('Private voice session', { exact: false }).count(), 0);
     await panel.getByRole('button', { name: 'Text', exact: true }).click();
     assert.equal(await panel.getByRole('button', { name: 'Text', exact: true }).getAttribute('aria-pressed'), 'true');
@@ -32,6 +33,14 @@ try {
     await panel.getByRole('button', { name: 'Start microphone recording', exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.accountFixture.micRequests), 0);
     assert.equal(await page.evaluate(() => window.accountFixture.legacyReads), 0);
+    const reads = await page.evaluate(() => window.accountFixture.requests.filter(request => request.route.startsWith('voice/')));
+    assert.deepEqual([...new Set(reads.map(request => request.route))].sort(), ['voice/config', 'voice/list']);
+    for (const request of reads) {
+      assert.deepEqual(request.body, {}); assert.equal(request.credentials, 'include');
+      assert.equal(request.headers['x-cupcake-request'], 'account'); assert.equal(request.headers['x-cupcake-account-context'], 'acc_synthetic_a');
+      assert.equal(request.headers['x-cupcake-key'], undefined);
+    }
+    assert.deepEqual(await page.evaluate(() => window.accountFixture.blocked), []);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await context.close();
   }

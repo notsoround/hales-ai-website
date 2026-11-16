@@ -50,7 +50,7 @@ async function open(init) {
   return { context, page, errors };
 }
 async function login(page, owner = 'a') { await page.getByLabel('Email', { exact: true }).fill(owner + '@example.invalid'); await page.getByLabel('Password', { exact: true }).fill('Synthetic password 123!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await page.getByText('MyCupcake — Synthetic ' + owner.toUpperCase(), { exact: true }).first().waitFor(); }
-async function settings(page) { await page.locator('summary[aria-label="Settings"]').click(); await ui(page).waitFor(); }
+async function settings(page) { await page.locator('summary[aria-label="Settings"]').click(); await page.locator('.cc-settings-group > summary').filter({hasText:/^Close account access$/}).click(); await ui(page).waitFor(); }
 const ui = page => page.getByRole('region', { name: 'Close your account', exact: true });
 const recovery = page => page.getByRole('region', { name: 'Saved account closure receipt', exact: true });
 async function review(page) { await ui(page).getByRole('button', { name: 'Review account closure', exact: true }).click(); await ui(page).getByRole('heading', { name: 'Before you close access', exact: true }).waitFor(); }
@@ -117,4 +117,4 @@ try {
   reset(); const expired = await open(() => { const key = 'cupcake-account-closure-v1:acc_synthetic_a'; localStorage.setItem(key, JSON.stringify({ ownerId: 'acc_synthetic_a', request_id: '00000000-0000-4000-8000-000000000001', receipt_token: 'cc_' + 'x'.repeat(43), scope_version: 'account-close-2026-11-07', receiptExpiresAt: Date.now() / 1000 - 1 })); localStorage.setItem('cupcake-account-closure-v1:latest', key); });
   assert.deepEqual(await stored(expired.page), {}); assert.equal(await recovery(expired.page).count(), 0); assert.equal(requests.length, 0); await expired.context.close(); console.log('PASS: expired seven-day recovery capability removed locally without a request');
 } finally { await browser.close(); await server.close(); rmSync(cacheDir, { recursive: true, force: true }); }
-async function pageExistingFunctions(page) { await page.getByRole('region', { name: 'Download your data', exact: true }).waitFor(); await page.getByRole('button', { name: 'Change password', exact: true }).waitFor(); await page.getByRole('button', { name: 'Sign out all devices', exact: true }).waitFor(); }
+async function pageExistingFunctions(page) { await page.locator('.cc-settings-group > summary').filter({hasText:/^Download my data$/}).click(); await page.locator('.cc-settings-group > summary').filter({hasText:/^Account & security$/}).click(); await page.getByRole('region', { name: 'Download your data', exact: true }).waitFor(); await page.getByRole('button', { name: 'Change password', exact: true }).waitFor(); await page.getByRole('button', { name: 'Sign out all devices', exact: true }).waitFor(); }

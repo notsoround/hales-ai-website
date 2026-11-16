@@ -15,19 +15,23 @@ const base=`http://127.0.0.1:${server.httpServer.address().port}`;
 const browser=await chromium.launch({headless:true});
 let checks=0;
 const fixture=(page,fn,arg)=>page.evaluate(fn,arg);
+async function settings(page, group) {
+  await page.locator('summary[aria-label="Settings"]').click();
+  await page.locator('.cc-settings-group > summary').filter({ hasText: group }).click();
+}
 async function open(context){const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();return page;}
-async function login(page,who,remember=false){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');if(remember)await page.getByLabel('Remember me on this device').check();await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic '+who.toUpperCase(),{exact:true}).first().waitFor();}
-async function logout(page){const minimize=page.getByRole('button',{name:'Minimize assistant'});if(await minimize.isVisible())await minimize.click();await page.getByRole('button',{name:'Sign out of Cupcake'}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.getByRole('button',{name:'Sign in',exact:true}).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
-async function nav(page,label){await page.getByRole('navigation',{name:'Cupcake',exact:true}).getByRole('button',{name:label,exact:true}).click();}
+async function login(page,who,remember=false){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');if(remember)await page.getByLabel('Remember me on this device').check();await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.locator('.cc-top .cc-account-identity').filter({hasText:new RegExp(' — Synthetic '+who.toUpperCase()+'$')}).waitFor();}
+async function logout(page){const minimize=page.getByRole('button',{name:'Minimize assistant'});if(await minimize.isVisible())await minimize.click();await page.getByRole('button',{name:/^Sign out of /}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.getByRole('button',{name:'Sign in',exact:true}).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
+async function nav(page,label){await page.locator('nav.cc-nav').getByRole('button',{name:label,exact:true}).click();}
 async function requestsSafe(page){const state=await fixture(page,()=>({requests:window.accountFixture.requests,blocked:window.accountFixture.blocked,reads:window.accountFixture.legacyReads}));assert.equal(state.reads,0);assert.deepEqual(state.blocked,[]);for(const r of state.requests){assert.equal(r.credentials,'include');assert.equal(r.headers['x-cupcake-key'],undefined);assert.equal(r.headers.authorization,undefined);if(r.route!=='session')assert.equal(r.headers['x-cupcake-request'],'account');if(['data','password','recovery/issue','sign-out-all'].includes(r.route))assert.match(r.headers['x-cupcake-account-context'],/^acc_synthetic_[ab]$/);}return state;}
 try {
   const context=await browser.newContext({viewport:{width:390,height:844}});
   const page=await open(context);mkdirSync('output/account-preview',{recursive:true});await page.screenshot({path:'output/account-preview/sign-in-390.png'});await login(page,'a',true);
   assert.equal((await requestsSafe(page)).requests.find(r=>r.route==='sign-in').body.remember_me,true);
-  await page.locator('summary[aria-label="Settings"]').click();
+  await settings(page,'Appearance');
   await page.getByLabel('Assistant name',{exact:true}).fill('Sunrise A');await page.getByLabel('Assistant appearance',{exact:true}).selectOption('rose');
   await page.getByRole('button',{name:'Close settings'}).click();
-  await nav(page,'Assistant');const composer=page.getByLabel('Message Cupcake',{exact:true});await composer.fill('A confidential draft');
+  await nav(page,'Assistant');const composer=page.getByRole('textbox',{name:'Message Sunrise A',exact:true});await composer.fill('A confidential draft');
   await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByText(/This feature is not available for account sign-in yet/).first().waitFor();
   const nsA=await fixture(page,()=>window.accountFixture.seed('A originals'));
   await fixture(page,()=>window.accountFixture.holdScope());
@@ -35,11 +39,11 @@ try {
   assert.equal(await page.getByLabel('Message Cupcake',{exact:true}).inputValue(),'');
   const empty=await fixture(page,()=>window.accountFixture.caches());assert.equal(empty.local,null);assert.equal(empty.tab,null);assert.deepEqual(empty.talks,[]);assert.deepEqual(empty.checkpoints,[]);assert.deepEqual(empty.answers,[]);assert.deepEqual(empty.drafts,[]);assert.equal(empty.pending,null);assert.equal(empty.seed,null);assert.equal(empty.reset,null);assert.equal(empty.outcome,null);assert.notEqual(empty.namespace,nsA);
   assert.equal(await fixture(page,()=>window.accountFixture.staleWrite()),3);
-  await page.getByRole('button',{name:'Minimize assistant'}).click();await page.locator('summary[aria-label="Settings"]').click();
+  await page.getByRole('button',{name:'Minimize assistant'}).click();await settings(page,'Appearance');
   assert.equal(await page.getByLabel('Assistant name',{exact:true}).inputValue(),'Cupcake');assert.equal(await page.getByLabel('Assistant appearance',{exact:true}).inputValue(),'caribbean');
   await page.getByLabel('Assistant name',{exact:true}).fill('Harbor B');await page.getByRole('button',{name:'Close settings'}).click();
   await fixture(page,()=>window.accountFixture.seed('B originals'));
-  await page.reload();await page.getByText('MyCupcake — Synthetic B',{exact:true}).first().waitFor();
+  await page.reload();await page.locator('.cc-top .cc-account-identity').filter({hasText:/ — Synthetic B$/}).waitFor();
   const b=await fixture(page,()=>window.accountFixture.caches());assert.equal(b.local,'B originals');assert.equal(b.drafts[0].title,'B originals');
   await logout(page);await login(page,'a');
   const a=await fixture(page,()=>window.accountFixture.caches());assert.equal(a.local,'A originals');assert.equal(a.talks[0].title,'A originals');assert.equal(a.answers[0].response.reply,'A originals');assert.equal(a.pending.text,'A originals');assert.equal(a.reset.message,'A originals');assert.equal(a.outcome.title,'A originals');assert.match(a.seed,/A originals/);assert.equal(a.drafts[0].title,'A originals');
@@ -61,8 +65,11 @@ try {
   await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();
   await fixture(page,()=>{window.accountFixture.wrongEcho=false;});await login(page,'a');
   await nav(page,'Assistant');await page.getByRole('button',{name:'Live voice',exact:true}).click();
-  const closeTalk=page.getByRole('button',{name:'Close conversation',exact:true});await closeTalk.waitFor();await closeTalk.click();
-  const beforeMic=await fixture(page,()=>window.accountFixture.micRequests);await page.getByRole('button',{name:/^Talk to Cupcake/}).click();assert.equal(await fixture(page,()=>window.accountFixture.micRequests),beforeMic);
+  const voice=page.getByRole('region',{name:'Account live voice',exact:true});
+  await voice.getByRole('heading',{name:/^Live voice with /}).waitFor();
+  await voice.getByText(/Live voice is currently unavailable/).waitFor();
+  assert.equal(await voice.getByRole('button',{name:'Start conversation',exact:true}).isDisabled(),true);
+  assert.equal(await fixture(page,()=>window.accountFixture.micRequests),0);
   await page.getByRole('group',{name:'Assistant mode'}).getByRole('button',{name:'Record',exact:true}).click();
   await page.getByRole('button',{name:'Start microphone recording'}).click();await page.getByRole('button',{name:'Stop recording',exact:true}).waitFor();
   await fixture(page,()=>{window.accountFixture.serverOwner(null);void window.accountFixture.request({action:'projects'}).catch(()=>{});});
@@ -71,14 +78,14 @@ try {
   await requestsSafe(page);checks++;console.log('PASS: stale reply, expected-principal/identity fencing, 401 media teardown and recorder owner handoff');
 
   await page.setViewportSize({width:1280,height:900});
-  await page.locator('summary[aria-label="Settings"]').click();await page.getByLabel('Current password',{exact:true}).fill('Synthetic password 123!');
+  await settings(page,'Account & security');await page.getByLabel('Current password',{exact:true}).fill('Synthetic password 123!');
   await page.getByRole('button',{name:'Create recovery code',exact:true}).click();await page.getByLabel('One-time recovery code').waitFor();
   assert.equal(await page.getByLabel('One-time recovery code').textContent(),'synthetic-one-time-recovery');
   await page.screenshot({path:'output/account-preview/account-controls-1280.png'});
   await page.getByLabel('Current password',{exact:true}).fill('Synthetic password 123!');await page.getByLabel('New password',{exact:true}).fill('Synthetic next password 123!');await page.getByRole('button',{name:'Change password',exact:true}).click();
   await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(page,'a');
   const sibling=await context.newPage();await sibling.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());await sibling.goto(base+'/cupcake/account');await sibling.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();
-  await page.locator('summary[aria-label="Settings"]').click();await page.getByRole('button',{name:'Sign out all devices',exact:true}).click();
+  await settings(page,'Account & security');await page.getByRole('button',{name:'Sign out all devices',exact:true}).click();
   await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await sibling.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();
   await page.getByRole('button',{name:'Use a recovery code'}).click();await page.getByLabel('Email',{exact:true}).fill('a@example.invalid');await page.getByLabel('Recovery code',{exact:true}).fill('synthetic-one-time-recovery');await page.getByLabel('New password',{exact:true}).fill('Synthetic recovered password 123!');await page.getByRole('button',{name:'Reset password',exact:true}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();
   await requestsSafe(page);checks++;console.log('PASS: desktop account controls, ephemeral recovery code, password reset and all-device broadcast lock');
@@ -87,7 +94,7 @@ try {
   await login(page,'b');
   // Simulate a legacy worker already installed before the account tab opened.
   await page.evaluate(async()=>{const registration=await navigator.serviceWorker.register('/cupcake-sw.js',{scope:'/cupcake'});if(!registration.active)await new Promise(resolve=>{const worker=registration.installing||registration.waiting;worker.addEventListener('statechange',()=>{if(worker.state==='activated')resolve();});});});
-  await page.reload();await page.getByText('MyCupcake — Synthetic B',{exact:true}).first().waitFor();
+  await page.reload();await page.locator('.cc-top .cc-account-identity').filter({hasText:/ — Synthetic B$/}).waitFor();
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
   const shared=await page.evaluate(async()=>{const form=new FormData();form.set('audio',new File(['synthetic share'],'synthetic.webm',{type:'audio/webm'}));return (await fetch('/cupcake/share',{method:'POST',body:form})).status;});
   assert.equal(shared,409);
@@ -95,7 +102,7 @@ try {
   await page.getByRole('button',{name:'Retry sign out',exact:true}).waitFor();
   await fixture(page,()=>{window.accountFixture.failLogout=false;});await page.getByRole('button',{name:'Retry sign out',exact:true}).click();
   await page.getByText('Signed out on this browser.',{exact:true}).waitFor();
-  await login(page,'a');await page.locator('summary[aria-label="Settings"]').click();
+  await login(page,'a');await settings(page,'Account & security');
   await page.getByLabel('Current password',{exact:true}).fill('Synthetic password 123!');await page.getByLabel('New password',{exact:true}).fill('Synthetic protected mutation 123!');
   await fixture(page,()=>window.accountFixture.serverOwner('acc_synthetic_b'));
   await page.getByRole('button',{name:'Change password',exact:true}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();

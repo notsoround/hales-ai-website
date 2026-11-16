@@ -108,10 +108,10 @@ try {
       await page.getByRole('button', { name: 'Save a decision', exact: true }).click(); await page.getByLabel('What have you decided?', { exact: true }).waitFor();
       await page.getByRole('tab', { name: 'Review your day', exact: true }).click();
       await page.getByLabel('Decision, commitment, question, or priority', { exact: true }).fill('Synthetic draft only');
-      assert.equal(await page.getByRole('button', { name: 'Save decision', exact: true }).isEnabled(), true);
+      await page.getByRole('button', { name: 'Save decision', exact: true }).and(page.locator(':enabled')).waitFor();
       await page.getByRole('tab', { name: 'Connections', exact: true }).click();
       await page.getByLabel('Application name', { exact: true }).fill('Synthetic connector draft');
-      assert.equal(await page.getByRole('button', { name: 'Create 90-day access', exact: true }).isEnabled(), true);
+      await page.getByRole('button', { name: 'Create 90-day access', exact: true }).and(page.locator(':enabled')).waitFor();
       assert.deepEqual(await page.evaluate(() => window.libraryNavigationFixture.blocked), []);
       await context.close(); cases++; console.log(`PASS ${browserName} legacy: retained import/project/decision/connector controls; no writes`);
     } finally { await browser.close(); }

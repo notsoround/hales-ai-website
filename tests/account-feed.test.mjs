@@ -59,8 +59,9 @@ try{
   assert.equal(await timeline.getByText('A feed-only workout',{exact:true}).count(),1);
   assert.equal(await page.locator('.cc-exercise-list').getByText('A feed-only workout',{exact:true}).count(),0);
   const todayFeeds=()=>requests.filter(r=>r.owner===A&&r.body.action==='feed_get'&&r.body.start===today&&r.body.end===today).length;
-  const beforeLog=todayFeeds();await page.locator('.cc-quick').getByRole('button',{name:'Log exercise',exact:true}).click();
+  const beforeLog=todayFeeds();await page.getByRole('region',{name:'Today at a glance',exact:true}).getByRole('button',{name:'Exercise',exact:true}).click();
   await page.getByLabel('What did you do?',{exact:true}).fill('20 min rowing');await page.locator('.cc-exercise-form').getByRole('button',{name:'Save',exact:true}).click();
+  await timeline.getByRole('button',{name:'Show all 4 signals',exact:true}).click();
   await timeline.getByText('20 min rowing',{exact:true}).waitFor();assert.ok(todayFeeds()>beforeLog);assert.equal(await timeline.getByText('20 min rowing',{exact:true}).count(),1);assert.equal(await timeline.getByText('A feed-only workout',{exact:true}).count(),1);
   const beforeUndo=todayFeeds();await page.locator('.cc-exercise-list li').filter({hasText:'20 min rowing'}).getByRole('button',{name:'Undo',exact:true}).click();
   await timeline.getByText('20 min rowing',{exact:true}).waitFor({state:'detached'});await timeline.getByText('A feed-only workout',{exact:true}).waitFor();assert.ok(todayFeeds()>beforeUndo);assert.equal(workouts.get(A).size,0);assert.equal(await timeline.getByText('A feed-only workout',{exact:true}).count(),1);

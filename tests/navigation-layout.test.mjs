@@ -31,14 +31,14 @@ const settle = page => page.evaluate(async () => {
 });
 const closeTo = (actual, expected, label) => assert.ok(Math.abs(actual - expected) <= 1, `${label}: ${actual} vs ${expected}`);
 
-async function measure(page, width, count) {
+async function measure(page, width, count, account) {
   await page.setViewportSize({width, height: 900});
   await settle(page);
   const layout = await page.evaluate(() => {
     const rect = element => {const r = element.getBoundingClientRect(); return {left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height};};
     const navigation = document.querySelector('.cc-nav');
     return {inner: innerWidth, scroll: document.documentElement.scrollWidth, nav: rect(navigation),
-      buttons: [...navigation.querySelectorAll('button')].map(element => ({...rect(element), scroll: element.scrollWidth, client: element.clientWidth})),
+      buttons: [...navigation.querySelectorAll('button')].map(element => ({...rect(element), name: element.textContent.trim(), scroll: element.scrollWidth, client: element.clientWidth})),
       shell: rect(document.querySelector('.cc-shell')), header: rect(document.querySelector('.cc-top'))};
   });
   assert.equal(layout.inner, width, 'CSS viewport width');
@@ -48,7 +48,20 @@ async function measure(page, width, count) {
   if (width < 1024) {
     closeTo(layout.nav.right, width, 'bottom navigation fills viewport');
     closeTo(layout.nav.bottom, 900, 'bottom navigation hugs viewport');
-    for (const [index, item] of layout.buttons.entries()) {
+    if (account) {
+      const ordered = [...layout.buttons].sort((a, b) => a.left - b.left);
+      assert.deepEqual(ordered.map(item => item.name), ['Today', 'Library', 'Food', 'Assistant', 'Reports']);
+      const camera = ordered[2], column = (Math.min(width, 480) - 84) / 4;
+      closeTo((camera.left + camera.right) / 2, width / 2, 'camera is centred');
+      closeTo(camera.width, 64, 'camera target width');
+      closeTo(camera.height, 64, 'camera target height');
+      assert.ok(camera.bottom < layout.nav.bottom, 'camera is raised above the bar edge');
+      for (const [index, item] of ordered.entries()) {
+        assert.ok(item.width >= 44 && item.height >= 44 && item.scroll <= item.client, 'touch target and label fit');
+        if (item !== camera) { closeTo(item.width, column, 'equal supporting navigation columns'); closeTo(item.bottom, layout.nav.bottom, 'supporting tab bottom edge'); }
+        if (index) assert.ok(item.left >= ordered[index - 1].right - 1, 'neighbouring controls do not overlap');
+      }
+    } else for (const [index, item] of layout.buttons.entries()) {
       closeTo(item.width, width / count, `tab ${index} equal allocation`);
       closeTo(item.left, index * width / count, `tab ${index} left edge`);
       closeTo(item.bottom, layout.nav.bottom, `tab ${index} bottom edge`);
@@ -74,26 +87,38 @@ async function tokens(page) {
     const app = document.querySelector('.cc-app'), probe = document.createElement('i');
     app.append(probe);
     const resolved = name => {probe.style.color = `var(${name})`; return getComputedStyle(probe).color;};
-    const result = {active: resolved('--cc-pink-bright'), inactive: resolved('--cc-text-3'), wash: resolved('--cc-accent-wash')};
+    const result = {active: resolved('--cc-pink-bright'), inactive: resolved('--cc-text-3'), wash: resolved('--cc-accent-wash'), noirActive: resolved('--nx-ink'), noirInactive: resolved('--nx-ink-3')};
     probe.remove(); return result;
   });
 }
 
-async function assertPalette(page, expected, current, expanded = false) {
-  await page.waitForFunction(({active, inactive, wash}) => [...document.querySelectorAll('.cc-nav button')].every(element => {
+async function assertPalette(page, expected, current, expanded = false, account = false) {
+  await settle(page);
+  await nav(page).evaluate(element => Promise.all(element.getAnimations({subtree: true})
+    .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+    .map(animation => animation.finished.catch(() => {}))));
+  if (!account) await page.waitForFunction(({active, inactive, wash}) => [...document.querySelectorAll('.cc-nav button')].every(element => {
     const selected = element.hasAttribute('aria-current') || element.getAttribute('aria-expanded') === 'true';
     const style = getComputedStyle(element);
     return style.color === (selected ? active : inactive) && (!selected || style.backgroundColor === wash);
   }), expected);
   const state = await nav(page).getByRole('button').evaluateAll(elements => elements.map(element => ({
     name: element.textContent.trim(), current: element.getAttribute('aria-current'), expanded: element.getAttribute('aria-expanded'),
-    color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor,
+    color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor, image: getComputedStyle(element).backgroundImage,
   })));
   assert.deepEqual(state.filter(item => item.current).map(item => item.name), [current], 'one underlying current page');
   for (const item of state) {
     const active = item.name === current || (item.name === 'Assistant' && expanded);
-    assert.equal(item.color, active ? expected.active : expected.inactive, `${item.name} palette color`);
-    if (active) assert.equal(item.background, expected.wash, `${item.name} active wash`);
+    if (account) {
+      const mobile = page.viewportSize().width < 1024;
+      if (expanded && item.name === current) assert.equal(item.color, expected.inactive, 'underlying current tab is quiet while the assistant is open');
+      else if (mobile && item.name === 'Food') assert.match(item.image, /radial-gradient/, 'camera keeps a distinct branded action');
+      else if (active) assert.equal(item.color, expected.noirActive, `${item.name} selected Noir color`);
+      else assert.notEqual(item.color, expected.noirActive, `${item.name} unselected Noir color`);
+    } else {
+      assert.equal(item.color, active ? expected.active : expected.inactive, `${item.name} palette color`);
+      if (active) assert.equal(item.background, expected.wash, `${item.name} active wash`);
+    }
   }
   assert.equal(state.find(item => item.name === 'Assistant').expanded, String(expanded));
   paletteChecks++;
@@ -124,13 +149,15 @@ try {
       await button(page, 'Today').waitFor();
       const labels = ['Today', 'Food', 'Library', 'Assistant', ...(account ? ['Reports'] : [])];
       assert.deepEqual(await nav(page).getByRole('button').allTextContents(), labels);
-      for (const width of [320, 390, 430, 768, 1023, 1024, 1440]) await measure(page, width, labels.length);
+      for (const width of [320, 390, 430, 768, 1023, 1024, 1440]) await measure(page, width, labels.length, account);
 
       const paletteByAppearance = new Map();
       for (const width of [390, 1440]) {
         await page.setViewportSize({width, height: 900});
         for (const appearance of ['caribbean', 'rose']) {
           await page.locator('.cc-settings > summary').click();
+          const appearanceGroup = page.locator('.cc-settings-group > summary').filter({ hasText: /^Appearance$/ });
+          if (!await appearanceGroup.evaluate(summary => summary.parentElement.open)) await appearanceGroup.click();
           await page.getByRole('combobox', {name: 'Assistant appearance'}).selectOption(appearance);
           await page.getByRole('button', {name: 'Close settings', exact: true}).click();
           assert.equal(await page.locator('.cc-app').getAttribute('data-appearance'), appearance);
@@ -140,8 +167,15 @@ try {
           else paletteByAppearance.set(appearance, expected);
           if (appearance === 'rose') assert.notDeepEqual(expected, paletteByAppearance.get('caribbean'), 'appearance changes the palette');
           for (const label of labels.filter(label => label !== 'Assistant')) {
-            await button(page, label).click();
-            await assertPalette(page, expected, label);
+            if (account && label === 'Food') {
+              // The account navigation Food key opens the camera. Use Today's Food log link
+              // to exercise its selected nav state without acquiring a camera in this test.
+              await button(page, 'Today').click();
+              const today = page.getByRole('region', {name: 'Today at a glance', exact: true});
+              await today.getByRole('button', {name: 'Details', exact: true}).click();
+              await today.getByRole('region', {name: 'Calories details', exact: true}).getByRole('button', {name: 'Open food log', exact: true}).click();
+            } else await button(page, label).click();
+            await assertPalette(page, expected, label, false, account);
             if (label === 'Library' && width === 1440) {
               const search = await page.locator('.cc-library-search .cc-secondary').evaluate(element => {
                 const lines = [...element.childNodes].filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim()).flatMap(node => {
@@ -160,8 +194,8 @@ try {
               const colors = await scale.getByRole('button').evaluateAll(elements => elements.map(element => ({
                 selected: element.getAttribute('aria-pressed') === 'true', color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor,
               })));
-              for (const color of colors) assert.equal(color.color, color.selected ? expected.active : expected.inactive, 'calendar scale follows appearance tokens');
-              assert.equal(colors.find(color => color.selected).background, expected.wash);
+              for (const color of colors) assert.equal(color.color, color.selected ? (account ? expected.noirActive : expected.active) : (account ? expected.noirInactive : expected.inactive), 'calendar scale follows appearance tokens');
+              assert.equal(colors.find(color => color.selected).background, account ? 'rgba(255, 255, 255, 0.09)' : expected.wash);
               calendarChecks++;
             }
             const assistant = button(page, 'Assistant');
@@ -170,10 +204,10 @@ try {
             await page.locator('#cupcake-assistant.is-panel').waitFor();
             // Existing account boundary returns to personal Today from Reports.
             const underlying = label === 'Reports' ? 'Today' : label;
-            await assertPalette(page, expected, underlying, true);
+            await assertPalette(page, expected, underlying, true, account);
             // Phone panel covers the nav; Enter also verifies its native keyboard toggle.
             await assistant.press('Enter');
-            await assertPalette(page, expected, underlying);
+            await assertPalette(page, expected, underlying, false, account);
             assert.equal(await page.locator('#cupcake-assistant.is-panel').isVisible(), false);
           }
         }
@@ -181,7 +215,7 @@ try {
       await button(page, 'Today').click();
       await page.getByRole('button', {name: 'All signals', exact: true}).click();
       assert.equal(new URL(page.url()).searchParams.get('tab'), 'week');
-      await assertPalette(page, paletteByAppearance.get('rose'), 'Today'); weekChecks++;
+      await assertPalette(page, paletteByAppearance.get('rose'), 'Today', false, account); weekChecks++;
       await button(page, 'Today').focus();
       await page.keyboard.press('Tab');
       const focus = await button(page, 'Food').evaluate(element => ({focused: element === document.activeElement, visible: element.matches(':focus-visible'), width: getComputedStyle(element).outlineWidth, offset: getComputedStyle(element).outlineOffset}));
