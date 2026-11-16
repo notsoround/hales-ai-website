@@ -17,6 +17,10 @@ RICH=1 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/native-fee
 RICH=1 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/native-audit.mjs   # report only: touch targets under 44px, selectable controls, inputs that would zoom; writes native-audit.json
 ```
 
+```bash
+ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/store-kit.mjs   # store listing kit, synthetic only: six 1080x1920 phone shots (Today, camera, meal detail, chat, reports, light Today) + a 1024x500 feature graphic into STORE_KIT_OUT (default /tmp/cupcake-store-kit, must be outside the repo); verifies PNG sizes, writes kit.json. The camera shot is staged (the fixture has no video track); STORE_KIT_CAMERA=placeholder keeps the harness's "Camera off" view
+```
+
 Add `SCHEME=light` to any of these to run it in the light theme (it sets the saved Theme choice before load). `light-audit.mjs` lists dark islands and text under AA per screen in light: `SCHEME=light RICH=1 W=390 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/light-audit.mjs`. After any Cupcake CSS change run `node scripts/build-noir-light.mjs` (light counterparts of hard-coded colours; `--check` fails if stale).
 
 Dependencies are absolute paths on Matt's Mac (vite from `hales-ai-website-account-voice/node_modules`, Playwright from the codex runtime). `npm i axe-core@4.10.2` anywhere for the axe check. A pass means: no `harnessError`, no `scrollWidth > width`, no page errors, and `{}` from axe.
