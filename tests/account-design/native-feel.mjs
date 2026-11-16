@@ -30,6 +30,32 @@ await c.setOffline(false);await p.locator('.nx-net[data-state=back]').waitFor();
 await p.locator('.nx-net').waitFor({state:'detached',timeout:6000});
 assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 console.log('PASS: losing the connection shows one quiet line; its return says so, refreshes once and clears');
+// Pull to refresh on Today, installed app only: one pull at the top refreshes every screen once; nothing in a browser tab,
+// nothing while Settings, the camera or another layer is open. Synthetic touches on the Today section.
+await nav(p,'Today');await p.evaluate(()=>scrollTo(0,0));
+const pull=()=>p.evaluate(async()=>{const el=document.querySelector('.nx-today'),r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+60,frame=()=>new Promise(f=>requestAnimationFrame(()=>f()));
+  const touch=yy=>new Touch({identifier:7,target:el,clientX:x,clientY:yy}),fire=(type,yy)=>el.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches:type==='touchend'?[]:[touch(yy)],targetTouches:type==='touchend'?[]:[touch(yy)],changedTouches:[touch(yy)]}));
+  window.refreshes=0;fire('touchstart',y);for(let d=12;d<=204;d+=12){fire('touchmove',y+d);await frame();}
+  const ptr=document.querySelector('.nx-ptr'),shown=ptr?.dataset.phase||null,svg=ptr&&getComputedStyle(ptr.querySelector('.nx-ptr-icon'));
+  fire('touchend',y+204);await frame();await frame();const after=document.querySelector('.nx-ptr');
+  return{refreshes:window.refreshes,shown,svgTransform:svg?.transform??null,after:after?.dataset.phase||null,spin:after?after.querySelector('.nx-ptr-icon').getAnimations().length:null,motion:after?.dataset.motion||null};});
+let pr=await pull();assert.deepEqual([pr.refreshes,pr.shown],[0,null],'a browser tab keeps the browser\'s own refresh: '+JSON.stringify(pr));
+await p.evaluate(()=>{const real=window.matchMedia.bind(window);window.realMatchMedia=real;window.matchMedia=q=>/display-mode:\s*standalone/.test(q)?{matches:true,media:q,onchange:null,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){},dispatchEvent:()=>false}:real(q);});
+pr=await pull();assert.equal(pr.shown,'armed',JSON.stringify(pr));assert.equal(pr.refreshes,1,JSON.stringify(pr));assert.equal(pr.after,'refreshing');
+assert.equal(pr.svgTransform,'none','reduced motion: the arrow does not turn with the finger');assert.equal(pr.spin,0,'reduced motion: no spinning');assert.equal(pr.motion,'reduce');
+await p.locator('.nx-ptr').waitFor({state:'detached',timeout:3000});
+await p.locator('summary[aria-label="Settings"]').click();await p.getByRole('dialog',{name:'Settings'}).waitFor();
+pr=await pull();assert.deepEqual([pr.refreshes,pr.shown],[0,null],'Settings open: '+JSON.stringify(pr));
+await p.keyboard.press('Escape');await p.waitForFunction(()=>!document.querySelector('details.cc-settings')?.open);
+const camButton=p.locator('.nx-today .nx-cam').first(),realCamera=await camButton.isVisible().catch(()=>false);
+if(realCamera){await camButton.click();await p.locator('dialog.cc-cam[open]').waitFor();
+  pr=await pull();assert.deepEqual([pr.refreshes,pr.shown],[0,null],'camera open: '+JSON.stringify(pr));
+  await p.keyboard.press('Escape');await p.locator('dialog.cc-cam[open]').waitFor({state:'detached'});}
+else{await p.evaluate(()=>{const d=document.createElement('dialog');d.id='synthetic-layer';document.querySelector('.cc-app').append(d);d.showModal();});
+  pr=await pull();assert.deepEqual([pr.refreshes,pr.shown],[0,null],'modal dialog open: '+JSON.stringify(pr));await p.evaluate(()=>document.getElementById('synthetic-layer').remove());}
+pr=await pull();assert.equal(pr.refreshes,1,'pull works again once the layers are closed');await p.locator('.nx-ptr').waitFor({state:'detached',timeout:3000});
+await p.evaluate(()=>{window.matchMedia=window.realMatchMedia;});
+console.log('PASS: pull to refresh on Today works only in the installed app, refreshes once, honours reduced motion, and stays off while Settings or the camera is open'+(realCamera?'':' (Log a meal hidden here; an open modal dialog stood in for the camera)'));
 // Sign out asks in the app's own sheet (no browser popup); Escape or Back answers No and nothing changes.
 let popups=0;p.on('dialog',d=>{popups++;void d.dismiss();});
 await p.locator('.cc-top .cc-lock').click();const sheet=p.locator('dialog.nx-confirm');await sheet.waitFor();
