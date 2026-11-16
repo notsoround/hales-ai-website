@@ -7,13 +7,17 @@ const EVENT = 'cupcake-account-data-changed';
 export function notifyDataChanged(area: DataArea) {
   window.dispatchEvent(new CustomEvent<DataArea>(EVENT, { detail: area }));
 }
+/** Everything may be stale (the connection came back, or the app was reopened after a while): each listener reloads once. */
+export function notifyAllDataChanged() {
+  window.dispatchEvent(new CustomEvent<string>(EVENT, { detail: '*' }));
+}
 /** Call `reload` whenever one of `areas` changes. The latest callback is always used. */
 export function useDataChanged(areas: readonly DataArea[], reload: () => void) {
   const latest = useRef(reload); latest.current = reload;
   const key = areas.join(' ');
   useEffect(() => {
     const wanted = new Set(key.split(' '));
-    const listener = (event: Event) => { if (wanted.has((event as CustomEvent<DataArea>).detail)) latest.current(); };
+    const listener = (event: Event) => { const area = (event as CustomEvent<string>).detail; if (area === '*' || wanted.has(area)) latest.current(); };
     window.addEventListener(EVENT, listener);
     return () => window.removeEventListener(EVENT, listener);
   }, [key]);

@@ -4,7 +4,7 @@
  * score, and how many faces the face detector is sure about. Pure, so it is unit tested.
  * People are never identified or described: a face only ever means "someone is in frame".
  */
-export type Scene = 'food' | 'drink' | 'coffee' | 'booze' | 'kitchen' | 'paper' | 'screen' | 'dog' | 'cat' | 'person' | 'bathroom' | 'gym' | 'notfood';
+export type Scene = 'food' | 'drink' | 'coffee' | 'booze' | 'kitchen' | 'paper' | 'screen' | 'dog' | 'cat' | 'person' | 'bathroom' | 'gym' | 'store' | 'restaurant' | 'notfood';
 export type SceneGuess = { scene: Scene; food?: string };
 export type Guess = { index: number; score: number };
 
@@ -18,19 +18,22 @@ export const FOOD_NAMES: Record<number, string> = {
   938: 'cauliflower', 939: 'zucchini', 943: 'cucumber', 945: 'peppers', 947: 'mushrooms', 948: 'an apple',
   949: 'strawberries', 950: 'an orange', 951: 'a lemon', 953: 'pineapple', 954: 'a banana', 957: 'pomegranate',
   959: 'pasta', 962: 'meatloaf', 963: 'pizza', 964: 'pot pie', 965: 'a burrito', 987: 'corn',
-  118: 'crab', 119: 'crab', 121: 'crab', 122: 'lobster', 123: 'lobster', 124: 'crawfish',
+  118: 'crab', 119: 'crab', 121: 'crab', 122: 'lobster', 123: 'lobster', 124: 'crawfish', 996: 'mushrooms', 998: 'corn',
 };
-const FOOD = set(range(924, 957), range(959, 965), 987, 118, 119, 121, 122, 123, 124, 923, 809, 659, 868);
+const FOOD = set(range(924, 957), range(959, 965), 987, 996, 998, 118, 119, 121, 122, 123, 124, 923, 809, 659, 868);
 const COFFEE = set(967, 968, 504, 505, 550);
-const BOOZE = set(966, 440, 441, 907, 901, 572);
+const BOOZE = set(966, 440, 441, 907, 901, 572, 503);
 const DRINK = set(969, 898, 737, 899, 849, 725);
-const KITCHEN = set(567, 909, 544, 813, 532, 760, 651, 827, 521, 859, 618, 910, 499, 828, 647, 766, 891, 469, 534);
+const KITCHEN = set(567, 909, 544, 813, 532, 760, 651, 827, 521, 859, 618, 910, 499, 828, 647, 766, 891, 469, 534, 729, 773);
 const PAPER = set(922, 549, 916, 921, 918, 917, 446, 692, 478);
 const SCREEN = set(620, 664, 782, 851, 527, 508, 810, 487, 590, 673, 878, 681);
 const DOG = set(range(151, 268));
 const CAT = set(range(281, 285));
 const BATHROOM = set(861, 999, 896, 435, 794, 876);
 const GYM = set(422, 543, 747);
+/** Places that sell food: a shop shelf or counter, and a restaurant room. Indices checked against the model's own label list. */
+const STORE = set(582, 415, 509, 467, 886);
+const RESTAURANT = set(762);
 
 /** Below this the model is guessing; say nothing rather than something wrong. */
 export const MIN_SCORE = 0.35;
@@ -41,7 +44,7 @@ export const NAME_SCORE = 0.55;
 /** "Not food" needs a confident non-food guess, so a blurry plate never gets told off. */
 export const NOT_FOOD_SCORE = 0.5;
 
-const GROUPS: [Scene, Set<number>][] = [['coffee', COFFEE], ['booze', BOOZE], ['drink', DRINK], ['kitchen', KITCHEN], ['paper', PAPER], ['screen', SCREEN], ['dog', DOG], ['cat', CAT], ['bathroom', BATHROOM], ['gym', GYM]];
+const GROUPS: [Scene, Set<number>][] = [['coffee', COFFEE], ['booze', BOOZE], ['drink', DRINK], ['kitchen', KITCHEN], ['paper', PAPER], ['screen', SCREEN], ['dog', DOG], ['cat', CAT], ['bathroom', BATHROOM], ['gym', GYM], ['store', STORE], ['restaurant', RESTAURANT]];
 export const groupOf = (index: number): Scene | null => FOOD.has(index) ? 'food' : GROUPS.find(([, members]) => members.has(index))?.[0] ?? null;
 
 /** `top` is the classifier's best few guesses; scores of one kind add up (three cat breeds are one cat). */

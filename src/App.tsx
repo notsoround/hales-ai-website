@@ -6,6 +6,7 @@ import { LearnMore } from './components/LearnMore';
 import { ChatInterface } from './components/ChatInterface';
 import HalesExperience from './components/experience/HalesExperience';
 import { ACCOUNT_ENTRY_REQUESTED, ACCOUNT_SESSIONS, isAccountEntryPath } from './components/cupcake/accountMode';
+import { AccountSplash } from './components/cupcake/AccountSplash';
 
 // Lazy load the pages
 const AboutUs = lazy(() => import('./pages/about-us/page'));
@@ -156,7 +157,7 @@ function App() {
         );
       case 'cupcake-account': {
         if (!ACCOUNT_SESSIONS) return <main className="min-h-screen p-8 text-white"><h1>Account sign-in is not enabled</h1><p>Your saved data stays unchanged.</p><a href="/cupcake">Open private Cupcake</a></main>;
-        return <Suspense fallback={<div className="text-center p-4 text-pink-400">Loading Cupcake...</div>}><CupcakeDashboard /></Suspense>;
+        return <Suspense fallback={<AccountSplash />}><CupcakeDashboard /></Suspense>;
       }
       case "cupcake":
         return (

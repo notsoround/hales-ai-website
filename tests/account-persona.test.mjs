@@ -43,7 +43,7 @@ async function syntheticPersonaServer(owner,body){
 }
 async function open(context){
   await context.exposeFunction('syntheticPersonaServer',syntheticPersonaServer);
-  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());
+  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});
   await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
   await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();return page;
 }

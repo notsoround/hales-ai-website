@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as Rea
 import { Flashlight, FlashlightOff, Images, SwitchCamera, X } from 'lucide-react';
 import { Reticle } from './camera/Reticle';
 import { CameraQuip } from './camera/CameraQuip';
+import { preloadCameraQuips } from './camera/useCameraQuips';
 import { useLab } from './labsFlags';
 import { useCameraStream } from './camera/useCameraStream';
 import { useStillness } from './camera/useStillness';
 import { clockTime, mealForTime, wholeNumber } from './camera/mealContext';
+import { useScreenAwake } from './nativeFeel';
 import './account-camera.css';
 
 /**
@@ -53,9 +55,16 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
   const [taking, setTaking] = useState(false);
   const [focus, setFocus] = useState<{ x: number; y: number; key: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
+  useScreenAwake(open);
   const camera = useCameraStream(open, video);
   const { state } = camera;
   const quips = useLab('camera-quips');
+  // With comments on, fetch the on-device models while the phone is idle, so the first comment does not wait for a download.
+  useEffect(() => {
+    if (!quips || (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+    const timer = window.setTimeout(preloadCameraQuips, 4000);
+    return () => window.clearTimeout(timer);
+  }, [quips]);
   const track = useStillness(open && state === 'live' && !capturing && !taking, video);
 
   useEffect(() => {
@@ -142,7 +151,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
         <div className="cc-cam-shade" aria-hidden="true"/>
       </div>
       <Reticle track={state === 'blocked' ? 'search' : track} live={live}/>
-      {quips && <CameraQuip active={open && state === 'live' && !capturing && !taking} video={video}/>}
+      {quips && <CameraQuip active={open && state === 'live' && !capturing && !taking} video={video} context={context}/>}
       {capturing && <div className="cc-cam-flash" aria-hidden="true"/>}
       {focus && <i key={focus.key} className="cc-cam-focus" style={{ left: focus.x, top: focus.y }} aria-hidden="true" onAnimationEnd={() => setFocus(null)}/>}
 

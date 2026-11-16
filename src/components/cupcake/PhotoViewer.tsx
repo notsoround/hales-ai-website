@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useBackClose } from './nativeFeel';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import './photo-viewer.css';
 
@@ -24,6 +25,7 @@ export function PhotoViewer({
   const contentRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [zoom, setZoom] = useState(1);
+  useBackClose(true, onClose);
 
   useEffect(() => {
     setZoom(1);

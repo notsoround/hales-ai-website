@@ -46,6 +46,8 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === 'lucide-react') return new Proxy({}, { get: () => emptyComponent });
       if (name === './dashboardModel') return dashboardModel;
       if (name === './library') return { libraryRequest: api };
+      if (name === './nativeFeel' || name === '../nativeFeel') return { useBackClose: () => {}, haptic: () => {}, useScreenAwake: () => {}, useConnection: () => ({ online: true, back: false }), useResumed: () => {} };
+      if (name === './appConfirm') return { appConfirm: async message => window.confirm(message) };
       if (name.endsWith('.css')) return {};
       if (['./ConnectionCheck', './StrategyRequests', './PlanningWorkspace', './ReceiptWorkspace', './ConversationPanel'].includes(name)) return { default: emptyComponent, AnalysisCard: emptyComponent };
       throw Error(`Unexpected fixture dependency ${name}`);

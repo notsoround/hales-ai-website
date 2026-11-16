@@ -28,6 +28,16 @@ try {
   assert.equal(sceneFor([g(933, .2)], 0)?.scene, undefined, 'a weak burger guess says nothing');
   assert.deepEqual(sceneFor([g(933, .83)], 1), { scene: 'person' }, 'a face in frame wins');
   assert.equal(groupOf(208), 'dog');
+  assert.deepEqual(sceneFor([g(582, .6)], 0), { scene: 'store' }, 'a grocery shelf is a store');
+  assert.deepEqual(sceneFor([g(762, .5), g(532, .1)], 0), { scene: 'restaurant' });
+  assert.deepEqual(sceneFor([g(923, .12), g(937, .06), g(659, .05), g(809, .04)], 0), { scene: 'food' }, 'a mixed plate adds up across more guesses');
+  const { contextLines } = await server.ssrLoadModule('/src/components/cupcake/camera/quipLines.ts');
+  assert.deepEqual(contextLines('cupcake', { caloriesLeft: 984, proteinLeftG: 72, hour: 13 }), ['You’ve got 984 left. Spend it well.', '72g of protein to go. Just saying.']);
+  assert.deepEqual(contextLines('calm', { caloriesLeft: -140.4, proteinLeftG: 5, hour: 22 }), ['Over target today. Log it anyway.', 'A late one. It still counts.']);
+  assert.deepEqual(contextLines('cupcake', undefined), []);
+  for (const voice of ['cupcake', 'calm']) for (const line of contextLines(voice, { caloriesLeft: -12345, proteinLeftG: 222, hour: 23 }).concat(contextLines(voice, { caloriesLeft: 12345, hour: 6 }), contextLines(voice, { caloriesLeft: 40 }))) assert.ok(line.length <= 42, `today line is short: ${line}`);
+  assert.equal(pickQuip('cupcake', { scene: 'food' }, '', () => .1, { caloriesLeft: 984 }), 'You’ve got 984 left. Spend it well.', 'a food line can be about today');
+  assert.equal(pickQuip('cupcake', { scene: 'screen' }, '', () => .1, { caloriesLeft: 984 }), 'Screens have zero protein.', 'today lines only come with food');
   for (const voice of ['cupcake', 'calm']) {
     for (const [scene, lines] of Object.entries(QUIPS[voice])) for (const line of lines) {
       assert.ok(line.length <= 42, `${voice}.${scene} line is short: ${line}`);

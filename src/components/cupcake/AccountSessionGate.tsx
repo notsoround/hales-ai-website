@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { AccountSplash } from './AccountSplash';
 import './noir/noir-gate.css';
 import { accountControl, initializeSessionBoundary, invalidateSession, restoreSession, sessionSnapshot, signIn, subscribeSession, verifySession, type AccountIdentity } from './accountSession';
 import './account-session.css';
@@ -30,6 +31,11 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   const [recovering, setRecovering] = useState(false), [recovery, setRecovery] = useState(''), [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const brand = publicAssistantBrand();
+  // Cold start: hold the launch portrait while the saved session is checked, so a signed-in person never sees the
+  // sign-in form flash by. Only before the first answer, and never longer than five seconds.
+  const [launching, setLaunching] = useState(true);
+  useEffect(() => { if (!session.checking) setLaunching(false); }, [session.checking]);
+  useEffect(() => { const timer = window.setTimeout(() => setLaunching(false), 5000); return () => window.clearTimeout(timer); }, []);
   useAssistantDocumentBrand(brand.name, brand.persona, !session.identity && invitation === null);
   useEffect(() => {
     if (!session.identity) return;
@@ -57,6 +63,7 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   if (nativeHealthConnection && (session.identity || nativeHealthConnection.error)) return <NativeHealthConnectionAuthorize key={`${session.identity?.account_id || 'unsigned'}:${session.generation}`} pending={nativeHealthConnection} identity={session.identity} appearance={brand.appearance} onClose={closeNativeRequest}/>;
   if (nativeConnection && (session.identity || nativeConnection.error)) return <NativeConnectionAuthorize key={`${session.identity?.account_id || 'unsigned'}:${session.generation}`} pending={nativeConnection} identity={session.identity} appearance={brand.appearance} onClose={closeNativeRequest}/>;
   if (session.identity) return <div key={`${session.identity.account_id}:${session.generation}`}>{children(session.identity)}</div>;
+  if (launching && session.checking && !session.message && !error) return <AccountSplash/>;
   return <main className="cc-app cc-account-gate" data-appearance={brand.appearance}><form className="cc-unlock" onSubmit={event => void submit(event)}>
     <img src={assistantIcon(brand.persona)} alt={brand.name}/><span className="cc-eyebrow">YOUR PRIVATE {brand.name.toUpperCase()}</span>
     <h1>{recovering ? 'Recover your account' : `Sign in to ${brand.name}`}</h1>

@@ -1,0 +1,23 @@
+{
+  "id": "/cupcake/account?assistant=cupcake",
+  "name": "Cupcake",
+  "short_name": "Cupcake",
+  "description": "Your private companion for food, health, money and the day. Internet connection required.",
+  "lang": "en-US",
+  "start_url": "/cupcake/account?assistant=cupcake",
+  "scope": "/cupcake/account",
+  "display": "standalone",
+  "background_color": "#080c12",
+  "theme_color": "#080c12",
+  "categories": ["health", "lifestyle", "productivity"],
+  "icons": [
+    { "src": "/cupcake-app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/cupcake-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/cupcake-app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Meal camera", "short_name": "Camera", "url": "/cupcake/account?assistant=cupcake&tab=snap&shortcut=camera", "icons": [{ "src": "/cupcake-app-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Talk to Cupcake", "short_name": "Talk", "url": "/cupcake/account?assistant=cupcake&tab=talk", "icons": [{ "src": "/cupcake-app-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Message Cupcake", "short_name": "Message", "url": "/cupcake/account?assistant=cupcake&tab=chat", "icons": [{ "src": "/cupcake-app-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}

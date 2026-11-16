@@ -23,6 +23,8 @@ export const QUIPS: Record<'cupcake' | 'calm', Lines> = {
     person: ['Say cheese!', 'Say cheese! Now find me a plate.', 'Hi! I count food, not people.'],
     bathroom: ['Absolutely not. Wrong room.', 'Nope. Not in here, cowboy.'],
     gym: ['Look at you go. Protein after.', 'Lift it, then eat something good.'],
+    store: ['Shopping? Stick to the list.', 'Snack aisle? I’m watching you.', 'Buy the protein. Skip the regret.'],
+    restaurant: ['Eating out? Show me the plate.', 'Fancy. Order like you mean it.'],
     notfood: ['That’s not food.', 'I don’t think you can eat that.', 'Nope. Not food, cowboy.', 'Can’t eat that. Try again.'],
   },
   calm: {
@@ -39,14 +41,41 @@ export const QUIPS: Record<'cupcake' | 'calm', Lines> = {
     person: ['Say cheese.', 'Someone’s in frame. Point at the meal.'],
     bathroom: ['Point the camera at your meal.'],
     gym: ['Nice work. Log a meal after.'],
+    store: ['A shop. Your grocery list is in Food.'],
+    restaurant: ['Eating out. Show the plate when it comes.'],
     notfood: ['That doesn’t look like food.', 'Point the camera at your meal.'],
   },
 };
 
 const fill = (line: string, food = '') => line.replace('{food}', food).replace('{Food}', food.replace(/^(a|an) /, '').replace(/^./, c => c.toUpperCase()));
 
-/** Picks a line for the scene, never the same line twice in a row. `random` is injectable for tests. */
-export function pickQuip(voice: 'cupcake' | 'calm', guess: SceneGuess, last: string, random = Math.random): string {
+/** What the camera already knows about today. Only whole numbers the camera itself shows; nothing else is read. */
+export type QuipContext = { caloriesLeft?: number | null; proteinLeftG?: number | null; hour?: number };
+const count = (value: number) => Math.round(Math.abs(value)).toLocaleString('en-US');
+/** Lines about today that fit when food is in view. Each is true by construction from the numbers given. */
+export function contextLines(voice: 'cupcake' | 'calm', context: QuipContext | undefined): string[] {
+  if (!context) return [];
+  const calm = voice === 'calm', lines: string[] = [], left = context.caloriesLeft, protein = context.proteinLeftG, hour = context.hour;
+  if (typeof left === 'number' && Number.isFinite(left)) {
+    if (left >= 100) lines.push(calm ? `${count(left)} kcal left today.` : `You’ve got ${count(left)} left. Spend it well.`);
+    else if (left < 0) lines.push(calm ? 'Over target today. Log it anyway.' : `${count(left)} over already. I’m still logging it.`);
+    else lines.push(calm ? 'Close to target today.' : 'Almost out for today. Choose wisely.');
+  }
+  if (typeof protein === 'number' && Number.isFinite(protein) && protein >= 20) lines.push(calm ? `${count(protein)} g of protein to go.` : `${count(protein)}g of protein to go. Just saying.`);
+  if (typeof hour === 'number') {
+    if (hour >= 21 || hour < 4) lines.push(calm ? 'A late one. It still counts.' : 'Late-night plate? I see everything.');
+    else if (hour < 10) lines.push(calm ? 'Good start to the day.' : 'Breakfast. Look at you, functioning.');
+  }
+  return lines;
+}
+
+/** Picks a line for the scene, never the same line twice in a row. `random` is injectable for tests.
+ *  With `context`, about every third food line is about today instead of the plate. */
+export function pickQuip(voice: 'cupcake' | 'calm', guess: SceneGuess, last: string, random = Math.random, context?: QuipContext): string {
+  if (guess.scene === 'food' && context) {
+    const today = contextLines(voice, context).filter(line => line !== last);
+    if (today.length && random() < 0.34) return today[Math.floor(random() * today.length) % today.length];
+  }
   const pool = guess.food ? QUIPS[voice].named : QUIPS[voice][guess.scene];
   const options = pool.length > 1 ? pool.filter(line => fill(line, guess.food) !== last) : pool;
   return fill(options[Math.floor(random() * options.length) % options.length], guess.food);

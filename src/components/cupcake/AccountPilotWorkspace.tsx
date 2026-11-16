@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { appConfirm } from './appConfirm';
 import { accountCoach, accountSharing, type AccountIdentity } from './accountSession';
 
 type Persona='cupcake'|'matthieu';
@@ -55,7 +56,7 @@ function CoachInvitations({identity}:{identity:AccountIdentity}) {
     finally{if(alive.current)setBusy(false);}
   };
   const revoke=async(invitation:Invitation)=>{
-    if(!confirm(`Revoke the invitation to ${invitation.email}?`))return;setBusy(true);setError('');
+    if(!await appConfirm(`Revoke the invitation to ${invitation.email}?`,{title:'Revoke invitation?',yes:'Revoke',danger:true}))return;setBusy(true);setError('');
     try{await accountCoach('invitations/revoke',{invitation_id:invitation.id});if(alive.current){setLink('');setNotice('Invitation revoked.');await load();}}
     catch(reason){if(alive.current)setError(failure(reason));}finally{if(alive.current)setBusy(false);}
   };
@@ -96,7 +97,7 @@ function SharingControls({identity,onChanged}:{identity:AccountIdentity;onChange
     catch(reason){if(alive.current)setError(failure(reason));}finally{if(alive.current)setBusy(false);}
   };
   const revoke=async(grant:Share,recipient:string)=>{
-    if(!confirm(`Revoke your sharing with ${recipient}?`))return;setBusy(true);setError('');
+    if(!await appConfirm(`Revoke your sharing with ${recipient}?`,{title:'Stop sharing?',yes:'Revoke',danger:true}))return;setBusy(true);setError('');
     try{await accountSharing('revoke',{grant_id:grant.id});if(alive.current){setNotice('Your sharing was revoked.');await load();onChanged();}}
     catch(reason){if(alive.current)setError(failure(reason));}finally{if(alive.current)setBusy(false);}
   };

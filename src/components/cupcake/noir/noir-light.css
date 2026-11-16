@@ -107,3 +107,5 @@
     box-shadow: 0 0 0 5px var(--cc-bg), 0 0 0 6px color-mix(in oklab, var(--nx-a) 30%, transparent), 0 14px 30px -10px color-mix(in oklab, var(--nx-a) 60%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
   }
 }
+/* Confirmation sheet: the destructive answer keeps AA contrast on porcelain. */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-confirm-actions button[data-answer=yes][data-danger] { background-color: #c5352a; color: #fff; }

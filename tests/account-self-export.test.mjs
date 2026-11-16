@@ -46,7 +46,7 @@ async function syntheticExportServer(owner, body) {
 }
 async function open() {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true }); await context.exposeFunction('syntheticExportServer', syntheticExportServer);
-  const page = await context.newPage(); page.setDefaultTimeout(10000); page.on('dialog', dialog => dialog.accept());
+  const page = await context.newPage(); page.setDefaultTimeout(10000); page.on('dialog', dialog => dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});
   const downloads = [], errors = []; page.on('download', download => downloads.push(download)); page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   await page.goto(base + '/cupcake/account'); await page.getByRole('heading', { name: 'Sign in to Cupcake', exact: true }).waitFor();

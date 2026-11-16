@@ -52,7 +52,7 @@ async function lifecycle(owner,route,body){
 async function context(viewport={width:390,height:844}){
   const context=await browser.newContext({viewport});await context.exposeFunction('syntheticCoachServer',coach);await context.exposeFunction('syntheticInvitationServer',lifecycle);
   await context.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
-  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());return {context,page};
+  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});return {context,page};
 }
 async function nav(page,name){await page.getByRole('navigation',{name:'Cupcake',exact:true}).getByRole('button',{name,exact:true}).click();}
 async function login(page,who){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic '+who.toUpperCase(),{exact:true}).first().waitFor();}

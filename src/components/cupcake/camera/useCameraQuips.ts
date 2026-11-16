@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { sameScene, sceneFor, type SceneGuess } from './sceneGuess';
-import { pickQuip } from './quipLines';
+import { pickQuip, type QuipContext } from './quipLines';
 
 /**
  * Labs "camera comments": guesses what the live camera is looking at, on this device, and picks
@@ -16,7 +16,7 @@ export const LOOK_EVERY_MS = 550;
 /** A new line waits at least this long after the last one, so she comments instead of chattering. */
 export const MIN_GAP_MS = 2600;
 /** The same scene gets another line only after this long. */
-export const REPEAT_AFTER_MS = 12_000;
+export const REPEAT_AFTER_MS = 8_000;
 /** How long a line stays up. */
 export const SHOW_MS = 4200;
 /** Real faces score 0.8 to 0.97 in our checks; a burger once scored 0.55. */
@@ -30,7 +30,7 @@ function loadLooker(): Promise<Looker> {
     const vision = await import('@mediapipe/tasks-vision');
     const files = { wasmLoaderPath: BASE + 'vision_wasm_internal.js', wasmBinaryPath: BASE + 'vision_wasm_internal.wasm' };
     const [classifier, faces] = await Promise.all([
-      vision.ImageClassifier.createFromOptions(files, { baseOptions: { modelAssetPath: BASE + 'efficientnet_lite0_int8.tflite', delegate: 'CPU' }, runningMode: 'IMAGE', maxResults: 5 }),
+      vision.ImageClassifier.createFromOptions(files, { baseOptions: { modelAssetPath: BASE + 'efficientnet_lite0_int8.tflite', delegate: 'CPU' }, runningMode: 'IMAGE', maxResults: 10 }),
       vision.FaceDetector.createFromOptions(files, { baseOptions: { modelAssetPath: BASE + 'blaze_face_short_range.tflite', delegate: 'CPU' }, runningMode: 'IMAGE', minDetectionConfidence: FACE_SCORE }),
     ]);
     return {
@@ -45,13 +45,17 @@ function loadLooker(): Promise<Looker> {
   return loading;
 }
 
+/** Fetch and warm the models ahead of the first look, so the first comment is quick. Safe to call more than once. */
+export function preloadCameraQuips() { void loadLooker().catch(() => undefined); }
+
 export type Quip = { line: string; key: number };
 export type QuipStats = { loadMs: number | null; lookMs: number | null };
 
 const voiceNow = (): 'cupcake' | 'calm' => typeof document !== 'undefined' && document.querySelector('.cc-app')?.getAttribute('data-appearance') === 'caribbean' ? 'cupcake' : 'calm';
 
-export function useCameraQuips(active: boolean, video: RefObject<HTMLVideoElement | null>) {
+export function useCameraQuips(active: boolean, video: RefObject<HTMLVideoElement | null>, context?: QuipContext) {
   const [quip, setQuip] = useState<Quip | null>(null);
+  const today = useRef(context); today.current = context;
   const stats = useRef<QuipStats>({ loadMs: null, lookMs: null });
 
   useEffect(() => {
@@ -78,7 +82,7 @@ export function useCameraQuips(active: boolean, video: RefObject<HTMLVideoElemen
         stats.current.lookMs = stats.current.lookMs === null ? now - t0 : stats.current.lookMs * .7 + (now - t0) * .3;
         // Two looks in a row must agree before she says anything.
         if (guess && sameScene(guess, previous) && now - shownAt >= MIN_GAP_MS && (!sameScene(guess, shown) || now - shownAt >= REPEAT_AFTER_MS)) {
-          lastLine = pickQuip(voiceNow(), guess, lastLine);
+          lastLine = pickQuip(voiceNow(), guess, lastLine, Math.random, today.current ? { ...today.current, hour: new Date().getHours() } : undefined);
           shown = guess; shownAt = now;
           setQuip({ line: lastLine, key: now });
           window.clearTimeout(hide);
