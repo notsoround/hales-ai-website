@@ -93,6 +93,16 @@ window.fetch=async(input,init)=>{
   if(route==='recovery/redeem'){fixture.serverOwner(null);return response(200,{ok:true});}
   if(route.startsWith('sign-out')){if(fixture.failLogout)return response(503,{ok:false});fixture.serverOwner(null);return response(200,{ok:true});}
   const owner=current();if(!owner)return response(401,{ok:false,error:'unauthenticated'});
+  if(route==='reply-report'||route.startsWith('voice/')) {
+    if(init?.method!=='POST'||init.credentials!=='include'||headers['x-cupcake-request']!=='account')return response(403,{ok:false,error:'synthetic_account_transport_required'});
+    if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
+    type Remote=(owner:string,route:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>;
+    const endpoints=window as unknown as {syntheticReplyReportServer?:Remote;syntheticVoiceServer?:Remote};
+    const remote=route==='reply-report'?endpoints.syntheticReplyReportServer:endpoints.syntheticVoiceServer;
+    if(!remote)throw Error('No synthetic server for '+route);
+    const result=await remote(owner.account_id,route,body);
+    return response(result.status,{...result.value,identity:fixture.wrongEcho?(owner===A?B:A):owner});
+  }
   if(route.startsWith('exports/')) {
     if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
     const remote=(window as unknown as {syntheticExportBundleServer?:(owner:string,route:string,body:Record<string,unknown>)=>Promise<{status:number;value?:Record<string,unknown>;bytes?:number[];headers?:Record<string,string>;dropResponse?:boolean;delayBody?:boolean}>}).syntheticExportBundleServer;

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLab } from './labsFlags';
+import { ReportReply } from './ReportReply';
 import type { DailyCall } from '@daily-co/daily-js';
 import { Headphones, Mic, Square, Volume2 } from 'lucide-react';
 import { AccountVoiceClient, voiceError, type VoiceConfig, type VoiceRecovery, type VoiceSession } from './accountVoice';
@@ -269,6 +271,7 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
   const canResume = pending && session?.state === 'live' && mediaState === 'idle';
   const result = opened?.state === 'ended' ? opened.result : null;
   const resultMessages = result?.messages || [];
+  const canReport = useLab('reply-reports') && active;
   return <section className="cc-account-voice" aria-label="Account live voice">
     <h2 className="cc-talk-heading">Live voice with {assistantName}</h2>
     {/* The facts that matter before you tap stay on screen in one line; the full wording is one tap away. */}
@@ -297,7 +300,11 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
     <section className="cc-voice-history" aria-label="Saved voice conversations"><div className="cc-heading-row"><h3>Saved voice conversations</h3><button className="cc-text-button" disabled={checking} onClick={() => void refresh()}>Refresh history</button></div><p className="cc-muted cc-small">Your latest 25 ended conversations. Opening one keeps the microphone off.</p>
       {!rows.length && <p className="cc-muted">No saved voice conversations loaded.</p>}
       {rows.map(row => <article key={row.sessionId} className="cc-card"><strong>{dateLabel(row.createdAt || row.result?.startedAt)}</strong><div className="cc-action-row"><button className="cc-secondary" disabled={checking} onClick={() => void open(row)}>Open saved conversation</button>{row.documentId && <a className="cc-text-button" href={cupcakeHref(`/cupcake?tab=library&document=${encodeURIComponent(row.documentId)}`)}>View source transcript</a>}</div></article>)}
-      {opened && <article className="cc-card cc-voice-saved"><div className="cc-heading-row"><h3>Saved conversation</h3><button className="cc-text-button" onClick={() => setOpened(null)}>Close transcript</button></div>{result && hasSpeech(opened) ? <><p className="cc-muted cc-small">Provider-fetched speech-to-text estimate · may contain errors. This is the saved transcript, separate from temporary live captions.</p>{resultMessages.length ? resultMessages.map((message, index) => <p className="cc-voice-line" key={message.providerMessageId || index}><strong>{message.role === 'user' ? 'You' : assistantName}</strong>{message.message}</p>) : <p className="cc-voice-line">{result.transcript || 'No speech text was returned for this conversation.'}</p>}</> : <p className="cc-muted">No provider-fetched transcript is available for this ended conversation.</p>}{opened.documentId && <a className="cc-text-button" href={cupcakeHref(`/cupcake?tab=library&document=${encodeURIComponent(opened.documentId)}`)}>View source transcript</a>}</article>}
+      {opened && <article className="cc-card cc-voice-saved"><div className="cc-heading-row"><h3>Saved conversation</h3><button className="cc-text-button" onClick={() => setOpened(null)}>Close transcript</button></div>{result && hasSpeech(opened) ? <><p className="cc-muted cc-small">Provider-fetched speech-to-text estimate · may contain errors. This is the saved transcript, separate from temporary live captions.</p>{resultMessages.length ? resultMessages.map((message, index) => {
+        const key = opened.sessionId + ':' + index;
+        const line = <p className="cc-voice-line" key={key}><strong>{message.role === 'user' ? 'You' : assistantName}</strong>{message.message}</p>;
+        return canReport && message.role !== 'user' && message.message.trim() ? <div key={key}>{line}<ReportReply reply={{ kind: 'voice', sessionId: opened.sessionId, lineIndex: index }} /></div> : line;
+      }) : <p className="cc-voice-line">{result.transcript || 'No speech text was returned for this conversation.'}</p>}</> : <p className="cc-muted">No provider-fetched transcript is available for this ended conversation.</p>}{opened.documentId && <a className="cc-text-button" href={cupcakeHref(`/cupcake?tab=library&document=${encodeURIComponent(opened.documentId)}`)}>View source transcript</a>}</article>}
     </section>
   </section>;
 }
