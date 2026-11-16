@@ -7,18 +7,27 @@ const directory='src/components/cupcake/';
 const source=name=>readFileSync(directory+name,'utf8');
 const node=(type,props)=>({type,props:props||{}});
 const text=value=>value==null||typeof value==='boolean'?'':Array.isArray(value)?value.map(text).join(' '):typeof value==='object'?text(value.props?.children):String(value);
-function module(name,append=''){
+function module(name,append='',accountSessions=false){
   const context={exports:{},URLSearchParams,location:{search:''},require(imported){
     if(imported==='react')return {useState:initial=>[initial,()=>{}]};
     if(imported==='react/jsx-runtime')return {jsx:node,jsxs:node,Fragment:'fragment'};
+    if(imported==='./accountMode')return {ACCOUNT_SESSIONS:accountSessions};
     return new Proxy({}, {get:()=>()=>null});
   }};
   vm.runInNewContext(ts.transpileModule(source(name)+append,{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,context);
   return context.exports;
 }
 const panel=module('ConversationPanel.tsx').default;
-const render=(status,transcript)=>text(panel({record:{id:'a'.repeat(32),title:'Synthetic audio',createdAt:'2026-11-07T12:00:00Z',status,transcript},onClose(){},onAsk:async()=>{},asking:false}));
+const accountPanel=module('ConversationPanel.tsx','',true).default;
+const panelProps=(status,transcript)=>({record:{id:'a'.repeat(32),title:'Synthetic audio',createdAt:'2026-11-07T12:00:00Z',status,transcript},onClose(){},onAsk:async()=>{},asking:false});
+const render=(status,transcript)=>text(panel(panelProps(status,transcript)));
 const stored=render('stored');assert.match(stored,/Original audio saved/);assert.match(stored,/Transcription and summaries have not been started/);assert.match(stored,/has no transcript to ask about/);assert.match(stored,/has not been transcribed/);assert.doesNotMatch(stored,/Preparing your transcript|Processing continues|Commitments will appear after processing/);
+const storedAccount=text(accountPanel(panelProps('stored')));
+assert.match(storedAccount,/Original audio saved/);
+assert.match(storedAccount,/Transcription and summaries have not been started/);
+assert.match(storedAccount,/Questions about a saved source are not available for account sign-in yet/);
+assert.match(storedAccount,/Complete conversation packet/);
+assert.doesNotMatch(storedAccount,/Preparing your transcript|Processing continues|Commitments will appear after processing/);
 assert.match(render('transcribing'),/Preparing your transcript/);assert.match(render('transcribing'),/Processing continues/);assert.match(render('failed'),/Processing needs attention/);assert.doesNotMatch(render('ready'),/Preparing your transcript|Original audio saved/);
 const transcribed=render('transcribed','Synthetic saved speech-to-text');assert.match(transcribed,/Transcript saved/);assert.match(transcribed,/Synthetic saved speech-to-text/);assert.match(transcribed,/Speech-to-text may contain errors/);assert.match(transcribed,/No commitments have been extracted/);assert.doesNotMatch(transcribed,/Preparing your transcript|Processing continues|Commitments will appear after processing|Questions become available after transcription finishes/);assert.match(render('transcribed',''),/No speech text was returned/);
 const label=module('LibraryWorkspace.tsx','\nexport {statusName};').statusName;
@@ -34,7 +43,9 @@ function polling(name,marker,globals){
 }
 for(const status of ['stored','transcribed','ready','failed','transcribing','preparing','uploading']){
   const expected=['stored','transcribed','ready','failed'].includes(status)?0:1;
-  assert.equal(polling('CupcakeStudio.tsx','selected.status',{selected:{id:'a'.repeat(32),status}}).intervals,expected);
+  const selected={id:'a'.repeat(32),status};
+  assert.equal(polling('CupcakeStudio.tsx','selected.status',{selected,ACCOUNT_SESSIONS:false}).intervals,expected);
+  assert.equal(polling('CupcakeStudio.tsx','selected.status',{selected,ACCOUNT_SESSIONS:true}).intervals,0);
   assert.equal(polling('LibraryWorkspace.tsx','documents?.some',{active:true,documents:[{status}],refresh(){}}).intervals,expected);
 }
 assert.equal(polling('LibraryWorkspace.tsx','documents?.some',{active:true,documents:[{status:'stored'},{status:'transcribing'}],refresh(){}}).intervals,1);

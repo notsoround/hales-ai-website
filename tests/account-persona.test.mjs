@@ -47,9 +47,9 @@ async function open(context){
   await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
   await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();return page;
 }
-async function login(page,who){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic '+who.toUpperCase(),{exact:true}).first().waitFor();}
-async function settings(page){await page.locator('summary[aria-label="Settings"]').click();}
-async function logout(page){await page.getByRole('button',{name:'Close settings'}).click();await page.getByRole('button',{name:'Sign out of Cupcake'}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
+async function login(page,who){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.locator('.cc-top .cc-account-identity').filter({hasText:new RegExp(' — Synthetic '+who.toUpperCase()+'$')}).waitFor();}
+async function settings(page){await page.locator('summary[aria-label="Settings"]').click();await page.locator('.cc-settings-group > summary').filter({hasText:/^Appearance$/}).click();}
+async function logout(page){await page.getByRole('button',{name:'Close settings'}).click();await page.getByRole('button',{name:/^Sign out of /}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
 async function value(page,name){await page.waitForFunction(name=>document.querySelector('input[aria-label="Assistant name"]')?.value===name,name);}
 async function saved(page){await page.getByText('Saved to your account.',{exact:true}).waitFor();}
 async function safe(page){const state=await page.evaluate(()=>({requests:window.accountFixture.requests,blocked:window.accountFixture.blocked,reads:window.accountFixture.legacyReads}));assert.equal(state.reads,0);assert.deepEqual(state.blocked,[]);for(const r of state.requests.filter(r=>r.body.action?.startsWith('persona_'))){assert.equal(r.credentials,'include');assert.match(r.headers['x-cupcake-account-context'],/^acc_synthetic_[ab]$/);assert.equal(r.headers['x-cupcake-key'],undefined);assert.equal(r.body.owner_id,undefined);}}
@@ -86,9 +86,9 @@ try{
   await page.getByText('Preferences changed elsewhere. The latest settings are loaded; your unsaved changes were not applied.',{exact:true}).waitFor();
   await value(page,'Changed on device 2');assert.equal(await page.getByLabel('Assistant appearance',{exact:true}).inputValue(),'rose');
   assert.equal(records.get(A).preferences.name,'Changed on device 2');assert.equal(requests.filter(r=>r.body.action==='persona_save').length,beforeConflict+1);
-  await page.reload();await page.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();await settings(page);await value(page,'Changed on device 2');
+  await page.reload();await page.locator('.cc-top .cc-account-identity').filter({hasText:/ — Synthetic A$/}).waitFor();await settings(page);await value(page,'Changed on device 2');
   await logout(page);await login(page,'b');await settings(page);await value(page,'Server B');assert.equal(await page.getByLabel('Assistant appearance',{exact:true}).inputValue(),'caribbean');
-  failGet=true;await page.reload();await page.getByText('MyCupcake — Synthetic B',{exact:true}).first().waitFor();await settings(page);
+  failGet=true;await page.reload();await page.locator('.cc-top .cc-account-identity').filter({hasText:/ — Synthetic B$/}).waitFor();await settings(page);
   await page.getByRole('button',{name:'Retry assistant preferences'}).waitFor();assert.equal(await page.getByLabel('Assistant name',{exact:true}).isDisabled(),true);
   failGet=false;await page.getByRole('button',{name:'Retry assistant preferences'}).click();await value(page,'Server B');
   failSave=true;await page.getByLabel('Assistant name',{exact:true}).fill('Unsaved B');await page.getByText('Could not save to your account. Your changes are unsaved; retry before leaving.',{exact:true}).waitFor();

@@ -23,6 +23,7 @@ const ok=value=>({status:200,value:{ok:true,...value}});
 function device(body){const now=Date.now()/1000;return {id:randomUUID(),label:body.label,timezone:body.timezone,preferred_source:body.preferred_source,created_at:now,expires_at:now+Number(body.expires_in_days)*86400,revoked_at:null,status:'active',last_received_at:null,last_observed_at:null,metrics:[]};}
 async function syntheticHealthServer(owner,route,body){
   requests.push({owner,route,body:clone(body)});
+  if(route==='health/cgm/latest'){assert.deepEqual(body,{});return {status:503,value:{ok:false,error:'cgm_unavailable'}};}
   if(route==='health/devices/list')return ok({devices:devices.filter(row=>row.owner===owner).map(({owner:_owner,...row})=>clone(row))});
   if(route==='health/sync')return ok({devices:devices.filter(row=>row.owner===owner).map(({owner:_owner,...row})=>clone(row)),last_received_at:uploaded?1794052800:null,last_observed_at:uploaded?'2026-11-07T12:00:00Z':null,metrics:uploaded?['step_count']:[],coverage_note:COVERAGE});
   if(route==='health/devices/create'){
@@ -118,7 +119,7 @@ try{
   console.log('PASS: lost create response reuses its request and never recreates or re-exposes the upload credential');
 
   const wrong=await open();await login(wrong.page);await settings(wrong.page);await fillConnection(wrong.page,'Wrong echo iPhone');await wrong.page.evaluate(()=>{window.accountFixture.wrongEcho=true;});await wrong.page.getByRole('button',{name:'Create Apple Health connection',exact:true}).click();await wrong.page.getByRole('heading',{name:/^Sign in to /}).waitFor();assert.equal(await wrong.page.getByLabel('Upload credential',{exact:true}).count(),0);assert.ok(!await wrong.page.locator('body').innerText().then(text=>text.includes(issued.at(-1))));await safe(wrong.page);await wrong.context.close();
-  assert.deepEqual(outside,[]);assert.ok(requests.every(row=>['health/devices/create','health/devices/list','health/devices/revoke','health/sync'].includes(row.route)));
+  assert.deepEqual(outside,[]);assert.ok(requests.every(row=>['health/devices/create','health/devices/list','health/devices/revoke','health/sync','health/cgm/latest'].includes(row.route)));
   console.log('PASS: wrong account echo locks before exposing a credential; all traffic is synthetic and no upload route is called');
 }finally{await browser.close();await server.close();rmSync(cacheDir,{recursive:true,force:true});}
 console.log('PASS: 6 synthetic iPhone installation and Apple Health Settings scenarios');

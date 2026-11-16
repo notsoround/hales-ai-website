@@ -41,6 +41,7 @@ const tableNames = {
   source_history: ['source_event_receipts', 'source_event_versions', 'source_event_heads', 'source_event_indexed'],
 };
 const sections = Object.keys(tableNames), legacySections = sections.slice(0, 13);
+const currentDefaultSections = [...sections, 'native_health'];
 const columns = {
   coach_invitations: ['id', 'coach_id', 'member_id', 'persona', 'created', 'expires', 'ttl_days', 'revoked', 'accepted'],
   coach_memberships: ['id', 'coach_id', 'member_id', 'invitation_id', 'created', 'disclosure_version', 'confirmed_persona'],
@@ -173,7 +174,8 @@ async function settings(page) {
 async function sharingOnly(page) {
   await ui(page).getByText('Choose sections · all selected', { exact: true }).click();
   assert.equal(await ui(page).getByRole('checkbox', { name: 'Invitations and sharing', exact: true }).isChecked(), true);
-  assert.equal(await ui(page).getByRole('checkbox', { checked: true }).count(), sections.length);
+  assert.equal(await ui(page).getByRole('checkbox', { name: 'Android health history', exact: true }).isChecked(), true);
+  assert.equal(await ui(page).getByRole('checkbox', { checked: true }).count(), currentDefaultSections.length);
   await ui(page).getByRole('button', { name: 'Clear selection', exact: true }).click();
   await ui(page).getByRole('checkbox', { name: 'Invitations and sharing', exact: true }).check();
 }

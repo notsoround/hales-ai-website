@@ -51,7 +51,7 @@ test('connected history separates canonical exclusions from chart and stale feed
  let stateIndex=0;
  const react={useState:initial=>[stateIndex++===0?page:initial,()=>{}],useCallback:fn=>fn,useEffect(){},useRef:value=>({current:value})};
  function History(){}
- const mod=moduleAt('src/components/cupcake/WeightHistoryConnected.tsx',{'react':react,'react/jsx-runtime':jsx,'./WeightHistory':{WeightHistory:History},'./weightApi':api});
+ const mod=moduleAt('src/components/cupcake/WeightHistoryConnected.tsx',{'react':react,'react/jsx-runtime':jsx,'./WeightHistory':{WeightHistory:History},'./weightApi':api,'./dataChanges':{useDataChanged(areas,reload){assert.deepEqual(Array.from(areas),['weight']);assert.equal(typeof reload,'function');}}});
  const tree=mod.WeightHistoryConnected({...props,entries:[api.weightEntry(record('stale-feed')),api.weightEntry(excluded),{id:'aggregate',type:'activity',details:{weightKind:'aggregate'}}]});
  const view=walk(tree).find(e=>e.type===History);
  assert.deepEqual(Array.from(view.props.entries,e=>e.id),['weight:corrected','aggregate']);

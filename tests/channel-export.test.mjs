@@ -11,10 +11,13 @@ class FixtureDate extends Date {
 const context = {
   exports: {}, Date: FixtureDate,
   require(name) {
-    // library.ts also reads the saved private-access header for live requests; exports must touch neither.
-    if (name === './privateAccess') return { privateAccessHeaders() { throw Error('Export must remain offline'); } };
-    assert.equal(name, './libraryApproval');
-    return { confirmedLibraryRequest() { throw Error('Export must remain offline'); } };
+    const offline = () => { throw Error('Export must remain offline'); };
+    if (name === './privateAccess') return { privateAccessHeaders: offline };
+    if (name === './libraryApproval') return { confirmedLibraryRequest: offline };
+    if (name === './appConfirm') return { appConfirm: offline };
+    if (name === './accountMode') return { get ACCOUNT_SESSIONS() { return offline(); } };
+    if (name === './accountSession') return { accountData: offline };
+    throw Error(`Unexpected fixture dependency ${name}`);
   },
   fetch() { throw Error('Export must remain offline'); },
 };

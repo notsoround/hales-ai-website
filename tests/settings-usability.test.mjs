@@ -11,7 +11,7 @@ const cacheDir = mkdtempSync(path.join(tmpdir(), 'cupcake-settings-usability-'))
 const server = await createServer({ cacheDir, plugins: [{ name: 'actual-settings-root', configureServer(server) { server.middlewares.use((req, _res, next) => { const route = req.url?.split('?')[0]; if (route === '/cupcake/account') req.url = '/tests/account-browser-preview.html'; if (route === '/cupcake') req.url = '/tests/assistant-integration-preview.html'; next(); }); } }], define: { 'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS': '"true"' }, server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), realpathSync('node_modules')] } } });
 await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const groups = ['Appearance', 'Account & security', 'Download my data', 'Close account access', 'App & updates', 'Connections'];
+const groups = ['Appearance', 'Account & security', 'Download my data', 'Close account access', 'App & updates', 'Connections', 'Labs'];
 const health = { ok: true, devices: [], last_received_at: null, last_observed_at: null, metrics: [], coverage_note: 'Synthetic saved status only.' };
 const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const group = (page, title) => page.locator('.cc-settings-group').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + escaped(title) + '$') }) });
@@ -42,12 +42,16 @@ try {
     await context.exposeFunction('syntheticPersonaServer', async (_owner, body) => {
       assert.equal(body.action, 'persona_get'); return { status: 200, value: { ok: true, preferences: { appearance, persona: appearance === 'rose' ? 'matthieu' : 'cupcake', name: appearance === 'rose' ? 'Matthieu' : 'Cupcake' }, revision: 1, updated: 1, saved: true } };
     });
-    await context.exposeFunction('syntheticHealthServer', async (_owner, route) => { if (route !== 'health/sync' && route !== 'health/devices/list') writes.push(route); return { status: 200, value: health }; });
+    await context.exposeFunction('syntheticHealthServer', async (_owner, route, body) => {
+      if (route === 'health/cgm/latest') { assert.deepEqual(body, {}); return { status: 503, value: { ok: false, error: 'cgm_unavailable' } }; }
+      if (route !== 'health/sync' && route !== 'health/devices/list') writes.push(route);
+      return { status: 200, value: health };
+    });
     await context.exposeFunction('syntheticCoachServer', async (_owner, route) => ({ status: 200, value: { ok: true, grants: [], relationships: [], coach_enabled: true, invitations_supported: true, invitations: [], limits: { max_clients: 10, max_pending_invitations: 10 }, route } }));
     await context.exposeFunction('syntheticInvitationServer', async () => ({ status: 200, value: { ok: true, relationships: [] } }));
     const page = await context.newPage(); page.setDefaultTimeout(6000); page.on('pageerror', error => errors.push(error.message));
     try {
-      await page.goto(base + '/cupcake/account'); await page.getByRole('button', { name: 'iPhone setup in Settings', exact: true }).waitFor();
+      await page.goto(base + '/cupcake/account'); await page.locator('.cc-settings > summary').waitFor();
       await page.waitForFunction(expected => document.querySelector('.cc-app')?.getAttribute('data-appearance') === expected, appearance);
       assert.equal(await page.locator('.cc-account-note').getAttribute('open'), null);
       await openSettings(page);
@@ -65,18 +69,24 @@ try {
       await page.keyboard.press('Escape'); await returned(page);
       await openSettings(page); await page.getByRole('button', { name: 'Close settings', exact: true }).click(); await returned(page);
       await openSettings(page); await page.locator('.cc-settings-scrim').click({ position: { x: 2, y: 2 } }); await returned(page);
-      await page.reload(); await page.getByRole('button', { name: 'iPhone setup in Settings', exact: true }).click();
-      await page.waitForFunction(() => { const section = document.getElementById('account-health-connection'); return section && document.activeElement === section && [...document.querySelectorAll('.cc-settings,.cc-settings-group')].filter(el => el.contains(section)).every(el => el.open); });
+      await page.reload(); await openSettings(page);
+      const connections = group(page, 'Connections');
+      await connections.locator(':scope > summary').press('Enter');
+      const apple = connections.locator('.nx-connect-item > summary').filter({ hasText: /^Apple Health/ });
+      if (!await apple.evaluate(summary => summary.parentElement.open)) await apple.press('Enter');
+      await apple.press('Tab');
+      await page.waitForFunction(() => document.getElementById('account-health-connection')?.contains(document.activeElement));
       assert.equal(await group(page, 'Connections').getAttribute('open'), '');
       assert.equal(await page.getByRole('dialog', { name: 'Settings', exact: true }).getAttribute('aria-modal'), 'true');
       await page.keyboard.press('Escape'); await returned(page);
-      await page.locator('.cc-account-note > summary').click(); await page.getByRole('button', { name: 'Open Reports', exact: true }).click();
+      await page.locator('nav.cc-nav').getByRole('button', { name: 'Reports', exact: true }).click();
+      await page.getByRole('tab', { name: 'My sharing & clients', exact: true }).click();
       await page.locator('.cc-pilot-disclosure > summary').click();
       await page.getByRole('button', { name: 'Sharing controls', exact: true }).waitFor();
       const snapshot = await page.evaluate(() => ({ requests: window.accountFixture.requests, blocked: window.accountFixture.blocked }));
       assert.equal(snapshot.requests.some(row => ['password', 'recovery/issue', 'sign-out', 'sign-out-all'].includes(row.route) || row.route.startsWith('privacy/close/') || row.route.endsWith('/create') || row.body.action === 'account_self_export' || row.body.action === 'persona_save'), false);
       assert.deepEqual(writes, []); assert.deepEqual(snapshot.blocked, []); assert.deepEqual(remote, []); assert.deepEqual(errors, []);
-      cases++; console.log(`PASS Settings account ${appearance} ${width}: six groups/controls, focus/dismiss, nested setup and Reports; no writes`);
+      cases++; console.log(`PASS Settings account ${appearance} ${width}: seven groups/controls, focus/dismiss, nested setup and Reports; no writes`);
     } finally { await context.close(); }
   }
   for (const width of [320, 1280]) {

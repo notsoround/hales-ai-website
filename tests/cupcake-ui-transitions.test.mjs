@@ -48,6 +48,9 @@ function surface(file, props, { api = async () => { throw Error('Unexpected API 
       if (name === './dashboardModel') return dashboardModel;
       if (name === './dataState') return dataState;
       if (name === './WeightHistoryConnected') return { WeightHistoryConnected: emptyComponent };
+      if (name === './NativeHealthSyncDetail') return { NativeHealthSyncDetail: emptyComponent };
+      if (name === './noir/OutcomeBalance') return { OutcomeBalance: emptyComponent };
+      if (name === './dataChanges') return { useDataChanged() {} };
       if (name === './weightApi') return { loadWeightPage: async () => ({ latestMeasurement: null }), weightProvenanceLabel: () => '' };
       if (name === './weightHistoryModel') return { weightTime: value => String(value ?? '') };
       if (name === './PersonalOutcomes') return { PersonalOutcomes: emptyComponent };

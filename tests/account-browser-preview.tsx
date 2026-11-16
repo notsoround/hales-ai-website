@@ -121,6 +121,11 @@ window.fetch=async(input,init)=>{
     return result.bytes?new Response(new Uint8Array(result.bytes),{status:result.status,headers:{'Content-Type':'image/png','X-Cupcake-Account-Context':result.echo||owner.account_id}}):response(result.status,{...result.value,identity:owner});
   }
   if(route==='session')return response(200,{ok:true,identity:owner});
+  if(route==='voice/config'||route==='voice/list') {
+    if(headers['x-cupcake-account-context']!==owner.account_id)return response(409,{ok:false,error:'account_context_changed'});
+    if(init?.method!=='POST'||init.credentials!=='include'||headers['x-cupcake-request']!=='account'||Object.keys(body).length)throw Error('Invalid synthetic account voice read');
+    return response(200,{ok:true,identity:owner,...(route==='voice/config'?{available:false,maxSeconds:60,reservedMicros:200000}:{sessions:[]})});
+  }
   if(route==='recovery/issue')return response(200,{ok:true,recovery_code:'synthetic-one-time-recovery'});
   if(route==='password'){fixture.serverOwner(null);return response(200,{ok:true});}
   if(route.startsWith('health/')) {

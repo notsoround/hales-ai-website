@@ -29,7 +29,7 @@ try {
   await page.getByText('Portions, meal time & how it works', { exact: true }).click();
   await page.getByLabel('Portion or meal note (optional)').fill('Half the rice');
   await mode(page, 'holdGet'); await choose(page);
-  await page.waitForFunction(() => window.photoFixture.requests.some(row => row.body.action === 'food_get'));
+  await page.waitForFunction(() => window.photoFixture.held === 'get');
   assert.equal(await page.getByRole('heading', { name: 'Meal saved to your food log', exact: true }).count(), 0);
   assert.equal(await page.evaluate(() => window.photoFixture.savedCallbacks), 0);
   await page.evaluate(() => window.photoFixture.release()); await saved(page);
@@ -85,10 +85,12 @@ try {
   assert.equal((await uploads(w)).length, 1); assert.deepEqual(wrong.errors, []); await wrong.context.close();
 
   const late = await open(), l = late.page; await mode(l, 'holdUpload'); await choose(l);
-  await l.waitForFunction(() => window.photoFixture.requests.some(row => row.route.endsWith('/food/photo/analyze')));
+  // The recorded HTTP request can appear before the mock server's durable commit.
+  await l.waitForFunction(() => window.photoFixture.held === 'upload');
   await l.evaluate(() => window.photoFixture.switchOwner('B'));
   await l.getByRole('button', { name: 'Take meal photo', exact: true }).waitFor();
   await l.evaluate(() => window.photoFixture.release());
+  await l.waitForFunction(() => window.photoFixture.held === null);
   assert.equal(await l.getByAltText('Selected meal photo').count(), 0);
   assert.equal(await l.evaluate(() => window.photoFixture.savedCallbacks), 0);
   await l.evaluate(() => window.photoFixture.switchOwner('A')); await saved(l);

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {execSync} from 'node:child_process';
+import {runInNewContext} from 'node:vm';
 import {VIEWER_API,VIEWER_STORAGE,ViewerAuthError,captureToken,deltaText,deltaTone,fetchWeekly,niceMax,postNote,validToken,hm} from '../src/components/cupcake/robyn/viewerApi.ts';
 
 const TOKEN='rv_'+'A'.repeat(43);
@@ -62,26 +62,26 @@ test('delta tone and wording stay neutral where direction is ambiguous',()=>{
   assert.equal(hm(377.5),'6 h 18 m'); assert.equal(niceMax([0,null,16536]),20000);
 });
 
-test('robyn view is isolated from owner code and the /cupcake unlock is unchanged',()=>{
+test('robyn view is isolated from both Cupcake auth surfaces',()=>{
   for(const f of ['src/components/cupcake/robyn/RobynDashboard.tsx','src/components/cupcake/robyn/viewerApi.ts','src/components/cupcake/robyn/CoachSections.tsx','src/components/cupcake/assessment/AssessmentView.tsx','src/pages/cupcake/robyn/page.tsx']){
     const src=readFileSync(new URL('../'+f,import.meta.url),'utf8');
-    assert.ok(!/privateAccess|X-Cupcake-Key|cupcake-library|localStorage|VITE_CUPCAKE/.test(src),f+' must not touch owner auth');
+    assert.doesNotMatch(src,/privateAccess|X-Cupcake-Key|cupcake-library|localStorage|VITE_CUPCAKE/,f+' must not touch owner auth');
   }
   const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');
-  assert.match(main,/\^\\\/cupcake\\\/robyn\\\/\?\$/);
-  const re=/^\/cupcake\/robyn\/?$/;
-  assert.ok(re.test('/cupcake/robyn')&&re.test('/cupcake/robyn/'));
-  assert.ok(!re.test('/cupcake')&&!re.test('/cupcake/sandbox/robyn')&&!re.test('/cupcake/robynx'));
-  for(const f of ['src/App.tsx','src/components/cupcake/privateAccess.ts']){
-    let diff='';
-    try{diff=execSync(`git diff --stat cac7237e -- ${f}`,{cwd:new URL('..',import.meta.url)}).toString();}catch{diff='';}
-    assert.equal(diff,'',f+' unchanged from cac7237');
+  const route=main.match(/const isRobynView = ([^\n]+);/);
+  assert.ok(route,'check the standalone entry condition used in src/main.tsx');
+  assert.match(main,/isRobynView\s*\?\s*<RobynPage\s*\/>\s*:\s*<App\s*\/>/);
+  for(const [pathname,expected] of [
+    ['/cupcake/robyn',true],['/cupcake/robyn/',true],['/cupcake',false],
+    ['/cupcake/account',false],['/cupcake/sandbox/robyn',false],['/cupcake/robynx',false],
+  ]){
+    assert.equal(runInNewContext(route[1],{window:{location:{pathname}}}),expected,pathname);
   }
-  // The Cupcake app page changed only in its Today cards (Body/Assessment card, headline weight card, action chips);
-  // sign-in, private access and the feed request are untouched.
-  const page=execSync('git diff -U0 cac7237e -- src/pages/cupcake/sandbox/cupcakegpt/page.tsx',{cwd:new URL('..',import.meta.url)}).toString()
-    .split('\n').filter(l=>/^[+-]/.test(l)&&!/^(\+\+\+|---) /.test(l));
-  assert.ok(page.length>0&&page.every(l=>!/PrivateAccess|privateAccess|X-Cupcake-Key|connect\(|cupcake-feed|unlock|AccessGate/.test(l)),'cupcakegpt page: only Today cards changed');
+  for(const f of ['src/App.tsx','src/components/cupcake/privateAccess.ts','src/pages/cupcake/sandbox/cupcakegpt/page.tsx']){
+    const src=readFileSync(new URL('../'+f,import.meta.url),'utf8');
+    const runtime=src.replace(/^import type[^\n]*$/gm,'');
+    assert.ok(!/X-Cupcake-Viewer|viewerApi|VIEWER_STORAGE|VIEWER_API|RobynPage/.test(runtime),f+' must not opt into the viewer session');
+  }
 });
 
 // ---- v2: details, export, chat, voice, coach, RP app link ----

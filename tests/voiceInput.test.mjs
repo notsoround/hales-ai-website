@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { acquireMicrophone, hasAudibleSignal, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from '../src/components/cupcake/voiceInput.ts';
-import { archiveTalk, continuationContext, drainVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator } from '../src/components/cupcake/voiceHistory.ts';
+import { importCupcakeSource } from './cupcake-source-fixture.mjs';
+const { acquireMicrophone, hasAudibleSignal, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } = await importCupcakeSource('voiceInput.ts');
+const { archiveTalk, continuationContext, drainVoiceTransport, persistTalk, readTalks, saveTalk, TalkLineDrain, VoiceEndingCoordinator } = await importCupcakeSource('voiceHistory.ts');
 
 const memory = new Map();
 Object.defineProperty(globalThis, 'localStorage', { value: { getItem:key=>memory.get(key)||null, setItem:(key,value)=>memory.set(key,value) } });

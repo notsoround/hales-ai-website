@@ -41,11 +41,11 @@ async function syntheticCoachServer(owner,route,body,query){
 }
 async function login(page,who){await page.getByLabel('Email',{exact:true}).fill(who+'@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic '+who.toUpperCase(),{exact:true}).first().waitFor();}
 async function nav(page,name){await page.getByRole('navigation',{name:'Cupcake',exact:true}).getByRole('button',{name,exact:true}).click();}
-async function logout(page){await page.getByRole('button',{name:'Sign out of Cupcake'}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
+async function logout(page){await page.getByRole('button',{name:'Sign out of Cupcake'}).click();await page.getByRole('alertdialog',{name:'Sign out?',exact:true}).getByRole('button',{name:'Sign out',exact:true}).click();await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await page.waitForFunction(()=>!document.querySelector('button.cc-primary')?.disabled);}
 async function choose(page,id){const back=page.getByRole('button',{name:'All clients',exact:true});if(await back.count())await back.click();await page.locator(`[data-grant-id="${id}"]`).click();}
 async function safe(page){const s=await page.evaluate(()=>({requests:window.accountFixture.requests,blocked:window.accountFixture.blocked,reads:window.accountFixture.legacyReads}));assert.equal(s.reads,0);assert.deepEqual(s.blocked,[]);for(const r of s.requests.filter(r=>r.route.startsWith('coach/'))){assert.equal(r.credentials,'include');assert.equal(r.headers['x-cupcake-request'],'account');assert.match(r.headers['x-cupcake-account-context'],/^acc_synthetic_[ab]$/);assert.equal(r.headers['x-cupcake-key'],undefined);assert.equal(r.body.owner_id,undefined);assert.equal(r.body.account_id,undefined);}}
 try{
-  const context=await browser.newContext({viewport:{width:390,height:844}});await context.exposeFunction('syntheticCoachServer',syntheticCoachServer);const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
+  const context=await browser.newContext({viewport:{width:390,height:844}});await context.exposeFunction('syntheticCoachServer',syntheticCoachServer);const page=await context.newPage();page.setDefaultTimeout(10000);page.on('dialog',dialog=>dialog.accept());await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
   await page.goto(base+'/cupcake/account');await page.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(page,'b');await nav(page,'Reports');
   await page.waitForFunction(()=>document.querySelectorAll('[data-grant-id]').length===3);
   await choose(page,CLEAN);await page.getByRole('heading',{name:'Report — Shared A',exact:true}).waitFor();await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();
@@ -78,7 +78,12 @@ try{
   await logout(page);await login(page,'a');delayed.release();photoDelay.release();await nav(page,'Reports');
   await page.getByRole('tab',{name:/^Shared with me/}).click();await page.getByText('No active reports have been shared with this account.',{exact:false}).waitFor();assert.equal(await image.count(),0);assert.equal(await page.getByRole('heading',{name:'Health numbers',exact:true}).count(),0);
   await page.getByRole('tab',{name:'My sharing & clients',exact:true}).click();
-  await page.getByRole('button',{name:'Sharing you authorized',exact:true}).click();const cleanShare=page.locator('.cc-coach>section.cc-card article').filter({hasText:'Health report'}).filter({hasNotText:'Meal photos'}).first();await cleanShare.getByRole('button',{name:'Revoke sharing',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.cc-coach')?.textContent.includes('Revoked'));
+  await page.getByRole('button',{name:'Sharing you authorized',exact:true}).click();
+  const cleanShare=page.locator('.cc-grant-card[data-state="active"]').filter({hasText:'Health report'}).filter({hasNotText:'Meal photos'});
+  await cleanShare.getByRole('button',{name:'Revoke sharing',exact:true}).click();
+  const confirmation=page.getByRole('alertdialog',{name:'Stop sharing?',exact:true});
+  await confirmation.getByRole('button',{name:'Revoke',exact:true}).click();
+  await cleanShare.waitFor({state:'detached'});
   assert.ok(grants.find(g=>g.id===CLEAN).revoked);
   await logout(page);await login(page,'b');await nav(page,'Reports');await page.waitForFunction(()=>document.querySelectorAll('[data-grant-id]').length===2);assert.equal(await page.locator(`[data-grant-id="${CLEAN}"]`).count(),0);
   await page.setViewportSize({width:1280,height:900});await choose(page,BOTH);await page.getByRole('heading',{name:'Health numbers',exact:true}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

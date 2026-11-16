@@ -40,9 +40,15 @@ const saved: Record<string, Map<string, Entry>> = { A: new Map(persisted.A || []
 const persist = () => sessionStorage.setItem('synthetic-photo-server', JSON.stringify({ A: [...saved.A], B: [...saved.B] }));
 const fixture = {
   mode: 'normal', requests: [] as { owner: string; route: string; body: Record<string, unknown> }[], persistedBeforeUpload: true, savedCallbacks: 0, release: () => {},
+  held: null as 'upload' | 'get' | null,
   async switchOwner(value: 'A' | 'B') { owner = value; await restoreSession(); },
   async drafts() { return await photoDraftStore().list(); },
 };
+async function hold(kind: 'upload' | 'get') {
+  fixture.mode = 'normal';
+  await new Promise<void>(resolve => { fixture.release = resolve; fixture.held = kind; });
+  fixture.held = null;
+}
 (window as unknown as { photoFixture: typeof fixture }).photoFixture = fixture;
 const nativeFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
@@ -64,7 +70,7 @@ window.fetch = async (input, init) => {
     const entry: Entry = previous || { body: intent, status: fixture.mode === 'uncertain' ? 'uncertain' : fixture.mode === 'failed' ? 'failed' : 'queued', meal: { id: 'meal_' + intent.request_id.replaceAll('-', ''), status: 'ready', description, source: 'account-photo-estimate', logDestination: 'account-local', accountLoggedAt: new Date().toISOString(), consumedAt: intent.consumed_at, logState: 'logged', countedInTotals: true, total: { calories: null, protein_g: 20 }, totalIsPartial: true, imageStored: true } };
     saved[scope].set(intent.request_id, entry); persist();
     if (fixture.mode === 'lost') { fixture.mode = 'normal'; throw Error('Synthetic response lost after request committed'); }
-    if (fixture.mode === 'holdUpload') { fixture.mode = 'normal'; await new Promise<void>(resolve => { fixture.release = resolve; }); }
+    if (fixture.mode === 'holdUpload') await hold('upload');
     if (fixture.mode === 'wrongReceipt') return response({ request: { ...envelope(entry).request, request_id: crypto.randomUUID() } });
     return response(envelope(entry));
   }
@@ -83,7 +89,7 @@ window.fetch = async (input, init) => {
     return response({ meal: labelMeal, unchanged: current === fraction });
   }
   if (body.action === 'food_get') {
-    if (fixture.mode === 'holdGet') { fixture.mode = 'normal'; await new Promise<void>(resolve => { fixture.release = resolve; }); }
+    if (fixture.mode === 'holdGet') await hold('get');
     return response({ meal: body.mealId === labelMeal?.id ? labelMeal : [...saved[scope].values()].find(entry => entry.meal.id === body.mealId)?.meal });
   }
   throw Error('Unexpected synthetic action blocked.');
