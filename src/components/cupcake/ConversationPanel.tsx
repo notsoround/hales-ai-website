@@ -1,5 +1,6 @@
 import { ACCOUNT_SESSIONS, cupcakeHref } from './accountMode';
 import { useState } from 'react';
+import { useBackClose } from './nativeFeel';
 import AnswerText from './AnswerText';
 import { ArrowLeft, Check, Copy, Download, FileText, Loader2, Send } from 'lucide-react';
 import { analysisPacket, conversationPacket, libraryRequest, openPrint, safeFilename, saveFile, sourceText, type Analysis, type Conversation, type Source } from './library';
@@ -22,6 +23,7 @@ export default function ConversationPanel({ record, onClose, onAsk, onRetry, onO
   record: Conversation; onClose: () => void; onAsk: (message: string) => Promise<void>; onRetry?: () => void;
   asking: boolean; questionError?: string; retrying?: boolean; onOrganized?: (project:string,tags:string[])=>void;
 }) {
+  useBackClose(true, onClose);
   const [question, setQuestion] = useState(''); const [exportError, setExportError] = useState('');
   const [organizing,setOrganizing]=useState(false);const [organizeLoading,setOrganizeLoading]=useState(false);const [project,setProject]=useState(record.project||'');const [topics,setTopics]=useState((record.tags||[]).join(', '));const [organizeError,setOrganizeError]=useState('');
   async function openOrganization(){if(ACCOUNT_SESSIONS)return;setOrganizing(true);setOrganizeLoading(true);setOrganizeError('');try{const d=await libraryRequest<{document:Conversation}>({action:'fetch',id:record.id});setProject(d.document.project||'');setTopics((d.document.tags||[]).join(', '));}catch(e){setOrganizeError((e as Error).message);}finally{setOrganizeLoading(false);}}

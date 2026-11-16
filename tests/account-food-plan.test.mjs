@@ -30,7 +30,7 @@ async function syntheticPlanServer(owner, body) {
 }
 async function open(width = 390) {
   const context = await browser.newContext({ viewport: { width, height: 844 } }); await context.exposeFunction('syntheticPlanServer', syntheticPlanServer);
-  const page = await context.newPage(); page.setDefaultTimeout(10000); page.on('dialog', dialog => dialog.accept());
+  const page = await context.newPage(); page.setDefaultTimeout(10000); page.on('dialog', dialog => dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   await page.goto(base + '/cupcake/account'); await page.getByRole('tab', { name: 'Food log', exact: true }).waitFor();

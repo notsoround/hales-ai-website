@@ -16,7 +16,7 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 async function open(entry) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage(); page.setDefaultTimeout(10000);
-  page.on('dialog', dialog => dialog.accept());
+  page.on('dialog', dialog => dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});
   await page.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   await page.goto(base + entry); await page.getByRole('heading', { name: 'Food', exact: true }).waitFor();
   return { context, page };

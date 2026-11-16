@@ -1,4 +1,5 @@
 import { confirmedLibraryRequest } from './libraryApproval';
+import { appConfirm } from './appConfirm';
 import { privateAccessHeaders } from './privateAccess';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { accountData } from './accountSession';
@@ -39,7 +40,7 @@ export async function libraryRequest<T>(body: Record<string, unknown>, options?:
   return data;
   };
   const foodGesture = options?.foodGesture === true && ['food_analyze', 'food_retry', 'food_refine', 'food_log', 'food_settings_save'].includes(String(body.action));
-  return await confirmedLibraryRequest(body, send, description => foodGesture || window.confirm(`Cupcake needs your confirmation:\n\n${description}\n\nApprove this action?`)) as T;
+  return await confirmedLibraryRequest(body, send, description => foodGesture || appConfirm(`Cupcake needs your confirmation:\n\n${description}\n\nApprove this action?`, { title: 'Approve this?', yes: 'Approve' })) as T;
 }
 export function safeFilename(title: string) { return (Array.from(title).filter(c => c.charCodeAt(0) >= 32).join('').replace(/[<>:"/\\|?*]/g, ' ').trim().slice(0, 100) || 'Cupcake conversation'); }
 export function saveFile(text: string, filename: string, mime = 'text/markdown;charset=utf-8') {

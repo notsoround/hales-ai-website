@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Settings, X } from 'lucide-react';
+import { useBackClose } from './nativeFeel';
 import './cupcake-settings.css';
 
 export function SettingsGroup({ title, children, danger = false }: { title: string; children: ReactNode; danger?: boolean }) {
@@ -10,6 +11,7 @@ export default function CupcakeSettings({ children }: { children: ReactNode }) {
   const root = useRef<HTMLDetailsElement>(null), panel = useRef<HTMLDivElement>(null), trigger = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
   const close = useCallback(() => { if (root.current) root.current.open = false; setOpen(false); trigger.current?.focus(); }, []);
+  useBackClose(open, close);
   useLayoutEffect(() => {
     if (!open || !panel.current) return;
     const container = panel.current;

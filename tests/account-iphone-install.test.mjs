@@ -46,7 +46,7 @@ async function open(entry='/cupcake/account?assistant=matthieu'){
   await context.route('**/*',route=>{const url=new URL(route.request().url());if(url.origin===base)return route.continue();outside.push(url.href);return route.abort();});
   await context.exposeFunction('syntheticHealthServer',syntheticHealthServer);
   await context.addInitScript(()=>{window.installRegistrations=[];if('serviceWorker'in navigator){const register=navigator.serviceWorker.register.bind(navigator.serviceWorker);navigator.serviceWorker.register=(...args)=>{window.installRegistrations.push(args[0]);return register(...args);};}});
-  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('console',message=>logs.push(message.text()));page.on('dialog',dialog=>dialog.accept());
+  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('console',message=>logs.push(message.text()));page.on('dialog',dialog=>dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});
   await page.goto(base+entry);await page.getByRole('heading',{name:entry.includes('assistant=matthieu')?'Sign in to Matthieu':'Sign in to Cupcake',exact:true}).waitFor();return {context,page};
 }
 async function login(page){await page.getByLabel('Email',{exact:true}).fill('a@example.invalid');await page.getByLabel('Password',{exact:true}).fill('Synthetic password 123!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByText('MyCupcake — Synthetic A',{exact:true}).first().waitFor();}

@@ -3,10 +3,22 @@
   "name": "Matthieu",
   "short_name": "Matthieu",
   "description": "Your private account companion. Internet connection required.",
+  "lang": "en-US",
   "start_url": "/cupcake/account?assistant=matthieu",
   "scope": "/cupcake/account",
   "display": "standalone",
   "background_color": "#09070d",
   "theme_color": "#09070d",
-  "icons": [{ "src": "/matthieu-avatar.png", "sizes": "256x256", "type": "image/png", "purpose": "any" }]
+  "categories": ["health", "lifestyle", "productivity"],
+  "icons": [
+    { "src": "/matthieu-app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/matthieu-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/matthieu-app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/matthieu-avatar.png", "sizes": "256x256", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Meal camera", "short_name": "Camera", "url": "/cupcake/account?assistant=matthieu&tab=snap&shortcut=camera", "icons": [{ "src": "/matthieu-app-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Talk to Matthieu", "short_name": "Talk", "url": "/cupcake/account?assistant=matthieu&tab=talk", "icons": [{ "src": "/matthieu-app-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Message Matthieu", "short_name": "Message", "url": "/cupcake/account?assistant=matthieu&tab=chat", "icons": [{ "src": "/matthieu-app-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
 }

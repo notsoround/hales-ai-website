@@ -28,7 +28,7 @@ async function open(entry,{owner=null,width=390}={}){
   });
   if(owner)await context.addInitScript(owner=>localStorage.setItem('synthetic-account-server',owner),owner);
   const external=[],page=await context.newPage();page.setDefaultTimeout(10000);
-  page.on('dialog',dialog=>dialog.accept());
+  page.on('dialog',dialog=>dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});
   await context.route('**/*',route=>{if(new URL(route.request().url()).origin===base)return route.continue();external.push(route.request().url());return route.abort();});
   await page.goto(base+entry);return {page,context,external};
 }

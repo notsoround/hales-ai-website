@@ -40,7 +40,7 @@ try{
   await context.addInitScript(()=>{localStorage.setItem('cupcake-private-access','synthetic-legacy-key');window.entryRegistrations=[];if('serviceWorker'in navigator){const register=navigator.serviceWorker.register.bind(navigator.serviceWorker);navigator.serviceWorker.register=(...args)=>{window.entryRegistrations.push(args[0]);return register(...args);};}});
   const legacy=await context.newPage();legacy.setDefaultTimeout(10000);await legacy.goto(base+'/cupcake?tab=feed');
   await legacy.getByRole('button',{name:'Lock Cupcake',exact:true}).waitFor();await legacy.getByText('PRIVATE MATT LEGACY TELEMETRY',{exact:true}).first().waitFor();
-  const account=await context.newPage();account.setDefaultTimeout(10000);account.on('dialog',d=>d.accept());await account.goto(base+'/cupcake/account');await account.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(account);
+  const account=await context.newPage();account.setDefaultTimeout(10000);account.on('dialog',d=>d.accept());void account.addLocatorHandler(account.locator('dialog.nx-confirm'),async()=>{await account.locator('dialog.nx-confirm [data-answer=yes]').click();});await account.goto(base+'/cupcake/account');await account.getByRole('heading',{name:'Sign in to Cupcake'}).waitFor();await login(account);
   assert.equal(await legacy.evaluate(()=>localStorage.getItem('cupcake-private-access')),LEGACY);
   assert.equal(await account.getByText('PRIVATE MATT LEGACY TELEMETRY',{exact:true}).count(),0);
   assert.equal(await account.evaluate(()=>window.accountFixture.legacyReads),0);

@@ -8,6 +8,7 @@ import './noir/noir-plan.css';
 import { parsePlanText } from './planImport';
 import { useLab } from './labsFlags';
 import { useDataChanged } from './dataChanges';
+import { appConfirm } from './appConfirm';
 import { AccountPlanBuilder } from './AccountPlanBuilder';
 import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, groceryNotes, missingGroceryItems } from './groceryChecklist';
 
@@ -106,13 +107,13 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
       setError(cause instanceof Error ? cause.message : 'Save not confirmed. Retry the same plan.');
     } finally { inFlight.current = false; if (generation.current === request) setBusy(false); }
   };
-  const useLatest = () => {
-    if (latest === undefined || !window.confirm('Replace this unsaved draft with the latest saved plan?')) return;
+  const useLatest = async () => {
+    if (latest === undefined || !await appConfirm('Replace this unsaved draft with the latest saved plan?', { title: 'Use the saved plan?', yes: 'Replace draft', danger: true })) return;
     try { storage.removeItem(PLAN_DRAFT_KEY); setBase(latest); setDraft(planDraft(latest)); setPending(null); setLatest(undefined); setNotice('Latest saved plan loaded.'); setError(''); }
     catch { setError('The browser could not clear this draft. Try again.'); }
   };
-  const keepDraft = () => {
-    if (latest === undefined || !window.confirm('Keep your meal and grocery edits for a new save over the latest version? Review both sections first.')) return;
+  const keepDraft = async () => {
+    if (latest === undefined || !await appConfirm('Keep your meal and grocery edits for a new save over the latest version? Review both sections first.', { title: 'Keep your draft?', yes: 'Keep my edits' })) return;
     const rebased = rebasePlanDraft(base, draft, latest);
     try { storage.setItem(PLAN_DRAFT_KEY, JSON.stringify({ base: latest, draft: rebased, pending: null })); setBase(latest); setDraft(rebased); setPending(null); setLatest(undefined); setNotice('Draft kept against the latest version. Review it, then explicitly save.'); setError(''); }
     catch { setError('The browser could not keep this draft. Try again.'); }

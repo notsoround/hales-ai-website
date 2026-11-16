@@ -7,6 +7,9 @@ import { AccountClosureControls } from '../../../../components/cupcake/AccountCl
 import { AccountCoachView } from '../../../../components/cupcake/AccountCoachView';
 import { accountControl, type AccountIdentity } from '../../../../components/cupcake/accountSession';
 import { useAccountInstallMetadata } from '../../../../components/cupcake/accountInstall';
+import { haptic, useBackClose, useScreenAwake } from '../../../../components/cupcake/nativeFeel';
+import { ConnectionNotice } from '../../../../components/cupcake/ConnectionNotice';
+import { appConfirm } from '../../../../components/cupcake/appConfirm';
 import { AccountInstallInstructions } from '../../../../components/cupcake/AccountInstallInstructions';
 import { AccountAppleHealth } from '../../../../components/cupcake/AccountAppleHealth';
 import AccountHealthSyncCard from '../../../../components/cupcake/AccountHealthSyncCard';
@@ -280,6 +283,8 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const cancelAccessAttempt = useCallback(() => { ++accessAttempt.current; }, []);
   const [mediaBusy, setMediaBusy] = useState(false);
   const [install, setInstall] = useState<InstallPrompt | null>(null);
+  useBackClose(!!quickAction, () => setQuickAction(null));
+  useScreenAwake(mediaBusy);
   const setTab = useCallback((next: TabKey) => {
     if (isAssistantTab(next)) setAssistantMode(assistantModeFor(next));
     if (tabRef.current==='reports' && isAssistantTab(next)) returnTab.current='feed';
@@ -325,8 +330,8 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
     setKeyInput(''); setAccess('form'); setUnlocking(false); setPersistenceNotice('');
     setAccessError(cleared ? '' : 'This browser could not remove your saved sign-in. Clear this site’s browser data to finish locking it.');
   }, [cancelAccessAttempt]);
-  const lock = useCallback(() => {
-    if (!window.confirm(ACCOUNT_SESSIONS?`Sign out of ${assistantName} on this browser and stop active media?`:`Lock ${assistantName} on this browser?`)) return;
+  const lock = useCallback(async () => {
+    if (!await appConfirm(ACCOUNT_SESSIONS?`Sign out of ${assistantName} on this browser and stop active media?`:`Lock ${assistantName} on this browser?`,{title:'Sign out?',yes:'Sign out',danger:true})) return;
     finishLock();
   }, [finishLock, assistantName]);
   useEffect(() => {
@@ -345,6 +350,9 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   useEffect(() => {
     const url = new URL(location.href);
     url.searchParams.set('tab', tabRef.current);
+    // A home-screen shortcut may ask for the camera; the marker is used once and never stays in the address.
+    if (ACCOUNT_SESSIONS && url.searchParams.get('shortcut') === 'camera' && tabRef.current === 'snap') requestFoodCamera();
+    url.searchParams.delete('shortcut');
     const previousRestoration = 'scrollRestoration' in history ? history.scrollRestoration : undefined;
     if (previousRestoration) history.scrollRestoration = 'manual';
     history.replaceState({ ...historyBase(), scroll: window.scrollY }, '', `${url.pathname}${url.search}${url.hash}`);
@@ -366,6 +374,12 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
     };
   }, []);
   useEffect(()=>{
+    if (!ACCOUNT_SESSIONS) return; // The account app only listens for the browser's install offer; its manifest comes from useAccountInstallMetadata.
+    const before=(e:Event)=>{e.preventDefault();setInstall(e as InstallPrompt);},done=()=>setInstall(null);
+    window.addEventListener('beforeinstallprompt',before);window.addEventListener('appinstalled',done);
+    return()=>{window.removeEventListener('beforeinstallprompt',before);window.removeEventListener('appinstalled',done);};
+  },[]);
+  useEffect(()=>{
     if (ACCOUNT_SESSIONS) return; // Account launch metadata is separate; legacy sharing stays scoped here.
     const links:HTMLLinkElement[]=[];
     for(const [rel,href] of [['manifest','/cupcake.webmanifest'],['apple-touch-icon','/cupcake-avatar.jpg']]){const l=document.createElement('link');l.rel=rel;l.href=href;document.head.appendChild(l);links.push(l);}
@@ -382,9 +396,9 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       <SettingsGroup title="App & updates"><AppUpdateNotice busy={mediaBusy} part="check"/>{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}{!ACCOUNT_SESSIONS&&<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}</SettingsGroup>
       {ACCOUNT_SESSIONS&&<SettingsGroup title="Connections"><ConnectionsHub assistantName={assistantName} appleHealth={<AccountAppleHealth/>} iphoneInstall={<AccountInstallInstructions/>} canInstall={!!install} onInstall={promptInstall}/></SettingsGroup>}
       {ACCOUNT_SESSIONS&&accountIdentity&&<SettingsGroup title="Labs"><AccountLabsSettings/></SettingsGroup>}
-    </CupcakeSettings><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} disabled={mediaBusy&&!accountIdentity} onClick={lock}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
+    </CupcakeSettings><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} disabled={mediaBusy&&!accountIdentity} onClick={()=>void lock()}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
     <main className="cc-shell">
-      <AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<details className="cc-account-note"><summary>Your private account · Sharing details</summary><p>You’re in your private account. Manage coach reports and meal-photo sharing in Reports. <button type="button" className="cc-text-button" onClick={()=>setTab('reports')}>Open Reports</button></p></details>}
+      {ACCOUNT_SESSIONS&&<ConnectionNotice sassy={appearance.persona!=="matthieu"}/>}<AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<details className="cc-account-note"><summary>Your private account · Sharing details</summary><p>You’re in your private account. Manage coach reports and meal-photo sharing in Reports. <button type="button" className="cc-text-button" onClick={()=>setTab('reports')}>Open Reports</button></p></details>}
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
@@ -396,7 +410,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
         <div hidden={tab==='library'||assistantMode!=='text'}><div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" role={ACCOUNT_SESSIONS?'switch':undefined} aria-checked={ACCOUNT_SESSIONS?speak:undefined} onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}{ACCOUNT_SESSIONS?'Read replies aloud':<>Read replies aloud: {speak?'on':'off'}</>}</button></div><SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy} assistantName={assistantName}/></SectionBoundary></div>
       </AssistantShell>}
       {access==='ready'&&screen==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&screen==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
-    </main><nav className="cc-nav" aria-label={assistantName}><div>{navigationTabs.map(({key,label,Icon})=><button key={key} type="button" aria-current={key!=='chat'&&navigationScreen===key?'page':undefined} aria-controls={key==='chat'?'cupcake-assistant':undefined} aria-expanded={key==='chat'?assistantOpen:undefined} onClick={()=>{if(key==='chat'){if(assistantOpen)setTab(returnTab.current);else openAssistantMode(assistantMode);return;}if(ACCOUNT_SESSIONS&&key==='snap')requestFoodCamera();setTab(key);}}>{ACCOUNT_SESSIONS&&key==='chat'?<span className="cc-nav-portrait" aria-hidden="true"><AssistantPortrait persona={appearance.persona} name={assistantName} small/></span>:<Icon size={22} aria-hidden="true"/>}<span className="cc-nav-label">{label}</span></button>)}</div></nav>
+    </main><nav className="cc-nav" aria-label={assistantName}><div>{navigationTabs.map(({key,label,Icon})=><button key={key} type="button" aria-current={key!=='chat'&&navigationScreen===key?'page':undefined} aria-controls={key==='chat'?'cupcake-assistant':undefined} aria-expanded={key==='chat'?assistantOpen:undefined} onClick={()=>{haptic();if(key==='chat'){if(assistantOpen)setTab(returnTab.current);else openAssistantMode(assistantMode);return;}if(ACCOUNT_SESSIONS&&key==='snap')requestFoodCamera();setTab(key);}}>{ACCOUNT_SESSIONS&&key==='chat'?<span className="cc-nav-portrait" aria-hidden="true"><AssistantPortrait persona={appearance.persona} name={assistantName} small/></span>:<Icon size={22} aria-hidden="true"/>}<span className="cc-nav-label">{label}</span></button>)}</div></nav>
   </div>;
 };
 

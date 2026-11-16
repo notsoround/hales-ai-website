@@ -1,5 +1,6 @@
 import { personalStorage } from './personalStorage';
 import { useEffect, useRef, useState } from 'react';
+import { useBackClose } from './nativeFeel';
 import { CalendarDateFields, type CalendarDate } from './CalendarDateFields';
 import { libraryRequest } from './library';
 import { LibraryApprovalCancelled } from './libraryApproval';
@@ -91,6 +92,7 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
   };
   const dismissRef = useRef(dismiss);
   dismissRef.current = dismiss;
+  useBackClose(open && !busy && !pending, () => dismissRef.current());
   useEffect(() => {
     if (typeof document === 'undefined') return;
     if (!open) {

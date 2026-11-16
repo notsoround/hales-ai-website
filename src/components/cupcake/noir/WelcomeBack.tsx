@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { personalStorage } from '../personalStorage';
+import { useBackClose } from '../nativeFeel';
 import './welcome-back.css';
 
 const SEEN_KEY = 'cc-noir-last-seen';
@@ -33,6 +34,7 @@ export function WelcomeBack({ assistantName, sassy, portrait, facts, onCamera, o
   const away = previous !== null && now - previous >= AWAY_MS ? now - previous : null;
   const [open, setOpen] = useState(false), [seen, setSeen] = useState(false);
   const card = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
+  useBackClose(open, () => { setOpen(false); trigger.current?.focus(); });
   useEffect(() => { if (!open) return; card.current?.focus(); const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); trigger.current?.focus(); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, [open]);
 
   const lines: { k: string; v: string; tone?: 'good' | 'warn' }[] = [];
