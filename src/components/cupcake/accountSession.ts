@@ -90,6 +90,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       throw new AccountRequestError(messages[result.error] || 'The ZIP request could not be confirmed. Check the saved status before starting another preparation.', result.error);
     }
     if (route.startsWith('voice/') && !response.ok && typeof result?.error === 'string') throw new AccountRequestError('Your voice request could not be confirmed.', result.error);
+    if (route === 'reply-report' && response.status === 503) throw new AccountRequestError('Reply reporting isn’t available yet.', 'account_reply_report_not_ready');
     if (!response.ok && typeof result?.error === 'string' && (result.error.startsWith('recording_summary_') || result.error === 'account_recording_summary_not_ready')) throw new AccountRequestError('The saved transcript summary is unavailable. Your original and transcript are kept.', result.error);
     const photoErrors: Record<string, string> = {
       account_food_photo_not_ready: 'Photo meal logging is not available for this account yet. Your original is kept on this device.',
@@ -200,6 +201,18 @@ async function accountJSON<T>(route: string, body: Record<string, unknown>, snap
 /** Dedicated bounded photo route; the ordinary data action body cap stays unchanged. */
 export async function accountFoodPhoto<T>(body: Record<string, unknown>): Promise<T> {
   return accountJSON<T>('food/photo/analyze', body, state);
+}
+
+export type ReportableReply = { kind: 'quick_chat'; threadId: string; turnId: string; attemptId?: string }
+  | { kind: 'voice'; sessionId: string; lineIndex: number };
+
+export async function accountReplyReport(reply: ReportableReply, reason: string) {
+  const result = await accountJSON<{ ok: boolean; report?: { id?: string; reportedAt?: string } }>(
+    'reply-report', { ...reply, ...(reason ? { reason } : {}) }, state);
+  if (result.ok !== true || typeof result.report?.id !== 'string' || !result.report.id ||
+    typeof result.report.reportedAt !== 'string' || !Number.isFinite(Date.parse(result.report.reportedAt))) {
+    throw Error('The report receipt could not be confirmed.');
+  }
 }
 
 export async function accountVoice<T>(route: 'config'|'list'|'start'|'recover'|'status'|'end', body: Record<string, unknown>, snapshot = state): Promise<T> {
