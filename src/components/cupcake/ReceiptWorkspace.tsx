@@ -87,9 +87,11 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
         const status = await accountData<{ configured: boolean; connections: {connectionId: string; status: string}[] }>({ action: 'bank_connection_status' });
         if (!status.configured || !Array.isArray(status.connections)) return '';
         const connected = status.connections.filter(connection => connection.status === 'connected');
+        const needsAttention = status.connections.some(connection => ['reconnect_required', 'disconnecting', 'disconnect_uncertain'].includes(connection.status));
         const results = await Promise.allSettled(connected.map(connection => accountData({ action: 'bank_sync', connectionId: connection.connectionId })));
         if (results.some(result => result.status === 'rejected')) return 'Some bank transactions could not be refreshed. Matching uses previously saved transactions.';
         if (connected.length) notifyDataChanged('purchase');
+        if (needsAttention) return 'A bank connection needs attention. Matching uses its previously saved transactions.';
         return '';
       } catch { return 'Bank transactions could not be refreshed. Matching uses previously saved transactions.'; }
     })();
