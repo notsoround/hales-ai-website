@@ -4,7 +4,7 @@ import { personalStorage } from './personalStorage';
 import { notifyDataChanged } from './dataChanges';
 import { appConfirm } from './appConfirm';
 
-type Connection = { connectionId: string; institutionName: string | null; status: string; lastSyncAt: string | null };
+type Connection = { connectionId: string; institutionName: string | null; status: string; lastSyncAt: string | number | null };
 type BankStatus = { configured: boolean; connections: Connection[]; uncertainRequests: {request_id: string; status: string}[]; resolvedRequests: {request_id: string; connectionId: string}[] };
 type LinkSession = { requestId: string; token: string; connectionId?: string };
 type PlaidHandler = { open: () => void; destroy: () => void };
@@ -13,6 +13,11 @@ declare global { interface Window { Plaid?: PlaidApi } }
 const LINK_SCRIPT = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
 const LINK_SESSION_KEY = 'cupcake-bank-link-session-v1';
 const PENDING_EXCHANGE_KEY = 'cupcake-bank-exchange-pending-v1';
+const syncTime = (value: string | number | null) => {
+  if (value == null) return '';
+  const date = new Date(typeof value === 'number' ? value * 1000 : value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString() : '';
+};
 
 function loadPlaid(): Promise<PlaidApi> {
   if (window.Plaid) return Promise.resolve(window.Plaid);
@@ -257,12 +262,13 @@ export function AccountBankConnection() {
         {!status.connections.length && <p className="cc-muted">No bank is connected to this account.</p>}
         {status.connections.map(connection => <article className="cc-card" key={connection.connectionId}>
           <strong>{connection.institutionName || 'Bank connection'}</strong>
-          <p className="cc-muted">{connection.status === 'connected' ? 'Connected' : connection.status === 'reconnect_required' ? 'Sign-in needs attention' : connection.status === 'disconnecting' ? 'Disconnecting' : connection.status === 'disconnect_uncertain' ? 'Disconnection unconfirmed' : connection.status === 'disconnected' ? 'Disconnected' : connection.status === 'uncertain' ? 'Connection status unconfirmed' : 'Status unavailable'}{connection.lastSyncAt ? ` · Last refreshed ${new Date(connection.lastSyncAt).toLocaleString()}` : ''}</p>
+          <p className="cc-muted">{connection.status === 'connected' ? 'Connected' : connection.status === 'reconnect_required' ? 'Sign-in needs attention' : connection.status === 'disconnecting' ? 'Disconnecting' : connection.status === 'disconnect_uncertain' ? 'Disconnection unconfirmed' : connection.status === 'disconnected' ? 'Disconnected' : connection.status === 'uncertain' ? 'Connection status unconfirmed' : 'Status unavailable'}{syncTime(connection.lastSyncAt) ? ` · Last refreshed ${syncTime(connection.lastSyncAt)}` : ''}</p>
           {connection.status === 'connected' && <button className="cc-secondary" type="button" disabled={busy} onClick={() => void sync(connection.connectionId)}>Refresh transactions</button>}
-          {connection.status === 'reconnect_required' && <button className="cc-secondary" type="button" disabled={busy || !!pendingExchange} onClick={() => void reconnect(connection.connectionId)}>Reconnect bank</button>}
+          {['connected', 'reconnect_required'].includes(connection.status) && <button className="cc-secondary" type="button" disabled={busy || !!pendingExchange} onClick={() => void reconnect(connection.connectionId)}>Reconnect bank</button>}
           {connection.status !== 'disconnected' && <button className="cc-text-button" type="button" disabled={busy || connection.status === 'disconnecting'} onClick={() => void disconnect(connection.connectionId)}>{connection.status === 'disconnect_uncertain' ? 'Retry disconnection' : 'Disconnect bank'}</button>}
         </article>)}
         {(pendingExchange || status.uncertainRequests.length > 0) && <p role="status">A bank connection is still being confirmed. Check status, or contact support if it remains unresolved.</p>}
+        {status.connections.some(connection => ['connected', 'reconnect_required'].includes(connection.status)) && <p className="cc-muted cc-small">To update an existing bank, use Reconnect bank. Connecting it again can duplicate transactions.</p>}
         <div className="cc-action-row"><button className="cc-primary" type="button" disabled={busy || !!pendingExchange || status.uncertainRequests.length > 0} onClick={() => void connect()}>Connect a bank</button><button className="cc-text-button" type="button" disabled={busy} onClick={() => void refresh().catch(cause => setError(cause instanceof Error ? cause.message : 'Bank status is unavailable.'))}>Refresh status</button></div>
       </>}
     </>}
