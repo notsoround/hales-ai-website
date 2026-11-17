@@ -42,6 +42,7 @@ window.fetch = async (input, init) => {
   if (body.action === 'bank_link_complete' || body.action === 'bank_link_update_complete') {
     const row = rows.find(item => item.request_id === body.request_id);
     if (!row) return reply({ ok: false, error: 'bank_request_not_found' }, 404);
+    if (state.mode === 'expired') { row.status = 'expired'; return reply({ ok: false, error: 'bank_link_expired' }, 409); }
     if (state.mode === 'pending') return reply({ ok: false, error: 'bank_link_pending' }, 409);
     const connection = { connectionId: 'bank_connection_synthetic', institutionName: 'Synthetic Bank', status: 'connected', lastSyncAt: '2026-11-17T10:00:00Z' };
     row.status = 'completed'; row.connectionId = connection.connectionId; state.banks[owner.account_id] = connection;

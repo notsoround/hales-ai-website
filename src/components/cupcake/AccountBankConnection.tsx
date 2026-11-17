@@ -63,6 +63,10 @@ export function AccountBankConnection() {
       setError('');
       setMessage('Bank connection confirmed. Refresh transactions to use it for receipt matching.');
     }
+    const saved = sessionRef.current;
+    if (!pending && saved && result.requests.some(item => item.request_id === saved.requestId && item.status === 'expired')) {
+      clearSession(); setError('That bank connection link expired. Start a new connection.');
+    }
     setStatus(result);
     return result;
   }, [active, clearSession]);
@@ -87,7 +91,9 @@ export function AccountBankConnection() {
       await refresh(); active();
     } catch (cause) {
       if (alive.current && sessionSnapshot().generation === generation) {
-        if (cause instanceof AccountRequestError && cause.code === 'bank_link_pending') {
+        if (cause instanceof AccountRequestError && cause.code === 'bank_link_expired') {
+          clearSession(); setError('That bank connection link expired. Start a new connection.'); setMessage('');
+        } else if (cause instanceof AccountRequestError && cause.code === 'bank_link_pending') {
           storage.removeItem(PENDING_EXCHANGE_KEY); pendingRef.current = ''; setPendingExchange('');
           setWaiting(true);
           setMessage('Waiting for Plaid to finish confirming your connection…');
@@ -169,7 +175,9 @@ export function AccountBankConnection() {
       location.assign(target.href);
     } catch (cause) {
       if (alive.current && sessionSnapshot().generation === generation) {
-        setError(cause instanceof Error ? cause.message : 'Bank connection could not be started.');
+        if (cause instanceof AccountRequestError && cause.code === 'bank_link_expired') {
+          clearSession(); setError('That bank connection link expired. Start a new connection.');
+        } else setError(cause instanceof Error ? cause.message : 'Bank connection could not be started.');
         setBusy(false);
       }
     } finally { inFlight.current = false; }

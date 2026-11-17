@@ -100,6 +100,12 @@ try {
   await otherPage.getByText('Synthetic Plaid page').waitFor();
   await otherPage.goto(base + 'cupcake/account?bankLink=complete');
   await otherPage.getByText('Bank connected and transactions refreshed.').waitFor();
+  await otherPage.evaluate(() => window.bankFixture.mode('expired'));
+  await otherPage.getByRole('button', { name: 'Connect a bank' }).click();
+  await otherPage.getByText('Synthetic Plaid page').waitFor();
+  await otherPage.goto(base + 'cupcake/account?bankLink=complete');
+  await otherPage.getByText('That bank connection link expired. Start a new connection.').waitFor();
+  assert.equal(await otherPage.getByRole('button', { name: 'Check connection' }).count(), 0);
   await otherContext.close();
   console.log('PASS: synthetic hosted bank link, pending resume, owner isolation, reconnect, disconnect and lost-response recovery');
   await context.close();
