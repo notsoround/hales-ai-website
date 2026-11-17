@@ -121,11 +121,30 @@ export function AccountBankConnection() {
           else void complete(returned);
         } catch { setError('Your bank session could not be restored. Check bank connections.'); }
       } else {
-        setError('Your bank session could not be restored. Check bank connections for pending requests.');
+        setMessage('Checking your bank connection…');
+        const hadUncertainExchange = !!pendingRef.current;
+        void refresh().then(result => {
+          if (!alive.current || sessionSnapshot().generation !== generation || hadUncertainExchange) return;
+          const ready = result.requests.filter(row => row.status === 'ready');
+          if (ready.length !== 1) {
+            setMessage('');
+            setError(ready.length ? 'Choose a pending bank connection to check.' : 'No pending bank connection was found for this account.');
+            return;
+          }
+          const row = ready[0];
+          const item = { requestId: row.request_id, ...(row.connectionId ? { connectionId: row.connectionId } : {}), returned: true };
+          storage.setItem(LINK_SESSION_KEY, JSON.stringify(item));
+          sessionRef.current = item; setSession(item);
+          void complete(item);
+        }).catch(() => {
+          if (alive.current && sessionSnapshot().generation === generation) {
+            setMessage(''); setError('Your bank session could not be restored. Check bank connections for pending requests.');
+          }
+        });
       }
     }
     return () => { alive.current = false; };
-  }, [complete, storage]);
+  }, [complete, generation, refresh, storage]);
 
   useEffect(() => {
     if (!waiting || busy || !session || attempts.current >= 4) return;

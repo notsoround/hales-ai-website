@@ -99,9 +99,6 @@ try {
   await otherPage.getByRole('button', { name: 'Connect a bank' }).click();
   await otherPage.getByText('Synthetic Plaid page').waitFor();
   await otherPage.goto(base + 'cupcake/account?bankLink=complete');
-  await otherPage.getByText('Your bank session could not be restored. Check bank connections for pending requests.').waitFor();
-  await otherPage.getByRole('button', { name: 'Check bank connections' }).click();
-  await otherPage.getByRole('button', { name: 'Check pending bank connection' }).click();
   await otherPage.getByText('Bank connected and transactions refreshed.').waitFor();
   await otherContext.close();
   console.log('PASS: synthetic hosted bank link, pending resume, owner isolation, reconnect, disconnect and lost-response recovery');
