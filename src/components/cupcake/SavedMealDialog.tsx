@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { MealDialog } from './MealDialog';
 import type { FoodMeal } from './DashboardView';
 import { libraryRequest } from './library';
-import { dayLabel, mealNeighbors, mealTimeLabel, type FoodHistoryMeal } from './nutritionModel';
+import { dayLabel, mealIsCounted, mealNeighbors, mealTimeLabel, type FoodHistoryMeal } from './nutritionModel';
 import { PhotoViewer } from './PhotoViewer';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { accountData, AccountRequestError } from './accountSession';
@@ -32,7 +32,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus,
   const currentMeal = meal?.id === mealId ? meal : null;
   const manual = currentMeal?.source === 'manual-entry' || !!currentMeal?.manualLoggedAt;
   const noPhoto = manual || currentMeal?.imageStored === false;
-  const logged = !!currentMeal && currentMeal.countedInTotals !== false && (!!currentMeal.sheetLoggedAt || (currentMeal.source === 'account-photo-estimate' && currentMeal.logDestination === 'account-local' && !!currentMeal.accountLoggedAt && currentMeal.logState === 'logged' && currentMeal.countedInTotals === true && !!currentMeal.consumedAt && Number.isFinite(Date.parse(currentMeal.consumedAt))));
+  const logged = !!currentMeal && mealIsCounted(currentMeal);
   useEffect(() => {
     let current = true;
     setMeal(null); setError('');

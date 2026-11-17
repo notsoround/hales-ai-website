@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { localMealDate, parseMealTime } from '../src/components/cupcake/mealTime.ts';
 import { LibraryApprovalCancelled, confirmedLibraryRequest } from '../src/components/cupcake/libraryApproval.ts';
+import { mealIsCounted } from '../src/components/cupcake/nutritionModel.ts';
 const CalendarDateFields = () => null;
 
 process.env.TZ = 'America/Chicago';
@@ -96,6 +97,7 @@ const snap = surface('src/pages/cupcake/sandbox/cupcakegpt/page.tsx', 'SnapView'
   // This legacy flow delivers no cross-screen account data-change event.
   '../../../../components/cupcake/dataChanges': { useDataChanged() {} },
   '../../../../components/cupcake/nutritionApi': { useNutritionData: () => ({ history: null, reload: nutritionReload }) },
+  '../../../../components/cupcake/nutritionModel': { mealIsCounted },
   '../../../../components/cupcake/MealTimeInput': { MealTimeInput },
   '../../../../components/cupcake/libraryApproval': { LibraryApprovalCancelled },
   '../../../../components/cupcake/library': { libraryRequest: async body => {

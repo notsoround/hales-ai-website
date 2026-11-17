@@ -23,8 +23,11 @@ const receipts = [
   { id: 'receipt_' + 'c'.repeat(32), status: 'matched', merchant: 'Synthetic matched receipt', createdAt: now, date: now.slice(0, 10), total: 8, currency: 'USD', tip: 0, tax: 0, lineItems: [], matchedTransactionId: 'synthetic-confirmed' },
 ];
 const fixture = { requests: [] as Record<string, unknown>[], blocked: [] as string[], mediaRequests: 0, inputClicks: 0, request: libraryRequest,
-  photoUploads: [] as { body: PhotoIntent; durable: boolean }[] };
-let uploaded: (typeof pending & { source: string; logDestination: string; logState: string; accountLoggedAt: string; countedInTotals: boolean }) | undefined;
+  photoUploads: [] as { body: PhotoIntent; durable: boolean }[], foodListReadsAfterUpload: 0, commitPendingOnRead: false };
+const accountLoggedPhoto = { source: 'account-photo-estimate', logDestination: 'account-local', logState: 'logged', accountLoggedAt: now, countedInTotals: true };
+type LoggedPhoto = typeof pending & typeof accountLoggedPhoto;
+let uploaded: LoggedPhoto | undefined;
+let lateMeal: LoggedPhoto | undefined;
 (window as unknown as { mediaFixture: typeof fixture }).mediaFixture = fixture;
 const nativeFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
@@ -42,8 +45,8 @@ window.fetch = async (input, init) => {
       const intent = body as PhotoIntent;
       const durable = (await photoDraftStore().list()).some(saved => JSON.stringify(saved) === JSON.stringify(intent));
       fixture.photoUploads.push({ body: intent, durable });
-      uploaded = { ...pending, id: 'meal_' + intent.request_id.replaceAll('-', ''), description: 'Synthetic newly logged photo', consumedAt: intent.consumed_at,
-        source: 'account-photo-estimate', logDestination: 'account-local', logState: 'logged', accountLoggedAt: now, countedInTotals: true };
+      uploaded = { ...pending, ...accountLoggedPhoto, id: 'meal_' + intent.request_id.replaceAll('-', ''), description: 'Synthetic newly logged photo', consumedAt: intent.consumed_at,
+        total: { ...pending.total, calories: 325 } };
       return response({ request: { request_id: intent.request_id, attempt: 'synthetic-photo-attempt', meal_id: uploaded.id, status: 'completed', error: null, dispatched: true }, meal: uploaded });
     }
   }
@@ -52,10 +55,26 @@ window.fetch = async (input, init) => {
     fixture.blocked.push(url.href); throw Error('External request blocked in isolated media preview.');
   }
   fixture.requests.push(body);
-  if (body.action === 'food_list') return response({ meals: uploaded ? [uploaded, ...meals] : meals });
-  if (body.action === 'food_history') return response({ meals: uploaded ? [uploaded, meal] : [meal], total: uploaded ? 2 : 1, pendingCount: 2, undatedLoggedCount: 0, hasMore: false });
+  if (body.action === 'food_list') {
+    if (uploaded) fixture.foodListReadsAfterUpload++;
+    const recent = lateMeal ? [meal, lateMeal, failed] : meals;
+    return response({ meals: uploaded ? [uploaded, ...recent] : recent });
+  }
+  if (body.action === 'food_history') {
+    // A retried read can return the same meal twice. Both copies retain the stable meal ID.
+    const history = lateMeal ? [meal, lateMeal] : [meal];
+    return response({ meals: uploaded ? [uploaded, ...history, uploaded] : history,
+      total: history.length + Number(!!uploaded), pendingCount: lateMeal ? 1 : 2, undatedLoggedCount: 0, hasMore: false });
+  }
+  if (body.action === 'food_get') {
+    if (body.mealId === pending.id && fixture.commitPendingOnRead) {
+      // Simulates another device completing the meal after the existing list response.
+      lateMeal = { ...pending, ...accountLoggedPhoto, total: { ...pending.total, calories: 175 } };
+      return response({ meal: lateMeal });
+    }
+    return response({ meal: uploaded?.id === body.mealId ? uploaded : meals.find(item => item.id === body.mealId) });
+  }
   if (body.action === 'food_settings_get') return response({ settings: { calorieTarget: null, expenditureEstimate: null, effectiveFrom: null } });
-  if (body.action === 'food_get') return response({ meal: uploaded?.id === body.mealId ? uploaded : meals.find(item => item.id === body.mealId) });
   if (body.action === 'food_photo') return response({ photo: { dataUrl: image } });
   if (body.action === 'receipt_list') return response({ receipts });
   if (body.action === 'receipt_get') return response({ receipt: receipts.find(item => item.id === body.receiptId), ...(body.includeImage ? { image } : {}) });

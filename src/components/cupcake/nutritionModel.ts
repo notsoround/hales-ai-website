@@ -1,8 +1,9 @@
 export const NUTRITION_TIME_ZONE = 'America/Chicago';
 export type NutritionScale = 'day' | 'week' | 'month' | 'year';
 export type FoodHistoryMeal = {
-  id: string; description: string; consumedAt?: string | null; date?: string; source?: 'food_sheet' | 'manual-entry'; createdAt?: string; photoTakenAt?: string;
-  sheetLoggedAt?: string | null; countedInTotals?: boolean; total?: { calories?: number | null; protein_g?: number | null; carbs_g?: number | null; fat_g?: number | null; sugar_g?: number | null; fiber_g?: number | null };
+  id: string; description: string; consumedAt?: string | null; date?: string; source?: 'food_sheet' | 'manual-entry' | 'account-photo-estimate'; createdAt?: string; photoTakenAt?: string;
+  sheetLoggedAt?: string | null; accountLoggedAt?: string; logDestination?: string; logState?: string; countedInTotals?: boolean;
+  total?: { calories?: number | null; protein_g?: number | null; carbs_g?: number | null; fat_g?: number | null; sugar_g?: number | null; fiber_g?: number | null };
   totalIsPartial?: boolean; calorieRange?: { low: number; high: number } | null; imageStored?: boolean;
 };
 export type NutritionHistory = { meals: FoodHistoryMeal[]; complete: boolean; pendingCount: number; undatedLoggedCount: number; unknownTimeCount?: number; scope?: string; coverageNote?: string };
@@ -27,9 +28,16 @@ export function mealTimeLabel(when: string | undefined | null, includeDate = tru
   return new Intl.DateTimeFormat('en-US', { timeZone: NUTRITION_TIME_ZONE, ...(includeDate ? { month: 'short', day: 'numeric', year: 'numeric' } as const : {}), hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(new Date(when));
 }
 const knownNumber = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
+export function mealIsCounted(meal: Pick<FoodHistoryMeal, 'sheetLoggedAt' | 'accountLoggedAt' | 'source' | 'logDestination' | 'logState' | 'countedInTotals' | 'consumedAt'>): boolean {
+  if (meal.countedInTotals === false) return false;
+  if (meal.sheetLoggedAt) return true;
+  return meal.source === 'account-photo-estimate' && meal.logDestination === 'account-local'
+    && !!meal.accountLoggedAt && meal.logState === 'logged' && meal.countedInTotals === true
+    && !!meal.consumedAt && /(?:Z|[+-]\d\d:\d\d)$/.test(meal.consumedAt) && Number.isFinite(Date.parse(meal.consumedAt));
+}
 export function loggedMeals(meals: FoodHistoryMeal[]): FoodHistoryMeal[] {
   const seen = new Set<string>();
-  return meals.map(meal => ({ meal, day: mealDay(meal) })).filter(({ meal, day }) => { if (!meal.id || seen.has(meal.id) || !meal.sheetLoggedAt || meal.countedInTotals === false || !day) return false; seen.add(meal.id); return true; })
+  return meals.map(meal => ({ meal, day: mealDay(meal) })).filter(({ meal, day }) => { if (!meal.id || seen.has(meal.id) || !mealIsCounted(meal) || !day) return false; seen.add(meal.id); return true; })
     .sort((a, b) => a.day.localeCompare(b.day) || (a.meal.consumedAt && b.meal.consumedAt ? Date.parse(a.meal.consumedAt) - Date.parse(b.meal.consumedAt) : a.meal.consumedAt ? -1 : b.meal.consumedAt ? 1 : 0) || a.meal.id.localeCompare(b.meal.id)).map(({ meal }) => meal);
 }
 export function mealDay(meal: FoodHistoryMeal): string { return meal.consumedAt && /(Z|[+-]\d\d:\d\d)$/.test(meal.consumedAt) ? nutritionDay(meal.consumedAt) : meal.date && validDay(meal.date) ? meal.date : ''; }

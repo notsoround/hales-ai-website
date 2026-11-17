@@ -14,7 +14,7 @@ const browser = await chromium.launch({ headless: true });
 const unsupported = new Set(['food_analyze', 'food_refine', 'food_retry', 'food_log', 'receipt_extract', 'receipt_retry', 'receipt_match_candidates']);
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0ioAAAAASUVORK5CYII=', 'base64');
 async function open(entry) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const page = await context.newPage(); page.setDefaultTimeout(10000);
   page.on('dialog', dialog => dialog.accept());void page.addLocatorHandler(page.locator('dialog.nx-confirm'),async()=>{await page.locator('dialog.nx-confirm [data-answer=yes]').click();});
   await page.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
@@ -55,6 +55,48 @@ try {
   assert.equal(durable, true); assert.equal(upload.confirm_consumed, true); assert.equal(upload.estimate_visible_portion, true);
   assert.equal(upload.photo_time_basis, 'file_last_modified'); assert.equal(upload.consumed_at, upload.photo_taken_at);
   assert.ok(afterChoice.requests.some(request => request.action === 'food_get' && request.mealId === 'meal_' + upload.request_id.replaceAll('-', '')));
+
+  await page.waitForFunction(() => window.mediaFixture.foodListReadsAfterUpload > 0);
+  const queue = page.getByRole('region', { name: 'Photos to check', exact: true });
+  assert.equal(await queue.getByText('Synthetic newly logged photo', { exact: true }).count(), 0, 'a confirmed account photo leaves the review queue');
+  assert.equal(await queue.getByRole('heading', { name: '2 photos to check', exact: true }).count(), 1);
+  for (const pending of ['Synthetic pending lunch', 'Synthetic failed photo']) {
+    assert.equal(await queue.getByRole('button', { name: new RegExp(pending) }).count(), 1);
+  }
+  const mealRows = page.locator('.cc-nutrition-timeline').getByRole('button', { name: /Synthetic newly logged photo/ });
+  const dailyTotal = page.locator('.cc-nutrition-intake');
+  async function assertCountedOnce() {
+    await dailyTotal.getByText('825 kcal', { exact: true }).waitFor();
+    assert.equal(await dailyTotal.getByText('2 logged meals', { exact: true }).count(), 1);
+    assert.equal(await mealRows.count(), 1, 'same meal ID appears once even if history repeats it');
+  }
+  await assertCountedOnce();
+  await mealRows.click();
+  await saved.getByRole('heading', { name: 'Synthetic newly logged photo', exact: true }).waitFor();
+  await saved.getByText(/In your food log/).waitFor();
+  assert.equal(await saved.getByText(/not in (?:your )?calorie totals/i).count(), 0);
+  await page.keyboard.press('Escape');
+  const reads = await page.evaluate(() => window.mediaFixture.foodListReadsAfterUpload);
+  await queue.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.waitForFunction(before => window.mediaFixture.foodListReadsAfterUpload > before, reads);
+  await assertCountedOnce();
+  console.log('PASS: confirmed account photo appears once in Food history and adds 325 kcal once, with only unfinished photos in the review queue');
+
+  // An older queue row can become confirmed before the user opens its details.
+  await page.evaluate(() => { window.mediaFixture.commitPendingOnRead = true; });
+  const outdated = queue.getByRole('button', { name: /Synthetic pending lunch/ });
+  await outdated.click();
+  await saved.getByText(/included in that day’s calories/).waitFor();
+  assert.equal(await saved.getByText(/not in (?:your )?calorie totals/i).count(), 0);
+  await page.keyboard.press('Escape');
+  await outdated.waitFor({ state: 'detached' });
+  await dailyTotal.getByText('1,000 kcal', { exact: true }).waitFor();
+  assert.equal(await dailyTotal.getByText('3 logged meals', { exact: true }).count(), 1);
+  assert.equal(await page.locator('.cc-nutrition-timeline').getByRole('button', { name: /Synthetic pending lunch/ }).count(), 1);
+  assert.equal(await queue.getByRole('heading', { name: '1 photo to check', exact: true }).count(), 1);
+  assert.equal(await queue.getByRole('button', { name: /Synthetic failed photo/ }).count(), 1);
+  console.log('PASS: stale pending row shows newly confirmed status and then leaves the queue, with the updated 175 kcal counted once');
+
   await page.getByRole('button', { name: 'Receipts preview', exact: true }).click();
   await page.getByText('Receipt capture and bank search unavailable', { exact: true }).waitFor();
   assert.equal(await page.locator('input[type=file]').count(), 0);
