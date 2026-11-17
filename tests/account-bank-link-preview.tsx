@@ -9,25 +9,16 @@ const owners = {
   B: { account_id: 'acc_bank_b', email: 'b@example.invalid', name: 'Synthetic B' },
 };
 let owner = owners.A;
-const banks = new Map<string, { connectionId: string; institutionName: string; status: string; lastSyncAt: string | null }>();
-const resolved = new Map<string, { request_id: string; connectionId: string }[]>();
-const fixture = {
-  calls: [] as { owner: string; action: string; body: Record<string, unknown> }[],
-  opened: 0, returnedUri: '', token: '', success: (_token: string | null) => {}, exit: () => {}, failExchange: false,
-};
-Object.assign(window, { bankFixture: fixture, switchOwner: async (key: 'A' | 'B') => {
-  invalidateSession('', false); owner = owners[key]; await restoreSession();
-}, setBankNeedsReconnect: () => {
-  const previous = banks.get(owner.account_id);
-  if (previous) banks.set(owner.account_id, { ...previous, status: 'reconnect_required' });
-} });
-window.Plaid = { create(config) {
-  fixture.token = config.token;
-  fixture.returnedUri = config.receivedRedirectUri || '';
-  fixture.success = config.onSuccess;
-  fixture.exit = config.onExit;
-  return { open() { fixture.opened++; }, destroy() {} };
-} };
+type Connection = { connectionId: string; institutionName: string; status: string; lastSyncAt: string | null };
+type Request = { request_id: string; status: string; connectionId: string | null };
+type SyntheticBackend = { banks: Record<string, Connection>; requests: Record<string, Request[]>; mode: string; calls: { owner: string; action: string; body: Record<string, unknown> }[] };
+const key = 'synthetic-bank-server';
+const load = (): SyntheticBackend => JSON.parse(sessionStorage.getItem(key) || '{"banks":{},"requests":{},"mode":"success","calls":[]}');
+const save = (value: SyntheticBackend) => sessionStorage.setItem(key, JSON.stringify(value));
+Object.assign(window, {
+  bankFixture: { load, mode: (mode: string) => { const state = load(); state.mode = mode; save(state); }, setReconnect: () => { const state = load(); if (state.banks[owner.account_id]) state.banks[owner.account_id].status = 'reconnect_required'; save(state); } },
+  switchOwner: async (id: 'A' | 'B') => { invalidateSession('', false); owner = owners[id]; await restoreSession(); },
+});
 window.fetch = async (input, init) => {
   const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href);
   if (url.origin !== 'https://automate.hales.ai') throw Error('Unexpected network');
@@ -35,34 +26,39 @@ window.fetch = async (input, init) => {
   const response = (value: object, status = 200) => Response.json({ ok: true, ...value, identity: owner }, { status });
   if (url.pathname.endsWith('/session')) return response({});
   if (!url.pathname.endsWith('/data') || headers.get('X-Cupcake-Account-Context') !== owner.account_id || init?.credentials !== 'include') throw Error('Wrong account context');
-  fixture.calls.push({ owner: owner.account_id, action: body.action, body });
-  if (body.action === 'bank_connection_status') return response({ configured: true, connections: banks.has(owner.account_id) ? [banks.get(owner.account_id)] : [], uncertainRequests: [], resolvedRequests: resolved.get(owner.account_id) || [] });
-  if (body.action === 'bank_link_create') return response({ link_token: 'synthetic-link-token', expiration: '2099-01-01T00:00:00Z' });
-  if (body.action === 'bank_link_update_create') return response({ link_token: 'synthetic-update-token', expiration: '2099-01-01T00:00:00Z' });
-  if (body.action === 'bank_link_update_complete') {
-    const previous = banks.get(owner.account_id);
-    if (!previous || body.connectionId !== previous.connectionId) throw Error('Wrong connection');
-    banks.set(owner.account_id, { ...previous, status: 'connected', lastSyncAt: '2026-11-17T10:00:00Z' });
-    return response({ connectionId: previous.connectionId, status: 'connected', lastSyncAt: '2026-11-17T10:00:00Z' });
+  const state = load();
+  state.calls.push({ owner: owner.account_id, action: body.action, body });
+  const rows = state.requests[owner.account_id] ||= [];
+  const reply = (value: object, status = 200) => { save(state); return response(value, status); };
+  if (body.action === 'bank_connection_status') return reply({
+    configured: true, connections: state.banks[owner.account_id] ? [state.banks[owner.account_id]] : [], requests: rows,
+    uncertainRequests: rows.filter(row => row.status === 'uncertain' || row.status === 'exchanging'),
+    resolvedRequests: rows.filter(row => row.status === 'completed'),
+  });
+  if (body.action === 'bank_link_create' || body.action === 'bank_link_update_create') {
+    if (!rows.some(row => row.request_id === body.request_id)) rows.push({ request_id: String(body.request_id), status: 'ready', connectionId: body.connectionId || null });
+    return reply({ hosted_link_url: 'https://secure.plaid.com/hl/synthetic', expiration: '2099-01-01T00:00:00Z' });
   }
-  if (body.action === 'bank_link_exchange') {
-    const connection = { connectionId: 'bank_connection_synthetic', institutionName: 'Synthetic Bank', status: 'connected', lastSyncAt: null };
-    banks.set(owner.account_id, connection);
-    resolved.set(owner.account_id, [...(resolved.get(owner.account_id) || []), { request_id: String(body.request_id), connectionId: connection.connectionId }]);
-    if (fixture.failExchange) { fixture.failExchange = false; throw Error('Synthetic response lost'); }
-    return response({ connection });
+  if (body.action === 'bank_link_complete' || body.action === 'bank_link_update_complete') {
+    const row = rows.find(item => item.request_id === body.request_id);
+    if (!row) return reply({ ok: false, error: 'bank_request_not_found' }, 404);
+    if (state.mode === 'pending') return reply({ ok: false, error: 'bank_link_pending' }, 409);
+    const connection = { connectionId: 'bank_connection_synthetic', institutionName: 'Synthetic Bank', status: 'connected', lastSyncAt: '2026-11-17T10:00:00Z' };
+    row.status = 'completed'; row.connectionId = connection.connectionId; state.banks[owner.account_id] = connection;
+    if (state.mode === 'lost') { state.mode = 'success'; save(state); throw Error('Synthetic response lost'); }
+    return reply(body.action === 'bank_link_update_complete' ? { connectionId: connection.connectionId, status: 'connected' } : { connection, sync: { status: 'connected' } });
   }
   if (body.action === 'bank_sync') {
-    const previous = banks.get(owner.account_id);
+    const previous = state.banks[owner.account_id];
     if (!previous || body.connectionId !== previous.connectionId) throw Error('Wrong connection');
-    banks.set(owner.account_id, { ...previous, lastSyncAt: '2026-11-17T10:00:00Z' });
-    return response({ status: 'connected', lastSyncAt: '2026-11-17T10:00:00Z', added: 1, modified: 0, removed: 0 });
+    previous.lastSyncAt = '2026-11-17T10:00:00Z';
+    return reply({ status: 'connected', lastSyncAt: previous.lastSyncAt });
   }
   if (body.action === 'bank_disconnect') {
-    const previous = banks.get(owner.account_id);
+    const previous = state.banks[owner.account_id];
     if (!previous || body.connectionId !== previous.connectionId || body.confirmed !== true) throw Error('Wrong disconnection');
-    banks.set(owner.account_id, { ...previous, status: 'disconnected' });
-    return response({ status: 'disconnected' });
+    previous.status = 'disconnected';
+    return reply({ status: 'disconnected' });
   }
   throw Error('Unexpected synthetic action: ' + body.action);
 };

@@ -98,6 +98,9 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (route === 'data' && result?.error === 'bank_not_ready') {
       throw new AccountRequestError('Bank connection is unavailable right now.', 'bank_not_ready');
     }
+    if (route === 'data' && typeof result?.error === 'string' && result.error.startsWith('bank_')) {
+      throw new AccountRequestError('Bank connection could not be confirmed.', result.error);
+    }
     if (!response.ok && typeof result?.error === 'string' && (result.error.startsWith('recording_summary_') || result.error === 'account_recording_summary_not_ready')) throw new AccountRequestError('The saved transcript summary is unavailable. Your original and transcript are kept.', result.error);
     const photoErrors: Record<string, string> = {
       account_food_photo_not_ready: 'Photo meal logging is not available for this account yet. Your original is kept on this device.',
@@ -181,7 +184,7 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '
   + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save feed_get '
   + 'receipt_list receipt_get receipt_confirm_match receipt_match_candidates receipt_read_start receipt_read_status receipt_read_retry reconcile_list reconcile_resolve reconcile_settings '
-  + 'bank_connection_status bank_link_create bank_link_exchange bank_link_update_create bank_link_update_complete bank_sync bank_disconnect '
+  + 'bank_connection_status bank_link_create bank_link_complete bank_link_update_create bank_link_update_complete bank_sync bank_disconnect '
   + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export food_photo_status food_photo_retry recording_summary_get recording_summary_begin').split(' '));
 export async function accountData<T>(body: Record<string, unknown>, signal?:AbortSignal): Promise<T> {
   const snapshot = state;
