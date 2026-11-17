@@ -28,6 +28,15 @@ try {
   const context=await browser.newContext({viewport:{width:390,height:844}});
   const page=await open(context);mkdirSync('output/account-preview',{recursive:true});await page.screenshot({path:'output/account-preview/sign-in-390.png'});await login(page,'a',true);
   assert.equal((await requestsSafe(page)).requests.find(r=>r.route==='sign-in').body.remember_me,true);
+  await nav(page,'Library');
+  const savedAudio=page.locator('details.cc-library-audio');
+  await savedAudio.locator('summary').waitFor();
+  assert.equal(await savedAudio.getAttribute('open'),null,'Library opens with audio compact');
+  await savedAudio.locator('summary').click();
+  await savedAudio.getByRole('heading',{name:'Saved audio',exact:true}).waitFor();
+  await savedAudio.locator('summary').click();
+  assert.equal(await savedAudio.getAttribute('open'),null,'saved audio remains available without covering Library views');
+  await nav(page,'Today');
   await settings(page,'Appearance');
   await page.getByLabel('Assistant name',{exact:true}).fill('Sunrise A');await page.getByLabel('Assistant appearance',{exact:true}).selectOption('rose');
   await page.getByRole('button',{name:'Close settings'}).click();

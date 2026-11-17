@@ -91,6 +91,7 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     }
     if (route.startsWith('voice/') && !response.ok && typeof result?.error === 'string') throw new AccountRequestError('Your voice request could not be confirmed.', result.error);
     if (route === 'reply-report' && response.status === 503) throw new AccountRequestError('Reply reporting isn’t available yet.', 'account_reply_report_not_ready');
+    if (route === 'receipts/photo' && response.status === 503 && result?.error === 'account_receipt_photo_not_ready') throw new AccountRequestError('Receipt photo saving isn’t available yet. Your photo is kept on this device.', 'account_receipt_photo_not_ready');
     if (!response.ok && typeof result?.error === 'string' && (result.error.startsWith('recording_summary_') || result.error === 'account_recording_summary_not_ready')) throw new AccountRequestError('The saved transcript summary is unavailable. Your original and transcript are kept.', result.error);
     const photoErrors: Record<string, string> = {
       account_food_photo_not_ready: 'Photo meal logging is not available for this account yet. Your original is kept on this device.',
@@ -201,6 +202,11 @@ async function accountJSON<T>(route: string, body: Record<string, unknown>, snap
 /** Dedicated bounded photo route; the ordinary data action body cap stays unchanged. */
 export async function accountFoodPhoto<T>(body: Record<string, unknown>): Promise<T> {
   return accountJSON<T>('food/photo/analyze', body, state);
+}
+
+/** Save a receipt photo to the verified account with its stable request ID. */
+export async function accountReceiptPhoto<T>(body: Record<string, unknown>): Promise<T> {
+  return accountJSON<T>('receipts/photo', body, state);
 }
 
 export type ReportableReply = { kind: 'quick_chat'; threadId: string; turnId: string; attemptId?: string }

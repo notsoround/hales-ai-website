@@ -54,6 +54,8 @@
 .cc-receipt-ack input { width: 18px; height: 18px; flex-shrink: 0; margin-top: 3px; accent-color: #c2a0d9; }
 .cc-receipt-saved-heading { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 12px; }
 .cc-receipt-saved-heading h3 { margin: 0; }
+.cc-receipt-saved { max-height: 22rem; overflow-y: auto; overscroll-behavior: contain; margin-bottom: 18px; }
+.cc-receipt-close { display: block; margin: 0 0 12px auto; }
 .cc-receipt-saved .cc-library-item.is-current { border-color: #b697d0; }
 .cc-receipts :is(button,a,input,summary):focus-visible { outline: 2px solid #dbc1ec; outline-offset: 4px; }
 @media (max-width: 520px) {
