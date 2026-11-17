@@ -6,7 +6,7 @@ import '../src/index.css';
 if (!import.meta.env.DEV) throw Error('Synthetic fixture only.');
 const identity = { account_id: 'acc_receipt_flow', email: 'receipt@example.invalid', name: 'Synthetic receipt' };
 const date = new Date().toISOString().slice(0, 10);
-const state = { actions: [] as string[], startCount: 0, matchCount: 0, confirmCount: 0, noBank: false };
+const state = { actions: [] as string[], startCount: 0, matchCount: 0, confirmCount: 0, noBank: false, needsBankAttention: false };
 Object.assign(window, { receiptFlowFixture: state });
 let receipt: { id: string; status: string; merchant: string | null; date: string | null; currency: string | null; total: number | null; tip: number | null; tax: number | null; lineItems: never[]; matchedTransactionId: string | null; createdAt: string } | null = null;
 let readRequest: { request_id: string; receiptId: string; status: string; error: string | null; dispatched: boolean } | null = null;
@@ -23,7 +23,7 @@ window.fetch = async (input, init) => {
   }
   if (!url.pathname.endsWith('/data')) throw Error('Unexpected synthetic route');
   state.actions.push(body.action);
-  if (body.action === 'bank_connection_status') return response({ configured: true, connections: [{ connectionId: 'synthetic_bank', status: 'connected' }], uncertainRequests: [], resolvedRequests: [] });
+  if (body.action === 'bank_connection_status') return response({ configured: true, connections: [{ connectionId: 'synthetic_bank', status: state.needsBankAttention ? 'reconnect_required' : 'connected' }], uncertainRequests: [], resolvedRequests: [] });
   if (body.action === 'bank_sync') {
     if (body.connectionId !== 'synthetic_bank') throw Error('Wrong bank owner or connection');
     return response({ status: 'connected' });
