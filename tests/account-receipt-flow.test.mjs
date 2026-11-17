@@ -43,6 +43,13 @@ try {
   await page.getByLabel('Take receipt photo').setInputFiles({ name: 'synthetic2.png', mimeType: 'image/png', buffer: png });
   await page.getByText('No bank coverage has been saved for this account.', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Confirm selected match', exact: true }).count(), 0);
+  await page.goto(base + 'cupcake/account');
+  await page.getByLabel('Take receipt photo').waitFor({ state: 'attached' });
+  await page.evaluate(() => { window.receiptFlowFixture.needsBankAttention = true; });
+  await page.getByLabel('Take receipt photo').setInputFiles({ name: 'synthetic3.png', mimeType: 'image/png', buffer: png });
+  await page.getByText('A bank connection needs attention. Matching uses its previously saved transactions.', { exact: true }).waitFor();
+  await page.getByRole('radio', { name: /Synthetic Market/ }).check();
+  assert.equal(await page.getByRole('button', { name: 'Confirm selected match', exact: true }).isDisabled(), true, 'stale bank requires explicit acknowledgment');
   console.log('PASS: synthetic photo saves, reads once, finds account transaction and requires explicit confirmation');
   await context.close();
 } finally { await browser.close(); await server.close(); rmSync(cacheDir, { recursive: true, force: true }); }
