@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { libraryRequest } from './library';
 import { ACCOUNT_SESSIONS } from './accountMode';
+import { AccountReceiptPhoto } from './AccountReceiptPhoto';
 import './receipts.css';
 
 type LineItem = { description: string; quantity: number | null; amount: number | null };
 type Receipt = {
-  id: string; status: 'extracting' | 'extraction_failed' | 'extracted' | 'matched'; createdAt: string;
+  id: string; status: 'saved_unread' | 'extracting' | 'extraction_failed' | 'extracted' | 'matched'; createdAt: string;
   merchant: string | null; date: string | null; currency: string | null; total: number | null;
   grandTotal?: number | null; subtotal?: number | null; totalIncludesTip?: boolean | null;
   tax: number | null; tip: number | null; lineItems: LineItem[]; matchedTransactionId: string | null;
@@ -27,7 +28,12 @@ const money = (amount: number | null | undefined, currency: string | null) => {
   try { return currency ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount) : `${amount.toFixed(2)} · currency uncertain`; }
   catch { return `${amount.toFixed(2)} ${currency || ''}`.trim(); }
 };
-const dateLabel = (value: string | null | undefined) => value ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`)) : 'Date uncertain';
+const dateLabel = (value: string | null | undefined) => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Date uncertain';
+  const date = new Date(`${value}T12:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return 'Date uncertain';
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(date);
+};
 const expectedTotal = (receipt: Receipt) => receipt.expectedTotal ?? receipt.grandTotal ?? receipt.total;
 const exact = (item: Candidate, receipt: Receipt) => item.exactAmount === true && item.exactCurrency === true || item.exactAmount == null && item.amount === expectedTotal(receipt) && item.currency === receipt.currency;
 const needsReview = (item: Candidate, receipt: Receipt, coverage?: Coverage | null) => item.requiresAcknowledgment === true || !exact(item, receipt) || coverage?.complete !== true;
@@ -51,6 +57,7 @@ async function imageData(file: File): Promise<{ url: string; preview: string }> 
 
 export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   const [receipts, setReceipts] = useState<Receipt[]>([]), [selected, setSelected] = useState<Receipt | null>(null);
+  const [listLoading, setListLoading] = useState(true), [listFailed, setListFailed] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]), [coverage, setCoverage] = useState<Coverage | null>(null), [summary, setSummary] = useState<MatchSummary | null>(null);
   const [choice, setChoice] = useState(''), [acknowledged, setAcknowledged] = useState(false), [searched, setSearched] = useState(false);
   const [preview, setPreview] = useState(''), [original, setOriginal] = useState(''), [status, setStatus] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -58,7 +65,14 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   const selectionVersion = useRef(0);
   const selectedCard = useRef<HTMLDivElement>(null);
   const work = useCallback((value: boolean) => { setBusy(value); onWork?.(value); }, [onWork]);
-  const refresh = useCallback(async () => { const data = await libraryRequest<{ receipts: Receipt[] }>({ action: 'receipt_list' }); setReceipts(data.receipts || []); }, []);
+  const refresh = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const data = await libraryRequest<{ receipts: Receipt[] }>({ action: 'receipt_list' });
+      setReceipts(data.receipts || []); setListFailed(false);
+    } catch (cause) { setListFailed(true); throw cause; }
+    finally { setListLoading(false); }
+  }, []);
   const resetMatches = () => { setCandidates([]); setCoverage(null); setSummary(null); setChoice(''); setAcknowledged(false); setSearched(false); };
   useEffect(() => {
     if (!active) return;
@@ -146,18 +160,21 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   });
 
   return <section className="cc-studio cc-library-workspace cc-receipts" aria-busy={busy}>
-    <span className="cc-eyebrow">Receipts</span><h2>Every receipt, the right purchase</h2>
+    <h2>Receipts</h2>
     <p className="cc-muted">{ACCOUNT_SESSIONS ? 'Browse your saved receipts, photos and confirmed matches.' : 'Save a receipt photo, compare its final total with your bank charges, and choose the match.'}</p>
     {error && <div className="cc-error" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
     <div className="cc-card cc-import-card cc-receipt-import">
-      {ACCOUNT_SESSIONS ? <div><strong>Receipt capture and bank search unavailable</strong><p className="cc-muted">New receipt photos, reading saved photos again and live bank search are not available for account sign-in yet. Your saved receipts and photos are still available below.</p></div> : <>
+      {ACCOUNT_SESSIONS ? <AccountReceiptPhoto onSaved={() => void refresh().catch(e => setError((e as Error).message))}/> : <>
       <div><strong>Add a receipt</strong><p className="cc-muted">Include the entered tip and final total in the photo.</p></div>
       <div className="cc-action-row"><label className="cc-primary cc-file">Choose image<input disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label><label className="cc-secondary cc-file">Take photo<input disabled={busy} type="file" accept="image/*" capture="environment" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label></div>
       {preview && !selected && <img className="cc-receipt-photo" src={preview} alt="Receipt being read" />}
       </>}
     </div>
     {status && <p className={busy ? 'cc-thinking' : 'cc-notice'} role="status" aria-live="polite">{status}</p>}
+    <div className="cc-receipt-saved-heading"><h3>Saved receipts</h3>{!listLoading && !listFailed && <span className="cc-muted">{receipts.length}</span>}</div>
+    {listLoading && !receipts.length ? <p className="cc-muted" role="status">Loading receipts…</p> : listFailed && !receipts.length ? <div><p className="cc-muted">Receipts could not load.</p><button className="cc-secondary" onClick={() => void refresh().catch(e => setError((e as Error).message))}>Retry</button></div> : !receipts.length ? <p className="cc-muted">Your saved receipts will appear here.</p> : <div className="cc-receipt-saved">{receipts.map(receipt => <button disabled={busy} className={`cc-library-item ${selected?.id === receipt.id ? 'is-current' : ''}`} key={receipt.id} onClick={() => openReceipt(receipt)}><span><strong>{receipt.merchant || (receipt.status === 'saved_unread' ? 'Receipt photo' : 'Merchant uncertain')}</strong><small>{dateLabel(receipt.date)} · {receipt.status === 'matched' ? 'Matched' : receipt.status === 'saved_unread' ? 'Awaiting reading' : receipt.status === 'extraction_failed' ? 'Needs another read' : receipt.status === 'extracting' ? 'Reading' : ACCOUNT_SESSIONS ? 'Saved' : 'Ready to match'}</small></span><span>{money(expectedTotal(receipt), receipt.currency)}</span></button>)}</div>}
     {selected && <div className="cc-card cc-receipt-selected" ref={selectedCard}>
+      <button className="cc-text-button cc-receipt-close" onClick={() => { selectionVersion.current++; setSelected(null); setOriginal(''); resetMatches(); const url = new URL(location.href); url.searchParams.delete('receipt'); history.replaceState(history.state, '', url); }}>Close receipt</button>
       <div className="cc-receipt-heading"><div><span className="cc-kind">Saved receipt · {selected.matchedTransactionId ? 'Matched' : 'Review'}</span><h3>{selected.merchant || 'Merchant uncertain'}</h3><p className="cc-muted">{dateLabel(selected.date)}</p></div><div className="cc-receipt-total"><small>Expected charge</small><strong>{money(expectedTotal(selected), selected.currency)}</strong></div></div>
       <dl className="cc-receipt-breakdown"><div><dt>Printed total</dt><dd>{money(selected.total, selected.currency)}</dd></div><div><dt>Tip</dt><dd>{selected.tip == null ? 'Not read' : money(selected.tip, selected.currency)}</dd></div>{selected.tax != null && <div><dt>Tax</dt><dd>{money(selected.tax, selected.currency)}</dd></div>}{selected.grandTotal != null && <div><dt>Final total</dt><dd>{money(selected.grandTotal, selected.currency)}</dd></div>}</dl>
       {selected.amountBasis === 'total_plus_visible_tip' && <p className="cc-receipt-hint">Expected charge = printed total {money(selected.total, selected.currency)} + entered tip {money(selected.tip, selected.currency)}.</p>}
@@ -165,7 +182,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
       <div className="cc-action-row cc-receipt-sources"><button className="cc-secondary" disabled={busy} onClick={() => void showOriginal()}>{original ? 'Hide receipt photo' : 'View saved receipt photo'}</button><a href={receiptLink(selected.id)}>Link to this receipt</a></div>
       {original && <figure className="cc-receipt-original"><img className="cc-receipt-photo" src={original} alt={`Saved receipt from ${selected.merchant || 'unknown merchant'}`} /><figcaption>Saved privately with this receipt.</figcaption></figure>}
       {!!selected.lineItems?.length && <details className="cc-receipt-evidence"><summary>Receipt line items ({selected.lineItems.length})</summary><ul>{selected.lineItems.map((item, index) => <li key={index}>{item.description}{item.quantity != null && item.quantity !== 1 ? ` × ${item.quantity}` : ''}{item.amount != null ? ` — ${money(item.amount, selected.currency)}` : ''}</li>)}</ul></details>}
-      {selected.status === 'extraction_failed' ? <><p className="cc-notice">{ACCOUNT_SESSIONS ? 'The photo is saved. Reading it again is not available for account sign-in yet.' : 'The photo is saved. Reading it needs another try.'}</p>{!ACCOUNT_SESSIONS && <button className="cc-primary" disabled={busy} onClick={() => void retry()}>Retry saved receipt</button>}</> : selected.matchedTransactionId ? <div className="cc-receipt-confirmed"><strong>Matched to the transaction you confirmed.</strong><p className="cc-receipt-source">Transaction ID <code>{selected.matchedTransactionId}</code></p></div> : ACCOUNT_SESSIONS ? <p className="cc-notice">Live bank search is not available for account sign-in yet. This receipt remains saved without a new match.</p> : <><button className="cc-primary" disabled={busy || expectedTotal(selected) == null || !selected.date || !selected.currency} onClick={() => void findMatches()}>{searched ? 'Refresh bank search' : 'Find transaction matches'}</button>{(!selected.currency || !selected.date || expectedTotal(selected) == null) && <p className="cc-muted">A readable date, total and currency are required. Check the saved photo; an uncertain extraction cannot be matched yet.</p>}</>}
+      {selected.status === 'saved_unread' ? <p className="cc-notice">Your receipt photo is saved. Automatic reading and bank matching are not available yet.</p> : selected.status === 'extraction_failed' ? <><p className="cc-notice">{ACCOUNT_SESSIONS ? 'The photo is saved. Reading it again is not available for account sign-in yet.' : 'The photo is saved. Reading it needs another try.'}</p>{!ACCOUNT_SESSIONS && <button className="cc-primary" disabled={busy} onClick={() => void retry()}>Retry saved receipt</button>}</> : selected.matchedTransactionId ? <div className="cc-receipt-confirmed"><strong>Matched to the transaction you confirmed.</strong><p className="cc-receipt-source">Transaction ID <code>{selected.matchedTransactionId}</code></p></div> : ACCOUNT_SESSIONS ? <p className="cc-notice">Live bank search is not available for account sign-in yet. This receipt remains saved without a new match.</p> : <><button className="cc-primary" disabled={busy || expectedTotal(selected) == null || !selected.date || !selected.currency} onClick={() => void findMatches()}>{searched ? 'Refresh bank search' : 'Find transaction matches'}</button>{(!selected.currency || !selected.date || expectedTotal(selected) == null) && <p className="cc-muted">A readable date, total and currency are required. Check the saved photo; an uncertain extraction cannot be matched yet.</p>}</>}
     </div>}
     {selected && searched && <div className="cc-card cc-receipt-results">
       <div className="cc-receipt-result-heading"><span className="cc-kind">Bank comparison</span><h3>{exactCount ? `${exactCount} exact amount ${exactCount === 1 ? 'match' : 'matches'}` : coverage?.complete ? 'No exact amount match yet' : 'Search coverage needs attention'}</h3><p className="cc-muted">{choice ? 'Review the selected charge and any differences before confirming.' : exactCount ? 'Compare merchant and purchase date, then select the right charge.' : 'No transaction is selected. Check the tip and final total, or wait for the purchase to post.'}</p></div>
@@ -175,7 +192,5 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
       {!candidates.length && <p className="cc-muted">No relevant charge found in this window. The receipt photo is saved; refresh after your bank updates.</p>}
       {selectedCandidate && <div className="cc-receipt-confirm"><p>Selected <strong>{selectedCandidate.merchant || 'unknown merchant'}</strong> · {money(selectedCandidate.amount, selectedCandidate.currency)} · {dateLabel(selectedCandidate.authorizedDate || selectedCandidate.date)}</p>{needsReview(selectedCandidate, selected, coverage) && <label className="cc-receipt-ack"><input type="checkbox" checked={acknowledged} disabled={busy} onChange={e => setAcknowledged(e.target.checked)} /><span>I reviewed the amount, tip, date, merchant and search coverage. This is the purchase on my receipt.</span></label>}<button className="cc-primary" disabled={busy || selectedCandidate.pending || needsReview(selectedCandidate, selected, coverage) && !acknowledged} onClick={() => void confirm()}>Confirm selected match</button></div>}
     </div>}
-    <div className="cc-receipt-saved-heading"><h3>Saved receipts</h3><span className="cc-muted">{receipts.length}</span></div>
-    {!receipts.length ? <p className="cc-muted">Your saved receipts will appear here.</p> : <div className="cc-receipt-saved">{receipts.map(receipt => <button disabled={busy} className={`cc-library-item ${selected?.id === receipt.id ? 'is-current' : ''}`} key={receipt.id} onClick={() => openReceipt(receipt)}><span><strong>{receipt.merchant || 'Merchant uncertain'}</strong><small>{dateLabel(receipt.date)} · {receipt.status === 'matched' ? 'Matched' : receipt.status === 'extraction_failed' ? 'Needs another read' : 'Ready to match'}</small></span><span>{money(expectedTotal(receipt), receipt.currency)}</span></button>)}</div>}
   </section>;
 }

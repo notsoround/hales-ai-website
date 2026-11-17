@@ -98,8 +98,17 @@ try {
   console.log('PASS: stale pending row shows newly confirmed status and then leaves the queue, with the updated 175 kcal counted once');
 
   await page.getByRole('button', { name: 'Receipts preview', exact: true }).click();
-  await page.getByText('Receipt capture and bank search unavailable', { exact: true }).waitFor();
-  assert.equal(await page.locator('input[type=file]').count(), 0);
+  await page.getByText('Your photo will be saved to your account. Automatic reading and bank matching are not available yet.', { exact: true }).waitFor();
+  await page.getByLabel('Take receipt photo', { exact: true }).waitFor({state:'attached'});
+  await page.getByLabel('Choose receipt image', { exact: true }).waitFor({state:'attached'});
+  const unmatched = page.getByRole('button').filter({ hasText: 'Synthetic unmatched receipt' });
+  assert.match(await unmatched.innerText(), /Saved/);
+  assert.doesNotMatch(await unmatched.innerText(), /Ready to match/);
+  assert.equal(await page.getByRole('heading', { name: 'Saved receipts', exact: true }).count(), 1);
+  await unmatched.click();
+  await page.getByRole('button', { name: 'Close receipt', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'View saved receipt photo', exact: true }).count(), 0);
+  assert.equal(new URL(page.url()).searchParams.has('receipt'), false);
   await page.getByRole('button').filter({ hasText: 'Synthetic unmatched receipt' }).click();
   await page.getByRole('button', { name: 'View saved receipt photo', exact: true }).click();
   await page.getByAltText('Saved receipt from Synthetic unmatched receipt').waitFor();
