@@ -55,6 +55,7 @@ window.fetch = async (input, init) => {
     fixture.blocked.push(url.href); throw Error('External request blocked in isolated media preview.');
   }
   fixture.requests.push(body);
+  if (ACCOUNT_SESSIONS && body.action === 'bank_connection_status') return response({ configured: true, connections: [], uncertainRequests: [], resolvedRequests: [] });
   if (body.action === 'food_list') {
     if (uploaded) fixture.foodListReadsAfterUpload++;
     const recent = lateMeal ? [meal, lateMeal, failed] : meals;

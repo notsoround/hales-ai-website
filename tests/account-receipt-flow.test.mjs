@@ -30,6 +30,7 @@ try {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0ioAAAAASUVORK5CYII=', 'base64');
   await page.getByLabel('Take receipt photo').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('heading', { name: '1 exact amount match', exact: true }).waitFor();
+  assert.ok(await page.evaluate(() => window.receiptFlowFixture.actions.includes('bank_sync')), 'connected bank refreshed before receipt matching');
   assert.deepEqual(await page.evaluate(() => ({ starts: window.receiptFlowFixture.startCount, matches: window.receiptFlowFixture.matchCount, confirmations: window.receiptFlowFixture.confirmCount })), { starts: 1, matches: 1, confirmations: 0 });
   await page.getByRole('radio', { name: /Synthetic Market/ }).check();
   await page.getByRole('button', { name: 'Confirm selected match', exact: true }).click();
