@@ -78,6 +78,7 @@ window.fetch = async (input, init) => {
   if (body.action === 'food_photo') return response({ photo: { dataUrl: image } });
   if (body.action === 'receipt_list') return response({ receipts });
   if (body.action === 'receipt_get') return response({ receipt: receipts.find(item => item.id === body.receiptId), ...(body.includeImage ? { image } : {}) });
+  if (ACCOUNT_SESSIONS && body.action === 'receipt_match_candidates') return response({ receipt: receipts[0], candidates: [{ transactionId: 'synthetic-charge', merchant: 'Synthetic bank charge', date: now.slice(0, 10), amount: 12, currency: 'USD', pending: false, exactAmount: true, exactCurrency: true }], coverage: { complete: true } });
   if (body.action === 'receipt_confirm_match') return response({ receipt: { ...receipts[0], status: 'matched', matchedTransactionId: body.transactionId } });
   if (ACCOUNT_SESSIONS) throw Error('Unsupported synthetic account action: ' + body.action);
   if (['food_analyze', 'food_refine', 'food_retry', 'food_log'].includes(body.action)) return response({ meal });

@@ -92,6 +92,9 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (route.startsWith('voice/') && !response.ok && typeof result?.error === 'string') throw new AccountRequestError('Your voice request could not be confirmed.', result.error);
     if (route === 'reply-report' && response.status === 503) throw new AccountRequestError('Reply reporting isn’t available yet.', 'account_reply_report_not_ready');
     if (route === 'receipts/photo' && response.status === 503 && result?.error === 'account_receipt_photo_not_ready') throw new AccountRequestError('Receipt photo saving isn’t available yet. Your photo is kept on this device.', 'account_receipt_photo_not_ready');
+    if (route === 'data' && typeof result?.error === 'string' && result.error.startsWith('receipt_read_')) {
+      throw new AccountRequestError('Receipt reading could not be confirmed. Check its status again.', result.error);
+    }
     if (!response.ok && typeof result?.error === 'string' && (result.error.startsWith('recording_summary_') || result.error === 'account_recording_summary_not_ready')) throw new AccountRequestError('The saved transcript summary is unavailable. Your original and transcript are kept.', result.error);
     const photoErrors: Record<string, string> = {
       account_food_photo_not_ready: 'Photo meal logging is not available for this account yet. Your original is kept on this device.',
@@ -174,7 +177,7 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'exercise_log exercise_list exercise_delete outcome_record outcome_list outcome_get body_checkin_upsert body_checkin_delete '
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '
   + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save feed_get '
-  + 'receipt_list receipt_get receipt_confirm_match reconcile_list reconcile_resolve reconcile_settings '
+  + 'receipt_list receipt_get receipt_confirm_match receipt_match_candidates receipt_read_start receipt_read_status receipt_read_retry reconcile_list reconcile_resolve reconcile_settings '
   + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export food_photo_status food_photo_retry recording_summary_get recording_summary_begin').split(' '));
 export async function accountData<T>(body: Record<string, unknown>, signal?:AbortSignal): Promise<T> {
   const snapshot = state;
