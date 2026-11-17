@@ -74,14 +74,14 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
 
   return <section aria-label="Add a receipt">
     <strong>Add a receipt photo</strong>
-    <p className="cc-muted">Your photo will be saved to your account. Automatic reading and bank matching are not available yet.</p>
+    <p className="cc-muted">Your photo will be saved to your account and sent to an AI provider to read the receipt. Compare it with your saved transactions afterward.</p>
     <div className="cc-action-row">
       <label className="cc-primary cc-file">Take photo<input aria-label="Take receipt photo" disabled={busy || loading} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; void choose(file); }}/></label>
       <label className="cc-secondary cc-file">Choose image<input aria-label="Choose receipt image" disabled={busy || loading} type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; void choose(file); }}/></label>
     </div>
     {loading && <p role="status">Checking saved photo requests…</p>}
     {busy && <p role="status">Saving your receipt photo…</p>}
-    {saved && <p role="status">Receipt photo saved. It is waiting to be read.</p>}
+    {saved && <p role="status">Receipt photo saved. Reading is starting.</p>}
     {error && <p role="alert" className="cc-error">{error}</p>}
     {intent && <div>
       <img className="cc-receipt-photo" src={intent.image} alt="Receipt photo waiting to save" />

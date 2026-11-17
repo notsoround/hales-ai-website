@@ -78,7 +78,7 @@ try {
             if (name === 'Receipts') {
               await panel.getByRole('heading', { name: 'Receipts', exact: true }).waitFor();
               if (entry === '/cupcake') { const chosen = page.waitForEvent('filechooser'); await panel.getByText('Choose image', { exact: true }).click(); const chooser = await chosen; assert.equal(chooser.isMultiple(), false); await chooser.setFiles([]); }
-              else await panel.getByText('Your photo will be saved to your account. Automatic reading and bank matching are not available yet.', { exact: true }).waitFor();
+              else await panel.getByText('Your photo will be saved to your account and sent to an AI provider to read the receipt. Compare it with your saved transactions afterward.', { exact: true }).waitFor();
             }
             if (name === 'Saved thinking') await panel.getByText('Synthetic saved analysis.', { exact: true }).waitFor();
             if (name === 'Connections') { if (entry === '/cupcake') { await panel.getByRole('button', { name: 'Create 90-day access', exact: true }).waitFor(); await panel.getByRole('button', { name: 'Check access', exact: true }).waitFor(); } else await panel.getByRole('heading', {name:'Private AI connections',exact:true}).waitFor(); }

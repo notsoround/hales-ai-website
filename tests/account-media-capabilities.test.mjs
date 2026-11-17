@@ -11,7 +11,7 @@ const server = await createServer({ cacheDir, plugins: [{ name: 'synthetic-media
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const unsupported = new Set(['food_analyze', 'food_refine', 'food_retry', 'food_log', 'receipt_extract', 'receipt_retry', 'receipt_match_candidates']);
+const unsupported = new Set(['food_analyze', 'food_refine', 'food_retry', 'food_log', 'receipt_extract', 'receipt_retry']);
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0ioAAAAASUVORK5CYII=', 'base64');
 async function open(entry) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
@@ -98,7 +98,7 @@ try {
   console.log('PASS: stale pending row shows newly confirmed status and then leaves the queue, with the updated 175 kcal counted once');
 
   await page.getByRole('button', { name: 'Receipts preview', exact: true }).click();
-  await page.getByText('Your photo will be saved to your account. Automatic reading and bank matching are not available yet.', { exact: true }).waitFor();
+  await page.getByText('Your photo will be saved to your account and sent to an AI provider to read the receipt. Compare it with your saved transactions afterward.', { exact: true }).waitFor();
   await page.getByLabel('Take receipt photo', { exact: true }).waitFor({state:'attached'});
   await page.getByLabel('Choose receipt image', { exact: true }).waitFor({state:'attached'});
   const unmatched = page.getByRole('button').filter({ hasText: 'Synthetic unmatched receipt' });
@@ -112,7 +112,13 @@ try {
   await page.getByRole('button').filter({ hasText: 'Synthetic unmatched receipt' }).click();
   await page.getByRole('button', { name: 'View saved receipt photo', exact: true }).click();
   await page.getByAltText('Saved receipt from Synthetic unmatched receipt').waitFor();
-  assert.equal(await page.getByRole('button', { name: /Find transaction matches|Refresh bank search/ }).count(), 0);
+  const findMatches = page.getByRole('button', { name: 'Find transaction matches', exact: true });
+  assert.equal(await findMatches.isEnabled(), true);
+  await findMatches.click();
+  await page.getByText('Synthetic bank charge', { exact: true }).waitFor();
+  await page.getByRole('radio', { name: /Synthetic bank charge/ }).check();
+  await page.getByRole('button', { name: 'Confirm selected match', exact: true }).click();
+  await page.getByText('Matched to the transaction you confirmed.', { exact: true }).waitFor();
   await page.getByRole('button').filter({ hasText: 'Synthetic failed receipt' }).click();
   assert.equal(await page.getByRole('button', { name: 'Retry saved receipt', exact: true }).count(), 0);
   await page.getByRole('button').filter({ hasText: 'Synthetic matched receipt' }).click();
