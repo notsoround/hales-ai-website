@@ -20,6 +20,17 @@ assert.equal(settingsForDay(settings, '2026-10-16').calorieTarget, 2200);
 const eaten = meal(1, '2026-10-17T13:00:00Z', 500, { createdAt: '2026-10-19T00:00:00Z' });
 const dates = nutritionDays([eaten, eaten, meal(2, '2026-10-17T16:00:00Z', 200), meal(3, '2026-10-17T15:00:00Z', 999, { sheetLoggedAt: null })], ['2026-10-17'], settings, now);
 assert.equal(dates[0].calories, 700, 'parent IDs count once and unlogged analyses do not count');
+const accountPhoto = meal(41, '2026-10-17T13:15:00Z', 325, {
+  sheetLoggedAt: null, source: 'account-photo-estimate', logDestination: 'account-local',
+  accountLoggedAt: '2026-10-17T14:00:00Z', logState: 'logged',
+});
+const unconfirmed = { ...accountPhoto, id: id(42), logState: 'awaiting_confirmation' };
+const excluded = { ...accountPhoto, id: id(43), sheetLoggedAt: 'receipt', countedInTotals: false };
+const missingTime = { ...accountPhoto, id: id(44), consumedAt: null, date: '2026-10-17' };
+const accountDay = nutritionDays([eaten, accountPhoto, accountPhoto, unconfirmed, excluded, missingTime], ['2026-10-17'], settings, now)[0];
+assert.deepEqual(accountDay.meals.map(m => m.id), [eaten.id, accountPhoto.id]);
+assert.equal(accountDay.calories, 825, 'a confirmed account photo contributes once without a Sheet receipt');
+assert.ok([unconfirmed, excluded, missingTime].every(row => !model.mealIsCounted(row)), 'pending, excluded and undated account photos remain out of totals');
 assert.equal(dates[0].expenditure, 1200, 'current-day estimate explicitly uses elapsed Chicago day');
 assert.equal(dates[0].balance, -500);
 assert.equal(nutritionDays([eaten], ['2026-10-17'], undefined, now)[0].balance, null, 'no invented expenditure');
