@@ -3,6 +3,8 @@ import { libraryRequest } from './library';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { AccountReceiptPhoto } from './AccountReceiptPhoto';
 import { AccountReceiptReader } from './AccountReceiptReader';
+import { accountData } from './accountSession';
+import { notifyDataChanged } from './dataChanges';
 import './receipts.css';
 
 type LineItem = { description: string; quantity: number | null; amount: number | null };
@@ -66,6 +68,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   const initialId = useRef(new URLSearchParams(location.search).get('receipt'));
   const selectionVersion = useRef(0);
   const selectedCard = useRef<HTMLDivElement>(null);
+  const bankRefresh = useRef<Promise<string> | null>(null);
   const work = useCallback((value: boolean) => { setBusy(value); onWork?.(value); }, [onWork]);
   const refresh = useCallback(async () => {
     setListLoading(true);
@@ -76,6 +79,25 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     finally { setListLoading(false); }
   }, []);
   const resetMatches = () => { setCandidates([]); setCoverage(null); setSummary(null); setChoice(''); setAcknowledged(false); setSearched(false); };
+  const refreshBank = useCallback(() => {
+    if (!ACCOUNT_SESSIONS) return Promise.resolve('');
+    if (bankRefresh.current) return bankRefresh.current;
+    const pending = (async () => {
+      try {
+        const status = await accountData<{ configured: boolean; connections: {connectionId: string; status: string}[] }>({ action: 'bank_connection_status' });
+        if (!status.configured || !Array.isArray(status.connections)) return '';
+        const connected = status.connections.filter(connection => connection.status === 'connected');
+        const results = await Promise.allSettled(connected.map(connection => accountData({ action: 'bank_sync', connectionId: connection.connectionId })));
+        if (results.some(result => result.status === 'rejected')) return 'Some bank transactions could not be refreshed. Matching uses previously saved transactions.';
+        if (connected.length) notifyDataChanged('purchase');
+        return '';
+      } catch { return 'Bank transactions could not be refreshed. Matching uses previously saved transactions.'; }
+    })();
+    bankRefresh.current = pending;
+    void pending.finally(() => { if (bankRefresh.current === pending) bankRefresh.current = null; });
+    return pending;
+  }, []);
+  useEffect(() => { if (active && ACCOUNT_SESSIONS) void refreshBank(); }, [active, refreshBank]);
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -116,13 +138,14 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
       if (selectionVersion.current !== version) return;
       setSelected(data.receipt); setAutoReadId(''); await refresh();
       if (selectionVersion.current !== version || data.receipt.matchedTransactionId || expectedTotal(data.receipt) == null || !data.receipt.date || !data.receipt.currency) return;
+      const warning = await refreshBank();
       const matches = await libraryRequest<MatchResponse>({ action: 'receipt_match_candidates', receiptId });
       if (selectionVersion.current !== version) return;
       setSelected(matches.receipt);
       setCandidates(matches.candidates || []);
-      setCoverage(matches.coverage || { complete: false, warnings: ['Transaction coverage was not provided.'] });
+      setCoverage(warning ? { ...matches.coverage, complete: false, warnings: [...(matches.coverage?.warnings || []), warning] } : matches.coverage || { complete: false, warnings: ['Transaction coverage was not provided.'] });
       setSummary(matches.matchSummary || null); setSearched(true);
-      setStatus(matches.coverage?.complete ? 'Check the suggested transactions before confirming a match.' : 'Your receipt was read. Check transaction coverage before confirming a match.');
+      setStatus(matches.coverage?.complete && !warning ? 'Check the suggested transactions before confirming a match.' : 'Your receipt was read. Check transaction coverage before confirming a match.');
     } catch (cause) {
       if (selectionVersion.current === version) setError((cause as Error).message);
     }
@@ -159,8 +182,9 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     if (!selected || busy) return;
     work(true); setError(''); resetMatches(); setStatus(ACCOUNT_SESSIONS ? 'Checking your saved bank transactions…' : 'Searching posted and pending bank transactions…');
     try {
+      const warning = await refreshBank();
       const data = await libraryRequest<MatchResponse>({ action: 'receipt_match_candidates', receiptId: selected.id });
-      setSelected(data.receipt); setCandidates(data.candidates || []); setCoverage(data.coverage || { complete: false, warnings: ['Search coverage was not provided. Refresh before choosing a different amount.'] }); setSummary(data.matchSummary || null); setSearched(true); setStatus(data.coverage?.complete ? 'Search complete. Choose a transaction only after checking its details.' : 'Transaction coverage is incomplete. Review the coverage details before choosing a charge.');
+      setSelected(data.receipt); setCandidates(data.candidates || []); setCoverage(warning ? { ...data.coverage, complete: false, warnings: [...(data.coverage?.warnings || []), warning] } : data.coverage || { complete: false, warnings: ['Search coverage was not provided. Refresh before choosing a different amount.'] }); setSummary(data.matchSummary || null); setSearched(true); setStatus(data.coverage?.complete && !warning ? 'Search complete. Choose a transaction only after checking its details.' : 'Transaction coverage is incomplete. Review the coverage details before choosing a charge.');
     } catch (e) { setError((e as Error).message); setStatus('Receipt is saved. You can retry the bank search.'); } finally { work(false); }
   }
   async function confirm() {

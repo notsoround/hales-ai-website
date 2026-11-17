@@ -23,6 +23,11 @@ window.fetch = async (input, init) => {
   }
   if (!url.pathname.endsWith('/data')) throw Error('Unexpected synthetic route');
   state.actions.push(body.action);
+  if (body.action === 'bank_connection_status') return response({ configured: true, connections: [{ connectionId: 'synthetic_bank', status: 'connected' }], uncertainRequests: [], resolvedRequests: [] });
+  if (body.action === 'bank_sync') {
+    if (body.connectionId !== 'synthetic_bank') throw Error('Wrong bank owner or connection');
+    return response({ status: 'connected' });
+  }
   if (body.action === 'receipt_list') return response({ receipts: receipt ? [receipt] : [] });
   if (body.action === 'receipt_get') return response({ receipt });
   if (body.action === 'receipt_read_start') {

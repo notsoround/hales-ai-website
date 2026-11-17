@@ -1,7 +1,8 @@
 /** Connections: one clean list that knows which phone you're on. Your phone's own steps come first; each row opens its detail.
  *  Only real connections are listed; nothing here creates a connection by itself. */
 import { useState, type ReactNode } from 'react';
-import { ChevronRight, Smartphone, HeartPulse, Droplet } from 'lucide-react';
+import { ChevronRight, Smartphone, HeartPulse, Droplet, Landmark } from 'lucide-react';
+import { AccountBankConnection } from '../AccountBankConnection';
 import './connections.css';
 import './noir-connect.css';
 
@@ -34,7 +35,8 @@ export function ConnectionsHub({ appleHealth, iphoneInstall, canInstall, onInsta
   const android: Row = { key: 'health-connect', icon: <HeartPulse size={18} aria-hidden="true" />, title: 'Health Connect', note: 'Android · not available for accounts yet', status: 'na',
     detail: <p className="nx-connect-note">Android health data can't reach accounts yet. Until it can, enter weight and readings by voice or in Food, and they count the same.</p> };
   const cgm: Row = { key: 'cgm', icon: <Droplet size={18} aria-hidden="true" />, title: 'Libre glucose sensor', note: 'Shown on Today when connected', detail: <p className="nx-connect-note">Your latest saved sensor reading appears on Today. Manual readings always work alongside it.</p> };
-  const rows = platform === 'android' ? [install, android, cgm, health] : [install, health, cgm, android];
+  const bank: Row = { key: 'bank', icon: <Landmark size={18} aria-hidden="true" />, title: 'Bank connection', note: 'Connect transactions for receipt matching', detail: <AccountBankConnection/> };
+  const rows = platform === 'android' ? [install, android, cgm, health, bank] : [install, health, cgm, android, bank];
   return <section className="nx-connect" aria-label="Connections">
     <p className="nx-connect-device">{platform === 'ios' ? 'On iPhone · iPhone steps first' : platform === 'android' ? 'On Android · Android steps first' : 'On a computer · every option shown'}</p>
     <ul>{rows.map(row => <li key={row.key}><details className="nx-connect-item" open={startOpen(row.key)}>
