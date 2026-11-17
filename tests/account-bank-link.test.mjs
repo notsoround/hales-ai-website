@@ -79,6 +79,31 @@ try {
   await page.getByRole('button', { name: 'Connect a bank' }).click();
   assert.equal(await page.evaluate(() => window.bankFixture.load().calls.length), beforeSwitch, 'a stale component cannot link another account');
   assert.deepEqual(outside, []); assert.deepEqual(errors, []);
+  const otherContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  await otherContext.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.origin === new URL(base).origin || url.protocol === 'data:') return route.continue();
+    if (url.origin === 'https://secure.plaid.com' && url.pathname === '/hl/synthetic') return route.fulfill({ status: 200, contentType: 'text/html', body: '<p>Synthetic Plaid page</p>' });
+    return route.abort();
+  });
+  await otherContext.addInitScript(() => {
+    if (new URL(location.href).searchParams.get('bankLink') !== 'complete') return;
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i);
+      if (key && key.endsWith('cupcake-bank-hosted-session-v1')) sessionStorage.removeItem(key);
+    }
+  });
+  const otherPage = await otherContext.newPage(); otherPage.setDefaultTimeout(12000);
+  await otherPage.goto(base + 'cupcake/account');
+  await otherPage.getByRole('button', { name: 'Check bank connections' }).click();
+  await otherPage.getByRole('button', { name: 'Connect a bank' }).click();
+  await otherPage.getByText('Synthetic Plaid page').waitFor();
+  await otherPage.goto(base + 'cupcake/account?bankLink=complete');
+  await otherPage.getByText('Your bank session could not be restored. Check bank connections for pending requests.').waitFor();
+  await otherPage.getByRole('button', { name: 'Check bank connections' }).click();
+  await otherPage.getByRole('button', { name: 'Check pending bank connection' }).click();
+  await otherPage.getByText('Bank connected and transactions refreshed.').waitFor();
+  await otherContext.close();
   console.log('PASS: synthetic hosted bank link, pending resume, owner isolation, reconnect, disconnect and lost-response recovery');
   await context.close();
 } finally { await browser.close(); await server.close(); rmSync(cacheDir, { recursive: true, force: true }); }
