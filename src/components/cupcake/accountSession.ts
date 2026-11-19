@@ -49,6 +49,23 @@ function identity(value: unknown): AccountIdentity {
       || typeof row.email !== 'string' || typeof row.name !== 'string') throw Error('Cupcake did not confirm your account identity.');
   return Object.freeze({ account_id: row.account_id, email: row.email, name: row.name });
 }
+/** Edge throttling (nginx limit_req) answers 429 with no Cupcake JSON and never reaches the server.
+ *  Returns a wait in ms before resending, or null when the response must be handled normally.
+ *  Sign-in and recovery are never resent automatically. */
+export function edgeThrottleRetryDelay(route: string, status: number, result: unknown, attempt: number, random = Math.random): number | null {
+  if (status !== 429 || attempt >= EDGE_THROTTLE_DELAYS.length || ['sign-in', 'recovery/redeem'].includes(route)) return null;
+  if (result && typeof result === 'object' && 'error' in result) return null;
+  return EDGE_THROTTLE_DELAYS[attempt]! + Math.floor(random() * 250);
+}
+const EDGE_THROTTLE_DELAYS = [400, 900, 1800, 3500];
+function abortableDelay(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+    const timer = setTimeout(() => { signal.removeEventListener('abort', stop); resolve(); }, ms);
+    const stop = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
+    signal.addEventListener('abort', stop, { once: true });
+  });
+}
 async function send<T>(route: string, body: Record<string, unknown> | undefined, generation: number, expectedAccount?: string, signal?: AbortSignal): Promise<T> {
   if (!ACCOUNT_SESSIONS) throw Error('Account sign-in is disabled in this build.');
   assertGeneration(generation);
@@ -57,15 +74,25 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
   signal?.addEventListener('abort', abort, { once:true }); if (signal?.aborted) controller.abort();
   const timer = setTimeout(() => controller.abort(), 60000);
   try {
-    const response = await fetch('https://automate.hales.ai/api/account/' + route, {
-      method: body === undefined ? 'GET' : 'POST', credentials: 'include', cache: 'no-store',
-      headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Cupcake-Request': 'account',
-        ...(expectedAccount ? {'X-Cupcake-Account-Context':expectedAccount} : {}) },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: controller.signal,
-    });
-    assertGeneration(generation);
-    const result = await response.json().catch(() => null);
-    assertGeneration(generation);
+    let response: Response, result: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    for (let attempt = 0; ; attempt++) {
+      response = await fetch('https://automate.hales.ai/api/account/' + route, {
+        method: body === undefined ? 'GET' : 'POST', credentials: 'include', cache: 'no-store',
+        headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Cupcake-Request': 'account',
+          ...(expectedAccount ? {'X-Cupcake-Account-Context':expectedAccount} : {}) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: controller.signal,
+      });
+      assertGeneration(generation);
+      result = await response.json().catch(() => null);
+      assertGeneration(generation);
+      // Opening Today sends a burst of reads. The proxy in front of the server
+      // turns the excess away with a bare 429 before Cupcake sees the request,
+      // so waiting and sending the same request again is safe.
+      const wait = edgeThrottleRetryDelay(route, response.status, result, attempt);
+      if (wait === null) break;
+      await abortableDelay(wait, controller.signal);
+      assertGeneration(generation);
+    }
     if (response.status === 401 && route === 'session' && !expectedAccount && !state.identity) {
       // A first visit has no session to expire. Keep the normal sign-in screen,
       // and do not broadcast a lock to another tab that may already be signed in.
