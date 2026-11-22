@@ -1,16 +1,74 @@
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Settings, X } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { LockKeyhole, Settings, X } from 'lucide-react';
 import { useBackClose } from './nativeFeel';
 import './cupcake-settings.css';
 
-export function SettingsGroup({ title, children, danger = false }: { title: string; children: ReactNode; danger?: boolean }) {
-  return <details className={`cc-settings-group${danger ? ' cc-settings-group-danger' : ''}`}><summary>{title}</summary><div>{children}</div></details>;
+export function SettingsGroup({
+  title,
+  children,
+  danger = false,
+  id,
+  openRequest = 0,
+  onToggle,
+}: {
+  title: string;
+  children: ReactNode;
+  danger?: boolean;
+  id?: string;
+  openRequest?: number;
+  onToggle?: (open: boolean) => void;
+}) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const onToggleRef = useRef(onToggle);
+  onToggleRef.current = onToggle;
+
+  useEffect(() => {
+    if (!openRequest || !detailsRef.current) return;
+    detailsRef.current.open = true;
+    onToggleRef.current?.(true);
+    window.setTimeout(() => {
+      detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  }, [openRequest]);
+
+  return (
+    <details
+      ref={detailsRef}
+      id={id}
+      className={`cc-settings-group${danger ? ' cc-settings-group-danger' : ''}`}
+      onToggle={event => onToggle?.(event.currentTarget.open)}
+    >
+      <summary>{title}</summary>
+      <div>{children}</div>
+    </details>
+  );
 }
 
-export default function CupcakeSettings({ children }: { children: ReactNode }) {
+export default function CupcakeSettings({
+  children,
+  openRequest = 0,
+  onSignOut,
+  signOutLabel = 'Sign out',
+  signOutAriaLabel,
+  signOutDisabled = false,
+}: {
+  children: ReactNode;
+  openRequest?: number;
+  onSignOut?: () => void;
+  signOutLabel?: string;
+  signOutAriaLabel?: string;
+  signOutDisabled?: boolean;
+}) {
   const root = useRef<HTMLDetailsElement>(null), panel = useRef<HTMLDivElement>(null), trigger = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
   const close = useCallback(() => { if (root.current) root.current.open = false; setOpen(false); trigger.current?.focus(); }, []);
+
+  useEffect(() => {
+    if (!openRequest || !root.current) return;
+    root.current.open = true;
+    setOpen(true);
+  }, [openRequest]);
+
   useBackClose(open, close);
   useLayoutEffect(() => {
     if (!open || !panel.current) return;
@@ -31,12 +89,37 @@ export default function CupcakeSettings({ children }: { children: ReactNode }) {
     document.addEventListener('keydown', key, true); document.addEventListener('focusin', contain, true);
     return () => { document.removeEventListener('keydown', key, true); document.removeEventListener('focusin', contain, true); };
   }, [open, close]);
-  return <details ref={root} className="cc-settings" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary ref={trigger} aria-label="Settings"><Settings size={18} aria-hidden="true"/><span className="cc-top-label">Settings</span></summary>
-    <div className="cc-settings-scrim" aria-hidden="true" onClick={close}/>
-    <div ref={panel} className="cc-settings-panel" role="dialog" aria-modal={open || undefined} aria-label="Settings" tabIndex={-1}>
-      <div className="cc-settings-head"><strong>Settings</strong><button type="button" className="cc-settings-close" aria-label="Close settings" onClick={close}><X size={20} aria-hidden="true"/></button></div>
-      {children}
-    </div>
-  </details>;
+
+  return (
+    <details ref={root} className="cc-settings" onToggle={event => setOpen(event.currentTarget.open)}>
+      <summary ref={trigger} aria-label="Settings">
+        <Settings size={18} aria-hidden="true" />
+        <span className="cc-top-label">Settings</span>
+      </summary>
+      <div className="cc-settings-scrim" aria-hidden="true" onClick={close} />
+      <div ref={panel} className="cc-settings-panel" role="dialog" aria-modal={open || undefined} aria-label="Settings" tabIndex={-1}>
+        <div className="cc-settings-head">
+          <strong>Settings</strong>
+          <button type="button" className="cc-settings-close" aria-label="Close settings" onClick={close}>
+            <X size={20} aria-hidden="true" />
+          </button>
+        </div>
+        {children}
+        {onSignOut && (
+          <div className="cc-settings-footer">
+            <button
+              type="button"
+              className="cc-secondary cc-settings-signout cc-lock"
+              aria-label={signOutAriaLabel || signOutLabel}
+              disabled={signOutDisabled}
+              onClick={onSignOut}
+            >
+              <LockKeyhole size={17} aria-hidden="true" />
+              <span>{signOutLabel}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </details>
+  );
 }

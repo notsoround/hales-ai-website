@@ -33,7 +33,6 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 // never depend on rAF (which throttles/freezes in backgrounded webviews).
 import {
   Home, MessageCircle, Camera, ArrowLeft, Mic, Volume2, VolumeX, Loader2, Headphones, Library, LockKeyhole, Lightbulb, Dumbbell,
-  ClipboardList,
 } from 'lucide-react';
 import { Timeline } from '../../../../components/cupcake/TodayPulse';
 import { SavesHero } from '../../../../components/cupcake/SavesCard';
@@ -88,6 +87,8 @@ import { CUPCAKE_VERSION } from '../../../../components/cupcake/appVersion';
 import { TodayDashboard, type TodaySpend } from '../../../../components/cupcake/noir/TodayDashboard';
 import { todayFoodContext } from '../../../../components/cupcake/noir/todayContext';
 import { ConnectionsHub } from '../../../../components/cupcake/noir/ConnectionsHub';
+import { NotificationsPopover, type NotificationTarget } from '../../../../components/cupcake/noir/NotificationsPopover';
+import { FitnessWorkspace } from '../../../../components/cupcake/noir/FitnessWorkspace';
 
 export const metadata = {
   title: 'CupcakeGPT',
@@ -141,13 +142,18 @@ const tabs = [
   {key:'feed',label:'Today',Icon:Home}, {key:'snap',label:'Food',Icon:Camera},
   {key:'library',label:'Library',Icon:Library}, {key:'chat',label:'Assistant',Icon:MessageCircle},
 ] as const;
-const navigationTabs = ACCOUNT_SESSIONS ? [...tabs, {key:'reports',label:'Reports',Icon:ClipboardList} as const] : tabs;
-type TabKey = (typeof tabs)[number]['key'] | 'talk' | 'record' | 'week' | 'reports';
+const accountTabs = [
+  {key:'feed',label:'Today',Icon:Home}, {key:'library',label:'Library',Icon:Library},
+  {key:'snap',label:'Food',Icon:Camera}, {key:'fitness',label:'Fitness',Icon:Dumbbell},
+  {key:'chat',label:'Assistant',Icon:MessageCircle},
+] as const;
+const navigationTabs = ACCOUNT_SESSIONS ? accountTabs : tabs;
+type TabKey = 'feed' | 'talk' | 'record' | 'library' | 'chat' | 'snap' | 'week' | 'fitness' | 'reports';
 const isAssistantTab = (tab: TabKey) => ['chat','talk','record'].includes(tab);
 const assistantModeFor = (tab: TabKey): AssistantMode => tab === 'talk' ? 'voice' : tab === 'record' ? 'record' : 'text';
 type InstallPrompt = Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 type AccessGate = 'form' | 'opening' | 'retry' | 'ready';
-const TAB_KEYS: readonly TabKey[] = ['feed', 'talk', 'record', 'library', 'chat', 'snap', 'week', ...(ACCOUNT_SESSIONS?['reports' as const]:[])];
+const TAB_KEYS: readonly TabKey[] = ['feed', 'talk', 'record', 'library', 'chat', 'snap', 'week', 'fitness', 'reports'];
 
 function tabFromSearch(search: string): TabKey {
   const params = new URLSearchParams(search);
@@ -265,13 +271,17 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const returnTab = useRef<TabKey>('feed');
   const assistantOpen = isAssistantTab(tab);
   const screen = assistantOpen ? returnTab.current : tab;
-  const navigationScreen = screen === 'week' ? 'feed' : screen;
+  const navigationScreen = screen === 'week' || screen === 'reports' ? 'feed' : screen;
   const [activity, setActivity] = useState({kind: null as 'voice'|'record'|'library'|null, label: ''});
   const tabRef = useRef(tab);
   tabRef.current = tab;
   const pendingScroll = useRef<number | null>(null);
   const [quickAction, setQuickAction] = useState<'tip' | 'reset' | null>(null);
   const [weekInitialView, setWeekInitialView] = useState<'weight' | null>(null);
+  const [settingsOpenReq, setSettingsOpenReq] = useState(0);
+  const [sharingOpenReq, setSharingOpenReq] = useState(0);
+  const [sharingMounted, setSharingMounted] = useState(() => ACCOUNT_SESSIONS && tabFromSearch(location.search) === 'reports');
+  const [missedCallsCount, setMissedCallsCount] = useState(0);
   const [speak, setSpeak] = useState(false);
   const [access, setAccess] = useState<AccessGate>(() => (accountIdentity ? 'ready' : readPrivateAccess() ? 'opening' : 'form'));
   const [accentHeat, setAccentHeat] = useAccentHeat();
@@ -286,7 +296,24 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const [install, setInstall] = useState<InstallPrompt | null>(null);
   useBackClose(!!quickAction, () => setQuickAction(null));
   useScreenAwake(mediaBusy);
+  const openSettings = useCallback((section?: 'sharing') => {
+    setSettingsOpenReq(n => n + 1);
+    if (section === 'sharing') {
+      setSharingMounted(true);
+      setSharingOpenReq(n => n + 1);
+    }
+  }, []);
   const setTab = useCallback((next: TabKey) => {
+    if (ACCOUNT_SESSIONS && next === 'reports') {
+      openSettings('sharing');
+      if (tabRef.current !== 'reports') {
+        history.replaceState({ ...historyBase(), scroll: window.scrollY }, '');
+        history.pushState({ scroll: 0 }, '', tabHref('reports'));
+        tabRef.current = 'reports';
+        setTabState('reports');
+      }
+      return;
+    }
     if (next !== 'week') setWeekInitialView(null);
     if (isAssistantTab(next)) setAssistantMode(assistantModeFor(next));
     if (tabRef.current==='reports' && isAssistantTab(next)) returnTab.current='feed';
@@ -298,7 +325,16 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
     pendingScroll.current = 0;
     setTabState(next);
     window.scrollTo(0, 0);
-  }, []);
+  }, [openSettings]);
+  const handleNotificationNavigate = useCallback((target: NotificationTarget) => {
+    if (target === 'settings') { openSettings(); return; }
+    if (target === 'receipts') {
+      try { personalStorage('sessionStorage').setItem('cupcake-food-section', 'receipts'); } catch { /* Food still shows Receipts tab. */ }
+      setTab('snap');
+      return;
+    }
+    setTab(target);
+  }, [openSettings, setTab]);
   const openWeightHistory = useCallback(() => { setWeekInitialView('weight'); setTab('week'); }, [setTab]);
   const openAssistantMode = (mode: AssistantMode) => setTab(mode === 'voice' ? 'talk' : mode === 'record' ? 'record' : 'chat');
   const openTalkAbout = (entry: DashboardEntry) => { personalStorage('sessionStorage').setItem(TALK_SEED_KEY, JSON.stringify(talkSeedFromIntervention(entry))); setTalkContextVersion(version=>version+1); setTab('talk'); };
@@ -355,6 +391,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
     url.searchParams.set('tab', tabRef.current);
     // A home-screen shortcut may ask for the camera; the marker is used once and never stays in the address.
     if (ACCOUNT_SESSIONS && url.searchParams.get('shortcut') === 'camera' && tabRef.current === 'snap') requestFoodCamera();
+    if (ACCOUNT_SESSIONS && tabRef.current === 'reports') openSettings('sharing');
     url.searchParams.delete('shortcut');
     const previousRestoration = 'scrollRestoration' in history ? history.scrollRestoration : undefined;
     if (previousRestoration) history.scrollRestoration = 'manual';
@@ -368,6 +405,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       pendingScroll.current = state && typeof state.scroll === 'number' ? state.scroll : 0;
       if (isAssistantTab(next)) setAssistantMode(assistantModeFor(next));
       else returnTab.current = next;
+      if (ACCOUNT_SESSIONS && next === 'reports') openSettings('sharing');
       setTabState(next);
     };
     window.addEventListener('popstate', onPop);
@@ -375,7 +413,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       window.removeEventListener('popstate', onPop);
       if (previousRestoration) history.scrollRestoration = previousRestoration;
     };
-  }, []);
+  }, [openSettings]);
   useEffect(()=>{
     if (!ACCOUNT_SESSIONS) return; // The account app only listens for the browser's install offer; its manifest comes from useAccountInstallMetadata.
     const before=(e:Event)=>{e.preventDefault();setInstall(e as InstallPrompt);},done=()=>setInstall(null);
@@ -393,28 +431,30 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const promptInstall = () => { if (!install) return; void install.prompt().then(() => install.userChoice).then(() => setInstall(null)); };
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app" data-appearance={appearance.appearance}><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'var(--cc-pink)'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
-  return <div className="cc-app" data-appearance={appearance.appearance} data-entry={ACCOUNT_SESSIONS?'account':undefined}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong className="cc-account-identity">{accountIdentity?personalAssistantLabel(assistantName,accountIdentity.name||accountIdentity.email):assistantName}</strong><small>Your private companion</small><span className="cc-version" title="App version">{ACCOUNT_SESSIONS?'':'Original · '}v{CUPCAKE_VERSION}</span></div><CupcakeSettings>
+  return <div className="cc-app" data-appearance={appearance.appearance} data-entry={ACCOUNT_SESSIONS?'account':undefined}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong className="cc-account-identity">{accountIdentity?personalAssistantLabel(assistantName,accountIdentity.name||accountIdentity.email):assistantName}</strong><small>Your private companion</small><span className="cc-version" title="App version">{ACCOUNT_SESSIONS?'':'Original · '}v{CUPCAKE_VERSION}</span></div>{ACCOUNT_SESSIONS&&access==='ready'&&<NotificationsPopover onNavigate={handleNotificationNavigate} onSummary={s=>setMissedCallsCount(s.missedCalls7d)}/>}<CupcakeSettings openRequest={settingsOpenReq} onSignOut={()=>void lock()} signOutLabel={accountIdentity?'Sign out':'Lock'} signOutAriaLabel={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} signOutDisabled={mediaBusy&&!accountIdentity}>
       <SettingsGroup title="Appearance"><AssistantAppearanceSettings {...appearance}/>{ACCOUNT_SESSIONS&&<AccountSchemeSettings choice={schemeChoice} onChange={setSchemeChoice}/>}{!ACCOUNT_SESSIONS&&<AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/>}</SettingsGroup>
+      {ACCOUNT_SESSIONS&&accountIdentity&&<SettingsGroup id="settings-sharing" title="Sharing & Reports" openRequest={sharingOpenReq} onToggle={open=>{if(open)setSharingMounted(true);}}>{sharingMounted&&<SectionBoundary label="Authorized reports"><AccountCoachView identity={accountIdentity} assistantName={assistantName} onPersonal={()=>setTab('feed')}/></SectionBoundary>}</SettingsGroup>}
       {accountIdentity&&<><SettingsGroup title="Account & security"><AccountControls identity={accountIdentity} assistantName={assistantName} includePrivacy={false}/></SettingsGroup><SettingsGroup title="Download my data"><AccountSelfExport/></SettingsGroup><SettingsGroup title="Close account access" danger><AccountClosureControls owner={accountIdentity.account_id}/></SettingsGroup></>}
       <SettingsGroup title="App & updates"><AppUpdateNotice busy={mediaBusy} part="check"/>{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}{!ACCOUNT_SESSIONS&&<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}</SettingsGroup>
       {ACCOUNT_SESSIONS&&<SettingsGroup title="Connections"><ConnectionsHub assistantName={assistantName} appleHealth={<AccountAppleHealth/>} iphoneInstall={<AccountInstallInstructions/>} canInstall={!!install} onInstall={promptInstall}/></SettingsGroup>}
       {ACCOUNT_SESSIONS&&accountIdentity&&<SettingsGroup title="Labs"><AccountLabsSettings/></SettingsGroup>}
       {ACCOUNT_SESSIONS&&<details className="cc-settings-extra"><summary>Saved thinking</summary><div><SavedThinkingSection/></div></details>}
-    </CupcakeSettings><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} disabled={mediaBusy&&!accountIdentity} onClick={()=>void lock()}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
+    </CupcakeSettings></header>
     <main className="cc-shell">
-      {ACCOUNT_SESSIONS&&<ConnectionNotice sassy={appearance.persona!=="matthieu"}/>}<AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<details className="cc-account-note"><summary>Your private account · Sharing details</summary><p>You’re in your private account. Manage coach reports and meal-photo sharing in Reports. <button type="button" className="cc-text-button" onClick={()=>setTab('reports')}>Open Reports</button></p></details>}
+      {ACCOUNT_SESSIONS&&<ConnectionNotice sassy={appearance.persona!=="matthieu"}/>}<AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<details className="cc-account-note"><summary>Your private account · Sharing details</summary><p>You’re in your private account. Manage coach reports and meal-photo sharing in Settings. <button type="button" className="cc-text-button" onClick={()=>openSettings('sharing')}>Open Sharing &amp; Reports</button></p></details>}
       {persistenceNotice&&<p role="status" className="cc-muted">{persistenceNotice}</p>}
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
-      {access==='ready'&&screen==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
-      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} assistantName={assistantName} persona={appearance.persona} setTab={setTab} onOpenWeight={ACCOUNT_SESSIONS?openWeightHistory:undefined} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
-      {access==='ready'&&screen==='reports'&&accountIdentity&&<SectionBoundary label="Authorized reports"><AccountCoachView identity={accountIdentity} assistantName={assistantName} onPersonal={()=>setTab('feed')}/></SectionBoundary>}
+      {access==='ready'&&(screen==='feed'||(ACCOUNT_SESSIONS&&screen==='reports'))&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
+      {access==='ready'&&(screen==='feed'||(ACCOUNT_SESSIONS&&screen==='reports'))&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} assistantName={assistantName} persona={appearance.persona} missedCallsCount={missedCallsCount} setTab={setTab} onOpenWeight={ACCOUNT_SESSIONS?openWeightHistory:undefined} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
+      {access==='ready'&&screen==='fitness'&&<SectionBoundary label="Fitness"><FitnessWorkspace onOpenWeight={openWeightHistory}/></SectionBoundary>}
+      {access==='ready'&&!ACCOUNT_SESSIONS&&screen==='reports'&&accountIdentity&&<SectionBoundary label="Authorized reports"><AccountCoachView identity={accountIdentity} assistantName={assistantName} onPersonal={()=>setTab('feed')}/></SectionBoundary>}
       {access==='ready'&&<AssistantShell open={assistantOpen} library={tab==='library'} mode={assistantMode} onMode={openAssistantMode} onOpen={()=>openAssistantMode(activity.kind==='voice'?'voice':activity.kind==='record'?'record':assistantMode)} onMinimize={()=>setTab(returnTab.current)} onLibrary={()=>setTab('library')} busy={mediaBusy} activity={activity} persona={appearance.persona} name={assistantName}>
         <div hidden={!(tab==='library'||assistantMode!=='text')}><CupcakeStudio assistantName={assistantName} active={tab==='library'||(assistantOpen&&assistantMode!=='text')} keepMediaOnHide contextVersion={talkContextVersion} mode={tab==='library'?'library':assistantMode==='voice'?'talk':'record'} onBusy={setMediaBusy} onActivity={setActivity}/></div>
         <div hidden={tab==='library'||assistantMode!=='text'}>{!ACCOUNT_SESSIONS&&<div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button></div>}<SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy} assistantName={assistantName} onMode={ACCOUNT_SESSIONS?openAssistantMode:undefined} speakEnabled={ACCOUNT_SESSIONS?speak:undefined} onSpeakChange={ACCOUNT_SESSIONS?setSpeak:undefined}/></SectionBoundary></div>
       </AssistantShell>}
       {access==='ready'&&screen==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&screen==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView initialView={ACCOUNT_SESSIONS?weekInitialView:null} onTalkAbout={openTalkAbout}/></SectionBoundary></>}
-    </main><nav className="cc-nav" aria-label={assistantName}><div>{navigationTabs.map(({key,label,Icon})=><button key={key} type="button" aria-current={key!=='chat'&&navigationScreen===key?'page':undefined} aria-controls={key==='chat'?'cupcake-assistant':undefined} aria-expanded={key==='chat'?assistantOpen:undefined} onClick={()=>{haptic();if(key==='chat'){if(assistantOpen)setTab(returnTab.current);else openAssistantMode(assistantMode);return;}if(ACCOUNT_SESSIONS&&key==='snap')requestFoodCamera();setTab(key);}}>{ACCOUNT_SESSIONS&&key==='chat'?<span className="cc-nav-portrait" aria-hidden="true"><AssistantPortrait persona={appearance.persona} name={assistantName} small/></span>:<Icon size={22} aria-hidden="true"/>}<span className="cc-nav-label">{label}</span></button>)}</div></nav>
+    </main><nav className="cc-nav" aria-label={assistantName}><div>{navigationTabs.map(({key,label,Icon})=><button key={key} data-nav={key} type="button" aria-current={key!=='chat'&&navigationScreen===key?'page':undefined} aria-controls={key==='chat'?'cupcake-assistant':undefined} aria-expanded={key==='chat'?assistantOpen:undefined} onClick={()=>{haptic();if(key==='chat'){if(assistantOpen)setTab(returnTab.current);else openAssistantMode(assistantMode);return;}if(ACCOUNT_SESSIONS&&key==='snap')requestFoodCamera();setTab(key);}}>{ACCOUNT_SESSIONS&&key==='chat'?<span className="cc-nav-portrait" aria-hidden="true"><AssistantPortrait persona={appearance.persona} name={assistantName} small/></span>:<Icon size={22} aria-hidden="true"/>}<span className="cc-nav-label">{label}</span></button>)}</div></nav>
   </div>;
 };
 
@@ -451,7 +491,7 @@ function todaySpend(items:FeedItem[]|null,feed:{total:number|null;source:string;
   const summed=purchases.length?purchases.reduce((s,it)=>s+(it.amount as number),0):null;
   return {amount:feed?.total??summed,count:purchases.length,lastTime:last?.time||null,lastTitle:last?.title||null,source:feed?.source||'',checkedAt:feed?.checkedAt??null,loading:items===null&&!failed,failed,onRefresh:refresh,onOpen:open};
 }
-function TodayHome({setTab,onOpenWeight,setQuickAction,openTalkAbout,accountName,assistantName='Cupcake',persona}:{accountName?:string;assistantName?:string;persona?:Parameters<typeof AssistantPortrait>[0]['persona'];setTab:(tab:TabKey)=>void;onOpenWeight?:()=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
+function TodayHome({setTab,onOpenWeight,setQuickAction,openTalkAbout,accountName,assistantName='Cupcake',persona,missedCallsCount=0}:{accountName?:string;assistantName?:string;persona?:Parameters<typeof AssistantPortrait>[0]['persona'];missedCallsCount?:number;setTab:(tab:TabKey)=>void;onOpenWeight?:()=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
   const [items,setItems]=useState<FeedItem[]|null>(null);
   const [err,setErr]=useState(false);
   const [coverage,setCoverage]=useState('');
@@ -490,9 +530,9 @@ function TodayHome({setTab,onOpenWeight,setQuickAction,openTalkAbout,accountName
   const lastMeal=ACCOUNT_SESSIONS&&nutrition.history?lastLoggedMeal(nutrition.history.meals):null;
   const nextUp=ACCOUNT_SESSIONS&&nutrition.history&&mealWindow&&(!lastMeal||Date.now()-Date.parse(lastMeal.consumedAt||'')>3*36e5)?mealWindow:null;
   return <>
-    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} spend={todaySpend(items,spendFeed,err,load,()=>setTab('week'))} nutrition={nutrition} mealHint={nextUp||null}
+    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} spend={todaySpend(items,spendFeed,err,load,()=>setTab('week'))} nutrition={nutrition} mealHint={nextUp||null} missedCallsCount={missedCallsCount}
       onCamera={()=>setMealCameraOpen(true)} onTalk={()=>setTab('talk')} onRecord={()=>setTab('record')} onExercise={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}
-      onTip={()=>setQuickAction('tip')} onOpenFood={()=>setTab('snap')} onOpenHistory={()=>setTab('week')} onOpenWeight={onOpenWeight}/></SectionBoundary>}
+      onTip={()=>setQuickAction('tip')} onOpenFood={()=>setTab('snap')} onOpenHistory={()=>setTab('week')} onOpenWeight={onOpenWeight} onOpenFitness={()=>setTab('fitness')}/></SectionBoundary>}
     {ACCOUNT_SESSIONS&&<MealCamera open={mealCameraOpen} context={todayFoodContext(nutrition.history,nutrition.settings)} onOpenFoodLog={()=>setTab('snap')} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/>}
     {!ACCOUNT_SESSIONS&&<div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, {accountName||'Matt'}.</h2><p>What are we conquering—or confessing?</p></div>
       {ACCOUNT_SESSIONS?<div className="cc-quick cc-quick-account" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={20}/><span>Let's talk</span></button><button className="cc-secondary" onClick={()=>setMealCameraOpen(true)}><Camera size={20}/><span>Meal photo</span></button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={20}/><span>Record</span></button><button className="cc-secondary" aria-label="Log exercise" onClick={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}><Dumbbell size={20}/><span>Exercise</span></button><button className="cc-text-button cc-quick-tip" onClick={()=>setQuickAction('tip')}><Lightbulb size={16}/><span>Quick tip</span></button><MealCamera open={mealCameraOpen} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/></div>

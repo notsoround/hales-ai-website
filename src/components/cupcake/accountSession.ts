@@ -269,9 +269,10 @@ const DATA_ACTIONS = new Set(('list search fetch projects analysis_list analysis
   + 'exercise_log exercise_list exercise_delete outcome_record outcome_list outcome_get body_checkin_upsert body_checkin_delete '
   + 'body_checkin_list body_assessment_get coach_plan_set coach_plan_get phone_daily_list steps_list steps_ingest '
   + 'ringconn_night_list ringconn_night_get personal_snapshot body_headline_get persona_get persona_save feed_get '
-  + 'receipt_list receipt_get receipt_confirm_match receipt_match_candidates receipt_read_start receipt_read_status receipt_read_retry reconcile_list reconcile_resolve reconcile_settings '
+  + 'receipt_list receipt_get receipt_confirm_match receipt_match_candidates receipt_read_start receipt_read_status receipt_read_retry receipt_set_payment_method reconcile_list reconcile_resolve reconcile_settings '
   + 'bank_connection_status bank_link_create bank_link_complete bank_link_update_create bank_link_update_complete bank_sync bank_disconnect '
-  + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export food_photo_status food_photo_retry recording_summary_get recording_summary_begin').split(' '));
+  + 'quick_chat_list quick_chat_get quick_chat_create quick_chat_begin quick_chat_cancel account_self_export food_photo_status food_photo_retry recording_summary_get recording_summary_begin '
+  + 'ai_budget_status notifications_summary reset_list reset_start reset_get reset_outcome voice_extract_updates').split(' '));
 export async function accountData<T>(body: Record<string, unknown>, signal?:AbortSignal): Promise<T> {
   const snapshot = state;
   if (!snapshot.identity) throw Error('Sign in to open your Cupcake.');

@@ -138,15 +138,34 @@
 
 /* ---------- Tab bar camera: the cut-out ring takes the porcelain ground ---------- */
 @media (max-width: 1023px) {
-  :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-nav button:nth-child(2) {
+  :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-nav button:nth-child(3) {
     color: #fff;
     box-shadow: 0 0 0 5px var(--cc-bg), 0 0 0 6px color-mix(in oklab, var(--nx-a) 30%, transparent), 0 14px 30px -10px color-mix(in oklab, var(--nx-a) 60%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
   }
-  :root[data-cc-scheme=light] .cc-app[data-entry=account][class]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) {
+  :root[data-cc-scheme=light] .cc-app[data-entry=account][class]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(3) {
     background: none;
     box-shadow: none;
     color: var(--nx-ink-3);
   }
 }
+/* Notification bubble & opaque porcelain popover in light mode. */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-notif-btn {
+  color: var(--nx-ink); background-color: var(--nx-card); border-color: var(--nx-hair); box-shadow: 0 1px 2px rgba(16,30,36,.06);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-notif-badge {
+  background-color: var(--cc-pink); color: #fff; box-shadow: 0 0 0 2px var(--cc-bg);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-notif-scrim { background: rgba(12,20,23,.26); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-notif-panel {
+  background: #ffffff; color: var(--nx-ink); border-color: var(--nx-hair);
+  box-shadow: 0 20px 54px -16px rgba(12,20,23,.24), 0 2px 6px rgba(12,20,23,.08);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-notif-item {
+  background: rgba(12,24,28,.03); border-color: var(--nx-hair);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-notif-item:hover {
+  background: rgba(12,24,28,.06);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-steps-mini-track { stroke: rgba(12,24,28,.12); }
 /* Confirmation sheet: the destructive answer keeps AA contrast on porcelain. */
 :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-confirm-actions button[data-answer=yes][data-danger] { background-color: #c5352a; color: #fff; }
