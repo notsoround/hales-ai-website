@@ -75,7 +75,8 @@ try {
   const desktop = await signedIn(1280, 'caribbean');
   try {
     const { p, errors } = desktop;
-    await nav(p, 'Reports');
+    await p.locator('summary[aria-label="Settings"]').click();
+    await p.locator('#settings-sharing > summary').click();
     await p.locator(`[data-grant-id="${grant.id}"]`).click();
     const steps = panelFor(p, '.cc-rep-card', 'Steps');
     const chart = steps.locator('.nx-chart');

@@ -13,7 +13,7 @@ const probe=()=>{const vis=e=>{const r=e.getBoundingClientRect(),s=getComputedSt
  const hs=getComputedStyle(document.documentElement),bs=getComputedStyle(document.body);
  return{controls:ctl.length,small,highlight:hl.length,highlightEx:hl.slice(0,5),selectable:sel.length,selectableEx:sel.slice(0,5),zoom,imagesWithCallout:img,touchActionAuto:ta,overscroll:[hs.overscrollBehaviorY,bs.overscrollBehaviorY],textSizeAdjust:hs.webkitTextSizeAdjust};};
 const v=await signedIn(390,process.env.T||'caribbean'),{p}=v,res={};
-for(const t of ['Today','Food','Library','Assistant','Reports']){await nav(p,t);await p.waitForTimeout(600);res[t]=await p.evaluate(probe);}
+for(const t of ['Today','Food','Fitness','Library','Assistant']){await nav(p,t);await p.waitForTimeout(600);res[t]=await p.evaluate(probe);}
 await nav(p,'Today');await p.locator('summary[aria-label="Settings"]').click();await p.waitForTimeout(500);res.Settings=await p.evaluate(probe);
 writeFileSync(out+'/native-audit.json',JSON.stringify(res,null,1));
 for(const[k,r]of Object.entries(res))console.log(k,'controls',r.controls,'small',r.small.length,'highlight',r.highlight,'selectable',r.selectable,'zoom',r.zoom.length,'imgCallout',r.imagesWithCallout,'taAuto',r.touchActionAuto,r.overscroll.join('/'),r.textSizeAdjust);

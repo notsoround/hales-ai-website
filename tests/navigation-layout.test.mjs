@@ -50,7 +50,7 @@ async function measure(page, width, count, account) {
     closeTo(layout.nav.bottom, 900, 'bottom navigation hugs viewport');
     if (account) {
       const ordered = [...layout.buttons].sort((a, b) => a.left - b.left);
-      assert.deepEqual(ordered.map(item => item.name), ['Today', 'Library', 'Food', 'Assistant', 'Reports']);
+      assert.deepEqual(ordered.map(item => item.name), ['Today', 'Library', 'Food', 'Fitness', 'Assistant']);
       const camera = ordered[2], column = (Math.min(width, 480) - 84) / 4;
       closeTo((camera.left + camera.right) / 2, width / 2, 'camera is centred');
       closeTo(camera.width, 64, 'camera target width');
@@ -111,8 +111,8 @@ async function assertPalette(page, expected, current, expanded = false, account 
     const active = item.name === current || (item.name === 'Assistant' && expanded);
     if (account) {
       const mobile = page.viewportSize().width < 1024;
-      if (expanded && item.name === current) assert.equal(item.color, expected.inactive, 'underlying current tab is quiet while the assistant is open');
-      else if (mobile && item.name === 'Food') assert.match(item.image, /radial-gradient/, 'camera keeps a distinct branded action');
+      if (expanded && item.name === current) assert.equal(item.color, mobile && item.name === 'Food' ? expected.noirInactive : expected.inactive, 'underlying current tab is quiet while the assistant is open');
+      else if (mobile && !expanded && item.name === 'Food') assert.match(item.image, /radial-gradient/, 'camera keeps a distinct branded action');
       else if (active) assert.equal(item.color, expected.noirActive, `${item.name} selected Noir color`);
       else assert.notEqual(item.color, expected.noirActive, `${item.name} unselected Noir color`);
     } else {
@@ -147,7 +147,7 @@ try {
         await page.getByRole('button', {name: 'Sign in', exact: true}).click();
       }
       await button(page, 'Today').waitFor();
-      const labels = ['Today', 'Food', 'Library', 'Assistant', ...(account ? ['Reports'] : [])];
+      const labels = account ? ['Today', 'Library', 'Food', 'Fitness', 'Assistant'] : ['Today', 'Food', 'Library', 'Assistant'];
       assert.deepEqual(await nav(page).getByRole('button').allTextContents(), labels);
       for (const width of [320, 390, 430, 768, 1023, 1024, 1440]) await measure(page, width, labels.length, account);
 
@@ -195,15 +195,14 @@ try {
                 selected: element.getAttribute('aria-pressed') === 'true', color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor,
               })));
               for (const color of colors) assert.equal(color.color, color.selected ? (account ? expected.noirActive : expected.active) : (account ? expected.noirInactive : expected.inactive), 'calendar scale follows appearance tokens');
-              assert.equal(colors.find(color => color.selected).background, account ? 'rgba(255, 255, 255, 0.09)' : expected.wash);
+              assert.equal(colors.find(color => color.selected).background, account ? 'rgba(255, 255, 255, 0.05)' : expected.wash);
               calendarChecks++;
             }
             const assistant = button(page, 'Assistant');
             assert.equal(await assistant.getAttribute('aria-controls'), 'cupcake-assistant');
             await assistant.click();
             await page.locator('#cupcake-assistant.is-panel').waitFor();
-            // Existing account boundary returns to personal Today from Reports.
-            const underlying = label === 'Reports' ? 'Today' : label;
+            const underlying = label;
             await assertPalette(page, expected, underlying, true, account);
             // Phone panel covers the nav; Enter also verifies its native keyboard toggle.
             await assistant.press('Enter');
@@ -218,7 +217,7 @@ try {
       await assertPalette(page, paletteByAppearance.get('rose'), 'Today', false, account); weekChecks++;
       await button(page, 'Today').focus();
       await page.keyboard.press('Tab');
-      const focus = await button(page, 'Food').evaluate(element => ({focused: element === document.activeElement, visible: element.matches(':focus-visible'), width: getComputedStyle(element).outlineWidth, offset: getComputedStyle(element).outlineOffset}));
+      const focus = await button(page, account ? 'Library' : 'Food').evaluate(element => ({focused: element === document.activeElement, visible: element.matches(':focus-visible'), width: getComputedStyle(element).outlineWidth, offset: getComputedStyle(element).outlineOffset}));
       assert.deepEqual(focus, {focused: true, visible: true, width: '3px', offset: '-4px'});
       assert.deepEqual(errors, [], 'no browser errors');
       assert.deepEqual(external, [], 'all external networking is blocked and none attempted');

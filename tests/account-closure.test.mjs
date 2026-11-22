@@ -55,7 +55,7 @@ const ui = page => page.getByRole('region', { name: 'Close your account', exact:
 const recovery = page => page.getByRole('region', { name: 'Saved account closure receipt', exact: true });
 async function review(page) { await ui(page).getByRole('button', { name: 'Review account closure', exact: true }).click(); await ui(page).getByRole('heading', { name: 'Before you close access', exact: true }).waitFor(); }
 async function fillConfirmation(page, password = 'Synthetic password 123!') { await ui(page).getByRole('checkbox').check(); await ui(page).getByLabel('Type CLOSE MY ACCOUNT', { exact: true }).fill('CLOSE MY ACCOUNT'); await ui(page).getByLabel('Current password to close', { exact: true }).fill(password); }
-async function logout(page) { await page.getByRole('button', { name: 'Close settings', exact: true }).click(); await page.getByRole('button', { name: 'Sign out of Cupcake', exact: true }).click(); await page.getByRole('heading', { name: 'Sign in to Cupcake', exact: true }).waitFor(); }
+async function logout(page) { if (!await page.locator('details.cc-settings[open]').count()) await page.locator('summary[aria-label="Settings"]').click(); await page.getByRole('button', { name: 'Sign out of Cupcake', exact: true }).click(); await page.getByRole('heading', { name: 'Sign in to Cupcake', exact: true }).waitFor(); }
 async function safe(test) {
   const result = await test.page.evaluate(() => ({ blocked: window.accountFixture.blocked, legacyReads: window.accountFixture.legacyReads, requests: window.accountFixture.requests.filter(r => r.route.startsWith('privacy/close/')) }));
   assert.deepEqual(result.blocked, []); assert.equal(result.legacyReads, 0); assert.deepEqual(test.errors, []);

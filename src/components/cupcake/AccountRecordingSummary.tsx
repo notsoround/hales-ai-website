@@ -4,10 +4,10 @@ import { RecordingSummaryClient, summaryFailure, summaryRecovery, type Recording
 import { cupcakeHref } from './accountMode';
 import './account-recording-summary.css';
 
-export default function AccountRecordingSummary({ recording, active, onListen }: { recording: ArchivedRecording; active: boolean; onListen: () => void }) {
+export default function AccountRecordingSummary({ recording, active, onListen, transcriptReady = false }: { recording: ArchivedRecording; active: boolean; onListen: () => void; transcriptReady?: boolean }) {
   const [client] = useState(() => new RecordingSummaryClient(recording));
   const [result, setResult] = useState<RecordingSummary | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [polls, setPolls] = useState(0);
-  const alive = useRef(false), inFlight = useRef(false), current = useRef<RecordingSummary | null>(null);
+  const alive = useRef(false), inFlight = useRef(false), current = useRef<RecordingSummary | null>(null), autoChecked = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const act = useCallback(async (begin: boolean, automatic = false) => {
     if (!active || inFlight.current) return;
@@ -33,13 +33,18 @@ export default function AccountRecordingSummary({ recording, active, onListen }:
     } finally { inFlight.current = false; if (alive.current) setBusy(false); }
   }, [active, client]);
   useEffect(() => {
+    if (!active || !transcriptReady || autoChecked.current || result || busy || error) return;
+    autoChecked.current = true;
+    void act(false, true);
+  }, [active, transcriptReady, result, busy, error, act]);
+  useEffect(() => {
     if (!active || busy || error || !['queued', 'running'].includes(result?.summary.status || '') || polls >= 24) return;
     const timer = window.setTimeout(() => { setPolls(value => value + 1); void act(false, true); }, 2500);
     return () => window.clearTimeout(timer);
   }, [active, busy, error, result, polls, act]);
   if (recording.status !== 'stored' || !recording.originalStored || !recording.originalSha256) return null;
   const status = result?.summary.status, turn = result?.thread?.turns[0];
-  return <section className="cc-recording-summary" aria-label="Saved transcript summary">
+  return <section className="cc-recording-summary nx-audio-step" aria-label="Saved transcript summary">
     <h4>Summary</h4><p className="cc-muted cc-small">Summarize the saved transcript using your shared AI allowance. Original audio and transcript stay unchanged.</p>
     <div className="cc-action-row"><button className="cc-secondary" disabled={!active || busy} onClick={() => void act(false)}>{busy ? 'Checking summary…' : result ? 'Check summary status' : 'Check saved transcript'}</button>
       {status === 'not_started' && <button className="cc-primary" disabled={!active || busy} onClick={() => void act(true)}>Summarize saved transcript</button>}</div>

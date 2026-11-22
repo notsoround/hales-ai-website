@@ -1,13 +1,14 @@
 /** Today's instrument panel for the account app: the calorie dial, one camera button with voice beside it,
  *  a strip of three key readings, and touchable charts for intake, glucose and weight. Everything below it is drill-down. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, ChevronRight, Dumbbell, Lightbulb, Mic, Radio, RotateCw, X } from 'lucide-react';
+import { Camera, ChevronRight, Dumbbell, Footprints, Lightbulb, Mic, PhoneMissed, Radio, RotateCw, X } from 'lucide-react';
 import { spendSourceLabel } from '../savesModel';
 import { BarChart, TrendChart, type ChartScrub } from './NoirCharts';
 import { libraryRequest } from '../library';
 import { loadWeightPage, normalizeWeightMeasurements, recordQuickWeight, resolveHeadlineWeight, type BodyWeightSummary, type WeightPage } from '../weightApi';
 import { parseGlucoseEntries, type GlucoseReading } from '../glucoseApi';
 import { parseRingconnNight, type RingconnNight } from '../ringconnApi';
+import { latestSteps, stepsSourceSummary, stepsUpdatedLabel, type StepsDay } from '../stepsApi';
 import { addDays, lastLoggedMeal, nutritionDay, nutritionDays, type FoodHistoryMeal, type NutritionHistory, type NutritionSettings } from '../nutritionModel';
 import { useDataChanged } from '../dataChanges';
 import { useBackClose } from '../nativeFeel';
@@ -35,7 +36,7 @@ const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', curr
 const feedClock = (t: string) => { const m = /^(\d{1,2}):(\d{2})/.exec(t); if (!m) return t; const h = Number(m[1]); return `${h % 12 || 12}:${m[2]}${h < 12 ? 'a' : 'p'}`; };
 
 type Nutrition = { history: NutritionHistory | null; settings: NutritionSettings; loading: boolean };
-type Signals = { weightPage: WeightPage | null; body: BodyWeightSummary | null; loaded: boolean; glucose: GlucoseReading[] | null; nights: RingconnNight[] | null };
+type Signals = { weightPage: WeightPage | null; body: BodyWeightSummary | null; loaded: boolean; glucose: GlucoseReading[] | null; nights: RingconnNight[] | null; steps: StepsDay | null };
 
 /** Latest counted meal up to now (+5 min tolerance for device clock skew), including manual-entry meals. */
 function latestConsumedMeal(meals: FoodHistoryMeal[] | undefined, nowMs: number): { meal: FoodHistoryMeal; at: number } | null {
@@ -70,9 +71,9 @@ function useNowMinute(): number {
 }
 
 function useSignals(): Signals {
-  const [signals, setSignals] = useState<Signals>({ weightPage: null, body: null, loaded: false, glucose: null, nights: null });
+  const [signals, setSignals] = useState<Signals>({ weightPage: null, body: null, loaded: false, glucose: null, nights: null, steps: null });
   const [version, setVersion] = useState(0);
-  useDataChanged(['weight', 'glucose'], () => setVersion(v => v + 1));
+  useDataChanged(['weight', 'glucose', 'exercise'], () => setVersion(v => v + 1));
   useEffect(() => {
     let live = true;
     const today = nutritionDay(), start = addDays(today, -13);
@@ -81,7 +82,8 @@ function useSignals(): Signals {
       libraryRequest<{ body?: BodyWeightSummary }>({ action: 'body_headline_get' }),
       libraryRequest<{ entries?: unknown }>({ action: 'glucose_manual_list', start: new Date(Date.now() - 14 * 864e5).toISOString(), limit: 50 }),
       libraryRequest<{ entries?: unknown }>({ action: 'ringconn_night_list', start, end: today }),
-    ]).then(([w, b, g, n]) => {
+      latestSteps(body => libraryRequest(body), addDays(today, -6), today),
+    ]).then(([w, b, g, n, s]) => {
       if (!live) return;
       setSignals({
         weightPage: w.status === 'fulfilled' ? w.value : null,
@@ -89,6 +91,7 @@ function useSignals(): Signals {
         loaded: true,
         glucose: g.status === 'fulfilled' ? parseGlucoseEntries(g.value.entries) : [],
         nights: n.status === 'fulfilled' && Array.isArray(n.value.entries) ? n.value.entries.map(parseRingconnNight).filter((x): x is RingconnNight => !!x && x.asleepMinutes !== null).sort((a, b) => a.nightId.localeCompare(b.nightId)) : [],
+        steps: s.status === 'fulfilled' ? s.value : null,
       });
     });
     return () => { live = false; };
@@ -185,9 +188,9 @@ function QuickWeighSheet({ open, latestLb, deltaLb, subtitle, trend, onClose, on
   </dialog>;
 }
 
-export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nutrition, mealHint, onCamera, onTalk, onRecord, onExercise, onTip, onOpenFood, onOpenHistory, onOpenWeight }: {
-  spend?: TodaySpend; name: string; assistantName: string; portrait: ReactNode; sassy: boolean; nutrition: Nutrition; mealHint: string | null;
-  onCamera: () => void; onTalk: () => void; onRecord: () => void; onExercise: () => void; onTip: () => void; onOpenFood: () => void; onOpenHistory: () => void; onOpenWeight?: () => void;
+export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nutrition, mealHint, missedCallsCount = 0, onCamera, onTalk, onRecord, onExercise, onTip, onOpenFood, onOpenHistory, onOpenWeight, onOpenFitness }: {
+  spend?: TodaySpend; name: string; assistantName: string; portrait: ReactNode; sassy: boolean; nutrition: Nutrition; mealHint: string | null; missedCallsCount?: number;
+  onCamera: () => void; onTalk: () => void; onRecord: () => void; onExercise: () => void; onTip: () => void; onOpenFood: () => void; onOpenHistory: () => void; onOpenWeight?: () => void; onOpenFitness?: () => void;
 }) {
   useScrollAtmosphere();
   const nowMs = useNowMinute();
@@ -269,14 +272,60 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
         : `Weighed ${shortDate(headlineW.measuredAtMs!)}`
       : `${headlineW.label} · ${shortDay(headlineW.dateIso)}${headlineW.latestScale ? ` · Scale ${headlineW.latestScale.weightLb.toFixed(1)} lb` : ''}`
     : 'No weigh-in yet';
+  const stepsDay = signals.steps;
+  const stepsToday = stepsDay && stepsDay.date === today ? stepsDay : null;
+  const stepsShown = stepsToday ?? stepsDay;
+  const STEP_GOAL = 8000;
+  const stepFraction = stepsShown ? Math.min(1, stepsShown.count / STEP_GOAL) : 0;
+  const stepRingR = 13;
+  const stepRingC = 2 * Math.PI * stepRingR;
+  const stepSub = stepsShown
+    ? `${stepsSourceSummary(stepsShown)} · ${stepsUpdatedLabel(stepsShown, nowMs)}`
+    : 'Daily max across devices · Open Fitness';
   return <section ref={pullArea} className="nx-today" aria-label="Today at a glance">
     <PullRefresh target={pullArea} />
     <header className="nx-today-head"><div><span>{dateLine}</span><h2 className="nx-say">{nutrition.loading && !day ? <>&nbsp;</> : <>{say.before}<em>{say.accent}</em>{say.after}</>}</h2></div>
       <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={() => setWeighOpen(true)} /></header>
+    {missedCallsCount > 0 && (
+      <button type="button" className="nx-missed-calls" onClick={onTalk}>
+        <PhoneMissed size={14} aria-hidden="true" />
+        <span>Missed {missedCallsCount} {missedCallsCount === 1 ? 'call' : 'calls'} · Catch up by voice →</span>
+      </button>
+    )}
     <QuickWeighSheet open={weighOpen} latestLb={headlineW?.valueLb ?? latestScaleW?.weightLb ?? null} deltaLb={wDelta} subtitle={weightSub} trend={w30} onClose={() => setWeighOpen(false)} onOpenHistory={openWeightHistory} />
     <div className="nx-today-top">
       <div className="nx-today-dial">
         <MultiDial metrics={metrics} selected={metric} onSelect={setMetric} />
+        {onOpenFitness && (
+          <button
+            type="button"
+            className="nx-steps-mini"
+            onClick={onOpenFitness}
+            aria-label={stepsShown ? `Steps ${fmtInt(stepsShown.count)}, ${stepSub}. Open Fitness` : 'Steps not synced yet. Open Fitness'}
+          >
+            <span className="nx-steps-mini-gauge" aria-hidden="true">
+              <svg viewBox="0 0 34 34" width="34" height="34">
+                <circle className="nx-steps-mini-track" cx="17" cy="17" r={stepRingR} />
+                <circle
+                  className="nx-steps-mini-arc"
+                  cx="17"
+                  cy="17"
+                  r={stepRingR}
+                  strokeDasharray={stepRingC}
+                  strokeDashoffset={stepRingC * (1 - stepFraction)}
+                  transform="rotate(-90 17 17)"
+                />
+              </svg>
+              <Footprints size={13} />
+            </span>
+            <span className="nx-steps-mini-copy">
+              <small>{stepsToday ? 'Steps today' : 'Steps'}</small>
+              <b>{stepsShown ? fmtInt(stepsShown.count) : '—'}</b>
+              <span>{stepSub}</span>
+            </span>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        )}
         {spend && <div className="nx-spend" role="group" aria-label="Spent today">
           <button type="button" className="nx-spend-main" onClick={spend.onOpen} aria-label={`Spent today ${spend.amount !== null ? money(spend.amount) : 'not reported'}. ${spend.source ? spendSourceLabel(spend.source) : ''} Open history`}>
             <small>Spent today</small>

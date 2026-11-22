@@ -4,7 +4,7 @@ async function run(p,name){await p.waitForTimeout(400);await p.addScriptTag({con
 for(const t of ['caribbean','rose']){const v=await signedIn(390,t);const {p}=v;
 await run(p,t+' today');await nav(p,'Food');await run(p,t+' food');
 for(const tab of ['Meal plan','Groceries']){await p.getByRole('tab',{name:tab,exact:true}).click();await p.waitForTimeout(500);await run(p,t+' '+tab);}
-await nav(p,'Library');await run(p,t+' library');await nav(p,'Reports');await run(p,t+' reports');
+await nav(p,'Library');await run(p,t+' library');await nav(p,'Fitness');await run(p,t+' fitness');
 await nav(p,'Assistant');await run(p,t+' assistant');await nav(p,'Assistant');
 await p.locator('.cc-settings>summary').click();await run(p,t+' settings');await v.c.close();}
 writeFileSync(process.env.OUT,JSON.stringify(all,null,1));

@@ -1,14 +1,37 @@
-import { useEffect, useState } from 'react';
-import { AlertCircle, ArrowUpRight, CalendarDays, Camera, ChevronLeft, ChevronRight, Clock3, Loader2, PenLine, Settings2, Utensils } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { AlertCircle, ArrowUpRight, CalendarDays, Camera, ChevronLeft, ChevronRight, Clock3, Loader2, PenLine, Receipt, Settings2, Utensils } from 'lucide-react';
 import { dayLabel, elapsedLabel, lastLoggedMeal, loggedMeals, mealTimeLabel, moveNutritionPeriod, nutritionDay, nutritionDays, nutritionPeriod, periodNutrition, signedCalories, EMPTY_NUTRITION_SETTINGS, type FoodHistoryMeal, type NutritionDay, type NutritionHistory, type NutritionScale, type NutritionSettings, type NutritionSettingVersion } from './nutritionModel';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { requestFoodCamera } from './accountMealPhotoHandoff';
 import { OPEN_MANUAL_MEAL_EVENT } from './AccountManualMeal';
+import { useDataChanged } from './dataChanges';
+import { libraryRequest } from './library';
+import { personalStorage } from './personalStorage';
 import './nutrition.css';
+import './noir/noir-plan.css';
 import { ProgressRing } from './design/Visuals';
 
+type ReceiptSummary = { id: string; status?: string; matchedTransactionId?: string | null; paymentMethod?: string | null; paidWithCash?: boolean | null };
+const CASH_RECEIPTS_KEY = 'cupcake-receipt-cash-v1';
+function countUnmatchedReceipts(receipts: ReceiptSummary[] | undefined): number {
+  if (!Array.isArray(receipts) || !receipts.length) return 0;
+  let cashIds = new Set<string>();
+  try {
+    const raw = personalStorage('localStorage').getItem(CASH_RECEIPTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed)) cashIds = new Set(parsed.filter((v): v is string => typeof v === 'string'));
+  } catch { /* Ignore unavailable storage. */ }
+  let count = 0;
+  for (const r of receipts) {
+    if (r.status === 'matched' || !!r.matchedTransactionId) continue;
+    if (r.paymentMethod === 'cash' || r.paidWithCash === true || cashIds.has(r.id)) continue;
+    count++;
+  }
+  return count;
+}
+
 type CommonProps = { history?: NutritionHistory | null; settings?: NutritionSettings; loading?: boolean; error?: string; onRetry?: () => void; onOpenMeal: (mealId: string) => void; now?: Date };
-export type NutritionWorkspaceProps = CommonProps & { onBack?: () => void; onOpenCapture?: () => void; onSaveSettings?: (settings: NutritionSettingVersion) => Promise<void> };
+export type NutritionWorkspaceProps = CommonProps & { onBack?: () => void; onOpenCapture?: () => void; onSaveSettings?: (settings: NutritionSettingVersion) => Promise<void>; unmatchedReceiptsCount?: number; onOpenReceipts?: () => void };
 
 function useNutritionClock(fixed?: Date) {
   const [clock, setClock] = useState(() => new Date());
@@ -219,10 +242,30 @@ function NutritionSettingsForm({ settings, onSave }: { settings: NutritionSettin
   return <details className="cc-nutrition-settings"><summary><Settings2 size={17}/> Targets & estimates</summary><p>Both are optional. Your intake target is a food goal. Energy balance needs a separate estimate of calories your body uses per day.</p><form onSubmit={e => { e.preventDefault(); void save(); }}><label>Daily intake target · kcal<input inputMode="decimal" type="number" min="1" max="100000" step="any" value={target} onChange={e => setTarget(e.target.value)} placeholder="Not set"/></label><label>Estimated daily expenditure · kcal<input inputMode="decimal" type="number" min="1" max="100000" step="any" value={expenditure} onChange={e => setExpenditure(e.target.value)} placeholder="Not set"/></label><label>Apply from<input type="date" required min="2000-01-01" max={nutritionDay()} value={effective} onChange={e => setEffective(e.target.value)}/></label><button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save settings'}</button></form><p role="status">{message}</p><small>Leave a value blank to clear it from the chosen date. Earlier calendar dates keep their saved settings.</small></details>;
 }
 
-export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onBack, onOpenCapture, onSaveSettings, now: fixedNow }: NutritionWorkspaceProps) {
+export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onBack, onOpenCapture, onSaveSettings, now: fixedNow, unmatchedReceiptsCount, onOpenReceipts }: NutritionWorkspaceProps) {
   const now = useNutritionClock(fixedNow), today = nutritionDay(now);
   const [anchor, setAnchor] = useState(today), [scale, setScale] = useState<NutritionScale>('day');
   const [rangeView, setRangeView] = useState<'list' | 'calendar'>(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches ? 'list' : 'calendar');
+  const [fetchedUnmatched, setFetchedUnmatched] = useState(0);
+  const refreshUnmatched = useCallback(async () => {
+    if (!ACCOUNT_SESSIONS || typeof unmatchedReceiptsCount === 'number') return;
+    try {
+      const data = await libraryRequest<{ receipts?: ReceiptSummary[] }>({ action: 'receipt_list' });
+      setFetchedUnmatched(countUnmatchedReceipts(data.receipts));
+    } catch { /* Keep 0 silently when receipt list is unavailable. */ }
+  }, [unmatchedReceiptsCount]);
+  useEffect(() => { void refreshUnmatched(); }, [refreshUnmatched]);
+  useDataChanged(['purchase'], () => { void refreshUnmatched(); });
+  useEffect(() => {
+    const onFocus = () => { void refreshUnmatched(); };
+    window.addEventListener('cc-food-log-focused', onFocus);
+    return () => window.removeEventListener('cc-food-log-focused', onFocus);
+  }, [refreshUnmatched]);
+  const unmatchedCount = typeof unmatchedReceiptsCount === 'number' ? unmatchedReceiptsCount : fetchedUnmatched;
+  const openReceipts = () => {
+    if (onOpenReceipts) onOpenReceipts();
+    else window.dispatchEvent(new Event('cc-open-food-receipts'));
+  };
   const period = nutritionPeriod(anchor, scale), days = nutritionDays(history?.meals || [], period.days, settings, now), summary = periodNutrition(days, today);
   const comparisonReady = !!history?.complete && !history.pendingCount && !history.undatedLoggedCount;
   const chooseDay = (day: string) => { setAnchor(day); setScale('day'); };
@@ -233,6 +276,14 @@ export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTING
   const heroIsToday = scale !== 'day' || anchor === today;
   return <section className="cc-nutrition-workspace" aria-label="Food calendar">
     {onBack && <button type="button" className="cc-nutrition-link cc-nutrition-back" onClick={onBack}><ChevronLeft size={17}/> Back to Today</button>}
+    {unmatchedCount > 0 && (
+      <div className="nx-receipts-pill-row">
+        <button type="button" className="nx-receipts-pill" onClick={openReceipts}>
+          <Receipt size={14} aria-hidden="true" />
+          <span>{unmatchedCount} unmatched {unmatchedCount === 1 ? 'receipt' : 'receipts'} · Review →</span>
+        </button>
+      </div>
+    )}
     {ACCOUNT_SESSIONS ? (
       <NoirFoodHero daySummary={history ? heroDay : null} isToday={heroIsToday} history={history} loading={loading} now={now} onOpenMeal={onOpenMeal} />
     ) : (

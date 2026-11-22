@@ -7,6 +7,8 @@
 .cc-app .cc-settings-group :is(input,select,textarea),.cc-app .cc-settings-extra :is(input,select,textarea){max-width:100%;font-size:16px}
 .cc-app .cc-settings-group-danger>summary{color:var(--cc-text-2)}
 .cc-app .cc-settings-group>summary:focus-visible,.cc-app .cc-settings-extra>summary:focus-visible,.cc-app .cc-account-note>summary:focus-visible{outline:2px solid var(--cc-pink);outline-offset:2px;border-radius:8px}
+.cc-app .cc-settings-footer{border-top:1px solid var(--cc-border);margin-top:12px;padding-top:16px}
+.cc-app .cc-settings-signout{width:100%;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600}
 .cc-app .cc-account-note{margin:4px 0 12px;color:var(--cc-text-2);font-size:13px}
 .cc-app .cc-account-note>summary{min-height:36px;display:flex;align-items:center;gap:8px;cursor:pointer}
 .cc-app .cc-account-note>p{margin:4px 0 12px;max-width:70ch;line-height:1.5}

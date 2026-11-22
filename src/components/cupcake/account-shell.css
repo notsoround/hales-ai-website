@@ -58,7 +58,7 @@
     background: var(--ax-panel, #030607);
     border-top: 1px solid var(--ax-hair, rgba(255,255,255,.07));
   }
-  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) {
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(3) {
     width: auto;
     height: auto;
     min-height: 66px;
@@ -69,11 +69,11 @@
     box-shadow: none;
     color: var(--nx-ink-3);
   }
-  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) > svg {
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(3) > svg {
     width: 22px;
     height: 22px;
   }
-  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) .cc-nav-label {
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(3) .cc-nav-label {
     position: static;
     width: auto;
     height: auto;

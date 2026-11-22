@@ -66,7 +66,7 @@ await p.keyboard.press('Escape');await p.waitForTimeout(300);
 await nav(p,'Assistant');const box=p.getByLabel(/^Message /).first();await box.waitFor();await box.fill('What should I eat for dinner?');await p.getByRole('button',{name:/^Send/}).first().click();
 await p.getByText(/grilled salmon plate/).first().waitFor({timeout:15000}).catch(async e=>{await p.screenshot({path:kitOut+'/debug-chat.png'});throw e;});await shot(p,'04-chat','Assistant chat with a synthetic question and reply');
 // 5 Reports
-await nav(p,'Reports');await p.waitForTimeout(800);await p.evaluate(()=>scrollTo(0,0));await shot(p,'05-reports','Reports tab (synthetic clients and charted report)');
+await p.locator('summary[aria-label="Settings"]').click();await p.locator('#settings-sharing > summary').click();await p.waitForTimeout(800);await p.evaluate(()=>scrollTo(0,0));await shot(p,'05-reports','Reports tab (synthetic clients and charted report)');
 const todayPng=readFileSync(`${kitOut}/01-today.png`).toString('base64');
 await c.close();
 // 6 Light mode Today: the saved Theme choice is set before load (same as SCHEME=light in the harness).

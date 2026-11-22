@@ -11,7 +11,7 @@ const cacheDir = mkdtempSync(path.join(tmpdir(), 'cupcake-settings-usability-'))
 const server = await createServer({ cacheDir, plugins: [{ name: 'actual-settings-root', configureServer(server) { server.middlewares.use((req, _res, next) => { const route = req.url?.split('?')[0]; if (route === '/cupcake/account') req.url = '/tests/account-browser-preview.html'; if (route === '/cupcake') req.url = '/tests/assistant-integration-preview.html'; next(); }); } }], define: { 'import.meta.env.VITE_CUPCAKE_ACCOUNT_SESSIONS': '"true"' }, server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), realpathSync('node_modules')] } } });
 await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true });
-const groups = ['Appearance', 'Account & security', 'Download my data', 'Close account access', 'App & updates', 'Connections', 'Labs'];
+const groups = ['Appearance', 'Sharing & Reports', 'Account & security', 'Download my data', 'Close account access', 'App & updates', 'Connections', 'Labs'];
 const health = { ok: true, devices: [], last_received_at: null, last_observed_at: null, metrics: [], coverage_note: 'Synthetic saved status only.' };
 const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const group = (page, title) => page.locator('.cc-settings-group').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + escaped(title) + '$') }) });
@@ -79,14 +79,14 @@ try {
       assert.equal(await group(page, 'Connections').getAttribute('open'), '');
       assert.equal(await page.getByRole('dialog', { name: 'Settings', exact: true }).getAttribute('aria-modal'), 'true');
       await page.keyboard.press('Escape'); await returned(page);
-      await page.locator('nav.cc-nav').getByRole('button', { name: 'Reports', exact: true }).click();
+      await openSettings(page); await group(page, 'Sharing & Reports').locator(':scope > summary').click();
       await page.getByRole('tab', { name: 'My sharing & clients', exact: true }).click();
       await page.locator('.cc-pilot-disclosure > summary').click();
       await page.getByRole('button', { name: 'Sharing controls', exact: true }).waitFor();
       const snapshot = await page.evaluate(() => ({ requests: window.accountFixture.requests, blocked: window.accountFixture.blocked }));
       assert.equal(snapshot.requests.some(row => ['password', 'recovery/issue', 'sign-out', 'sign-out-all'].includes(row.route) || row.route.startsWith('privacy/close/') || row.route.endsWith('/create') || row.body.action === 'account_self_export' || row.body.action === 'persona_save'), false);
       assert.deepEqual(writes, []); assert.deepEqual(snapshot.blocked, []); assert.deepEqual(remote, []); assert.deepEqual(errors, []);
-      cases++; console.log(`PASS Settings account ${appearance} ${width}: seven groups/controls, focus/dismiss, nested setup and Reports; no writes`);
+      cases++; console.log(`PASS Settings account ${appearance} ${width}: eight groups/controls, focus/dismiss, nested setup and Reports; no writes`);
     } finally { await context.close(); }
   }
   for (const width of [320, 1280]) {

@@ -16,7 +16,7 @@ if(cr<(big?3:4.5))low.push(name(e)+' '+cr.toFixed(2)+' "'+e.textContent.trim().s
 const u=a=>[...new Set(a)];return{dark:u(dark),low:u(low)};});
 const report={};
 for(const w of widths)for(const t of themes){const v=await signedIn(w,t),{p}=v;await p.waitForTimeout(400);
- for(const tab of ['Today','Food','Assistant','Reports']){if(tab!=='Today')await nav(p,tab);await p.waitForTimeout(500);report[`${t}-${w}-${tab}`]=await scan(p);}
+ for(const tab of ['Today','Food','Fitness','Assistant']){if(tab!=='Today')await nav(p,tab);await p.waitForTimeout(500);report[`${t}-${w}-${tab}`]=await scan(p);}
  await nav(p,'Today');await p.locator('.cc-settings>summary').first().click({force:true}).catch(e=>console.log('settings',e.message.split('\n')[0]));await p.waitForTimeout(300);await p.locator('.cc-settings-group summary').evaluateAll(s=>s.forEach(x=>x.click()));await p.waitForTimeout(300);report[`${t}-${w}-Settings`]=await scan(p);await p.screenshot({path:`${out}/${t}-settings-${w}.png`,fullPage:true});
  await v.c.close();}
 writeFileSync(`${out}/light-audit.json`,JSON.stringify(report,null,1));for(const[k,r]of Object.entries(report))console.log(k,'dark',r.dark.length,'low',r.low.length);
