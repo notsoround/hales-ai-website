@@ -5,6 +5,7 @@ import StrategyRequests from './StrategyRequests';
 import PlanningWorkspace from './PlanningWorkspace';
 import ReceiptWorkspace from './ReceiptWorkspace';
 import ConversationPanel, { AnalysisCard } from './ConversationPanel';
+import VoiceUpdatesCard from './VoiceUpdatesCard';
 import { libraryRequest, parseConversationImport, uploadLabel, type Analysis, type Conversation, type ImportCandidate, type Project, type Source } from './library';
 import './library-layout.css';
 import './noir/assistant/noir-library.css';
@@ -250,6 +251,9 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
   const shownRecords = orderedRecords.slice(0, recordLimit);
   const searchGroups = results ? groupSearchHits(results) : [];
   const askDetails = <details className="cc-library-ask"><summary>{view === 'Projects' ? 'Compare an idea' : 'Ask across my Library'}</summary>{ACCOUNT_SESSIONS ? <p className="cc-muted cc-small">Library questions and idea comparisons are not available for account sign-in yet. You can search saved sources, open their downloads, or use Assistant → Text for a conversation.</p> : <section className="cc-strategy-box"><span className="cc-eyebrow"><Sparkles size={14} />{view === 'Projects' ? 'TRIAGE THE NEXT IDEA' : 'ASK ACROSS YOUR LIBRARY'}</span><h3>{view === 'Projects' ? 'Before you build it again.' : 'Connect the dots.'}</h3><p className="cc-muted">{view === 'Projects' ? 'Compare an idea with what already exists. Find overlap, blockers, and the smallest useful next step.' : 'Ask about patterns, decisions, promises, or conflicting advice across your selected context.'}</p><form className="cc-ask" onSubmit={e => { e.preventDefault(); void askLibrary(); }}><textarea aria-label={view === 'Projects' ? 'Idea to compare with projects' : 'Question across your library'} value={question} onChange={e => setQuestion(e.target.value)} rows={3} maxLength={4000} disabled={asking} placeholder={view === 'Projects' ? 'I want to build… What do I already have, and should I extend, combine, or start fresh?' : 'What have I committed to, where am I duplicating effort, and what deserves my attention?'} /><button className="cc-primary" aria-label={view === 'Projects' ? 'Triage idea' : 'Ask across library'} disabled={asking || !question.trim()}>{asking ? <Loader2 className="cc-spin" size={18} /> : <Send size={18} />}</button></form>{asking && <p role="status" className="cc-thinking"><Loader2 className="cc-spin" size={17} />Searching your context and weighing the options…</p>}<StrategyRequests active={active} onAnswer={answer=>{setAnswers(current=>[answer,...current.filter(a=>a.id!==answer.id)]);setNotice('Saved answer opened below.');}}/>{answers.map((a, i) => <AnalysisCard analysis={a} key={a.id || i} />)}</section>}</details>;
+  const selectedTranscript = selected
+    ? (selected.transcript || ((selected.status === 'transcribed' || selected.status === 'ready') && (selected.kind === 'recording' || /^(?:rec_)?[a-f0-9]{32}$/.test(selected.id) || selected.sourceApp === 'Cupcake voice' || selected.sourceApp === 'Cupcake phone transcript') ? selected.text : '') || '').trim()
+    : '';
   return <div className="cc-library-workspace">
     <div className="cc-heading-row">{isAllView(view) ? <div><span className="cc-eyebrow">YOUR PRIVATE LIBRARY</span><h2>One library.<br /><em>More perspective.</em></h2></div> : ACCOUNT_SESSIONS ? <div><span className="cc-eyebrow">YOUR PRIVATE LIBRARY</span></div> : null}<button className="cc-secondary" aria-label="Refresh library" disabled={loading} onClick={() => void refresh()}><RefreshCw className={loading ? 'cc-spin' : ''} size={18} /></button></div>
     {isAllView(view) && <p className="cc-muted">Conversations, receipts, and saved audio in one searchable place.</p>}
@@ -293,5 +297,13 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
     {openedAnalysis&&<div className="cc-detail" role="dialog" aria-modal="false" aria-label="Saved analysis"><button className="cc-text-button" onClick={()=>setOpenedAnalysis(null)}>Close analysis</button><AnalysisCard analysis={openedAnalysis}/></div>}
     <datalist id="cc-project-names">{contextNames.map(name => <option key={name} value={name} />)}</datalist>
     {selected && <ConversationPanel key={selected.id} record={selected} onClose={() => setSelected(null)} onAsk={askDocument} asking={detailAsking} questionError={detailError} onOrganized={(project,tags)=>{setSelected(current=>current?{...current,project,tags}:current);void refresh(true);}} />}
+    {selected && selectedTranscript && (
+      <details className="nx-library-updates-dock">
+        <summary>Extract &amp; log updates from transcript</summary>
+        <div className="nx-library-updates-dock-body">
+          <VoiceUpdatesCard key={selected.id} transcriptText={selectedTranscript} onApplied={() => void refresh(true)} />
+        </div>
+      </details>
+    )}
   </div>;
 }

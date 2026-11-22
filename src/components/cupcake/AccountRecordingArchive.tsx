@@ -4,6 +4,7 @@ import { subscribeSession } from './accountSession';
 import { transcriptionRecovery } from './accountTranscription';
 import AccountRecordingTranscription from './AccountRecordingTranscription';
 import AccountRecordingSummary from './AccountRecordingSummary';
+import './noir/noir-plan.css';
 
 function initialTranscriptBadge(row: ArchivedRecording): { label: string; tone: string } {
   try {
@@ -18,12 +19,13 @@ export default function AccountRecordingArchive({active, version, requested}: {a
   const [rows, setRows] = useState<ArchivedRecording[]>([]), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
   const [opened, setOpened] = useState<ArchivedRecording | null>(null), [url, setUrl] = useState('');
   const [statuses, setStatuses] = useState<Record<string, { label: string; tone: string }>>({});
+  const [transcriptsReady, setTranscriptsReady] = useState<Record<string, boolean>>({});
   const audio = useRef<HTMLAudioElement | null>(null), client = useRef<AccountRecordingClient | null>(null);
   const stopAudio = useCallback(() => { const player = audio.current; if (player) { player.pause(); player.removeAttribute('src'); player.load(); } }, []);
   const attachAudio = useCallback((node: HTMLAudioElement | null) => { if (!node) stopAudio(); audio.current = node; }, [stopAudio]);
   useEffect(() => {
     const transport = new AccountRecordingClient(); client.current = transport;
-    const stop = () => { stopAudio(); setUrl(''); setOpened(null); setRows([]); setStatuses({}); };
+    const stop = () => { stopAudio(); setUrl(''); setOpened(null); setRows([]); setStatuses({}); setTranscriptsReady({}); };
     const unsubscribe = subscribeSession(stop);
     return () => { unsubscribe(); transport.dispose(); stopAudio(); };
   }, [stopAudio]);
@@ -51,18 +53,21 @@ export default function AccountRecordingArchive({active, version, requested}: {a
   const onTranscriptStatus = useCallback((id: string, badge: { label: string; tone: string }) => {
     setStatuses(prev => (prev[id]?.label === badge.label && prev[id]?.tone === badge.tone ? prev : { ...prev, [id]: badge }));
   }, []);
+  const onTranscriptReady = useCallback((id: string, ready: boolean) => {
+    setTranscriptsReady(prev => (!!prev[id] === ready ? prev : { ...prev, [id]: ready }));
+  }, []);
   function close() { stopAudio(); setUrl(''); setOpened(null); }
   return <section aria-label="Account audio archive" className="cc-audio-archive">
     <div className="cc-audio-archive-head">
-      <div><h3>Saved audio</h3><p className="cc-muted">Your saved originals (latest 100). Listen, download, or transcribe and summarize below.</p></div>
+      <div><h3>Saved audio</h3><p className="cc-muted">Your saved originals (latest 100). Listen, transcribe, summarize, and log updates in one place.</p></div>
       <button className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Refresh saved audio</button>
     </div>
     <p role="status" className="cc-muted cc-audio-archive-status">{message}</p>
-    {opened && <div className="cc-card cc-audio-player"><strong>{opened.title}</strong><audio ref={attachAudio} controls crossOrigin="use-credentials" preload="metadata" src={url || undefined} aria-label="Saved original audio" style={{width: '100%'}} onError={() => setMessage('Playback could not continue. Open the saved audio again for a fresh link.')} /><button className="cc-text-button" onClick={close}>Close saved audio</button></div>}
     <div className="cc-audio-list">
       {rows.map(row => {
         const badge = statuses[row.id] || initialTranscriptBadge(row);
-        return <article className="cc-card cc-audio-row" key={`${row.id}:${row.originalSha256}`}>
+        const playingThis = opened?.id === row.id && !!url;
+        return <article className="cc-card cc-audio-row nx-audio-flow" key={`${row.id}:${row.originalSha256}`}>
           <div className="cc-audio-row-head">
             <div className="cc-audio-row-meta">
               <strong>{row.title}</strong>
@@ -70,9 +75,15 @@ export default function AccountRecordingArchive({active, version, requested}: {a
             </div>
             <span className={`cc-audio-badge cc-audio-badge-${badge.tone}`}>{badge.label}</span>
           </div>
-          <div className="cc-action-row"><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'play')}>Listen to saved audio</button><button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'download')}>Download saved original</button></div>
-          <AccountRecordingTranscription recording={row} active={active} onStatusChange={badge => onTranscriptStatus(row.id, badge)}/>
-          <AccountRecordingSummary recording={row} active={active} onListen={() => void open(row.id, 'play')}/>
+          <div className="cc-action-row">
+            <button className="cc-secondary" disabled={busy} onClick={() => playingThis ? close() : void open(row.id, 'play')}>{playingThis ? 'Close player' : 'Listen to saved audio'}</button>
+            <button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'download')}>Download saved original</button>
+          </div>
+          {playingThis && <div className="cc-audio-player nx-audio-inline-player">
+            <audio ref={attachAudio} controls crossOrigin="use-credentials" preload="metadata" src={url} aria-label={`Saved original audio: ${row.title}`} style={{width: '100%'}} onError={() => setMessage('Playback could not continue. Open the saved audio again for a fresh link.')} />
+          </div>}
+          <AccountRecordingTranscription recording={row} active={active} onStatusChange={badge => onTranscriptStatus(row.id, badge)} onTranscriptReady={ready => onTranscriptReady(row.id, ready)}/>
+          <AccountRecordingSummary recording={row} active={active} transcriptReady={!!transcriptsReady[row.id]} onListen={() => void open(row.id, 'play')}/>
         </article>;
       })}
     </div>

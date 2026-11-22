@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccountRecordingClient, type ArchivedRecording } from './accountRecording';
 import { permanentTranscriptionFailure, requestTranscription, transcriptionError, transcriptionRecovery, TranscriptionRequestError, type TranscriptionIntent, type TranscriptionResult } from './accountTranscription';
+import AiAllowanceBar from './AiAllowanceBar';
+import VoiceUpdatesCard from './VoiceUpdatesCard';
 import './account-transcription.css';
 
 const MAX_STATUS_POLLS = 60;
 
-export default function AccountRecordingTranscription({ recording, active, onStatusChange }: { recording: ArchivedRecording; active: boolean; onStatusChange?: (badge: { label: string; tone: string }) => void }) {
+export default function AccountRecordingTranscription({ recording, active, onStatusChange, onTranscriptReady }: { recording: ArchivedRecording; active: boolean; onStatusChange?: (badge: { label: string; tone: string }) => void; onTranscriptReady?: (ready: boolean) => void }) {
   const [initial] = useState(() => {
     try { const recovery = transcriptionRecovery(recording); return { recovery, intent: recovery.load(), error: '' }; }
     catch { return { recovery: null, intent: null, error: 'Browser transcription recovery is unavailable or does not match this original. No new transcription request was sent.' }; }
@@ -56,10 +58,15 @@ export default function AccountRecordingTranscription({ recording, active, onSta
     const timer = window.setTimeout(() => { setPolls(value => value + 1); void act('transcription-status', true); }, 2500);
     return () => window.clearTimeout(timer);
   }, [active, busy, error, result, polls, act]);
+  useEffect(() => {
+    onTranscriptReady?.(!!result?.transcript);
+  }, [result?.transcript, onTranscriptReady]);
   if (recording.status !== 'stored' || !recording.originalStored || !recording.originalSha256) return null;
   const request = result?.request;
-  return <section className="cc-audio-transcription" aria-label="Audio transcription">
-    <h4>Transcript</h4><p className="cc-muted cc-small">Transcribe this saved recording (server-side transcription currently supports clips up to 10 minutes). Uses your account’s shared AI allowance; your original stays unchanged.</p>
+  const transcriptText = result?.transcript && !result.transcript.emptyTranscript ? result.transcript.text.trim() : '';
+  return <section className="cc-audio-transcription nx-audio-step" aria-label="Audio transcription">
+    <h4>Transcript</h4><p className="cc-muted cc-small">Transcribe this saved recording (server-side transcription supports clips up to 60 minutes). Uses your account’s shared AI allowance; your original stays unchanged.</p>
+    <AiAllowanceBar refreshKey={request?.status || (intent ? 'intent' : 'init')} />
     {!intent && <><label className="cc-label">Spoken language<select aria-label="Spoken language" value={language} disabled={busy || !initial.recovery} onChange={event => setLanguage(event.target.value)}><option value="">Detect automatically</option><option value="en">English</option><option value="fr">French</option></select></label><button className="cc-secondary" disabled={!active || busy || !initial.recovery} onClick={() => void act('transcribe')}>Transcribe full clip</button></>}
     {intent && <div className="cc-action-row"><button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcription-status')}>{busy ? 'Checking transcription…' : 'Check transcription status'}</button>{missing && <button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcribe')}>Send saved transcription request</button>}</div>}
     {intent && !request && !error && <p className="cc-muted cc-small">This browser has a saved transcription request. Check its status before continuing.</p>}
@@ -74,6 +81,8 @@ export default function AccountRecordingTranscription({ recording, active, onSta
       {request.can_retry_unsent && !permanentTranscriptionFailure(request.error) && <button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcription-retry')}>Retry unsent transcription</button>}
       {request.can_publish_saved_result && <button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcription-publish')}>Save completed transcript</button>}
     </div>}
-    {result?.transcript && <div className="cc-audio-transcript"><strong>Transcript saved</strong><p className="cc-muted cc-small">Speech-to-text estimate · may contain errors. Check against the original audio. You can request a summary separately below.</p><pre>{result.transcript.emptyTranscript ? 'No speech text was returned for this clip.' : result.transcript.text}</pre><details><summary>Transcript details</summary><p className="cc-muted cc-small">Complete clip: {result.transcript.durationSeconds.toFixed(1)} seconds. {result.transcript.modelVerification === 'unreported' ? 'The provider did not report the model used.' : 'The provider reported the requested speech-to-text model.'}</p></details></div>}
+    {result?.transcript && <div className="cc-audio-transcript"><strong>Transcript saved</strong><p className="cc-muted cc-small">Speech-to-text estimate · may contain errors. Check against the original audio. You can request a summary or log updates below.</p><pre>{result.transcript.emptyTranscript ? 'No speech text was returned for this clip.' : result.transcript.text}</pre><details><summary>Transcript details</summary><p className="cc-muted cc-small">Complete clip: {result.transcript.durationSeconds.toFixed(1)} seconds. {result.transcript.modelVerification === 'unreported' ? 'The provider did not report the model used.' : 'The provider reported the requested speech-to-text model.'}</p></details>
+      {transcriptText && <VoiceUpdatesCard key={`${recording.id}:${result.transcript.originalSha256}`} transcriptText={transcriptText} />}
+    </div>}
   </section>;
 }

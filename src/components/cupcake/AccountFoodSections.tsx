@@ -1,8 +1,11 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { AccountFoodPlan } from './AccountFoodPlan';
 import ReceiptWorkspace from './ReceiptWorkspace';
 import './account-food-plan.css';
+
+const OPEN_RECEIPTS_EVENT = 'cc-open-food-receipts';
+const FOOD_LOG_FOCUSED_EVENT = 'cc-food-log-focused';
 
 type Section = 'log' | 'plan' | 'groceries' | 'receipts';
 const phoneSections: ReadonlyArray<{ key: Section; label: string }> = [
@@ -27,22 +30,32 @@ function useDesktop() {
   }, []);
   return wide;
 }
-function FoodSections({ children }: { children: ReactNode }) {
+function FoodSections({ children, onOpenReceipts }: { children: ReactNode; onOpenReceipts?: () => void }) {
   const id = useId(), buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const wide = useDesktop(), sections = wide ? desktopSections : phoneSections, count = sections.length;
   const [chosen, setSection] = useState<Section>('log');
   const section: Section = wide && chosen === 'groceries' ? 'plan' : chosen;
   const [planOpened, setPlanOpened] = useState(false);
   const [receiptsOpened, setReceiptsOpened] = useState(false);
-  const choose = (key: Section) => {
+  const choose = useCallback((key: Section) => {
     setSection(key);
     if (key === 'plan' || key === 'groceries') setPlanOpened(true);
     if (key === 'receipts') setReceiptsOpened(true);
-  };
-  const focusTab = (key: Section) => {
+    if (key === 'log' && receiptsOpened) window.dispatchEvent(new Event(FOOD_LOG_FOCUSED_EVENT));
+  }, [receiptsOpened]);
+  const focusTab = useCallback((key: Section) => {
     const index = sections.findIndex(item => item.key === key);
     if (index >= 0) buttons.current[index]?.focus();
-  };
+  }, [sections]);
+  useEffect(() => {
+    const onOpen = () => {
+      if (onOpenReceipts) { onOpenReceipts(); return; }
+      choose('receipts');
+      requestAnimationFrame(() => focusTab('receipts'));
+    };
+    window.addEventListener(OPEN_RECEIPTS_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_RECEIPTS_EVENT, onOpen);
+  }, [choose, focusTab, onOpenReceipts]);
   return <>
     <div className="cc-food-sections" role="tablist" aria-label="Food sections">{sections.map((item, index) => <button key={item.key} ref={node => { buttons.current[index] = node; }} id={`${id}-${item.key}`} aria-controls={`${id}-panel-${item.key}`} type="button" role="tab" aria-selected={section === item.key} tabIndex={section === item.key ? 0 : -1} onClick={() => choose(item.key)} onKeyDown={event => { const next = event.key === 'ArrowRight' ? (index + 1) % count : event.key === 'ArrowLeft' ? (index + count - 1) % count : event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : -1; if (next >= 0) { event.preventDefault(); choose(sections[next].key); buttons.current[next]?.focus(); } }}>{item.label}</button>)}</div>
     <div className="space-y-4 nx-food-log-stack" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{children}</div>
@@ -50,4 +63,4 @@ function FoodSections({ children }: { children: ReactNode }) {
     {receiptsOpened && <div id={`${id}-panel-receipts`} role="tabpanel" aria-labelledby={`${id}-receipts`} hidden={section !== 'receipts'}><ReceiptWorkspace active={section === 'receipts'} /></div>}
   </>;
 }
-export function AccountFoodSections({ children }: { children: ReactNode }) { return ACCOUNT_SESSIONS ? <FoodSections>{children}</FoodSections> : <>{children}</>; }
+export function AccountFoodSections({ children, onOpenReceipts }: { children: ReactNode; onOpenReceipts?: () => void }) { return ACCOUNT_SESSIONS ? <FoodSections onOpenReceipts={onOpenReceipts}>{children}</FoodSections> : <>{children}</>; }
