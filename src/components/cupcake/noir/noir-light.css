@@ -115,11 +115,25 @@
 /* ---------- Sheets and scrims: dim with ink, never with white ---------- */
 :root[data-cc-scheme=light] .cc-app[class] .cc-settings[open] .cc-settings-scrim { background: rgba(12,20,23,.28); }
 
+/* ---------- Header: frosted porcelain when scrolling ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-top {
+  background: rgba(245, 249, 250, .86);
+  border-bottom-color: var(--nx-hair);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose][class] .cc-top {
+  background: rgba(246, 245, 249, .86);
+}
+
 /* ---------- Tab bar camera: the cut-out ring takes the porcelain ground ---------- */
 @media (max-width: 1023px) {
   :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-nav button:nth-child(2) {
     color: #fff;
     box-shadow: 0 0 0 5px var(--cc-bg), 0 0 0 6px color-mix(in oklab, var(--nx-a) 30%, transparent), 0 14px 30px -10px color-mix(in oklab, var(--nx-a) 60%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  :root[data-cc-scheme=light] .cc-app[data-entry=account][class]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) {
+    background: none;
+    box-shadow: none;
+    color: var(--nx-ink-3);
   }
 }
 /* Confirmation sheet: the destructive answer keeps AA contrast on porcelain. */

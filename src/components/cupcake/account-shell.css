@@ -58,6 +58,28 @@
     background: var(--ax-panel, #030607);
     border-top: 1px solid var(--ax-hair, rgba(255,255,255,.07));
   }
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) {
+    width: auto;
+    height: auto;
+    min-height: 66px;
+    margin-bottom: 0;
+    padding: 9px 2px 7px;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--nx-ink-3);
+  }
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) > svg {
+    width: 22px;
+    height: 22px;
+  }
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav button:nth-child(2) .cc-nav-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
 }
 /* Composer sits at the bottom of the panel like any messaging app; history fills the space above. */
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body { display: flex; flex-direction: column; flex: 1 1 auto; }

@@ -219,9 +219,7 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
         {preset !== 'all' && (latest || weightError) && weightButton}
         {ready.phoneOutcomesAvailable===false&&<PersonalOutcomes range={range} refreshKey={refreshKey}/>}
       </> : <>
-        {ready.phoneOutcomesAvailable===false ? (ACCOUNT_SESSIONS
-          ? <details className="cc-card nx-coverage-disclosure"><summary><h3>Purchase-call outcomes unavailable</h3></summary><p className="cc-muted">This account feed contains saved local evidence. Purchase-call history is not connected; your personal outcomes below are scored separately.</p></details>
-          : <div className="cc-card"><h3>Purchase-call outcomes unavailable</h3><p className="cc-muted">This account feed contains saved local evidence. Purchase-call history is not connected; your personal outcomes below are scored separately.</p></div>) : <>
+        {ready.phoneOutcomesAvailable!==false && <>
         <h3>Saves · purchase calls</h3>
         <div className="cc-dashboard-cards cc-outcome-cards" aria-label="Recorded intervention outcomes">
           <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Times you won', kind: 'outcome', group: 'wins' })}><strong>{counts.wins}</strong><span>Saves · times you resisted</span></button>
@@ -233,6 +231,9 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
         <div className="cc-card"><h3>Purchase decision win rate</h3><p className="cc-muted">{rate.percent === null ? 'No scored phone outcomes in this range' : `${rate.percent}% recorded wins`}</p><p className="cc-muted">{counts.wins} {counts.wins === 1 ? 'win' : 'wins'} out of {rate.scored} scored {rate.scored === 1 ? 'outcome' : 'outcomes'} ({counts.wins} {counts.wins === 1 ? 'win' : 'wins'} + {counts.losses} {counts.losses === 1 ? 'loss' : 'losses'}). {rate.excluded} missed or unscored {rate.excluded === 1 ? 'record' : 'records'} excluded.</p></div>
         </>}
         <PersonalOutcomes range={range} refreshKey={refreshKey} />
+        {ready.phoneOutcomesAvailable===false && (ACCOUNT_SESSIONS
+          ? <details className="cc-card nx-coverage-disclosure"><summary><h3>Purchase-call outcomes unavailable</h3></summary><p className="cc-muted">This account feed contains saved local evidence. Purchase-call history is not connected; your personal outcomes above are scored separately.</p></details>
+          : <div className="cc-card"><h3>Purchase-call outcomes unavailable</h3><p className="cc-muted">This account feed contains saved local evidence. Purchase-call history is not connected; your personal outcomes below are scored separately.</p></div>)}
         {preset!=='all'&&<div className="cc-dashboard-cards">
           <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Food entries', kind: 'food' })}><strong>{calorie!.value}</strong><span>{!calorie!.available ? 'Calories unavailable' : calorie!.partial ? `Est. calories logged · partial${calorie!.unknown ? `, ${calorie!.unknown} without an estimate` : ''}` : 'Est. calories logged'} · View food</span></button>
           <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: ready.totals.currency?`${ready.totals.currency} transactions`:'Saved transactions', kind: 'transaction', currency: ready.totals.currency })}><strong>{ready.totals.spend === null ? '—' : `${moneyPrefix}${ready.totals.spend.toFixed(2)}`}</strong><span>{ready.totals.spend === null ? 'Spend unavailable' : ready.range.spendSource === 'Plaid posted outflows' ? 'Posted spend' : 'Logged spend'} · View transactions</span></button>
