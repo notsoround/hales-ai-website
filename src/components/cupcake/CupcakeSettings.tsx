@@ -9,6 +9,7 @@ export function SettingsGroup({
   danger = false,
   id,
   openRequest = 0,
+  closeRequest = 0,
   onToggle,
 }: {
   title: string;
@@ -16,6 +17,7 @@ export function SettingsGroup({
   danger?: boolean;
   id?: string;
   openRequest?: number;
+  closeRequest?: number;
   onToggle?: (open: boolean) => void;
 }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -30,6 +32,12 @@ export function SettingsGroup({
       detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 60);
   }, [openRequest]);
+
+  useEffect(() => {
+    if (!closeRequest || !detailsRef.current || !detailsRef.current.open) return;
+    detailsRef.current.open = false;
+    onToggleRef.current?.(false);
+  }, [closeRequest]);
 
   return (
     <details
@@ -47,6 +55,8 @@ export function SettingsGroup({
 export default function CupcakeSettings({
   children,
   openRequest = 0,
+  closeRequest = 0,
+  onOpenChange,
   onSignOut,
   signOutLabel = 'Sign out',
   signOutAriaLabel,
@@ -54,6 +64,8 @@ export default function CupcakeSettings({
 }: {
   children: ReactNode;
   openRequest?: number;
+  closeRequest?: number;
+  onOpenChange?: (open: boolean) => void;
   onSignOut?: () => void;
   signOutLabel?: string;
   signOutAriaLabel?: string;
@@ -61,6 +73,9 @@ export default function CupcakeSettings({
 }) {
   const root = useRef<HTMLDetailsElement>(null), panel = useRef<HTMLDivElement>(null), trigger = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
+  const wasOpen = useRef(false);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
   const close = useCallback(() => { if (root.current) root.current.open = false; setOpen(false); trigger.current?.focus(); }, []);
 
   useEffect(() => {
@@ -68,6 +83,18 @@ export default function CupcakeSettings({
     root.current.open = true;
     setOpen(true);
   }, [openRequest]);
+
+  useEffect(() => {
+    if (!closeRequest || !root.current || !root.current.open) return;
+    root.current.open = false;
+    setOpen(false);
+  }, [closeRequest]);
+
+  useEffect(() => {
+    if (wasOpen.current === open) return;
+    wasOpen.current = open;
+    onOpenChangeRef.current?.(open);
+  }, [open]);
 
   useBackClose(open, close);
   useLayoutEffect(() => {
@@ -77,7 +104,7 @@ export default function CupcakeSettings({
       .filter(el => el.getClientRects().length > 0 && !el.closest('[inert]') && el.tabIndex >= 0);
     if (!container.contains(document.activeElement)) (focusable()[0] || container).focus();
     const key = (event: KeyboardEvent) => {
-      if (!root.current?.open) return;
+      if (!root.current?.open || document.querySelector('dialog[open]')) return;
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); return; }
       if (event.key !== 'Tab') return;
       const controls = focusable(), first = controls[0], last = controls[controls.length - 1];
@@ -85,7 +112,7 @@ export default function CupcakeSettings({
       else if (event.shiftKey && (document.activeElement === first || !container.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && (document.activeElement === last || !container.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     };
-    const contain = (event: FocusEvent) => { if (root.current?.open && event.target instanceof Node && !container.contains(event.target)) (focusable()[0] || container).focus(); };
+    const contain = (event: FocusEvent) => { if (!document.querySelector('dialog[open]') && root.current?.open && event.target instanceof Node && !container.contains(event.target)) (focusable()[0] || container).focus(); };
     document.addEventListener('keydown', key, true); document.addEventListener('focusin', contain, true);
     return () => { document.removeEventListener('keydown', key, true); document.removeEventListener('focusin', contain, true); };
   }, [open, close]);

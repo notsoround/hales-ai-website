@@ -47,7 +47,7 @@ function mergeTalks(incoming:SavedTalk[],current:SavedTalk[],recovery:TalkCheckp
 }
 type TalkCapture={id:string;startedAt:string;drain:TalkLineDrain;closing:boolean};
 
-export default function CupcakeStudio({ mode, onBusy, onActivity, assistantName = 'Cupcake', keepMediaOnHide = false, contextVersion = 0, active = true }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void; assistantName?: string; onActivity?: (activity: {kind:'voice'|'record'|'library'|null;label:string})=>void; keepMediaOnHide?:boolean; contextVersion?:number; active?: boolean }) {
+export default function CupcakeStudio({ mode, onBusy, onActivity, assistantName = 'Cupcake', keepMediaOnHide = false, contextVersion = 0, active = true, showAllowance = false }: { mode: 'talk' | 'record' | 'library'; onBusy: (busy: boolean) => void; assistantName?: string; onActivity?: (activity: {kind:'voice'|'record'|'library'|null;label:string})=>void; keepMediaOnHide?:boolean; contextVersion?:number; active?: boolean; showAllowance?: boolean }) {
   const storageScope = useRef(captureStorageScope()).current;
   const deviceStorage = useRef(personalStorage('localStorage')).current;
   const tabStorage = useRef(personalStorage('sessionStorage')).current;
@@ -337,7 +337,7 @@ export default function CupcakeStudio({ mode, onBusy, onActivity, assistantName 
     </div>
     <div hidden={mode!=='library'}><LibraryWorkspace active={mode==='library'} onOpenRecording={id=>void openRecord(id)} onWork={setLibraryBusy}/></div>
     {ACCOUNT_SESSIONS&&<section className="cc-library-audio" hidden={mode==='talk'}>
-      <AccountRecordingArchive active={active&&mode!=='talk'} version={archiveVersion} requested={archiveOpen}/>
+      <AccountRecordingArchive active={active&&mode!=='talk'} version={archiveVersion} requested={archiveOpen} showAllowance={showAllowance}/>
     </section>}
     {selected&&<ConversationPanel key={selected.id} record={selected} onClose={()=>{setSelected(null);setQuestionError('');}} onAsk={ask} onRetry={()=>void retry()} asking={asking} questionError={questionError} retrying={busy} onOrganized={(project,tags)=>setSelected(current=>current?{...current,project,tags}:current)}/>}
   </section>;

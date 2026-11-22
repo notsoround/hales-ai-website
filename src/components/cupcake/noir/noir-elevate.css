@@ -250,14 +250,15 @@
   .cc-app[data-entry=account] .nx-md-key:first-child { padding-left: 0; }
   .cc-app[data-entry=account] .nx-md-key i { width: 7px; }
   .cc-app[data-entry=account] .nx-md-key span { font-size: 9px; letter-spacing: .05em; }
-  .cc-app[data-entry=account] :is(.nx-spend-main, .nx-weightline .nx-spend-main) { min-height: 44px; padding: 10px 0 9px; }
+  .cc-app[data-entry=account] .nx-steps-mini { min-height: 46px; padding: 7px 0; margin-top: 2px; }
+  .cc-app[data-entry=account] :is(.nx-spend-main, .nx-weightline .nx-spend-main) { min-height: 42px; padding: 8px 0 7px; }
   .cc-app[data-entry=account] .nx-weightline + .nx-macros,
-  .cc-app[data-entry=account] .nx-spend + .nx-macros { margin-top: 12px; }
+  .cc-app[data-entry=account] .nx-spend + .nx-macros { margin-top: 9px; }
   .cc-app[data-entry=account] .nx-macros i { margin-top: 6px; }
   .cc-app[data-entry=account] .nx-macros span { margin-top: 5px; }
-  .cc-app[data-entry=account] .nx-dock { margin-top: 16px; }
-  .cc-app[data-entry=account] .nx-mic { height: 48px; }
-  .cc-app[data-entry=account] .nx-minor { margin-top: 10px; }
+  .cc-app[data-entry=account] .nx-dock { margin-top: 12px; }
+  .cc-app[data-entry=account] .nx-mic { height: 46px; }
+  .cc-app[data-entry=account] .nx-minor { margin-top: 8px; }
 }
 @media (max-width: 420px) {
   .cc-app[data-entry=account] :is(.nx-spend-main, .nx-weightline .nx-spend-main) { gap: 7px; }

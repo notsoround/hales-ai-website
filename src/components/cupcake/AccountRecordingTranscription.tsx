@@ -7,7 +7,7 @@ import './account-transcription.css';
 
 const MAX_STATUS_POLLS = 60;
 
-export default function AccountRecordingTranscription({ recording, active, onStatusChange, onTranscriptReady }: { recording: ArchivedRecording; active: boolean; onStatusChange?: (badge: { label: string; tone: string }) => void; onTranscriptReady?: (ready: boolean) => void }) {
+export default function AccountRecordingTranscription({ recording, active, showAllowance = false, onStatusChange, onTranscriptReady }: { recording: ArchivedRecording; active: boolean; showAllowance?: boolean; onStatusChange?: (badge: { label: string; tone: string }) => void; onTranscriptReady?: (ready: boolean) => void }) {
   const [initial] = useState(() => {
     try { const recovery = transcriptionRecovery(recording); return { recovery, intent: recovery.load(), error: '' }; }
     catch { return { recovery: null, intent: null, error: 'Browser transcription recovery is unavailable or does not match this original. No new transcription request was sent.' }; }
@@ -66,7 +66,7 @@ export default function AccountRecordingTranscription({ recording, active, onSta
   const transcriptText = result?.transcript && !result.transcript.emptyTranscript ? result.transcript.text.trim() : '';
   return <section className="cc-audio-transcription nx-audio-step" aria-label="Audio transcription">
     <h4>Transcript</h4><p className="cc-muted cc-small">Transcribe this saved recording (server-side transcription supports clips up to 60 minutes). Uses your account’s shared AI allowance; your original stays unchanged.</p>
-    <AiAllowanceBar refreshKey={request?.status || (intent ? 'intent' : 'init')} />
+    {showAllowance && <AiAllowanceBar refreshKey={request?.status || (intent ? 'intent' : 'init')} />}
     {!intent && <><label className="cc-label">Spoken language<select aria-label="Spoken language" value={language} disabled={busy || !initial.recovery} onChange={event => setLanguage(event.target.value)}><option value="">Detect automatically</option><option value="en">English</option><option value="fr">French</option></select></label><button className="cc-secondary" disabled={!active || busy || !initial.recovery} onClick={() => void act('transcribe')}>Transcribe full clip</button></>}
     {intent && <div className="cc-action-row"><button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcription-status')}>{busy ? 'Checking transcription…' : 'Check transcription status'}</button>{missing && <button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcribe')}>Send saved transcription request</button>}</div>}
     {intent && !request && !error && <p className="cc-muted cc-small">This browser has a saved transcription request. Check its status before continuing.</p>}

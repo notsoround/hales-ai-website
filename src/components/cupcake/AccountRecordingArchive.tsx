@@ -15,7 +15,7 @@ function initialTranscriptBadge(row: ArchivedRecording): { label: string; tone: 
   return { label: 'Original saved', tone: 'saved' };
 }
 
-export default function AccountRecordingArchive({active, version, requested}: {active: boolean; version: number; requested: {id:string} | null}) {
+export default function AccountRecordingArchive({active, version, requested, showAllowance = false}: {active: boolean; version: number; requested: {id:string} | null; showAllowance?: boolean}) {
   const [rows, setRows] = useState<ArchivedRecording[]>([]), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
   const [opened, setOpened] = useState<ArchivedRecording | null>(null), [url, setUrl] = useState('');
   const [statuses, setStatuses] = useState<Record<string, { label: string; tone: string }>>({});
@@ -76,14 +76,14 @@ export default function AccountRecordingArchive({active, version, requested}: {a
             <span className={`cc-audio-badge cc-audio-badge-${badge.tone}`}>{badge.label}</span>
           </div>
           <div className="cc-action-row">
-            <button className="cc-secondary" disabled={busy} onClick={() => playingThis ? close() : void open(row.id, 'play')}>{playingThis ? 'Close player' : 'Listen to saved audio'}</button>
+            <button className="cc-secondary" disabled={busy} onClick={() => playingThis ? close() : void open(row.id, 'play')}>{playingThis ? 'Close saved audio' : 'Listen to saved audio'}</button>
             <button className="cc-secondary" disabled={busy} onClick={() => void open(row.id, 'download')}>Download saved original</button>
           </div>
           {playingThis && <div className="cc-audio-player nx-audio-inline-player">
-            <audio ref={attachAudio} controls crossOrigin="use-credentials" preload="metadata" src={url} aria-label={`Saved original audio: ${row.title}`} style={{width: '100%'}} onError={() => setMessage('Playback could not continue. Open the saved audio again for a fresh link.')} />
+            <audio ref={attachAudio} controls crossOrigin="use-credentials" preload="metadata" src={url} aria-label="Saved original audio" style={{width: '100%'}} onError={() => setMessage('Playback could not continue. Open the saved audio again for a fresh link.')} />
           </div>}
-          <AccountRecordingTranscription recording={row} active={active} onStatusChange={badge => onTranscriptStatus(row.id, badge)} onTranscriptReady={ready => onTranscriptReady(row.id, ready)}/>
-          <AccountRecordingSummary recording={row} active={active} transcriptReady={!!transcriptsReady[row.id]} onListen={() => void open(row.id, 'play')}/>
+          <AccountRecordingTranscription recording={row} active={active} showAllowance={showAllowance} onStatusChange={badge => onTranscriptStatus(row.id, badge)} onTranscriptReady={ready => onTranscriptReady(row.id, ready)}/>
+          <AccountRecordingSummary recording={row} active={active} transcriptReady={showAllowance && !!transcriptsReady[row.id]} onListen={() => void open(row.id, 'play')}/>
         </article>;
       })}
     </div>

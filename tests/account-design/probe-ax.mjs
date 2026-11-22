@@ -14,7 +14,9 @@ if(Number(process.env.W||390)<900)assert.ok(today.indexOf('More detail')>today.i
 assert.match(today,/heading "Food today" L3/,'Food today is a heading like the other cards');
 await nav(p,'Assistant');await p.waitForTimeout(500);const sheet=await tree();console.log('=== Assistant open\n'+sheet);
 if(Number(process.env.W||390)<=600){assert.doesNotMatch(sheet,/Good afternoon|Open calendar|Sign out/,'the page behind the phone assistant is not reachable');assert.match(sheet,/navigation "Cupcake"/,'the tab bar stays reachable');}
-await nav(p,'Reports');await p.waitForTimeout(600);const reports=await tree();console.log('=== Reports\n'+reports);
+await nav(p,'Fitness');await p.waitForTimeout(300);const fitness=await tree();console.log('=== Fitness\n'+fitness);
+assert.match(fitness,/heading "Fitness" L2/,'Fitness heading is exposed cleanly');
+await p.locator('summary[aria-label="Settings"]').click();await p.locator('#settings-sharing > summary').click();await p.waitForTimeout(600);const reports=await tree();console.log('=== Reports\n'+reports);
 assert.doesNotMatch(reports,/tabpanel ""/,'every Reports tab panel is named');
 await p.getByRole('tab',{name:/Shared with me/}).focus();await p.keyboard.press('ArrowRight');
 assert.equal(await p.evaluate(()=>document.activeElement?.textContent),'My sharing & clients','arrow keys move between Reports tabs');

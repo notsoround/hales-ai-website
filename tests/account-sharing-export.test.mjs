@@ -182,7 +182,7 @@ async function sharingOnly(page) {
 const prepare = page => ui(page).getByRole('button', { name: 'Prepare my download', exact: true }).click();
 const zipButton = page => ui(page).getByRole('button', { name: 'Download ZIP file', exact: true });
 async function logout(page) {
-  await page.getByRole('button', { name: 'Close settings', exact: true }).click();
+  if (!await page.locator('details.cc-settings[open]').count()) await page.locator('summary[aria-label="Settings"]').click();
   await page.getByRole('button', { name: 'Sign out of Cupcake', exact: true }).click();
   await page.getByRole('heading', { name: 'Sign in to Cupcake', exact: true }).waitFor();
 }
@@ -209,6 +209,7 @@ async function downloadedZIP(page, owner, selected, originals = false, unavailab
 try {
   const json = await open(), p = json.page; await login(p); await settings(p);
   assert.equal(calls.length, 0); assert.equal(json.downloads.length, 0);
+  await ui(p).getByText('What’s included & technical notes', { exact: true }).click();
   await ui(p).getByText('Invitations and sharing includes your connection and permission history, including expired or revoked permissions.', { exact: false }).waitFor();
   await sharingOnly(p); await prepare(p); await ui(p).getByText('Invitations and sharing: 4 saved records', { exact: true }).waitFor();
   assert.equal(json.downloads.length, 0);

@@ -58,13 +58,15 @@ await p.evaluate(()=>{window.matchMedia=window.realMatchMedia;});
 console.log('PASS: pull to refresh on Today works only in the installed app, refreshes once, honours reduced motion, and stays off while Settings or the camera is open'+(realCamera?'':' (Log a meal hidden here; an open modal dialog stood in for the camera)'));
 // Sign out asks in the app's own sheet (no browser popup); Escape or Back answers No and nothing changes.
 let popups=0;p.on('dialog',d=>{popups++;void d.dismiss();});
-await p.locator('.cc-top .cc-lock').click();const sheet=p.locator('dialog.nx-confirm');await sheet.waitFor();
+await p.locator('summary[aria-label="Settings"]').click();await p.getByRole('dialog',{name:'Settings'}).waitFor();
+await p.locator('.cc-settings .cc-lock').click();const sheet=p.locator('dialog.nx-confirm');await sheet.waitFor();
 assert.equal(await sheet.getAttribute('role'),'alertdialog');assert.equal(await sheet.locator('.nx-confirm-title').innerText(),'Sign out?');
 assert.equal(await p.evaluate(()=>document.activeElement?.getAttribute('data-answer')),'no','a destructive question rests on Cancel');
 for(const b of await sheet.locator('button').all())assert.ok((await b.boundingBox()).height>=48);
 if(process.env.SHOT)await p.screenshot({path:process.env.SHOT});
 await p.keyboard.press('Escape');await sheet.waitFor({state:'detached'});await p.locator('.cc-nav').waitFor();assert.equal(popups,0);
 assert.equal(await p.evaluate(()=>document.activeElement?.classList.contains('cc-lock')),true,'focus returns to the control that asked');
+await p.keyboard.press('Escape');await p.waitForFunction(()=>!document.querySelector('details.cc-settings')?.open);
 console.log('PASS: sign out asks in an in-app sheet with 48px buttons, rests on Cancel, and Escape/Back cancels with focus restored');
 // The camera shortcut opens Food with the camera request and leaves no marker in the address.
 const s=await c.newPage();await s.goto(base+'/cupcake/account?assistant=cupcake&tab=snap&shortcut=camera'+(process.env.RICH?'&rich=1':''));
