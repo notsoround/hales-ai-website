@@ -15,8 +15,10 @@
 /* Tally: each day is a column; wins stack up from the hairline, losses hang below it, unscored sits on it. */
 .nx-wl-tally { position: relative; list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .nx-wl-tally::before { content: ''; position: absolute; left: 0; right: 0; top: 27px; height: 1px; background: var(--nx-hair); pointer-events: none; }
-.nx-wl-tally li { min-width: 0; }
-.cc-app .nx-wl-tally button { all: unset; box-sizing: border-box; display: grid; grid-template-rows: 24px 7px 24px auto; position: relative; justify-items: center; width: 100%; padding-bottom: 2px; cursor: pointer; border-radius: 6px; -webkit-tap-highlight-color: transparent; transition: background .2s; }
+.nx-wl-tally li { min-width: 0; overflow: visible; }
+.cc-app .nx-wl-tally button { all: unset; box-sizing: border-box; display: grid; grid-template-rows: 24px 7px 24px auto; position: relative; justify-items: center; width: 100%; padding-bottom: 2px; cursor: pointer; border-radius: 6px; overflow: visible; -webkit-tap-highlight-color: transparent; transition: background .2s; }
+.cc-app .nx-wl-tally li:first-child small { justify-self: start; }
+.cc-app .nx-wl-tally li:last-child small { justify-self: end; }
 .cc-app .nx-wl-tally button::before { content: ""; position: absolute; left: 50%; top: -4px; bottom: 14px; width: 1px; background: var(--nx-ink); opacity: 0; transition: opacity .2s; }
 .cc-app .nx-wl-tally button[aria-pressed=true]::before { opacity: .35; }
 .cc-app .nx-wl-tally:has([aria-pressed=true]) button[aria-pressed=false] { opacity: .4; }

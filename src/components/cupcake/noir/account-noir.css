@@ -12,8 +12,15 @@
 }
 .cc-app[data-entry=account][data-appearance=rose] { background: radial-gradient(110% 520px at 50% -120px, color-mix(in oklab, var(--cc-pink) 13%, transparent), transparent 70%), #07060b; background-attachment: fixed; }
 
-/* ---------- Header: identity, quiet controls ---------- */
-.cc-app[data-entry=account] .cc-top { background: transparent; border-bottom: 1px solid transparent; backdrop-filter: none; }
+/* ---------- Header: frosted glass when scrolling, clear backdrop-filter when Settings drawer is open ---------- */
+.cc-app[data-entry=account] .cc-top {
+  background: rgba(4, 7, 10, .82);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--nx-hair);
+}
+.cc-app[data-entry=account][data-appearance=rose] .cc-top { background: rgba(7, 6, 11, .82); }
+.cc-app[data-entry=account] .cc-top:has(.cc-settings[open]) { backdrop-filter: none; -webkit-backdrop-filter: none; }
 .cc-app[data-entry=account] .cc-account-identity { font: 500 15px/1.2 var(--nx-text); letter-spacing: -.005em; }
 .cc-app[data-entry=account] .cc-top small { font: 400 12px/1.3 var(--nx-text); color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-version { font: 500 10px/1 var(--nx-text); letter-spacing: .04em; color: rgba(238,244,245,.62); border: 0; padding: 0; background: none; }

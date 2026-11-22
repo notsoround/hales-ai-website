@@ -59,7 +59,9 @@
 .cc-receipt-saved .cc-library-item.is-current { border-color: #b697d0; }
 .cc-receipts :is(button,a,input,summary):focus-visible { outline: 2px solid #dbc1ec; outline-offset: 4px; }
 @media (max-width: 520px) {
-  .cc-receipt-import .cc-action-row { width: 100%; }
+  .cc-receipt-import .cc-action-row,
+  .cc-receipts .cc-action-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
+  .cc-receipts .cc-action-row .cc-file { display: inline-flex; align-items: center; justify-content: center; text-align: center; min-height: 48px; padding: 0 12px; white-space: nowrap; }
   .cc-receipt-heading { gap: 12px; }
   .cc-receipt-total { max-width: 45%; overflow-wrap: anywhere; }
   .cc-receipt-breakdown { gap: 12px 20px; }
@@ -67,6 +69,9 @@
   .cc-receipt-candidate { padding: 0 12px; }
   .cc-receipt-amount { max-width: 42%; }
   .cc-receipt-amount strong { font-size: .9rem; }
+}
+@media (max-width: 330px) {
+  .cc-receipts .cc-action-row { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .cc-receipt-candidate { transition: none; } }
 

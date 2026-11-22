@@ -20,7 +20,9 @@
 
 /* ---------- Hero ---------- */
 :root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row { align-items: flex-end; gap: 16px; margin-top: 8px; }
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row:not(:has(h2)) { align-items: center; justify-content: space-between; margin-top: 4px; }
 :root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row .cc-eyebrow { display: block; margin-bottom: 10px; color: var(--lx-ink-3); font: 500 11px/1 var(--lx-text); letter-spacing: .12em; }
+:root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row:not(:has(h2)) .cc-eyebrow { margin-bottom: 0; }
 :root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row h2 { margin: 0; font: 300 32px/1.1 var(--lx-display); letter-spacing: -.025em; color: var(--lx-ink); }
 :root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row h2 em { font-style: normal; color: var(--lx-ink-3); }
 :root .cc-app[data-entry=account] .cc-library-workspace > .cc-heading-row > .cc-secondary {
@@ -111,7 +113,7 @@
 :root .cc-app[data-entry=account] .cc-library-workspace > :is(.cc-notice, .cc-error) { border-radius: 16px; font-size: 13.5px; }
 
 /* ---------- Saved audio (lower in Library & under Record): crisp scannable list ---------- */
-:root .cc-app[data-entry=account] .is-library .cc-library-audio { margin-top: 28px; padding: 22px 0 56px; border-top: 1px solid var(--lx-hair); }
+:root .cc-app[data-entry=account] .is-library .cc-library-audio { margin-top: 28px; padding: 22px 0 calc(76px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--lx-hair); }
 :root .cc-app[data-entry=account] .cc-audio-archive { margin: 0; padding: 0; border: 0; background: none; }
 :root .cc-app[data-entry=account] .cc-audio-archive-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 :root .cc-app[data-entry=account] .cc-audio-archive-head h3 { margin: 0 0 4px; font: 300 22px/1.2 var(--lx-display); letter-spacing: -.015em; color: var(--lx-ink); }

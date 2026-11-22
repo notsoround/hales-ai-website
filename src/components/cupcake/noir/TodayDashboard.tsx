@@ -230,7 +230,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   const weightSub = headlineW
     ? headlineW.isScale
       ? wDelta !== null
-        ? `${wDelta <= 0 ? '−' : '+'}${Math.abs(wDelta).toFixed(1)} this week · weighed ${shortDate(headlineW.measuredAtMs!)}`
+        ? `${wDelta <= 0 ? '−' : '+'}${Math.abs(wDelta).toFixed(1)} this week · ${shortDate(headlineW.measuredAtMs!)}`
         : `Weighed ${shortDate(headlineW.measuredAtMs!)}`
       : `${headlineW.label} · ${shortDay(headlineW.dateIso)}${headlineW.latestScale ? ` · Scale ${headlineW.latestScale.weightLb.toFixed(1)} lb` : ''}`
     : 'No weigh-in yet';
