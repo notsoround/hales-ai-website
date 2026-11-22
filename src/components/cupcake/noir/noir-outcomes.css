@@ -69,6 +69,12 @@
 .nx-wl-how { margin-top: 4px; }
 .cc-app .nx-wl-how summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font: 500 13px/1 var(--nx-text); color: var(--nx-ink-3); }
 .nx-wl-how p { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: var(--nx-ink-2, rgba(238,244,245,.7)); max-width: 60ch; }
+.nx-wl[data-empty] { margin: 4px 0 18px; padding-top: 16px; }
+.nx-wl[data-empty] .nx-wl-hero strong { font-size: 40px; }
+.nx-wl[data-empty] .nx-wl-tally { margin-top: 12px; }
+.nx-wl[data-empty] .nx-wl-split { display: none; }
+.nx-wl[data-empty] .nx-wl-empty { margin: 10px 0 6px; font-size: 13.5px; }
+.nx-wl[data-empty] .nx-wl-form { margin-top: 10px; }
 .cc-app .nx-wl :is(button, summary):focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; border-radius: 6px; }
 @media (prefers-reduced-motion: no-preference) {
   .nx-wl-up i, .nx-wl-down i { animation: nx-wl-rise .6s cubic-bezier(.2,.8,.2,1) both; }

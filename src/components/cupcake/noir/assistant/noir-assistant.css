@@ -69,6 +69,28 @@
 .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 0; }
 .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes button:disabled { opacity: .35; }
 
+/* ---------- Compact return bar in Live voice / Record modes (account app) ---------- */
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 16px 6px; padding: 6px 0; border-bottom: 1px solid var(--ax-hair);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--ax-hair); background: var(--ax-glass);
+  color: var(--ax-ink-2); font: 500 13px/1 var(--ax-text); transition: background .2s var(--ax-ease), color .2s var(--ax-ease), border-color .2s var(--ax-ease);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar .cc-assistant-back {
+  border-color: transparent; background: transparent; padding-left: 4px; color: var(--cc-pink);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar button:hover:not(:disabled) {
+  background: var(--ax-glass-2); color: var(--ax-ink); border-color: var(--ax-hair-2);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar .cc-assistant-back:hover {
+  background: color-mix(in oklab, var(--cc-pink) 10%, transparent); border-color: transparent; color: var(--cc-pink);
+}
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar button:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+.cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar button:disabled { opacity: .35; }
+
 /* ---------- Body ---------- */
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body { padding: 8px 16px 14px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
 
@@ -105,7 +127,8 @@
 .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer > span { width: auto; margin-left: auto; }
 @media (max-width: 600px) {
   .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-head { padding: 12px 12px 8px 14px; }
-  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes { margin: 2px 12px 6px; }
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-modes,
+  .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-mode-bar { margin: 2px 12px 6px; }
   .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body { padding: 6px 12px 12px; }
   .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-footer { padding: 4px 14px 6px; }
   .cc-app[data-entry=account] .cc-assistant-workspace .cc-assistant-footer > span { width: 100%; margin-left: 0; }

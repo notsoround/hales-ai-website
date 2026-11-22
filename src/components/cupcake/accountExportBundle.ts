@@ -270,8 +270,11 @@ export function useAccountExportBundle(onRecoverSections:(sections:ExportSection
       const blob = await accountExportDownload(intent.request_id,{bytes:status.bytes!,sha256:status.sha256!},snapshot,current.signal);
       assertGeneration(snapshot.generation);if (operation.current !== token || current.signal.aborted) return;
       const url = URL.createObjectURL(blob), anchor = document.createElement('a');
-      anchor.href = url;anchor.download = status.filename;anchor.click();setTimeout(() => URL.revokeObjectURL(url),1000);
-      setNotice('ZIP download requested. Check your browser’s downloads. Keep the file private.');
+      anchor.href = url; anchor.download = status.filename; anchor.rel = 'noopener'; anchor.hidden = true;
+      document.body.appendChild(anchor);
+      try { anchor.click(); } finally { anchor.remove(); }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setNotice('ZIP download started. Check your browser’s downloads. Keep the file private.');
     } catch (cause) {if (operation.current === token && !current.signal.aborted && sessionSnapshot().generation === snapshot.generation) setError(cause instanceof TypeError ? 'The ZIP transfer was interrupted. No file was created. Check status and retry the download.' : cause instanceof Error ? cause.message : 'The ZIP could not be downloaded. No file was created.');}
     finally {if (operation.current === token) {flight.current = false;setPhase('idle');}}
   };

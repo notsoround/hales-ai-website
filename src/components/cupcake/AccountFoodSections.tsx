@@ -26,7 +26,7 @@ function FoodSections({ children }: { children: ReactNode }) {
   const choose = (key: Section) => { setSection(key); if (key !== 'log') setOpened(true); };
   return <>
     <div className="cc-food-sections" role="tablist" aria-label="Food sections">{sections.map((item, index) => <button key={item.key} ref={node => { buttons.current[index] = node; }} id={`${id}-${item.key}`} aria-controls={`${id}-panel-${item.key}`} type="button" role="tab" aria-selected={section === item.key} tabIndex={section === item.key ? 0 : -1} onClick={() => choose(item.key)} onKeyDown={event => { const next = event.key === 'ArrowRight' ? (index + 1) % count : event.key === 'ArrowLeft' ? (index + count - 1) % count : event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : -1; if (next >= 0) { event.preventDefault(); choose(sections[next].key); buttons.current[next]?.focus(); } }}>{item.label}</button>)}</div>
-    <div className="space-y-4" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{children}</div>
+    <div className="space-y-4 nx-food-log-stack" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{children}</div>
     {opened && <div id={`${id}-panel-${section === 'log' ? 'plan' : section}`} role="tabpanel" aria-labelledby={`${id}-${section === 'log' ? 'plan' : section}`} hidden={section === 'log'}><AccountFoodPlan section={wide ? 'both' : section === 'groceries' ? 'groceries' : 'plan'} onPlan={() => choose('plan')} onGroceries={() => { choose('groceries'); buttons.current[2]?.focus(); }}/></div>}
   </>;
 }

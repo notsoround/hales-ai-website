@@ -18,37 +18,64 @@ const twoDays = 48 * 60 * 60 * 1000;
 function HealthSyncCard() {
   const [client] = useState(() => new HealthStatusClient());
   const [data, setData] = useState<HealthSyncStatus | null>(null), [busy, setBusy] = useState(true), [error, setError] = useState(''), [checkedAt, setCheckedAt] = useState<Date | null>(null);
-  const alive = useRef(false), inFlight = useRef(false);
+  const alive = useRef(false), inFlight = useRef(false), lastCheckedMs = useRef(0);
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
-    inFlight.current = true; setBusy(true); setError(''); setData(null); setCheckedAt(null);
-    try { const result = await client.read(); if (alive.current) { setData(result); setCheckedAt(new Date()); } }
-    catch (cause) { if (alive.current && !(cause instanceof DOMException && cause.name === 'AbortError')) setError(cause instanceof Error ? cause.message : 'Health connection status could not be checked.'); }
+    inFlight.current = true; setBusy(true); setError('');
+    try {
+      const result = await client.read();
+      if (alive.current) {
+        const now = new Date();
+        lastCheckedMs.current = now.getTime();
+        setData(result); setCheckedAt(now);
+      }
+    }
+    catch (cause) {
+      if (alive.current && !(cause instanceof DOMException && cause.name === 'AbortError')) {
+        setData(null); setCheckedAt(null);
+        setError(cause instanceof Error ? cause.message : 'Health connection status could not be checked.');
+      }
+    }
     finally { inFlight.current = false; if (alive.current) setBusy(false); }
   }, [client]);
-  useEffect(() => { alive.current = true; void refresh(); return () => { alive.current = false; }; }, [refresh]);
+  useEffect(() => {
+    alive.current = true;
+    void refresh();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastCheckedMs.current >= 15000) void refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { alive.current = false; document.removeEventListener('visibilitychange', onVisible); };
+  }, [refresh]);
   const oldUpload = data?.last_received_at != null && checkedAt !== null && checkedAt.getTime() - data.last_received_at * 1000 > twoDays;
+  const activeDevices = data ? data.devices.filter(d => d.status === 'active') : [];
+  const expiredDevices = data ? data.devices.filter(d => d.status === 'expired') : [];
+  const allExpired = expiredDevices.length > 0 && activeDevices.length === 0;
   const labels = data ? [...new Set(data.metrics.map(healthMetricLabel))] : [];
   const setup = () => { if (!openHealthSettings()) setError('Open Settings, then Apple Health connection, to set up or check your phone.'); };
   return <section className="cc-card cc-health-sync" aria-label="Apple Health uploads" data-empty={data && !data.devices.length && !error && !busy ? '' : undefined}>
     <div className="cc-heading-row"><h3 className="cc-card-title"><HeartPulse size={20} aria-hidden="true"/>Apple Health uploads</h3></div>
-    {busy && <p role="status">Checking Apple Health uploads…</p>}
+    {busy && !data && <p role="status">Checking Apple Health uploads…</p>}
     {error && <p role="alert">{error}</p>}
     {data && <>
       {!data.devices.length && <p>No Apple Health upload set up for this account.</p>}
+      {allExpired && <div className="cc-health-sync-expired" role="status">
+        <p><strong>Upload permission expired.</strong> Your saved history is kept; create a new upload credential in Settings to resume uploads.</p>
+        <button type="button" className="cc-primary" onClick={setup}>Renew upload permission</button>
+      </div>}
       {data.devices.length > 0 && data.last_received_at === null && <p>Waiting for the first upload.</p>}
       {data.last_received_at !== null && <dl className="cc-health-sync-times"><div><dt>Last upload received</dt><dd>{time(data.last_received_at)}</dd></div>{data.last_observed_at !== null && <div><dt>Latest saved daily period</dt><dd>{period(data)}</dd></div>}</dl>}
       {data.last_observed_at !== null && <p className="cc-muted cc-small">Daily summaries{labels.includes('Sleep estimate') ? ' · Sleep is an estimate' : ''}</p>}
       {data.last_received_at !== null && data.last_observed_at === null && <p>Upload received; no supported observations are confirmed.</p>}
-      {oldUpload && <p className="cc-health-sync-old">No upload received in the last 2 days. Check the exporter on your phone.</p>}
+      {oldUpload && !allExpired && <p className="cc-health-sync-old">No upload received in the last 2 days. Check the exporter on your phone.</p>}
       {data.devices.length > 0 && <details><summary>Connection details ({data.devices.length})</summary>
         <p className="cc-muted cc-small">Daily dates use the connection’s timezone. They are not measurement or sleep-end times. An upload may contain no supported data.</p>
         {labels.length > 0 && <p className="cc-muted cc-small">Saved previously: {labels.join(', ')}. These may come from earlier uploads, including expired or revoked connections.</p>}
-        <ul>{data.devices.map(device => <li key={device.id}><strong>{device.label}</strong> · {device.status === 'active' ? 'Upload permission active' : device.status === 'expired' ? 'Upload permission expired' : 'Upload permission revoked'}<p className="cc-muted cc-small">Configured export source: {device.preferred_source || 'Not specified'} · {device.timezone}<br/>Last upload: {time(device.last_received_at)}</p></li>)}</ul><p className="cc-muted cc-small">Permission alone does not confirm uploads. Sleep is an algorithm estimate. The configured source does not verify a measurement. Checking status does not refresh measurements.</p>
+        <ul>{data.devices.map(device => <li key={device.id}><strong>{device.label}</strong> · {device.status === 'active' ? 'Upload permission active' : device.status === 'expired' ? 'Upload permission expired' : 'Upload permission revoked'}<p className="cc-muted cc-small">Configured export source: {device.preferred_source || 'Not specified'} · {device.timezone}<br/>Last upload: {time(device.last_received_at)}</p>{device.status === 'expired' && <button type="button" className="cc-text-button" onClick={setup}>Renew in Settings</button>}</li>)}</ul><p className="cc-muted cc-small">Permission alone does not confirm uploads. Sleep is an algorithm estimate. The configured source does not verify a measurement. Checking status does not refresh measurements.</p>
       </details>}
-      {checkedAt && <p className="cc-muted cc-small">Checked {checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>}
+      {checkedAt && <p className="cc-muted cc-small">{busy ? 'Refreshing…' : `Checked ${checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}</p>}
     </>}
-    <div className="cc-action-row"><button type="button" className="cc-secondary" aria-label="Check upload status" disabled={busy} onClick={() => void refresh()}>Refresh</button><button type="button" className="cc-text-button" aria-label="iPhone setup in Settings" onClick={setup}>iPhone setup</button></div>
+    <div className="cc-action-row"><button type="button" className="cc-secondary" aria-label="Check upload status" disabled={busy} onClick={() => void refresh()}>{busy && data ? 'Checking…' : 'Refresh'}</button><button type="button" className="cc-text-button" aria-label="iPhone setup in Settings" onClick={setup}>iPhone setup</button></div>
   </section>;
 }
 export default function AccountHealthSyncCard() {

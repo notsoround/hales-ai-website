@@ -48,6 +48,12 @@ async function verifiedExport(result: Result, accountId: string, requested: Sect
   return file;
 }
 
+function formatExportSize(bytes: number) {
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toLocaleString(undefined, { maximumFractionDigits: 1 })} MB`;
+  if (bytes >= 1024) return `${Math.max(1, Math.round(bytes / 1024)).toLocaleString()} KB`;
+  return `${bytes.toLocaleString()} B`;
+}
+
 export function AccountSelfExport() {
   const [selected, setSelected] = useState<Section[]>(sectionCodes);
   const [includeOriginals, setIncludeOriginals] = useState(false);
@@ -113,27 +119,16 @@ export function AccountSelfExport() {
   const failedMessage = bundle.job?.error && ['export_raw_limit','export_zip_limit','export_record_too_large','export_resource_limit'].includes(bundle.job.error)
     ? includeOriginals ? 'This selection exceeds the ZIP preparation limit. No partial file was created. Choose fewer sections and prepare a new download.' : 'These records exceed the current ZIP preparation allowance. No partial ZIP is available.'
     : 'This ZIP could not be prepared. No partial ZIP is available. You can prepare a new download.';
-  return <section className="cc-account-controls" aria-label="Download your data">
+  return <section className="cc-account-controls cc-export-card" aria-label="Download your data">
     <h3>Download your data</h3>
-    <p>Copy supported records saved in your account. Larger histories are automatically prepared as a ZIP with all selected supported records. Review the coverage before downloading.</p>
-    <p className="cc-muted cc-small">This covers part of your data. You can include saved originals below. Connected-service copies and other excluded data remain outside this download. Keep the file private.</p>
-    <details className="cc-export-picker" ref={picker}><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
-      <fieldset disabled={locked} className="cc-export-sections"><legend>Include these records</legend>
-        <div className="cc-export-choices"><button type="button" className="cc-text-button" onClick={() => choose(sectionCodes)}>Select all</button><button type="button" className="cc-text-button" onClick={() => choose([])}>Clear selection</button></div>
-        {sectionCodes.map(section => <label className="cc-account-check" key={section}><input type="checkbox" checked={selected.includes(section)} onChange={event => choose(event.target.checked ? [...selected, section] : selected.filter(current => current !== section))}/>{sections[section]}</label>)}
-      </fieldset>
-    </details>
-    {selected.includes('sharing') && <p className="cc-muted cc-small">Invitations and sharing includes your connection and permission history, including expired or revoked permissions. Shared report contents and other people’s health records are excluded.</p>}
-    {selected.includes('source_history') && <p className="cc-muted cc-small">Saved source-event history includes retained original event versions. Other sources and connected-service copies remain excluded.</p>}
-    {selected.includes('native_health') && <p className="cc-muted cc-small">Native health history includes saved original Android or iPhone upload bytes and record versions as verified byte chunks. Source, estimate and requested-window labels stay intact. This does not include every health metric or your complete history.</p>}
+    <p className="cc-export-lead">Export a private copy of your saved Cupcake records. Larger histories are packaged as a ZIP.</p>
     <label className="cc-account-check"><input type="checkbox" checked={includeOriginals} disabled={locked} onChange={event => chooseOriginals(event.target.checked)}/>Include original photos and audio</label>
-    <p className="cc-muted cc-small">Includes saved meal photos, receipt photos and recording audio for the sections you select. Originals use a ZIP; any unavailable files will be listed before download. For large audio collections, use Download originals individually below.</p>
-    <p className="cc-muted cc-small">{selected.length ? 'You can include every supported section in one preparation.' : 'Choose at least one section to prepare your download.'}</p>
-    <button type="button" className="cc-secondary" disabled={locked || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : bundle.terminal ? 'Prepare a new download' : 'Prepare my download'}</button>
+    {!selected.length && <p className="cc-muted cc-small">Choose at least one section to prepare your download.</p>}
+    <button type="button" className={file ? 'cc-secondary cc-export-prepare' : 'cc-primary cc-export-prepare'} disabled={locked || !selected.length} onClick={() => void prepare()}>{busy ? 'Preparing your download…' : bundle.terminal ? 'Prepare a new download' : 'Prepare my download'}</button>
     {(error || bundle.error) && <p role="alert">{error || bundle.error}</p>}
     {notice && <p role="status">{notice}</p>}
     {bundle.notice && <p role="status">{bundle.notice}</p>}
-    {bundle.intent && <div aria-busy={bundle.busy}>
+    {bundle.intent && <div className="cc-export-progress" aria-busy={bundle.busy}>
       {bundle.busy && <p role="status">{bundle.phase === 'downloading' ? 'Downloading and verifying your ZIP…' : bundle.phase === 'preparing' ? 'Preparing a ZIP for your selected records…' : 'Checking your saved ZIP preparation…'}</p>}
       {!bundle.busy && bundle.job?.state === 'building' && <p role="status">Your ZIP is still being prepared. Check the saved status shortly.</p>}
       {!bundle.busy && !bundle.job && !bundle.terminal && <p>Your browser remembers a preparation request. Check its status to recover it.</p>}
@@ -141,29 +136,46 @@ export function AccountSelfExport() {
       {bundle.job?.state === 'expired' && <p role="status">This prepared ZIP has expired. You can prepare a new download.</p>}
       <button type="button" className="cc-text-button" disabled={bundle.busy || busy} onClick={() => void bundle.check()}>Check saved status</button>
     </div>}
-    {file && coverage && <div>
-      <p role="status">{prepared ? 'Your file is ready.' : 'Your ZIP is ready.'} Prepared {new Date(file.generatedAt).toLocaleString()}.</p>
-      {!prepared && bundle.job && <p className="cc-muted cc-small">The ZIP contains structured record files{originals?.requested ? ', verified saved originals' : ''} and a coverage manifest. It expires {new Date(bundle.job.expiresAt).toLocaleString()}. {originals?.requested ? 'Connected-service copies remain excluded.' : 'Original files and connected-service copies are excluded.'}</p>}
-      {originals?.requested && <div>
-        <p role="status"><strong>Original files:</strong> {originals.files.filter(file => file.status === 'included').length.toLocaleString()} included{originals.unavailableCount ? ` · ${originals.unavailableCount.toLocaleString()} unavailable` : ''}.</p>
-        <p className="cc-muted cc-small">Files were verified while preparing this ZIP, separately from the saved-record snapshots.{originals.unavailableCount ? ' This ZIP does not contain every requested original.' : ''}</p>
-        {originals.unavailableCount > 0 && <details><summary>Unavailable originals</summary><ul>
+    {file && coverage && <div className="cc-export-ready">
+      <p role="status" className="cc-export-ready-head"><strong>{prepared ? 'Your file is ready.' : 'Your ZIP is ready.'}</strong><span>Prepared {new Date(file.generatedAt).toLocaleString()}{!prepared && bundle.job?.bytes ? ` · ${formatExportSize(bundle.job.bytes)}` : ''}.</span></p>
+      <div className="cc-export-ready-actions">
+        {prepared ? <><button type="button" className="cc-primary cc-export-download-cta" onClick={download}>Download JSON file</button><button type="button" className="cc-text-button" onClick={() => setPrepared(null)}>Clear prepared file</button></>
+          : <><button type="button" className="cc-primary cc-export-download-cta" disabled={bundle.busy} onClick={() => void bundle.download()}>{bundle.phase === 'downloading' ? 'Verifying ZIP…' : 'Download ZIP file'}</button><button type="button" className="cc-text-button" disabled={bundle.busy} onClick={() => bundle.clear()}>Clear prepared ZIP</button></>}
+      </div>
+      {!prepared && bundle.job && <p className="cc-muted cc-small">Available until {new Date(bundle.job.expiresAt).toLocaleString()}. Keep downloaded files private.</p>}
+      {originals?.requested && <div className="cc-export-originals-summary">
+        <p role="status"><strong>Original files:</strong> {originals.files.filter(item => item.status === 'included').length.toLocaleString()} included{originals.unavailableCount ? ` · ${originals.unavailableCount.toLocaleString()} unavailable` : ''}.</p>
+        {originals.unavailableCount > 0 && <p className="cc-muted cc-small">This ZIP does not contain every requested original.</p>}
+        {originals.unavailableCount > 0 && <details className="cc-export-picker"><summary>Unavailable originals</summary><ul>
           {originals.sectionFailures.map(failure => <li key={failure.section}>{sections[failure.section]}: originals could not be read for this section.</li>)}
-          {originals.files.filter(file => file.status === 'unavailable').map(file => <li key={file.kind + ':' + file.sourceId}>{file.kind === 'meal_photo' ? 'Meal photo' : file.kind === 'receipt_photo' ? 'Receipt photo' : 'Recording audio'}: the saved original could not be verified. Its reference is retained in the manifest.</li>)}
+          {originals.files.filter(item => item.status === 'unavailable').map(item => <li key={item.kind + ':' + item.sourceId}>{item.kind === 'meal_photo' ? 'Meal photo' : item.kind === 'receipt_photo' ? 'Receipt photo' : 'Recording audio'}: the saved original could not be verified. Its reference is retained in the manifest.</li>)}
         </ul></details>}
       </div>}
+      <ul className="cc-export-coverage-list" aria-label="Download coverage">{coverage.selectedSections.map(section => {
+        const entry = coverage.sections[section]!, count = Object.values(entry.tables).reduce((sum, table) => sum + table.rowCount, 0);
+        return <li key={section}><strong>{sections[section]}:</strong> {entry.status === 'included' ? `${count.toLocaleString()} saved record${count === 1 ? '' : 's'}` : 'Unavailable for this account'}</li>;
+      })}</ul>
       {coverage.consistentSnapshot === false && <div className="cc-export-consistency">
         <p className="cc-muted cc-small">Each available saved store was read consistently; separate stores may reflect slightly different moments.</p>
         <ul aria-label="Saved store read times">{coverage.sourceSnapshots?.map(source => <li key={source.code}>{source.source}: {source.status === 'included' ? `read ${new Date(source.readAt!).toLocaleString()}` : 'Unavailable for this account'}</li>)}</ul>
       </div>}
-      <ul aria-label="Download coverage">{coverage.selectedSections.map(section => {
-        const entry = coverage.sections[section]!, count = Object.values(entry.tables).reduce((sum, table) => sum + table.rowCount, 0);
-        return <li key={section}><strong>{sections[section]}:</strong> {entry.status === 'included' ? `${count.toLocaleString()} saved record${count === 1 ? '' : 's'}` : 'Unavailable for this account'}</li>;
-      })}</ul>
-      <details><summary>What this download leaves out</summary><ul>{coverage.excluded.map((entry, index) => <li key={index}>{entry.section in sections && <strong>{sections[entry.section as Section]}: </strong>}{entry.note}</li>)}</ul></details>
-      {prepared ? <><button type="button" className="cc-primary" onClick={download}>Download JSON file</button><button type="button" className="cc-text-button" onClick={() => setPrepared(null)}>Clear prepared file</button></>
-        : <><button type="button" className="cc-primary" disabled={bundle.busy} onClick={() => void bundle.download()}>{bundle.phase === 'downloading' ? 'Verifying ZIP…' : 'Download ZIP file'}</button><button type="button" className="cc-text-button" disabled={bundle.busy} onClick={() => bundle.clear()}>Clear prepared ZIP</button></>}
+      <details className="cc-export-picker"><summary>What this download leaves out</summary><ul>{coverage.excluded.map((entry, index) => <li key={index}>{entry.section in sections && <strong>{sections[entry.section as Section]}: </strong>}{entry.note}</li>)}</ul></details>
     </div>}
+    <details className="cc-export-picker" ref={picker}><summary>Choose sections · {selected.length === sectionCodes.length ? 'all selected' : `${selected.length} selected`}</summary>
+      <fieldset disabled={locked} className="cc-export-sections"><legend>Include these records</legend>
+        <div className="cc-export-choices"><button type="button" className="cc-text-button" onClick={() => choose(sectionCodes)}>Select all</button><button type="button" className="cc-text-button" onClick={() => choose([])}>Clear selection</button></div>
+        {sectionCodes.map(section => <label className="cc-account-check" key={section}><input type="checkbox" checked={selected.includes(section)} onChange={event => choose(event.target.checked ? [...selected, section] : selected.filter(current => current !== section))}/>{sections[section]}</label>)}
+      </fieldset>
+    </details>
+    <details className="cc-export-picker cc-export-notes"><summary>What’s included &amp; technical notes</summary>
+      <div className="cc-export-notes-body">
+        <p className="cc-muted cc-small">This covers supported records saved in your account. Connected-service copies and other excluded data remain outside this download. Keep the file private.</p>
+        <p className="cc-muted cc-small">Including original photos and audio packages saved meal photos, receipt photos and recording audio into a ZIP. For large audio collections, use Download originals individually below.</p>
+        {selected.includes('sharing') && <p className="cc-muted cc-small">Invitations and sharing includes your connection and permission history, including expired or revoked permissions. Shared report contents and other people’s health records are excluded.</p>}
+        {selected.includes('source_history') && <p className="cc-muted cc-small">Saved source-event history includes retained original event versions. Other sources and connected-service copies remain excluded.</p>}
+        {selected.includes('native_health') && <p className="cc-muted cc-small">Native health history includes saved original Android or iPhone upload bytes and record versions as verified byte chunks. Source, estimate and requested-window labels stay intact. This does not include every health metric or your complete history.</p>}
+      </div>
+    </details>
     <AccountOriginalDownloads/>
   </section>;
 }

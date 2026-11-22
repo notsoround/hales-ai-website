@@ -9,3 +9,6 @@
 .cc-health-sync details{margin-top:12px}.cc-health-sync summary{cursor:pointer;padding:10px 0}
 .cc-health-sync ul{padding-left:18px;margin:8px 0}.cc-health-sync li+li{margin-top:12px}
 .cc-health-sync-old{border-left:3px solid #d8af66;padding-left:12px}
+.cc-health-sync-expired{margin:10px 0 12px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in oklab, var(--nx-warm,#d8af66) 45%, transparent);background:color-mix(in oklab, var(--nx-warm,#d8af66) 10%, transparent);display:grid;gap:10px}
+.cc-health-sync-expired p{margin:0;font-size:13.5px;line-height:1.45}
+.cc-health-sync-expired .cc-primary{justify-self:start}

@@ -5,6 +5,8 @@
 .cc-library-search .cc-secondary{flex:none;white-space:nowrap}
 .cc-library-view-navigation{margin:26px 0 20px;min-width:0}
 .cc-library-view-navigation .cc-library-tabs{margin:0;max-width:100%;overscroll-behavior-x:contain;scroll-padding-inline:3px;padding:3px 3px 10px}
+@media(max-width:480px){.cc-library-view-navigation .cc-library-tabs{gap:4px;padding:3px}.cc-library-view-navigation .cc-library-tabs button{padding:7px 8px;font-size:12px;white-space:nowrap}}
+@media(max-width:359px){.cc-library-view-navigation .cc-library-tabs button{padding:6px 5px;font-size:11px}}
 .cc-library-view-navigation .cc-library-tabs button:focus-visible,.cc-library-view-overflow button:focus-visible,.cc-library-view-panel:focus-visible{outline:2px solid var(--cc-pink-bright,#ffc5df);outline-offset:2px}
 .cc-library-view-overflow{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--cc-text-3,#bbacbd);font-size:12px}
 .cc-library-view-overflow>div{display:flex;gap:4px}

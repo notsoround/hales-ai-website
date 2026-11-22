@@ -29,6 +29,9 @@ export function PersonalOutcomes({ range, refreshKey }: { range: DashboardRange;
   const [saved, setSaved] = useState<SavedPersonalOutcome | null>(null);
   const version = useRef(0);
   const moreVersion = useRef<number | null>(null);
+  const rangeKeyRef = useRef<string | null>(null);
+  const skipNextNotify = useRef(false);
+  const rangeKey = `${range.preset}|${range.start}|${range.end}`;
   const request = useCallback((cursor?: string) => libraryRequest<OutcomePage>({
     action: 'outcome_list', limit: 50,
     ...(range.preset === 'all' ? {} : { start: range.start, end: range.end }),
@@ -36,12 +39,42 @@ export function PersonalOutcomes({ range, refreshKey }: { range: DashboardRange;
   }), [range.preset, range.start, range.end]);
   const refresh = useCallback(async () => {
     const revision = ++version.current;
-    setBusy(true); setMoreBusy(false); setPage(null); setSelected(null); setError('');
+    const rangeChanged = rangeKeyRef.current !== rangeKey;
+    rangeKeyRef.current = rangeKey;
+    setBusy(true); setMoreBusy(false); setSelected(null); setError('');
+    if (rangeChanged) setPage(null);
     try { const next = await request(); if (revision === version.current) setPage({ ...next, entries: mergeEntries([], next.entries) }); }
     catch (e) { if (revision === version.current) setError(e instanceof Error ? e.message : 'Personal outcomes could not be loaded.'); }
     finally { if (revision === version.current) setBusy(false); }
-  }, [request]);
-  useDataChanged(['outcome'], () => { void refresh(); });
+  }, [request, rangeKey]);
+  const handleSaved = useCallback((entry: SavedPersonalOutcome) => {
+    setSaved(entry);
+    setFilter(null);
+    const inRange = range.preset === 'all' || (entry.date >= range.start && entry.date <= range.end);
+    if (inRange) {
+      setPage(current => {
+        if (!current || current.entries.some(e => e.id === entry.id)) return current;
+        const synthetic: PersonalOutcome = {
+          id: entry.id, date: entry.date, title: entry.title, outcome: entry.outcome, note: '',
+          source: { type: 'owner-request', reference: `cupcake-web:${entry.id}`, description: 'Explicitly recorded by the owner in Cupcake’s personal wins and setbacks form.' },
+          metrics: {}, evidenceType: 'owner-reported-outcome', createdAt: new Date().toISOString(),
+        };
+        const counts = {
+          ...current.counts,
+          wins: current.counts.wins + (entry.outcome === 'win' ? 1 : 0),
+          losses: current.counts.losses + (entry.outcome === 'loss' ? 1 : 0),
+          total: current.counts.total + 1,
+        };
+        return { ...current, counts, entries: mergeEntries([synthetic], current.entries) };
+      });
+    }
+    skipNextNotify.current = true;
+    void refresh();
+  }, [range.preset, range.start, range.end, refresh]);
+  useDataChanged(['outcome'], () => {
+    if (skipNextNotify.current) { skipNextNotify.current = false; return; }
+    void refresh();
+  });
   useEffect(() => { void refresh(); return () => { version.current += 1; }; }, [refresh, refreshKey]);
   const more = async () => {
     if (!page?.nextCursor || moreVersion.current === version.current) return;
@@ -62,13 +95,13 @@ export function PersonalOutcomes({ range, refreshKey }: { range: DashboardRange;
     const shape = (e: PersonalOutcome) => ({ id: e.id, date: e.date, title: e.title, outcome: e.outcome, note: e.note, sourceNote: e.source.description, metrics: e.metrics });
     return <OutcomeBalance counts={page?.counts ?? null} percent={rate?.percent ?? null} entries={entries.map(shape)} allEntries={(page?.entries || []).map(shape)} filter={filter} onFilter={setFilter}
       selected={selected} onSelect={setSelected} busy={busy} error={error} notice={savedNotice} onRefresh={() => void refresh()}
-      form={<PersonalOutcomeForm onSaved={entry => { setSaved(entry); setFilter(null); void refresh(); }} />}
+      form={<PersonalOutcomeForm onSaved={handleSaved} />}
       more={page?.nextCursor && entries.length < selectionTotal ? <button className="cc-secondary" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? 'Loading…' : 'Load older outcomes'}</button> : null} />;
   }
   return <section className="cc-dashboard-section" aria-label="Personal wins and losses">
     <div className="cc-heading-row"><div><span className="cc-eyebrow">THE WINS YOU REPORT</span><h3><Trophy size={20} aria-hidden="true" /> Personal wins &amp; losses</h3></div><button className="cc-secondary" onClick={() => void refresh()} disabled={busy} aria-label="Refresh personal outcomes"><RefreshCw size={17} className={busy ? 'cc-spin' : ''} /></button></div>
     <p className="cc-muted cc-small">Outcomes you explicitly report, within the dates selected above. This personal score is separate from purchase intervention calls below.</p>
-    <PersonalOutcomeForm onSaved={entry => { setSaved(entry); setFilter(null); void refresh(); }} />
+    <PersonalOutcomeForm onSaved={handleSaved} />
     {saved && <p className="cc-notice" role="status">Saved your {saved.outcome === 'loss' ? 'setback' : 'win'} for {saved.date}: {saved.title}.{range.preset !== 'all' && (saved.date < range.start || saved.date > range.end) ? ' That date is outside the current view. Choose All time or change the dates above to see it.' : ' Saved in your personal outcomes.'}</p>}
     {busy && <p className="cc-thinking" role="status"><Loader2 size={16} className="cc-spin" />Loading your outcomes…</p>}
     {error && <p className="cc-error" role="alert">{error}</p>}

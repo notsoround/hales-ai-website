@@ -6,6 +6,7 @@ import { prepareFoodImage } from './prepareFoodImage';
 import { MealTimeInput } from './MealTimeInput';
 import { MealCamera } from './MealCamera';
 import { FOOD_CAMERA_REQUESTED, MEAL_PHOTO_QUEUED, takeFoodCameraRequest, takeQueuedAccountMealPhoto } from './accountMealPhotoHandoff';
+import { notifyDataChanged } from './dataChanges';
 import type { FoodMeal } from './DashboardView';
 import './account-photo-meal.css';
 
@@ -45,7 +46,7 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
     if (saved.meal?.id !== row.meal_id || saved.meal.source !== 'account-photo-estimate' || saved.meal.logDestination !== 'account-local' || !saved.meal.accountLoggedAt || saved.meal.logState !== 'logged' || saved.meal.countedInTotals !== true || Date.parse(saved.meal.consumedAt || '') !== Date.parse(original.consumed_at)) throw Error('The meal is not yet confirmed in your food log. Check the same request again.');
     await store.remove(original.request_id); active();
     if (foreground && current.current?.request_id !== original.request_id || completed.current.has(original.request_id)) return;
-    completed.current.add(original.request_id); if (current.current?.request_id === original.request_id) setReceipt(saved.meal); await reloadDrafts(); onSavedRef.current();
+    completed.current.add(original.request_id); if (current.current?.request_id === original.request_id) setReceipt(saved.meal); await reloadDrafts(); notifyDataChanged('food'); onSavedRef.current();
   }, [active, store, reloadDrafts]);
   const check = useCallback(async (original: PhotoIntent) => {
     active(); if (current.current?.request_id !== original.request_id || completed.current.has(original.request_id)) return; setError(''); setMissing(false);
@@ -118,7 +119,8 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
     finally { sending.current = false; if (alive.current) setBusy(false); }
   };
   const input = (ref: typeof picker) => <input ref={ref} aria-label="Choose meal photo file" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void chooseFile(file); }}/>;
-  return <section className="cc-card cc-account-photo" aria-label="Photo meal logging">
+  const isActive = !!(intent || receipt || busy || error);
+  return <section className="cc-card cc-account-photo" data-active={isActive ? 'true' : undefined} aria-label="Photo meal logging">
     <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>
     {!intent && !receipt && <>
       <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => setCameraOpen(true)}><Camera size={17}/>Take meal photo</button><button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>

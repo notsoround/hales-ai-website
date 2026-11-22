@@ -4,10 +4,11 @@ export type AccountIdentity = Readonly<{ account_id: string; email: string; name
 export class AccountRequestError extends Error {
   constructor(message: string, readonly code: string) { super(message); this.name = 'AccountRequestError'; }
 }
-type Session = Readonly<{ identity: AccountIdentity | null; generation: number; checking: boolean; message: string }>;
-let state: Session = { identity: null, generation: 0, checking: true, message: '' };
+type Session = Readonly<{ identity: AccountIdentity | null; generation: number; checking: boolean; message: string; transient: boolean }>;
+let state: Session = { identity: null, generation: 0, checking: true, message: '', transient: false };
 const listeners = new Set<() => void>();
 const requests = new Set<AbortController>();
+let verifying: Promise<void> | null = null;
 let channel: BroadcastChannel | undefined;
 export const SESSION_EVENT = 'cupcake-account-session-change';
 export const sessionSnapshot = () => state;
@@ -15,10 +16,11 @@ export const subscribeSession = (listener: () => void) => { listeners.add(listen
 export function assertGeneration(generation: number) {
   if (generation !== state.generation) throw new DOMException('The signed-in account changed. This response was discarded.', 'AbortError');
 }
-function transition(identity: AccountIdentity | null, message = '', checking = false) {
+function transition(identity: AccountIdentity | null, message = '', checking = false, transient = false) {
   for (const request of requests) request.abort();
   requests.clear();
-  state = { identity, message, checking, generation: state.generation + 1 };
+  verifying = null;
+  state = { identity, message, checking, transient, generation: state.generation + 1 };
   try { window.speechSynthesis?.cancel(); } catch { /* Media components also stop on keyed unmount. */ }
   listeners.forEach(listener => listener());
   window.dispatchEvent(new Event(SESSION_EVENT));
@@ -75,13 +77,26 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
   const timer = setTimeout(() => controller.abort(), 60000);
   try {
     let response: Response, result: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const sessionRetryDelays = [400, 1000];
+    let sessionTransientAttempt = 0;
     for (let attempt = 0; ; attempt++) {
-      response = await fetch('https://automate.hales.ai/api/account/' + route, {
-        method: body === undefined ? 'GET' : 'POST', credentials: 'include', cache: 'no-store',
-        headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Cupcake-Request': 'account',
-          ...(expectedAccount ? {'X-Cupcake-Account-Context':expectedAccount} : {}) },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: controller.signal,
-      });
+      try {
+        response = await fetch('https://automate.hales.ai/api/account/' + route, {
+          method: body === undefined ? 'GET' : 'POST', credentials: 'include', cache: 'no-store',
+          headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Cupcake-Request': 'account',
+            ...(expectedAccount ? {'X-Cupcake-Account-Context':expectedAccount} : {}) },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: controller.signal,
+        });
+      } catch (networkError) {
+        assertGeneration(generation);
+        if (route === 'session' && !controller.signal.aborted && sessionTransientAttempt < sessionRetryDelays.length) {
+          const wait = sessionRetryDelays[sessionTransientAttempt++]!;
+          await abortableDelay(wait, controller.signal);
+          assertGeneration(generation);
+          continue;
+        }
+        throw networkError;
+      }
       assertGeneration(generation);
       result = await response.json().catch(() => null);
       assertGeneration(generation);
@@ -89,9 +104,19 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       // turns the excess away with a bare 429 before Cupcake sees the request,
       // so waiting and sending the same request again is safe.
       const wait = edgeThrottleRetryDelay(route, response.status, result, attempt);
-      if (wait === null) break;
-      await abortableDelay(wait, controller.signal);
-      assertGeneration(generation);
+      if (wait !== null) {
+        await abortableDelay(wait, controller.signal);
+        assertGeneration(generation);
+        continue;
+      }
+      // Transient gateway/service hiccups during session restore/revalidation should retry quietly.
+      if (route === 'session' && [502, 503, 504].includes(response.status) && sessionTransientAttempt < sessionRetryDelays.length) {
+        const retryWait = sessionRetryDelays[sessionTransientAttempt++]!;
+        await abortableDelay(retryWait, controller.signal);
+        assertGeneration(generation);
+        continue;
+      }
+      break;
     }
     if (response.status === 401 && route === 'session' && !expectedAccount && !state.identity) {
       // A first visit has no session to expire. Keep the normal sign-in screen,
@@ -163,23 +188,34 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
 }
 export async function restoreSession() {
   const expectedAccount = state.identity?.account_id;
-  transition(null, '', true);
+  transition(null, '', true, false);
   const generation = state.generation;
   try {
     const result = await send<{ identity: unknown }>('session', undefined, generation, expectedAccount);
     transition(identity(result.identity));
   } catch (error) {
-    if (state.generation === generation) transition(null, error instanceof Error ? error.message : 'Sign in to continue.');
+    if (state.generation === generation) {
+      const transient = !(error instanceof AccountRequestError && error.code === 'not_signed_in');
+      const message = transient
+        ? 'Couldn’t reach Cupcake right now. Your saved sign-in may still be active — we’ll reconnect automatically when your connection returns.'
+        : error instanceof Error ? error.message : 'Sign in to continue.';
+      transition(null, message, false, transient);
+    }
   }
 }
 export async function verifySession() {
   const snapshot = state;
   if (!snapshot.identity) return;
-  try {
-    const result = await send<{ identity: unknown }>('session', undefined, snapshot.generation, snapshot.identity.account_id);
-    const verified = identity(result.identity);
-    if (JSON.stringify(verified) !== JSON.stringify(snapshot.identity)) transition(verified);
-  } catch { /* A 401 already locks every view; transient errors never select another owner. */ }
+  if (verifying) return verifying;
+  const run = (async () => {
+    try {
+      const result = await send<{ identity: unknown }>('session', undefined, snapshot.generation, snapshot.identity!.account_id);
+      const verified = identity(result.identity);
+      if (JSON.stringify(verified) !== JSON.stringify(snapshot.identity)) transition(verified);
+    } catch { /* A 401/409 already locks every view; transient 429/5xx/network errors never sign the user out. */ }
+  })();
+  verifying = run;
+  try { await run; } finally { if (verifying === run) verifying = null; }
 }
 export async function signIn(email: string, password: string, remember: boolean) {
   transition(null);

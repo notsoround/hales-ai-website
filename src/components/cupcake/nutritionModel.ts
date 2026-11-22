@@ -31,9 +31,11 @@ const knownNumber = (n: unknown): n is number => typeof n === 'number' && Number
 export function mealIsCounted(meal: Pick<FoodHistoryMeal, 'sheetLoggedAt' | 'accountLoggedAt' | 'source' | 'logDestination' | 'logState' | 'countedInTotals' | 'consumedAt'>): boolean {
   if (meal.countedInTotals === false) return false;
   if (meal.sheetLoggedAt) return true;
+  const hasTimestamp = !!meal.consumedAt && /(?:Z|[+-]\d\d:\d\d)$/.test(meal.consumedAt) && Number.isFinite(Date.parse(meal.consumedAt));
+  if (meal.source === 'manual-entry' && meal.logState === 'logged' && meal.countedInTotals === true && hasTimestamp) return true;
   return meal.source === 'account-photo-estimate' && meal.logDestination === 'account-local'
     && !!meal.accountLoggedAt && meal.logState === 'logged' && meal.countedInTotals === true
-    && !!meal.consumedAt && /(?:Z|[+-]\d\d:\d\d)$/.test(meal.consumedAt) && Number.isFinite(Date.parse(meal.consumedAt));
+    && hasTimestamp;
 }
 export function loggedMeals(meals: FoodHistoryMeal[]): FoodHistoryMeal[] {
   const seen = new Set<string>();

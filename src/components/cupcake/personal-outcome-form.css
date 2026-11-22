@@ -1,17 +1,59 @@
 .cc-outcome-launcher{position:static}
-.cc-outcome-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:#08060ccc}
-.cc-outcome-overlay .cc-outcome-form{margin:0;width:100%;max-height:92dvh;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;border-radius:18px 18px 0 0;background:#1b1520;color:#f5eef4;box-shadow:0 -16px 60px #00000088;padding:18px 18px 0}
-.cc-outcome-form>h4{font-size:18px;margin:0 0 10px}
-.cc-outcome-form fieldset{border:0;min-width:0;padding:0;margin:0}
+.cc-outcome-overlay{position:fixed;inset:0;z-index:120;display:flex;align-items:flex-end;justify-content:center;background:rgba(4,7,10,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.cc-outcome-overlay .cc-outcome-form{margin:0;width:100%;max-height:90dvh;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;border-radius:22px 22px 0 0;background:#1b1520;color:#f5eef4;box-shadow:0 -16px 60px #00000088;padding:18px 18px 0}
+.cc-outcome-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.cc-outcome-head>h4,.cc-outcome-form>h4{font-size:18px;margin:0}
+.cc-outcome-close{appearance:none;border:0;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;cursor:pointer;background:rgba(255,255,255,.08);color:inherit;flex:none}
+.cc-outcome-close:disabled{opacity:.4;cursor:default}
+.cc-outcome-form fieldset{border:0;min-width:0;padding:0 0 8px;margin:0}
 .cc-outcome-form fieldset>label{margin:14px 0}
 .cc-outcome-form textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ffffff40;border-radius:10px;background:#211726;color:#fff;font:inherit;font-size:16px;resize:vertical}
-.cc-outcome-form .cc-meal-consent{flex-direction:row}
-.cc-outcome-form .cc-meal-consent input{width:22px;min-height:22px;height:22px;padding:0}
+.cc-outcome-form .cc-meal-consent{flex-direction:row;align-items:center}
+.cc-outcome-form .cc-meal-consent input{width:22px;min-height:22px;height:22px;padding:0;flex:none}
 .cc-outcome-form fieldset:disabled{opacity:.7}
 .cc-outcome-form .cc-primary{min-height:48px}
+.cc-outcome-form .cc-primary:disabled{opacity:.45;cursor:not-allowed}
 .cc-outcome-when{margin:10px 0 0;font-size:13px;color:#ead9e4}
-.cc-outcome-actions{position:sticky;bottom:0;z-index:1;margin-top:16px;padding:12px 0 max(12px,env(safe-area-inset-bottom));background:#1b1520}
+.cc-outcome-hint{margin:8px 0 0;font-size:12.5px;line-height:1.4;color:#d6c7d9}
+.cc-outcome-actions{position:sticky;bottom:0;z-index:2;margin-top:14px;padding:14px 0 max(20px,calc(env(safe-area-inset-bottom,0px) + 14px));background:#1b1520;border-top:1px solid rgba(255,255,255,.1)}
 @media (min-width:720px){
   .cc-outcome-overlay{align-items:center;padding:24px}
-  .cc-outcome-overlay .cc-outcome-form{width:min(560px,100%);max-height:min(85dvh,760px);border-radius:18px;box-shadow:0 24px 80px #000000aa}
+  .cc-outcome-overlay .cc-outcome-form{width:min(560px,100%);max-height:min(85dvh,760px);border-radius:22px;box-shadow:0 24px 80px #000000aa}
+}
+
+/* Account Noir: guaranteed 100% opaque surface (outranks .cc-shell :is(.cc-card,...) at 0,4,0), crisp active choices,
+   and safe bottom clearance well above .cc-nav on 390px phones in both dark and generated light themes. */
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay{z-index:120;background:color-mix(in oklab,#030608 72%,transparent)}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-form.cc-outcome-form{
+  background:#0e1518;color:var(--nx-ink);border:1px solid rgba(255,255,255,.12);border-bottom:0;border-radius:26px 26px 0 0;
+  box-shadow:0 -20px 70px rgba(0,0,0,.85);padding:20px 20px 0;font-family:var(--nx-text)
+}
+.cc-app[data-entry=account][data-appearance=rose] .cc-shell .cc-outcome-overlay .cc-outcome-form.cc-outcome-form{background:#151020}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-head h4{font:300 22px/1.2 var(--nx-display);letter-spacing:-.02em;color:var(--nx-ink)}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-close{background:rgba(255,255,255,.07);color:var(--nx-ink-2)}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-form legend{color:var(--nx-ink-2);font-size:13px;font-weight:500}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-form label{color:var(--nx-ink-2)}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-form :is(input:not([type=checkbox]),select,textarea){background:#141e22;border:1px solid rgba(255,255,255,.14);color:var(--nx-ink);border-radius:12px}
+.cc-app[data-entry=account][data-appearance=rose] .cc-shell .cc-outcome-overlay .cc-outcome-form :is(input:not([type=checkbox]),select,textarea){background:#1d162c}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-when{color:var(--nx-ink-2)}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-hint{color:var(--nx-warm)}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-choices button.cc-secondary[aria-pressed=true]{
+  font-weight:600;color:var(--nx-ink);border-width:1.5px;border-color:var(--nx-a);background:color-mix(in oklab,var(--nx-a) 18%,#0e1518)
+}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-choices button.cc-outcome-loss[aria-pressed=true]{
+  border-color:var(--nx-warm);background:color-mix(in oklab,var(--nx-warm) 18%,#0e1518)
+}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-consent{
+  margin:14px 0 4px;padding:12px 14px;border-radius:14px;border:1px solid var(--nx-hair);background:rgba(255,255,255,.04);color:var(--nx-ink)
+}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-consent:has(input:checked){
+  border-color:var(--nx-a);background:color-mix(in oklab,var(--nx-a) 10%,#0e1518)
+}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-consent input{accent-color:var(--nx-a)}
+.cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-actions{
+  background:#0e1518;border-top:1px solid var(--nx-hair);padding:14px 0 max(22px,calc(env(safe-area-inset-bottom,0px) + 16px))
+}
+.cc-app[data-entry=account][data-appearance=rose] .cc-shell .cc-outcome-overlay .cc-outcome-actions{background:#151020}
+@media (min-width:720px){
+  .cc-app[data-entry=account] .cc-shell .cc-outcome-overlay .cc-outcome-form.cc-outcome-form{border-bottom:1px solid rgba(255,255,255,.12);border-radius:24px}
 }

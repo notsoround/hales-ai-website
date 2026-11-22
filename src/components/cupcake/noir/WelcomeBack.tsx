@@ -30,12 +30,26 @@ function useAway() {
 export function WelcomeBack({ assistantName, sassy, portrait, facts, onCamera, onTalk, onWeigh }: {
   assistantName: string; sassy: boolean; portrait: ReactNode; facts: RecapFacts | null; onCamera: () => void; onTalk: () => void; onWeigh: () => void;
 }) {
-  const previous = useAway(), now = Date.now();
-  const away = previous !== null && now - previous >= AWAY_MS ? now - previous : null;
+  const previous = useAway();
   const [open, setOpen] = useState(false), [seen, setSeen] = useState(false);
-  const card = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
-  useBackClose(open, () => { setOpen(false); trigger.current?.focus(); });
-  useEffect(() => { if (!open) return; card.current?.focus(); const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); trigger.current?.focus(); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, [open]);
+  const [openedAt, setOpenedAt] = useState(() => Date.now());
+  const now = open ? openedAt : Date.now();
+  const away = previous !== null && now - previous >= AWAY_MS ? now - previous : null;
+  const dialogRef = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null);
+  const close = () => { setOpen(false); trigger.current?.focus(); };
+  useBackClose(open, close);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
+    if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+    dialog.scrollTop = 0;
+    const prevOverflow = document.body?.style.overflow ?? '';
+    if (document.body) document.body.style.overflow = 'hidden';
+    return () => {
+      if (dialog.open) dialog.close();
+      if (document.body) document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
 
   const lines: { k: string; v: string; tone?: 'good' | 'warn' }[] = [];
   if (facts) {
@@ -56,15 +70,19 @@ export function WelcomeBack({ assistantName, sassy, portrait, facts, onCamera, o
 
   return <div className="nx-recap">
     <button ref={trigger} type="button" className={`nx-recap-chip${pulse ? ' is-pulsing' : ''}`} aria-expanded={open} aria-haspopup="dialog"
-      onClick={() => { setOpen(o => !o); setSeen(true); }}>
+      onClick={() => { setOpenedAt(Date.now()); setOpen(o => !o); setSeen(true); }}>
       <span className="nx-recap-portrait" aria-hidden="true">{portrait}</span>
       <span>{away ? 'Catch up' : 'Recap'}</span>
     </button>
-    {open && <div ref={card} className="nx-recap-card" role="dialog" aria-label={`${assistantName} recap`} tabIndex={-1}>
-      <header><span className="nx-recap-portrait is-large" aria-hidden="true">{portrait}</span><div><small>{assistantName}</small><strong>{title}</strong></div>
-        <button type="button" className="nx-recap-close" aria-label="Close recap" onClick={() => { setOpen(false); trigger.current?.focus(); }}><X size={16} aria-hidden="true" /></button></header>
-      {facts ? <dl>{lines.map(l => <div key={l.k}><dt>{l.k}</dt><dd className={l.tone ? `nx-${l.tone}` : undefined}>{l.v}</dd></div>)}</dl> : <p className="nx-recap-loading">Pulling your numbers…</p>}
-      <div className="nx-recap-actions">{actions.map((a, i) => <button key={a.label} type="button" className={i === 0 ? 'is-primary' : undefined} onClick={() => { setOpen(false); a.run(); }}>{a.label}</button>)}</div>
-    </div>}
+    <dialog ref={dialogRef} className="nx-recap-card" aria-label={`${assistantName} recap`}
+      onCancel={event => { event.preventDefault(); close(); }}
+      onClick={event => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } }}>
+      {open && <>
+        <header><span className="nx-recap-portrait is-large" aria-hidden="true">{portrait}</span><div><small>{assistantName}</small><strong>{title}</strong></div>
+          <button type="button" className="nx-recap-close" aria-label="Close recap" onClick={close}><X size={16} aria-hidden="true" /></button></header>
+        {facts ? <dl>{lines.map(l => <div key={l.k}><dt>{l.k}</dt><dd className={l.tone ? `nx-${l.tone}` : undefined}>{l.v}</dd></div>)}</dl> : <p className="nx-recap-loading">Pulling your numbers…</p>}
+        <div className="nx-recap-actions">{actions.map((a, i) => <button key={a.label} type="button" className={i === 0 ? 'is-primary' : undefined} onClick={() => { setOpen(false); a.run(); }}>{a.label}</button>)}</div>
+      </>}
+    </dialog>
   </div>;
 }

@@ -15,7 +15,16 @@
 .cc-native-health-controls button,.cc-native-health-detail button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .cc-native-health-note{font-size:13px;color:var(--cc-text-2,#c4bed1);line-height:1.6}
 .cc-native-health-connections,.cc-native-health-type-results{padding:0;list-style:none;display:grid;gap:12px}
-.cc-native-health-connections>li{border:1px solid var(--cc-border,#ffffff25);border-radius:12px;padding:14px;min-width:0;overflow-wrap:anywhere}
+.cc-native-health-connections>li{border:1px solid var(--cc-border,#ffffff25);border-radius:14px;padding:14px;min-width:0;overflow-wrap:anywhere}
+.cc-native-health-connections>li[data-status=expired]{border-color:color-mix(in oklab, var(--nx-warm,#ffb547) 42%, var(--cc-border,#ffffff25))}
+.cc-native-health-row-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cc-native-health-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:600;line-height:1.3;border:1px solid var(--cc-border,#ffffff25);color:var(--cc-text-2,#c4bed1)}
+.cc-native-health-pill.is-active{border-color:color-mix(in oklab, var(--nx-good,#2fe0c8) 45%, transparent);background:color-mix(in oklab, var(--nx-good,#2fe0c8) 12%, transparent);color:var(--nx-good,#2fe0c8)}
+.cc-native-health-pill.is-expired{border-color:color-mix(in oklab, var(--nx-warm,#ffb547) 50%, transparent);background:color-mix(in oklab, var(--nx-warm,#ffb547) 14%, transparent);color:var(--nx-warm,#ffb547)}
+.cc-native-health-renew{margin-top:12px;display:grid;gap:10px}
+.cc-native-health-renew-steps{padding:12px 14px;border-radius:12px;border:1px solid var(--cc-border,#ffffff25);background:var(--nx-surface,rgba(255,255,255,.03));font-size:13px;line-height:1.5}
+.cc-native-health-renew-steps p{margin:0 0 8px}
+.cc-native-health-renew-steps ol{margin:0;padding-left:18px;display:grid;gap:6px}
 .cc-native-health-connections>li p{margin:8px 0}
 .cc-native-health-facts{display:grid;gap:12px;margin:14px 0}
 .cc-native-health-facts>div{min-width:0}

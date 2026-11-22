@@ -27,7 +27,7 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   useEffect(()=>{entryNativeConnection=null;},[]);
   useEffect(()=>{entryNativeHealthConnection=null;},[]);
   const closeNativeRequest=()=>{clearNativeHealthConnectionRequest();clearNativeConnectionRequest();setNativeHealthConnection(null);setNativeConnection(null);};
-  const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [remember, setRemember] = useState(false);
+  const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [remember, setRemember] = useState(true);
   const [recovering, setRecovering] = useState(false), [recovery, setRecovery] = useState(''), [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const brand = publicAssistantBrand();
@@ -39,17 +39,45 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
   useAssistantDocumentBrand(brand.name, brand.persona, !session.identity && invitation === null);
   useEffect(() => {
     if (!session.identity) return;
-    setEmail(''); setPassword(''); setRecovery(''); setNewPassword(''); setRemember(false); setRecovering(false); setError('');
+    setEmail(''); setPassword(''); setRecovery(''); setNewPassword(''); setRemember(true); setRecovering(false); setError('');
   }, [session.identity]);
   useEffect(() => {
     // Account storage/transports cannot read the separate legacy access key.
     // Leave it intact for Matt's concurrently open private Cupcake entry.
     const stop = initializeSessionBoundary();
     void restoreSession();
-    const check = () => { void verifySession(); };
-    const timer = window.setInterval(check, 60000);
-    window.addEventListener('focus', check);
-    return () => { stop(); invalidateSession('', false); window.clearInterval(timer); window.removeEventListener('focus', check); };
+    let lastCheck = 0;
+    const revalidate = (force = false) => {
+      if (document.visibilityState === 'hidden') return;
+      const snap = sessionSnapshot();
+      if (snap.identity) {
+        const now = Date.now();
+        if (!force && now - lastCheck < 15000) return;
+        lastCheck = now;
+        void verifySession();
+      } else if (snap.transient && !snap.checking) {
+        void restoreSession();
+      }
+    };
+    const onInterval = () => revalidate(true);
+    const onFocus = () => revalidate(false);
+    const onOnline = () => revalidate(true);
+    const onVisible = () => { if (document.visibilityState === 'visible') revalidate(false); };
+    const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) revalidate(true); };
+    const timer = window.setInterval(onInterval, 60000);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      stop();
+      invalidateSession('', false);
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); if (busy) return; setBusy(true); setError('');
@@ -75,9 +103,10 @@ export function AccountSessionGate({ children }: { children: (identity: AccountI
       : <><label className="cc-label">Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} disabled={busy||session.checking}/></label><label className="cc-account-check"><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/>Remember me on this device</label></>}
     <button className="cc-primary" disabled={busy||session.checking}>{session.checking?'Checking session…':busy?'Please wait…':recovering?'Reset password':'Sign in'}</button>
     <button type="button" className="cc-text-button" disabled={busy} onClick={()=>{setRecovering(!recovering);setError('');setPassword('');setRecovery('');setNewPassword('');}}>{recovering?'Back to sign in':'Use a recovery code'}</button>
-    {(error||session.message)&&<p role="alert">{error||session.message}</p>}
+    {session.transient && !error && <div className="cc-session-reconnect" role="status"><p>{session.message}</p><button type="button" className="cc-secondary" disabled={busy || session.checking} onClick={() => void restoreSession()}>{session.checking ? 'Reconnecting…' : 'Retry connection'}</button></div>}
+    {(error || (session.message && !session.transient)) && <p role="alert">{error || session.message}</p>}
     {session.message.includes('Server sign-out was not confirmed')&&<button type="button" className="cc-secondary" disabled={busy} onClick={()=>void accountControl('sign-out',{}).catch(()=>{})}>Retry sign out</button>}
-    {!session.checking&&<button type="button" className="cc-text-button" disabled={busy} onClick={()=>void restoreSession()}>Check saved session</button>}
+    {!session.checking&&!session.transient&&<button type="button" className="cc-text-button" disabled={busy} onClick={()=>void restoreSession()}>Check saved session</button>}
     <p className="cc-muted cc-small">Passwords and recovery codes stay out of browser storage. Use Sign out on shared devices.</p>
     <a className="cc-text-button" href="/">← Hales.ai</a>
   </form><AccountClosureRecovery key={session.generation}/></main>;

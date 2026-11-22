@@ -154,11 +154,27 @@
 .cc-app[data-entry=account] .cc-rep-photos .cc-coach-photos img { margin: 0; border-radius: 12px; }
 .cc-app[data-entry=account] .cc-coach .cc-rep-photos .cc-secondary { justify-self: start; min-height: 38px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair-2); color: var(--rp-ink); font-size: 13px; font-weight: 500; }
 
-/* ---------- My sharing & clients: quiet rows, no heavy outlines ---------- */
+/* ---------- My sharing & clients: quiet rows, scannable active authorizations ---------- */
 .cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine > .cc-muted:first-child { font-size: 13px; color: var(--rp-ink-3); margin: 0 2px 14px; }
 .cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-card { border: 0; border-radius: 20px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-owned-grants { padding: 16px 18px; display: grid; gap: 12px; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-owned-grants-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-owned-grants-title { display: inline-flex; align-items: center; gap: 8px; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-owned-grants-title .cc-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; background: var(--rp-s2); color: var(--rp-ink-3); font-size: 11.5px; font-weight: 500; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-pill.is-active { background: color-mix(in oklab, var(--cc-pink) 16%, transparent); color: var(--cc-pink-bright, var(--cc-pink)); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-summary { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-summary li { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 10px 12px; border-radius: 13px; background: var(--rp-s2); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-summary strong { font-size: 14px; font-weight: 600; color: var(--rp-ink); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-summary span { font-size: 12.5px; color: var(--rp-ink-2); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-summary small { font-size: 11.5px; color: var(--rp-ink-3); font-variant-numeric: tabular-nums; margin-left: auto; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-list { display: grid; gap: 10px; }
 .cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine :is(.cc-connection-list li, .cc-invitation-secret, .cc-invitation-disclosure) { border: 0; border-radius: 14px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); }
-.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-card { border: 0; border-radius: 16px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-card { border: 0; border-radius: 16px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); padding: 14px; display: grid; gap: 8px; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-head h4 { margin: 0; font-size: 15px; font-weight: 600; color: var(--rp-ink); }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-state { padding: 3px 9px; border-radius: 999px; background: var(--rp-s2); color: var(--rp-ink-3); font-size: 11.5px; font-weight: 500; }
+.cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-grant-card[data-state=active] .cc-grant-state { background: color-mix(in oklab, var(--cc-pink) 16%, transparent); color: var(--cc-pink-bright, var(--cc-pink)); }
 .cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine :is(.cc-grant-scopes > span, .cc-coach-lens-scopes > span) { border: 0; background: var(--rp-s2); color: var(--rp-ink-2); font-weight: 500; }
 .cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-secondary { border-radius: 999px; border: 0; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair-2); color: var(--rp-ink); font-weight: 500; }
 .cc-app[data-entry=account] .cc-coach #cc-reports-panel-mine .cc-secondary[aria-pressed=true] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc-pink) 60%, transparent); color: var(--cc-pink-bright, var(--cc-pink)); }

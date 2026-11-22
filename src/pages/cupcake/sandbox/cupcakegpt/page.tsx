@@ -15,12 +15,13 @@ import { AccountAppleHealth } from '../../../../components/cupcake/AccountAppleH
 import AccountHealthSyncCard from '../../../../components/cupcake/AccountHealthSyncCard';
 import { ACCOUNT_SESSIONS, ACCOUNT_UNAVAILABLE, CUPCAKE_ENTRY, privateFetch as fetch } from '../../../../components/cupcake/accountMode';
 import { personalStorage } from '../../../../components/cupcake/personalStorage';
-import {loadWeightPage,weightProvenanceLabel,type WeightRecord} from '../../../../components/cupcake/weightApi';
+import {loadWeightPage,normalizeWeightMeasurements,resolveHeadlineWeight,weightProvenanceLabel,type WeightPage} from '../../../../components/cupcake/weightApi';
 import type {Body} from '../../../../components/cupcake/robyn/viewerApi';
 import {weightTime} from '../../../../components/cupcake/weightHistoryModel';
 import {QuickReset} from '../../../../components/cupcake/QuickReset';
 import {QuickChat} from '../../../../components/cupcake/QuickChat';
-import {useDataChanged} from '../../../../components/cupcake/dataChanges';
+import {notifyDataChanged,useDataChanged} from '../../../../components/cupcake/dataChanges';
+import {SavedThinkingSection} from '../../../../components/cupcake/LibraryWorkspace';
 // CupcakeGPT — Matt's AI accountability app
 // Chat + food-photo calorie tracking + live feed + week view.
 // Talks to n8n webhooks on automate.hales.ai (CORS-enabled).
@@ -270,6 +271,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   tabRef.current = tab;
   const pendingScroll = useRef<number | null>(null);
   const [quickAction, setQuickAction] = useState<'tip' | 'reset' | null>(null);
+  const [weekInitialView, setWeekInitialView] = useState<'weight' | null>(null);
   const [speak, setSpeak] = useState(false);
   const [access, setAccess] = useState<AccessGate>(() => (accountIdentity ? 'ready' : readPrivateAccess() ? 'opening' : 'form'));
   const [accentHeat, setAccentHeat] = useAccentHeat();
@@ -285,6 +287,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   useBackClose(!!quickAction, () => setQuickAction(null));
   useScreenAwake(mediaBusy);
   const setTab = useCallback((next: TabKey) => {
+    if (next !== 'week') setWeekInitialView(null);
     if (isAssistantTab(next)) setAssistantMode(assistantModeFor(next));
     if (tabRef.current==='reports' && isAssistantTab(next)) returnTab.current='feed';
     else if (!isAssistantTab(tabRef.current)) returnTab.current = tabRef.current;
@@ -296,6 +299,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
     setTabState(next);
     window.scrollTo(0, 0);
   }, []);
+  const openWeightHistory = useCallback(() => { setWeekInitialView('weight'); setTab('week'); }, [setTab]);
   const openAssistantMode = (mode: AssistantMode) => setTab(mode === 'voice' ? 'talk' : mode === 'record' ? 'record' : 'chat');
   const openTalkAbout = (entry: DashboardEntry) => { personalStorage('sessionStorage').setItem(TALK_SEED_KEY, JSON.stringify(talkSeedFromIntervention(entry))); setTalkContextVersion(version=>version+1); setTab('talk'); };
   const connect = useCallback(async (key: string, restoring = false) => {
@@ -390,11 +394,12 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const retrySavedSignIn = () => { const saved = readPrivateAccess(); if (saved) void connect(saved, true); else setAccess('form'); };
   if (access === 'form') return <main className="cc-app" data-appearance={appearance.appearance}><form className="cc-unlock" onSubmit={unlock}><img src={ICON} alt="Cupcake"/><span className="cc-eyebrow">JUST BETWEEN US</span><h1>Your day.<br/>Your conversations.<br/><span style={{color:'var(--cc-pink)'}}>Your Cupcake.</span></h1><p>Talk, record, and keep track of what matters. Your private space works on your phone and computer.</p><label className="cc-label">Cupcake password<input type="password" autoComplete="current-password" required disabled={unlocking} value={keyInput} onChange={e=>setKeyInput(e.target.value)}/></label><button className="cc-primary" disabled={unlocking}><LockKeyhole size={18}/>{unlocking?'Connecting…':'Open Cupcake'}</button>{accessError&&<p role="alert">{accessError}</p>}<p style={{fontSize:13}}>Cupcake keeps you signed in on this browser. Use Lock to remove the saved sign-in on a shared device. Private recordings and feed data are never included in the public website.</p><a className="cc-text-button" href="/">← Hales.ai</a></form></main>;
   return <div className="cc-app" data-appearance={appearance.appearance} data-entry={ACCOUNT_SESSIONS?'account':undefined}><header className="cc-top"><AssistantPortrait persona={appearance.persona} name={assistantName} small/><div><strong className="cc-account-identity">{accountIdentity?personalAssistantLabel(assistantName,accountIdentity.name||accountIdentity.email):assistantName}</strong><small>Your private companion</small><span className="cc-version" title="App version">{ACCOUNT_SESSIONS?'':'Original · '}v{CUPCAKE_VERSION}</span></div><CupcakeSettings>
-      <SettingsGroup title="Appearance"><AssistantAppearanceSettings {...appearance}/>{ACCOUNT_SESSIONS&&<AccountSchemeSettings choice={schemeChoice} onChange={setSchemeChoice}/>}<AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/></SettingsGroup>
+      <SettingsGroup title="Appearance"><AssistantAppearanceSettings {...appearance}/>{ACCOUNT_SESSIONS&&<AccountSchemeSettings choice={schemeChoice} onChange={setSchemeChoice}/>}{!ACCOUNT_SESSIONS&&<AccentHeatToggle heat={accentHeat} onChange={setAccentHeat}/>}</SettingsGroup>
       {accountIdentity&&<><SettingsGroup title="Account & security"><AccountControls identity={accountIdentity} assistantName={assistantName} includePrivacy={false}/></SettingsGroup><SettingsGroup title="Download my data"><AccountSelfExport/></SettingsGroup><SettingsGroup title="Close account access" danger><AccountClosureControls owner={accountIdentity.account_id}/></SettingsGroup></>}
       <SettingsGroup title="App & updates"><AppUpdateNotice busy={mediaBusy} part="check"/>{install&&<button type="button" className="cc-text-button" onClick={promptInstall}>Install Cupcake on this device ↗</button>}{!ACCOUNT_SESSIONS&&<p className="cc-muted cc-small">To keep Cupcake handy: browser menu → Install app / Add to Home screen.</p>}</SettingsGroup>
       {ACCOUNT_SESSIONS&&<SettingsGroup title="Connections"><ConnectionsHub assistantName={assistantName} appleHealth={<AccountAppleHealth/>} iphoneInstall={<AccountInstallInstructions/>} canInstall={!!install} onInstall={promptInstall}/></SettingsGroup>}
       {ACCOUNT_SESSIONS&&accountIdentity&&<SettingsGroup title="Labs"><AccountLabsSettings/></SettingsGroup>}
+      {ACCOUNT_SESSIONS&&<details className="cc-settings-extra"><summary>Saved thinking</summary><div><SavedThinkingSection/></div></details>}
     </CupcakeSettings><button type="button" className="cc-secondary cc-lock" aria-label={accountIdentity?`Sign out of ${assistantName}`:`Lock ${assistantName}`} disabled={mediaBusy&&!accountIdentity} onClick={()=>void lock()}><LockKeyhole size={17} aria-hidden="true"/><span className="cc-top-label">{accountIdentity?"Sign out":"Lock"}</span></button></header>
     <main className="cc-shell">
       {ACCOUNT_SESSIONS&&<ConnectionNotice sassy={appearance.persona!=="matthieu"}/>}<AppUpdateNotice busy={mediaBusy} part="banner" />{accountIdentity&&<details className="cc-account-note"><summary>Your private account · Sharing details</summary><p>You’re in your private account. Manage coach reports and meal-photo sharing in Reports. <button type="button" className="cc-text-button" onClick={()=>setTab('reports')}>Open Reports</button></p></details>}
@@ -402,35 +407,38 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
       {access==='opening'&&<p className="cc-card" role="status">Opening Cupcake…</p>}
       {access==='retry'&&<div className="cc-card" role="alert"><p>Couldn't connect. Your saved sign-in is still on this device. Try again.</p><button type="button" className="cc-secondary" onClick={retrySavedSignIn}>Try again</button></div>}
       {access==='ready'&&screen==='feed'&&quickAction&&<QuickReset key={quickAction} mode={quickAction} onBack={()=>setQuickAction(null)} onMode={setQuickAction}/>}
-      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} assistantName={assistantName} persona={appearance.persona} setTab={setTab} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
+      {access==='ready'&&screen==='feed'&&!quickAction&&<SectionBoundary label="Today"><TodayHome accountName={accountIdentity?.name||accountIdentity?.email} assistantName={assistantName} persona={appearance.persona} setTab={setTab} onOpenWeight={ACCOUNT_SESSIONS?openWeightHistory:undefined} setQuickAction={setQuickAction} openTalkAbout={openTalkAbout}/></SectionBoundary>}
       {access==='ready'&&screen==='reports'&&accountIdentity&&<SectionBoundary label="Authorized reports"><AccountCoachView identity={accountIdentity} assistantName={assistantName} onPersonal={()=>setTab('feed')}/></SectionBoundary>}
       {access==='ready'&&<AssistantShell open={assistantOpen} library={tab==='library'} mode={assistantMode} onMode={openAssistantMode} onOpen={()=>openAssistantMode(activity.kind==='voice'?'voice':activity.kind==='record'?'record':assistantMode)} onMinimize={()=>setTab(returnTab.current)} onLibrary={()=>setTab('library')} busy={mediaBusy} activity={activity} persona={appearance.persona} name={assistantName}>
         <div hidden={!(tab==='library'||assistantMode!=='text')}><CupcakeStudio assistantName={assistantName} active={tab==='library'||(assistantOpen&&assistantMode!=='text')} keepMediaOnHide contextVersion={talkContextVersion} mode={tab==='library'?'library':assistantMode==='voice'?'talk':'record'} onBusy={setMediaBusy} onActivity={setActivity}/></div>
-        <div hidden={tab==='library'||assistantMode!=='text'}><div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" role={ACCOUNT_SESSIONS?'switch':undefined} aria-checked={ACCOUNT_SESSIONS?speak:undefined} onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}{ACCOUNT_SESSIONS?'Read replies aloud':<>Read replies aloud: {speak?'on':'off'}</>}</button></div><SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy} assistantName={assistantName}/></SectionBoundary></div>
+        <div hidden={tab==='library'||assistantMode!=='text'}>{!ACCOUNT_SESSIONS&&<div className="cc-assistant-text-intro"><p className="cc-muted">Your everyday conversations, saved across devices. Library keeps deeper research and original recordings.</p><button className="cc-text-button" onClick={()=>setSpeak(!speak)}>{speak?<Volume2 size={18}/>:<VolumeX size={18}/>}Read replies aloud: {speak?'on':'off'}</button></div>}<SectionBoundary label="Chat"><ChatView active={assistantOpen&&assistantMode==='text'} speak={speak&&!mediaBusy} mediaBusy={mediaBusy} locked={mediaBusy} assistantName={assistantName} onMode={ACCOUNT_SESSIONS?openAssistantMode:undefined} speakEnabled={ACCOUNT_SESSIONS?speak:undefined} onSpeakChange={ACCOUNT_SESSIONS?setSpeak:undefined}/></SectionBoundary></div>
       </AssistantShell>}
-      {access==='ready'&&screen==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&screen==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView onTalkAbout={openTalkAbout}/></SectionBoundary></>}
+      {access==='ready'&&screen==='snap'&&<SectionBoundary label="Food"><SnapView onBack={()=>setTab('feed')}/></SectionBoundary>}{access==='ready'&&screen==='week'&&<><button className="cc-text-button cc-week-back" onClick={()=>setTab('feed')}><ArrowLeft size={17}/>Back to Today</button><SectionBoundary label="Wins & losses"><WeekView initialView={ACCOUNT_SESSIONS?weekInitialView:null} onTalkAbout={openTalkAbout}/></SectionBoundary></>}
     </main><nav className="cc-nav" aria-label={assistantName}><div>{navigationTabs.map(({key,label,Icon})=><button key={key} type="button" aria-current={key!=='chat'&&navigationScreen===key?'page':undefined} aria-controls={key==='chat'?'cupcake-assistant':undefined} aria-expanded={key==='chat'?assistantOpen:undefined} onClick={()=>{haptic();if(key==='chat'){if(assistantOpen)setTab(returnTab.current);else openAssistantMode(assistantMode);return;}if(ACCOUNT_SESSIONS&&key==='snap')requestFoodCamera();setTab(key);}}>{ACCOUNT_SESSIONS&&key==='chat'?<span className="cc-nav-portrait" aria-hidden="true"><AssistantPortrait persona={appearance.persona} name={assistantName} small/></span>:<Icon size={22} aria-hidden="true"/>}<span className="cc-nav-label">{label}</span></button>)}</div></nav>
   </div>;
 };
 
-/** One headline weight (same rule as Robyn's page: latest dated reading, Robyn's assessment first on a tie), with date and source; other readings are detail. */
+/** One headline weight (shared rule across TodayDashboard & TodayWeight: latest dated reading wins, Robyn's assessment first on a same-day tie), with date and source; other readings are detail. */
 function TodayWeight({onOpen}:{onOpen:()=>void}) {
- const [scale,setScale]=useState<WeightRecord[]|null>(null),[body,setBody]=useState<Body|null>(null),[error,setError]=useState(false),[scaleError,setScaleError]=useState(false),[loading,setLoading]=useState(true),[changed,setChanged]=useState(0);
+ const [weightPage,setWeightPage]=useState<WeightPage|null>(null),[body,setBody]=useState<Body|null>(null),[error,setError]=useState(false),[scaleError,setScaleError]=useState(false),[loading,setLoading]=useState(true),[changed,setChanged]=useState(0);
  useDataChanged(['weight'],()=>setChanged(n=>n+1));
  useEffect(()=>{let live=true;void Promise.allSettled([loadWeightPage(),libraryRequest<{body:Body}>({action:'body_headline_get'})]).then(([w,b])=>{if(!live)return;
-  if(w.status==='fulfilled')setScale(w.value.latestMeasurement?[w.value.latestMeasurement,...w.value.measurements.filter(m=>m.id!==w.value.latestMeasurement!.id)]:[]);
+  if(w.status==='fulfilled')setWeightPage(w.value);
   if(b.status==='fulfilled')setBody(b.value.body||null);setScaleError(w.status==='rejected');setError(w.status==='rejected'&&b.status==='rejected');setLoading(false);});return()=>{live=false;};},[changed]);
- const latest=scale?.[0]||null,hb=body?.weight&&body.weight.source!=='scale'?body.weight:null;
+ const scaleDesc=React.useMemo(()=>[...normalizeWeightMeasurements(weightPage)].reverse(),[weightPage]);
+ const headline=React.useMemo(()=>{const hb=body?.weight&&body.weight.source!=='scale'?body.weight:null;return resolveHeadlineWeight(weightPage,body?{...body,weight:hb}:null);},[weightPage,body]);
  const md=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'UTC',month:'short',day:'numeric'}).format(new Date(iso+'T12:00:00Z'));
- // Change: vs the previous reading from the same source (headline from a check-in), or vs about a week earlier (scale).
- const weekAgo=latest&&scale?scale.find(m=>{const d=Date.parse(latest.measuredAt)-Date.parse(m.measuredAt);return d>=6.5*864e5&&d<=10*864e5;}):undefined;
- const change=hb?hb.previous?{v:hb.previous.change,ref:md(hb.previous.date)}:null:latest&&weekAgo?{v:Math.round((latest.weightLb-weekAgo.weightLb)*10)/10,ref:'a week earlier'}:null;
- const others=[...(hb&&latest?[`Scale ${latest.weightLb.toFixed(1)} lb (${weightTime(latest.measuredAt)})`]:[]),...(body?.weight_others||[]).filter(o=>o.source!=='scale'&&!(hb&&o.source===hb.source)).map(o=>`${o.label} ${o.value.toFixed(1)} lb (${md(o.date)})`)];
- const age=!hb&&latest?weightAge(latest.measuredAt):null;
-  const trend=scale&&scale.length?scale.filter(m=>Date.parse(scale[0].measuredAt)-Date.parse(m.measuredAt)<=30*864e5).map(m=>m.weightLb).reverse():[];
- return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen} data-empty={!loading&&!error&&!scaleError&&!hb&&!latest?'':undefined}><span className="cc-weight-eyebrow"><ToneIcon tone="weight"/>Weight</span>{trend.length>2&&<span className="cc-weight-spark"><Sparkline values={trend}/><small>Scale · 30 days</small></span>}
-  <strong className={!hb&&!latest?'cc-weight-none':undefined}>{loading?'Loading weight…':error?'Weight unavailable':hb?`${hb.value.toFixed(1)} lb`:latest?`${latest.weightLb.toFixed(1)} lb`:scaleError?'Scale weight unavailable':'No weigh-in yet'}</strong>
-  <span>{hb?`${hb.label} · ${md(hb.date)}`:latest?`${weightProvenanceLabel(latest.basis,latest.source)} · ${weightTime(latest.measuredAt)}${age?` · ${age}`:''}`:error||scaleError?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
+ const latest=headline?.scaleRecord||null;
+ const weekAgo=latest&&scaleDesc.length?scaleDesc.find(m=>{const d=Date.parse(latest.measuredAt)-Date.parse(m.measuredAt);return d>=6.5*864e5&&d<=10*864e5;}):undefined;
+ const change=headline&&!headline.isScale
+   ? (headline.deltaLb!=null&&headline.deltaRef?{v:headline.deltaLb,ref:headline.deltaRef}:null)
+   : latest&&weekAgo?{v:Math.round((latest.weightLb-weekAgo.weightLb)*10)/10,ref:'a week earlier'}:null;
+ const others=headline?.others||[];
+ const age=latest?weightAge(latest.measuredAt):null;
+ const trend=scaleDesc.length?scaleDesc.filter(m=>Date.parse(scaleDesc[0].measuredAt)-Date.parse(m.measuredAt)<=30*864e5).map(m=>m.weightLb).reverse():[];
+ return <button className="cc-dashboard-card cc-weight-card" onClick={onOpen} data-empty={!loading&&!error&&!scaleError&&!headline?'':undefined}><span className="cc-weight-eyebrow"><ToneIcon tone="weight"/>Weight</span>{trend.length>2&&<span className="cc-weight-spark"><Sparkline values={trend}/><small>Scale · 30 days</small></span>}
+  <strong className={!headline?'cc-weight-none':undefined}>{loading?'Loading weight…':error?'Weight unavailable':headline?`${headline.valueLb.toFixed(1)} lb`:scaleError?'Scale weight unavailable':'No weigh-in yet'}</strong>
+  <span>{headline?(!headline.isScale?`${headline.label} · ${md(headline.dateIso)}`:`${weightProvenanceLabel(latest!.basis,latest!.source)} · ${weightTime(latest!.measuredAt)}${age?` · ${age}`:''}`):error||scaleError?'Open history to retry':'Step on the scale and it’ll show here.'}</span>
   {change&&<span className={`cc-weight-change ${change.v<0?'cc-good':change.v>0?'cc-bad':''}`}>{change.v>0?'▲ +':change.v<0?'▼ −':'= '}{Math.abs(change.v).toFixed(1)} lb vs {change.ref}</span>}
   {others.length>0&&<span className="cc-weight-others">Other readings: {others.join(' · ')}</span>}
   {!loading&&!error&&<span className="cc-weight-more">View history →</span>}</button>;
@@ -443,7 +451,7 @@ function todaySpend(items:FeedItem[]|null,feed:{total:number|null;source:string;
   const summed=purchases.length?purchases.reduce((s,it)=>s+(it.amount as number),0):null;
   return {amount:feed?.total??summed,count:purchases.length,lastTime:last?.time||null,lastTitle:last?.title||null,source:feed?.source||'',checkedAt:feed?.checkedAt??null,loading:items===null&&!failed,failed,onRefresh:refresh,onOpen:open};
 }
-function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantName='Cupcake',persona}:{accountName?:string;assistantName?:string;persona?:Parameters<typeof AssistantPortrait>[0]['persona'];setTab:(tab:TabKey)=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
+function TodayHome({setTab,onOpenWeight,setQuickAction,openTalkAbout,accountName,assistantName='Cupcake',persona}:{accountName?:string;assistantName?:string;persona?:Parameters<typeof AssistantPortrait>[0]['persona'];setTab:(tab:TabKey)=>void;onOpenWeight?:()=>void;setQuickAction:(action:'tip'|'reset'|null)=>void;openTalkAbout:(entry:DashboardEntry)=>void}) {
   const [items,setItems]=useState<FeedItem[]|null>(null);
   const [err,setErr]=useState(false);
   const [coverage,setCoverage]=useState('');
@@ -484,7 +492,7 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantNam
   return <>
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} spend={todaySpend(items,spendFeed,err,load,()=>setTab('week'))} nutrition={nutrition} mealHint={nextUp||null}
       onCamera={()=>setMealCameraOpen(true)} onTalk={()=>setTab('talk')} onRecord={()=>setTab('record')} onExercise={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}
-      onTip={()=>setQuickAction('tip')} onOpenFood={()=>setTab('snap')} onOpenHistory={()=>setTab('week')}/></SectionBoundary>}
+      onTip={()=>setQuickAction('tip')} onOpenFood={()=>setTab('snap')} onOpenHistory={()=>setTab('week')} onOpenWeight={onOpenWeight}/></SectionBoundary>}
     {ACCOUNT_SESSIONS&&<MealCamera open={mealCameraOpen} context={todayFoodContext(nutrition.history,nutrition.settings)} onOpenFoodLog={()=>setTab('snap')} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/>}
     {!ACCOUNT_SESSIONS&&<div className="cc-welcome cc-welcome-compact"><div><span className="cc-eyebrow">{dateLine}</span><h2>{greeting}, {accountName||'Matt'}.</h2><p>What are we conquering—or confessing?</p></div>
       {ACCOUNT_SESSIONS?<div className="cc-quick cc-quick-account" role="group" aria-label="Quick actions"><button className="cc-primary" onClick={()=>setTab('talk')}><Headphones size={20}/><span>Let's talk</span></button><button className="cc-secondary" onClick={()=>setMealCameraOpen(true)}><Camera size={20}/><span>Meal photo</span></button><button className="cc-secondary" onClick={()=>setTab('record')}><Mic size={20}/><span>Record</span></button><button className="cc-secondary" aria-label="Log exercise" onClick={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}><Dumbbell size={20}/><span>Exercise</span></button><button className="cc-text-button cc-quick-tip" onClick={()=>setQuickAction('tip')}><Lightbulb size={16}/><span>Quick tip</span></button><MealCamera open={mealCameraOpen} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/></div>
@@ -499,15 +507,15 @@ function TodayHome({setTab,setQuickAction,openTalkAbout,accountName,assistantNam
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Apple Health uploads"><AccountHealthSyncCard/></SectionBoundary>}
     <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
-      {err?<div className="cc-signal-error"><p role="alert">{ACCOUNT_SESSIONS?ACCOUNT_UNAVAILABLE:'Cupcake couldn’t load your latest signals. Check your connection.'}</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text={ACCOUNT_SESSIONS?"No saved account entries returned for today. See coverage below for sources that are unavailable.":"Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."}/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
-      {ACCOUNT_SESSIONS&&coverage&&<p className="cc-muted cc-small">{coverage}</p>}
+      {err?<div className="cc-signal-error"><p role="alert">{ACCOUNT_SESSIONS?ACCOUNT_UNAVAILABLE:'Cupcake couldn’t load your latest signals. Check your connection.'}</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text={ACCOUNT_SESSIONS?"Nothing logged yet today.":"Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."}/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
+      {ACCOUNT_SESSIONS&&coverage&&<details className="cc-coverage-details"><summary>Data coverage</summary><p className="cc-muted cc-small">{coverage}</p></details>}
       {!ACCOUNT_SESSIONS&&!err&&timelineItems&&(exercise.status==='error'||exercise.status==='unavailable')&&<p className="cc-muted cc-small" role="status">{exercise.status==='error'?'Workouts couldn’t load, so any logged today are missing from this timeline.':'Workouts are not available from the library, so they are not shown here.'}</p>}
     </section>
     <SectionBoundary label="Energy"><TodayEnergy items={items} nutrition={nutrition} exercise={exerciseWithRefresh} openLogRequest={logExerciseRequest}/></SectionBoundary>
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Workout plan"><AccountWorkoutPlan/></SectionBoundary>}
     <SignalSheet open={!!selected} label={selected?.type==='intervention'?'Call details':'Details'} onClose={()=>setSelected(null)}>{selected&&<SignalDetail entry={selected} backLabel="Back to Today" onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={entry=>{setSelected(null);openTalkAbout(entry);}}/>}</SignalSheet>
-    <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)} onUpdated={()=>{void nutrition.reload();load();}}/>
-    <SectionBoundary label="Weight"><TodayWeight onOpen={()=>setTab('week')}/></SectionBoundary>
+    <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)} onUpdated={()=>{notifyDataChanged('food');void nutrition.reload();load();}}/>
+    <SectionBoundary label="Weight"><TodayWeight onOpen={onOpenWeight||(()=>setTab('week'))}/></SectionBoundary>
     <SectionBoundary label="Body assessment"><BodyAssessmentCard/></SectionBoundary>
     </div>
   </>;
@@ -640,10 +648,10 @@ const SnapView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </div>
       <AccountFoodSections>
       {reviewFirst && mealQueue}
-      {ACCOUNT_SESSIONS ? <AccountPhotoMeal onSaved={()=>void loadRecentMeals()} onOpenMeal={setSelectedSavedMeal}/> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
-      {ACCOUNT_SESSIONS && <AccountManualMeal onSaved={()=>void loadRecentMeals()}/>}
+      {ACCOUNT_SESSIONS ? <AccountPhotoMeal onSaved={()=>{notifyDataChanged('food');void loadRecentMeals();}} onOpenMeal={setSelectedSavedMeal}/> : <details className="cc-card cc-food-capture-panel" ref={captureSection} open={captureOpen} onToggle={event=>setCaptureOpen(event.currentTarget.open)}><summary>Log a food photo</summary>{cameraBlock}</details>}
+      {ACCOUNT_SESSIONS && <AccountManualMeal onSaved={()=>{notifyDataChanged('food');void loadRecentMeals();}}/>}
       <NutritionWorkspace {...nutrition} onOpenMeal={setSelectedSavedMeal} onSaveSettings={nutrition.saveSettings} onRetry={()=>void nutrition.reload()} onOpenCapture={ACCOUNT_SESSIONS ? undefined : ()=>{setCaptureOpen(true); requestAnimationFrame(()=>captureSection.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>
-      <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)} onUpdated={()=>void nutrition.reload()}/>
+      <SavedMealDialog mealId={selectedSavedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedSavedMeal} onClose={()=>setSelectedSavedMeal(null)} onUpdated={()=>{notifyDataChanged('food');void nutrition.reload();}}/>
       {!reviewFirst && mealQueue}
       {!ACCOUNT_SESSIONS && <><input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.currentTarget.value = ''; }} /></>}
@@ -708,9 +716,9 @@ const Stat: React.FC<{ label: string; value: React.ReactNode }> = ({ label, valu
 );
 
 // ---------- WEEK ----------
-const WeekView: React.FC<{ onTalkAbout?: (entry: DashboardEntry) => void }> = ({ onTalkAbout }) => {
+const WeekView: React.FC<{ initialView?: 'weight' | null; onTalkAbout?: (entry: DashboardEntry) => void }> = ({ initialView = null, onTalkAbout }) => {
   const loadMeal = useCallback(async (mealId: string) => (await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId })).meal, []);
-  return <FeedDashboard loadStats={loadDashboardStats} loadMeal={loadMeal} updateIntervention={updateIntervention} onTalkAbout={onTalkAbout} />;
+  return <FeedDashboard loadStats={loadDashboardStats} loadMeal={loadMeal} updateIntervention={updateIntervention} onTalkAbout={onTalkAbout} initialView={initialView} />;
 };
 
 // ---------- shared ----------

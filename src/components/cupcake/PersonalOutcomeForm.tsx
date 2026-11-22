@@ -1,6 +1,8 @@
 import { personalStorage } from './personalStorage';
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { useBackClose } from './nativeFeel';
+import * as dataChanges from './dataChanges';
 import { CalendarDateFields, type CalendarDate } from './CalendarDateFields';
 import { libraryRequest } from './library';
 import { LibraryApprovalCancelled } from './libraryApproval';
@@ -141,6 +143,7 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
       returnFocus.current = true;
       setOpen(false);
       onSaved(result.entry);
+      dataChanges.notifyDataChanged?.('outcome');
     } catch (e) {
       if (e instanceof LibraryApprovalCancelled && !pending) {
         try {
@@ -156,23 +159,29 @@ export function PersonalOutcomeForm({ onSaved }: { onSaved: (entry: SavedPersona
   const recorded = isoDate(date);
   const todayIso = isoDate(chicagoDate());
   const when = recorded === todayIso ? 'Today' : recorded === isoDate(chicagoDate(-1)) ? 'Yesterday' : recorded;
+  const saveDisabled = busy || !!recovery.error || (!pending && (!confirmed || !outcome || !title.trim()));
+  const missingHint = !pending && !busy && !recovery.error
+    ? !outcome ? 'Choose Win or Setback above.' : !title.trim() ? 'Describe what you did above.' : !confirmed ? 'Check the confirmation box above to save.' : ''
+    : '';
   return <>
     <button type="button" className="cc-primary cc-outcome-launcher" ref={launcherRef} aria-hidden={open || undefined} tabIndex={open ? -1 : undefined} onClick={() => setOpen(true)}>Add a win or setback</button>
     {open && <div className="cc-outcome-overlay" onMouseDown={event => { if (event.target === event.currentTarget) event.preventDefault(); }}>
       <form role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1} ref={dialogRef} className="cc-card cc-outcome-form cc-meal-time" onKeyDown={event => trapDialogKey(event, dialogRef.current, !!(busy || pending), dismiss)} onSubmit={e => { e.preventDefault(); void save(); }}>
-        <h4 id={headingId}>Record an outcome</h4><p className="cc-muted cc-small">Record something you did and how you want to score it. A setback counts as one personal loss. Nothing is scored automatically.</p>
-        <fieldset disabled={busy || !!pending || !!recovery.error}><legend>Choose your outcome</legend><div className="cc-meal-time-choices"><button type="button" className="cc-secondary" aria-pressed={outcome === 'win'} onClick={() => { setOutcome('win'); setConfirmed(false); }}>Win</button><button type="button" className="cc-secondary" aria-pressed={outcome === 'loss'} onClick={() => { setOutcome('loss'); setConfirmed(false); }}>Setback</button></div>
-          <label>What did you do?<input ref={titleRef} value={title} maxLength={160} required placeholder="e.g. Went for the walk I planned" onChange={e => { setTitle(e.target.value); setConfirmed(false); }} /></label>
-          <label>Notes (optional)<textarea value={note} maxLength={2000} rows={3} placeholder="What helped, or what would you change next time?" onChange={e => { setNote(e.target.value); setConfirmed(false); }} /></label>
-          <div className="cc-meal-time-choices"><button type="button" className="cc-secondary" onClick={() => { setDate(chicagoDate()); setConfirmed(false); }}>Today</button><button type="button" className="cc-secondary" onClick={() => { setDate(chicagoDate(-1)); setConfirmed(false); }}>Yesterday</button></div>
+        <div className="cc-outcome-head"><h4 id={headingId}>Record an outcome</h4>{!pending && <button type="button" className="cc-outcome-close" aria-label="Close outcome form" disabled={busy} onClick={dismiss}><X size={16} aria-hidden="true" /></button>}</div>
+        <p className="cc-muted cc-small">Record something you did and how you want to score it. A setback counts as one personal loss. Nothing is scored automatically.</p>
+        <fieldset disabled={busy || !!pending || !!recovery.error}><legend>Choose your outcome</legend><div className="cc-meal-time-choices cc-outcome-choices"><button type="button" className="cc-secondary cc-outcome-win" aria-pressed={outcome === 'win'} onClick={() => { if (outcome !== 'win') setConfirmed(false); setOutcome('win'); setError(''); }}>Win</button><button type="button" className="cc-secondary cc-outcome-loss" aria-pressed={outcome === 'loss'} onClick={() => { if (outcome !== 'loss') setConfirmed(false); setOutcome('loss'); setError(''); }}>Setback</button></div>
+          <label>What did you do?<input ref={titleRef} value={title} maxLength={160} required placeholder="e.g. Went for the walk I planned" onChange={e => { setTitle(e.target.value); setError(''); }} /></label>
+          <label>Notes (optional)<textarea value={note} maxLength={2000} rows={3} placeholder="What helped, or what would you change next time?" onChange={e => { setNote(e.target.value); setError(''); }} /></label>
+          <div className="cc-meal-time-choices"><button type="button" className="cc-secondary" aria-pressed={recorded === todayIso} onClick={() => { setDate(chicagoDate()); setConfirmed(false); }}>Today</button><button type="button" className="cc-secondary" aria-pressed={recorded === isoDate(chicagoDate(-1))} onClick={() => { setDate(chicagoDate(-1)); setConfirmed(false); }}>Yesterday</button></div>
           <CalendarDateFields value={date} onChange={value => { setDate(value); setConfirmed(false); }} label="Outcome date" />
           <p className="cc-outcome-when">Date: {when}</p>
           <p className="cc-meal-time-help">Recorded for {isoDate(date)} · Chicago calendar date.</p>
-          <label className="cc-meal-consent"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I want this counted as my reported {outcome === 'loss' ? 'setback' : outcome === 'win' ? 'win' : 'outcome'}.</label>
+          <label className="cc-meal-consent cc-outcome-consent"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} /><span>I want this counted as my reported {outcome === 'loss' ? 'setback' : outcome === 'win' ? 'win' : 'outcome'}.</span></label>
         </fieldset>
         {error && <p className="cc-error" role="alert">{error}</p>}
         {pending && !busy && <p className="cc-muted cc-small">This save is unconfirmed. Retry the same entry so it cannot count twice. Its text and retry details stay in this browser tab if you change views or reload; keep the tab open until confirmed.</p>}
-        <div className="cc-meal-time-choices cc-outcome-actions"><button ref={saveRef} className="cc-primary" disabled={busy || !!recovery.error || (!pending && (!confirmed || !outcome || !title.trim()))}>{busy ? 'Saving…' : pending ? 'Retry same entry' : 'Save my outcome'}</button>{!pending && <button type="button" className="cc-secondary" disabled={busy} onClick={dismiss}>Keep draft & close</button>}</div>
+        {missingHint && <p className="cc-outcome-hint">{missingHint}</p>}
+        <div className="cc-meal-time-choices cc-outcome-actions"><button ref={saveRef} type="submit" className="cc-primary" disabled={saveDisabled}>{busy ? 'Saving…' : pending ? 'Retry same entry' : 'Save my outcome'}</button>{!pending && <button type="button" className="cc-secondary" disabled={busy} onClick={dismiss}>Keep draft & close</button>}</div>
       </form>
     </div>}
   </>;

@@ -16,12 +16,14 @@
   .nx-recap-chip.is-pulsing .nx-recap-portrait::after { animation: nx-recap-pulse 2.2s ease-out infinite; }
 }
 @keyframes nx-recap-pulse { 0% { transform: scale(.9); opacity: .9; } 70%, 100% { transform: scale(1.35); opacity: 0; } }
-.nx-recap-card { position: absolute; right: 0; top: calc(100% + 10px); z-index: 30; width: min(340px, calc(100vw - 32px)); padding: 16px; border-radius: 22px; outline: none;
-  background: rgba(12,18,22,.94); border: 1px solid rgba(255,255,255,.1); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
+.nx-recap-card { box-sizing: border-box; width: min(380px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); margin: auto; padding: 18px; border-radius: 22px; outline: none; overflow: auto; overscroll-behavior: contain;
+  background: #0c1216; border: 1px solid rgba(255,255,255,.1);
   box-shadow: 0 30px 80px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(0,0,0,.4); color: var(--nx-ink); font-family: var(--nx-text); }
-.cc-app[data-appearance=rose] .nx-recap-card { background: rgba(18,13,26,.94); }
-@media (prefers-reduced-motion: no-preference) { .nx-recap-card { animation: nx-recap-in .22s cubic-bezier(.2,.8,.2,1); transform-origin: top right; } }
-@keyframes nx-recap-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
+.nx-recap-card:not([open]) { display: none; }
+.nx-recap-card::backdrop { background: rgba(3,6,8,.68); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.cc-app[data-appearance=rose] .nx-recap-card { background: #120d1a; }
+@media (prefers-reduced-motion: no-preference) { .nx-recap-card[open] { animation: nx-recap-in .22s cubic-bezier(.2,.8,.2,1); } }
+@keyframes nx-recap-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
 .nx-recap-card header { display: flex; align-items: center; gap: 12px; }
 .nx-recap-card header > div { display: grid; gap: 3px; flex: 1; min-width: 0; }
 .nx-recap-card header small { font: 500 10.5px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-a); }
@@ -32,8 +34,8 @@
 .nx-recap-card dt { color: var(--nx-ink-3); }
 .nx-recap-card dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .nx-recap-loading { margin: 14px 0 0; font-size: 13px; color: var(--nx-ink-3); }
-.nx-recap-actions { display: flex; gap: 8px; margin-top: 12px; }
-.cc-app .nx-recap-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; min-height: 42px; border-radius: 14px; cursor: pointer; font: 600 13.5px/42px var(--nx-text);
+.nx-recap-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.cc-app .nx-recap-actions button { all: unset; box-sizing: border-box; flex: 1 1 128px; display: inline-flex; align-items: center; justify-content: center; text-align: center; min-height: 46px; padding: 10px 14px; border-radius: 14px; cursor: pointer; font: 600 14px/1.25 var(--nx-text); white-space: normal; overflow-wrap: break-word;
   color: var(--nx-ink); background: rgba(255,255,255,.06); border: 1px solid var(--nx-hair); }
 .cc-app .nx-recap-actions button.is-primary { color: #021412; background: var(--nx-a); border-color: transparent; }
 .cc-app[data-appearance=rose] .nx-recap-actions button.is-primary { color: #12081f; }

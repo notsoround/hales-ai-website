@@ -40,7 +40,7 @@ export default function AccountRecordingSummary({ recording, active, onListen }:
   if (recording.status !== 'stored' || !recording.originalStored || !recording.originalSha256) return null;
   const status = result?.summary.status, turn = result?.thread?.turns[0];
   return <section className="cc-recording-summary" aria-label="Saved transcript summary">
-    <h4>Summary</h4><p className="cc-muted cc-small">Summarize a complete saved transcript using your account’s shared AI allowance. Your original audio and transcript stay unchanged. Nothing is shortened.</p>
+    <h4>Summary</h4><p className="cc-muted cc-small">Summarize the saved transcript using your shared AI allowance. Original audio and transcript stay unchanged.</p>
     <div className="cc-action-row"><button className="cc-secondary" disabled={!active || busy} onClick={() => void act(false)}>{busy ? 'Checking summary…' : result ? 'Check summary status' : 'Check saved transcript'}</button>
       {status === 'not_started' && <button className="cc-primary" disabled={!active || busy} onClick={() => void act(true)}>Summarize saved transcript</button>}</div>
     {error && <p role="alert">{error}</p>}
