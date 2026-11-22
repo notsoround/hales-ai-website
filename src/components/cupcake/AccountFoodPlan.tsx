@@ -19,19 +19,23 @@ import {
   addPantryItem,
   appendCategorizedGroceries,
   appendGroceryItems,
+  buildGroceryAiTriagePrompt,
   checkGroceryItem,
   estimatePantryWithMeals,
   groceryHeadings,
   groceryItems,
   groceryNotes,
   markPantryItemUsed,
+  mergeRemotePantry,
   missingGroceryItems,
+  parseAiTriagedGroceries,
   readPantryItems,
   registerPantryStorage,
   removePantryItem,
   restockPantryItem,
   triageGroceryText,
   type PantryItem,
+  type TriagedGroceryItem,
 } from './groceryChecklist';
 
 registerPantryStorage(personalStorage);
@@ -45,7 +49,7 @@ function receiptsTabHref() {
 }
 
 /** `both` (desktop) shows the meal plan and groceries side by side from one draft and one save. */
-export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'plan' | 'groceries' | 'both'; onPlan: () => void; onGroceries?: () => void }) {
+export function AccountFoodPlan({ section, onPlan, onGroceries, onReceipts }: { section: 'plan' | 'groceries' | 'both'; onPlan: () => void; onGroceries?: () => void; onReceipts?: () => void }) {
   const [storage] = useState(() => personalStorage('sessionStorage'));
   const [recovery] = useState(() => readPlanRecovery(storage));
   const [base, setBase] = useState<MealPlan | null>(recovery?.base || null);
@@ -66,6 +70,11 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [expandedSlot, setExpandedSlot] = useState<number | null>(null);
   const [smartImportText, setSmartImportText] = useState(''), [excludedTriaged, setExcludedTriaged] = useState<string[]>([]);
   const [smartImportNotice, setSmartImportNotice] = useState('');
+  const [aiTriaged, setAiTriaged] = useState<{ items: TriagedGroceryItem[]; pantryNotes: string[] } | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   const [pantry, setPantry] = useState<PantryItem[]>(() => readPantryItems());
   const [newPantryItem, setNewPantryItem] = useState('');
   const nutritionSnapshot = useNutritionSnapshot();
@@ -74,6 +83,10 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
     window.addEventListener(PANTRY_CHANGED_EVENT, syncPantry);
     return () => window.removeEventListener(PANTRY_CHANGED_EVENT, syncPantry);
   }, []);
+  const syncPantryRemote = (next: PantryItem[]) => {
+    setPantry(next);
+    void libraryRequest({ action: 'coach_plan_set', kind: 'pantry', value: { items: next } }).catch(() => { /* Keep local pantry when server pantry kind is not enabled yet. */ });
+  };
   const checklistHeading = useRef<HTMLHeadingElement>(null), focusChecklist = useRef(false);
   const both = section === 'both', planTitle = useRef<HTMLInputElement>(null), shopHeading = useRef<HTMLHeadingElement>(null);
   // Side by side, both halves are already on screen: move focus instead of switching sections.
@@ -110,7 +123,8 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
     [draft.meals, todayLoggedMeals],
   );
 
-  const triagedPreview = useMemo(() => triageGroceryText(smartImportText), [smartImportText]);
+  const localTriagedPreview = useMemo(() => triageGroceryText(smartImportText), [smartImportText]);
+  const triagedPreview = aiTriaged?.items ?? localTriagedPreview;
   const activeTriaged = useMemo(() => triagedPreview.filter(item => !excludedTriaged.includes(item.id)), [triagedPreview, excludedTriaged]);
   const estimatedPantry = useMemo(() => estimatePantryWithMeals(pantry, nutritionSnapshot.history?.meals || []), [pantry, nutritionSnapshot.history]);
   const runningLowItems = useMemo(() => estimatedPantry.filter(item => item.status === 'low'), [estimatedPantry]);
@@ -120,8 +134,9 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
     if (inFlight.current) return;
     const request = ++generation.current; setBusy(true); setError('');
     try {
-      const response = await libraryRequest<{ plan: { meal_plan?: unknown } }>({ action: 'coach_plan_get' });
+      const response = await libraryRequest<{ plan: { meal_plan?: unknown; pantry?: unknown } }>({ action: 'coach_plan_get' });
       if (generation.current !== request) return;
+      if (response.plan.pantry !== undefined) setPantry(mergeRemotePantry(response.plan.pantry));
       const saved = parseMealPlan(response.plan.meal_plan), previous = current.current;
       const hasDraft = !!previous.pending || !samePlan(draftPlan(previous.base, previous.draft), previous.base || { meals: [] });
       if (saved && previous.pending && samePlan(saved, previous.pending.value)) {
@@ -219,9 +234,53 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             if (nextGroceries === draft.groceries) { setSmartImportNotice('All parsed items are already on your list.'); return; }
             edit({ ...draft, groceries: nextGroceries });
             const addedCount = activeTriaged.length;
-            setSmartImportText(''); setExcludedTriaged([]);
+            setSmartImportText(''); setExcludedTriaged([]); setAiTriaged(null); setAiError('');
             setSmartImportNotice(`Triaged & added ${addedCount} ${addedCount === 1 ? 'item' : 'items'} to your grocery draft. Review below, then Save plan & groceries.`);
           } catch (cause) { setSmartImportNotice(cause instanceof Error ? cause.message : 'Could not import these items.'); }
+        };
+        const runAiTriage = async () => {
+          if (busy || pending || aiBusy || !smartImportText.trim()) return;
+          setAiBusy(true); setAiError(''); setSmartImportNotice('');
+          try {
+            const threadId = crypto.randomUUID();
+            const stockedNames = estimatedPantry.filter(item => item.status === 'stocked').map(item => item.name);
+            const activeNames = groceries.filter(item => !item.checked).map(item => item.label);
+            const prompt = buildGroceryAiTriagePrompt(smartImportText, stockedNames, activeNames);
+            await libraryRequest({ action: 'quick_chat_create', threadId, title: 'Grocery list triage' });
+            let thread = (await libraryRequest<{ thread: { id: string; turns: { status: string; error?: string; response?: { reply: string } }[] } }>({
+              action: 'quick_chat_begin', threadId, turnId: crypto.randomUUID(), text: prompt, parentTurnId: null,
+            })).thread;
+            for (let attempt = 0; attempt < 8 && mountedRef.current; attempt++) {
+              const turn = thread.turns[thread.turns.length - 1];
+              if (!turn || turn.response?.reply || !['queued', 'running'].includes(turn.status)) break;
+              await new Promise(resolve => window.setTimeout(resolve, Math.min(4000, 1500 + attempt * 400)));
+              if (!mountedRef.current) return;
+              thread = (await libraryRequest<{ thread: typeof thread }>({ action: 'quick_chat_get', threadId })).thread;
+            }
+            if (!mountedRef.current) return;
+            const lastTurn = thread.turns[thread.turns.length - 1];
+            const reply = lastTurn?.response?.reply;
+            if (!reply) {
+              setAiError(lastTurn?.error?.startsWith('account_budget') ? 'No assistant allowance left right now. Quick local categories remain ready above.' : 'Cupcake did not finish organizing this list. Quick local categories remain ready above.');
+              return;
+            }
+            const parsed = parseAiTriagedGroceries(reply);
+            if (!parsed.items.length) {
+              setAiError('No grocery items were recognized in Cupcake’s reply. Quick local categories remain ready above.');
+              return;
+            }
+            setAiTriaged(parsed);
+            setExcludedTriaged([]);
+          } catch (cause) {
+            if (!mountedRef.current) return;
+            if (cause instanceof AccountRequestError && /not_ready|disabled|unavailable/.test(cause.code)) {
+              setAiError('Assistant triage is not turned on for this account yet. Quick local categories remain ready above.');
+            } else {
+              setAiError(cause instanceof Error ? cause.message : 'Assistant triage is unavailable right now. Quick local categories remain ready above.');
+            }
+          } finally {
+            if (mountedRef.current) setAiBusy(false);
+          }
         };
         const planPart = reading ? <div className="nx-plan-read">
           <header><div><h4>{draft.title || 'Meal plan'}</h4><p>{plannedKcal > 0 ? `${Math.round(plannedKcal).toLocaleString('en-US')} kcal planned` : `${draft.meals.length} planned ${draft.meals.length === 1 ? 'meal' : 'meals'}`}{plannedKcal > 0 && unknownKcal > 0 ? ` · ${unknownKcal} without calories` : ''}{todayLoggedMeals.length > 0 ? ` · ${todayLoggedKcal.toLocaleString('en-US')} logged today` : ''}</p></div>
@@ -326,8 +385,9 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             <summary><Sparkles size={15} aria-hidden="true" /><span>Smart import · paste a list or notes</span></summary>
             <div className="nx-smart-import-body">
               <p className="cc-muted cc-small">Paste texts, Robyn’s notes, or a rough list. Items are automatically sorted into Produce, Protein, Dairy, Pantry, Household, and Notes.</p>
-              <label>Paste unstructured list<textarea rows={4} maxLength={6000} value={smartImportText} placeholder={'Hey grab chicken breast, 2 avocados, Greek yogurt, oats, paper towels, and remind me to check olive oil'} onChange={event => { setSmartImportText(event.target.value); setExcludedTriaged([]); setSmartImportNotice(''); }} /></label>
+              <label>Paste unstructured list<textarea rows={4} maxLength={6000} value={smartImportText} placeholder={'Hey grab chicken breast, 2 avocados, Greek yogurt, oats, paper towels, and remind me to check olive oil'} onChange={event => { setSmartImportText(event.target.value); setExcludedTriaged([]); setSmartImportNotice(''); setAiTriaged(null); setAiError(''); }} /></label>
               {triagedPreview.length > 0 && <div className="nx-triage-preview" aria-label="Triaged grocery preview">
+                {aiTriaged && <div className="nx-triage-ai-head"><small>Organized by Cupcake</small><button type="button" className="cc-text-button" onClick={() => { setAiTriaged(null); setExcludedTriaged([]); }}>Reset to quick parse</button></div>}
                 {GROCERY_CATEGORIES.map(category => {
                   const group = triagedPreview.filter(item => item.category === category);
                   if (!group.length) return null;
@@ -341,8 +401,12 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
                     })}</div>
                   </div>;
                 })}
-                <button type="button" className="cc-secondary nx-triage-apply" disabled={!activeTriaged.length} onClick={applySmartImport}>Add {activeTriaged.length} categorized {activeTriaged.length === 1 ? 'item' : 'items'} to grocery draft</button>
+                <div className="nx-triage-actions">
+                  <button type="button" className="cc-secondary nx-triage-apply" disabled={!activeTriaged.length || aiBusy} onClick={applySmartImport}>Add {activeTriaged.length} categorized {activeTriaged.length === 1 ? 'item' : 'items'} to grocery draft</button>
+                  <button type="button" className="nx-triage-ai-btn" disabled={!smartImportText.trim() || aiBusy} onClick={() => void runAiTriage()}><Sparkles size={14} aria-hidden="true" /><span>{aiBusy ? 'Cupcake is organizing…' : 'AI triage with Cupcake'}</span></button>
+                </div>
               </div>}
+              {aiError && <p role="status" className="cc-muted cc-small">{aiError}</p>}
               {smartImportNotice && <p role="status" className="cc-muted cc-small">{smartImportNotice}</p>}
             </div>
           </details>
@@ -364,7 +428,8 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
                 <h4><Package size={15} aria-hidden="true" />Household pantry</h4>
                 <small>Estimated local inventory · updates as receipts are routed &amp; meals are logged</small>
               </div>
-              <a className="nx-pantry-receipts-link" href={receiptsTabHref()}><Receipt size={14} aria-hidden="true" />Receipts</a>
+              {onReceipts ? <button type="button" className="nx-pantry-receipts-link" onClick={onReceipts}><Receipt size={14} aria-hidden="true" />Receipts</button>
+                : <a className="nx-pantry-receipts-link" href={receiptsTabHref()}><Receipt size={14} aria-hidden="true" />Receipts</a>}
             </div>
             {missingLowLabels.length > 0 && <div className="nx-pantry-low-banner" role="region" aria-label="Running low items">
               <div>
@@ -382,13 +447,13 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
                 </div>
                 <div className="nx-pantry-item-actions">
                   {item.status === 'low' && !alreadyOnList && <button type="button" className="nx-pantry-pill" onClick={() => addItemsToDraft([item.name], 'pantry')}><Plus size={12} aria-hidden="true" />List</button>}
-                  <button type="button" className="nx-pantry-icon-btn" aria-label={`Use one serving of ${item.name}`} title="Mark 1 used" onClick={() => setPantry(markPantryItemUsed(item.id, 1))}><Minus size={13} aria-hidden="true" /></button>
-                  {item.status === 'low' && <button type="button" className="nx-pantry-icon-btn" aria-label={`Restock ${item.name}`} title="Restocked" onClick={() => setPantry(restockPantryItem(item.id))}><RotateCcw size={13} aria-hidden="true" /></button>}
-                  <button type="button" className="nx-pantry-icon-btn" aria-label={`Remove ${item.name} from pantry`} title="Remove" onClick={() => setPantry(removePantryItem(item.id))}><X size={13} aria-hidden="true" /></button>
+                  <button type="button" className="nx-pantry-icon-btn" aria-label={`Use one serving of ${item.name}`} title="Mark 1 used" onClick={() => syncPantryRemote(markPantryItemUsed(item.id, 1))}><Minus size={13} aria-hidden="true" /></button>
+                  {item.status === 'low' && <button type="button" className="nx-pantry-icon-btn" aria-label={`Restock ${item.name}`} title="Restocked" onClick={() => syncPantryRemote(restockPantryItem(item.id))}><RotateCcw size={13} aria-hidden="true" /></button>}
+                  <button type="button" className="nx-pantry-icon-btn" aria-label={`Remove ${item.name} from pantry`} title="Remove" onClick={() => syncPantryRemote(removePantryItem(item.id))}><X size={13} aria-hidden="true" /></button>
                 </div>
               </li>;
             })}</ul> : <p className="cc-muted cc-small">Route a confirmed grocery receipt from Receipts or add staples on hand below.</p>}
-            <form className="nx-pantry-add" onSubmit={event => { event.preventDefault(); const label = newPantryItem.trim(); if (!label) return; setPantry(addPantryItem(label)); setNewPantryItem(''); }}>
+            <form className="nx-pantry-add" onSubmit={event => { event.preventDefault(); const label = newPantryItem.trim(); if (!label) return; syncPantryRemote(addPantryItem(label)); setNewPantryItem(''); }}>
               <label className="cc-sr-only" htmlFor="nx-pantry-new">Add pantry staple</label>
               <input id="nx-pantry-new" maxLength={120} value={newPantryItem} placeholder="Add staple on hand, e.g. Eggs" onChange={event => setNewPantryItem(event.target.value)} />
               <button type="submit" className="cc-secondary" disabled={!newPantryItem.trim()}>Stock</button>

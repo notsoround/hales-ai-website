@@ -138,7 +138,7 @@ export function categorizeGroceryLabel(label: string, fallback: Exclude<GroceryC
 }
 
 function cleanTriagedPhrase(raw: string): string {
-  let out = raw.replace(/^\s*(?:[-*+•▪◦]|\d+[.)]|\[[ xX]\])\s*/, '').trim();
+  let out = raw.replace(/^\s*(?:(?:[-*+•▪◦]|\d+[.)])\s*(?:\[[ xX]\]\s*)?|\[[ xX]\]\s*)/, '').trim();
   out = out.replace(/^and\s+/i, '').trim();
   let prev = '';
   while (out && out !== prev) {
@@ -477,6 +477,81 @@ export type PantryAndGroceryContext = {
     note: string;
   };
 };
+
+/** Build a compact, bounded prompt asking Cupcake to normalize, dedupe, check pantry stock, and categorize a pasted grocery note. */
+export function buildGroceryAiTriagePrompt(
+  rawText: string,
+  stockedPantry: readonly string[] = [],
+  existingGroceries: readonly string[] = [],
+): string {
+  const cleanRaw = rawText.trim().slice(0, 3500);
+  const parts = [
+    'Organize this rough grocery text into a clean shopping checklist.',
+    'Use ONLY these Markdown headings: # Produce, # Protein, # Dairy, # Pantry, # Household, and Notes: lines for reminders or items already well stocked.',
+    'Merge duplicates, standardize messy quantities, omit conversational filler, and reply ONLY with headings, "- [ ] item" lines, and any "Notes:" lines (no intro/outro text).',
+  ];
+  if (stockedPantry.length) parts.push(`Already in household pantry: ${stockedPantry.slice(0, 25).join(', ')}`);
+  if (existingGroceries.length) parts.push(`Already on active shopping list: ${existingGroceries.slice(0, 25).join(', ')}`);
+  parts.push(`Raw note:\n${cleanRaw}`);
+  return parts.join('\n\n');
+}
+
+/** Parse Cupcake's Markdown triage reply into toggleable categorized items and callout notes, stripping conversational preamble. */
+export function parseAiTriagedGroceries(
+  reply: string,
+  limit = 60,
+): { items: TriagedGroceryItem[]; pantryNotes: string[] } {
+  const cleanedLines: string[] = [];
+  let inListSection = false;
+  for (const rawLine of reply.split(/\r\n|\n|\r/)) {
+    const line = rawLine.trim();
+    if (!line || /^```/.test(line)) continue;
+    const isHeading = /^#{1,6}\s+\S/.test(line) || (/^[A-Za-z &/]{2,30}:\s*$/.test(line) && !NOTE_LINE.test(line));
+    const isTaskOrBullet = /^\s*(?:[-*+•▪◦]|\d+[.)]|\[[ xX]\])\s+\S/.test(line);
+    const isNote = NOTE_LINE.test(line) || /^>\s*\S/.test(line);
+    if (isHeading || isTaskOrBullet || isNote) {
+      inListSection = true;
+      cleanedLines.push(line);
+    } else if (!inListSection || /^(?:here'?s|sure|of course|i'?ve|note that|let me know|hope this|happy to)/i.test(line)) {
+      continue;
+    } else {
+      cleanedLines.push(line);
+    }
+  }
+  const source = cleanedLines.length ? cleanedLines.join('\n') : reply;
+  const items = triageGroceryText(source, limit).map((item, idx) => ({ ...item, id: `ai-triage-${idx}` }));
+  const pantryNotes = items.filter(item => item.category === 'Notes').map(item => item.label);
+  return { items, pantryNotes };
+}
+
+/** Normalize valid PantryItem objects from an account coach_plan pantry document and merge with local storage. */
+export function mergeRemotePantry(remoteRaw: unknown): PantryItem[] {
+  const local = readPantryItems();
+  const candidates = Array.isArray(remoteRaw)
+    ? remoteRaw
+    : remoteRaw && typeof remoteRaw === 'object' && Array.isArray((remoteRaw as { items?: unknown }).items)
+      ? (remoteRaw as { items: unknown[] }).items
+      : null;
+  if (!candidates) return local;
+  const remote = candidates.filter((item): item is PantryItem =>
+    !!item && typeof item === 'object'
+    && typeof (item as PantryItem).id === 'string'
+    && typeof (item as PantryItem).name === 'string' && (item as PantryItem).name.trim().length > 0
+    && typeof (item as PantryItem).servings === 'number' && Number.isFinite((item as PantryItem).servings)
+    && typeof (item as PantryItem).manualUsed === 'number' && Number.isFinite((item as PantryItem).manualUsed)
+    && typeof (item as PantryItem).addedAt === 'string',
+  );
+  if (!remote.length) return local;
+  const merged = new Map<string, PantryItem>();
+  for (const item of [...remote, ...local]) {
+    const key = groceryKey(item.name);
+    const prev = merged.get(key);
+    if (!prev || Date.parse(item.addedAt || '') > Date.parse(prev.addedAt || '')) merged.set(key, item);
+  }
+  const next = [...merged.values()].slice(0, 120);
+  writePantryItems(next);
+  return next;
+}
 
 /** Compact summary of active shopping checklist + estimated local household pantry for the Assistant. */
 export function summarizeGroceryAndPantry(

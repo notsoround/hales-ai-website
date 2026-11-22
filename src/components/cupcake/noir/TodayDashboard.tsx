@@ -12,6 +12,7 @@ import { addDays, lastLoggedMeal, nutritionDay, nutritionDays, type FoodHistoryM
 import { useDataChanged } from '../dataChanges';
 import { useBackClose } from '../nativeFeel';
 import { PullRefresh } from '../PullRefresh';
+import { Sparkline } from '../design/Visuals';
 import { todayLine } from './voice';
 import './noir-today.css';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
@@ -95,7 +96,31 @@ function useSignals(): Signals {
   return signals;
 }
 
-function QuickWeighSheet({ open, latestLb, onClose, onOpenHistory }: { open: boolean; latestLb: number | null; onClose: () => void; onOpenHistory: () => void }) {
+function useScrollAtmosphere() {
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      const opacity = Math.max(0.12, Math.min(1, 1 - (y / 260) * 0.88));
+      document.documentElement.style.setProperty('--nx-atmo-opacity', opacity.toFixed(3));
+    };
+    const onScroll = () => { if (!raf) raf = window.requestAnimationFrame(apply); };
+    apply();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll);
+      document.documentElement.style.removeProperty('--nx-atmo-opacity');
+    };
+  }, []);
+}
+
+function QuickWeighSheet({ open, latestLb, deltaLb, subtitle, trend, onClose, onOpenHistory }: {
+  open: boolean; latestLb: number | null; deltaLb: number | null; subtitle: string; trend: number[]; onClose: () => void; onOpenHistory: () => void;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [raw, setRaw] = useState('');
@@ -138,6 +163,14 @@ function QuickWeighSheet({ open, latestLb, onClose, onOpenHistory }: { open: boo
         <div><small>Weight</small><h3>Log a weigh-in</h3></div>
         <button type="button" className="nx-recap-close" aria-label="Close weigh-in" disabled={busy} onClick={onClose}><X size={16} aria-hidden="true" /></button>
       </header>
+      {(latestLb !== null || trend.length >= 2) && <div className="nx-weigh-summary">
+        <div>
+          <strong>{latestLb !== null ? latestLb.toFixed(1) : '—'}{latestLb !== null && <small> lb</small>}</strong>
+          <span>{subtitle}</span>
+          {deltaLb !== null && <em className={deltaLb <= 0 ? 'is-good' : 'is-warn'}>{deltaLb <= 0 ? '▼ −' : '▲ +'}{Math.abs(deltaLb).toFixed(1)} lb this week</em>}
+        </div>
+        {trend.length >= 2 && <div className="nx-weigh-spark" aria-hidden="true"><Sparkline values={trend} width={140} height={36} /><small>Scale · 30 days</small></div>}
+      </div>}
       <label className="nx-weigh-field">
         <span>Current weight (lb)</span>
         <input ref={inputRef} type="number" inputMode="decimal" step="0.1" min="40" max="999" disabled={busy}
@@ -146,7 +179,7 @@ function QuickWeighSheet({ open, latestLb, onClose, onOpenHistory }: { open: boo
       {error && <p className="cc-error" role="alert">{error}</p>}
       <div className="nx-weigh-actions">
         <button type="submit" className="is-primary" disabled={!valid || busy}>{busy ? 'Saving…' : 'Save weight'}</button>
-        <button type="button" disabled={busy} onClick={() => { onClose(); onOpenHistory(); }}>Weight history</button>
+        <button type="button" disabled={busy} onClick={() => { onClose(); onOpenHistory(); }}>Full history →</button>
       </div>
     </form>}
   </dialog>;
@@ -156,6 +189,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   spend?: TodaySpend; name: string; assistantName: string; portrait: ReactNode; sassy: boolean; nutrition: Nutrition; mealHint: string | null;
   onCamera: () => void; onTalk: () => void; onRecord: () => void; onExercise: () => void; onTip: () => void; onOpenFood: () => void; onOpenHistory: () => void; onOpenWeight?: () => void;
 }) {
+  useScrollAtmosphere();
   const nowMs = useNowMinute();
   const signals = useSignals();
   const [weighOpen, setWeighOpen] = useState(false);
@@ -180,6 +214,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   const headlineW = useMemo(() => resolveHeadlineWeight(signals.weightPage, signals.body), [signals.weightPage, signals.body]);
   const latestScaleW = headlineW?.latestScale ?? (weight.length ? weight[weight.length - 1] : null);
   const wDelta = headlineW?.deltaLb ?? null;
+  const w30 = useMemo(() => weight.filter(m => nowMs - Date.parse(m.measuredAt) <= 30 * 864e5).map(m => m.weightLb), [weight, nowMs]);
   const w90 = weight.filter(m => nowMs - Date.parse(m.measuredAt) <= 90 * 864e5);
   const glucose = signals.glucose || [], latestG = glucose[glucose.length - 1];
   const nights = signals.nights || [], lastNight = nights[nights.length - 1];
@@ -238,7 +273,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
     <PullRefresh target={pullArea} />
     <header className="nx-today-head"><div><span>{dateLine}</span><h2 className="nx-say">{nutrition.loading && !day ? <>&nbsp;</> : <>{say.before}<em>{say.accent}</em>{say.after}</>}</h2></div>
       <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={() => setWeighOpen(true)} /></header>
-    <QuickWeighSheet open={weighOpen} latestLb={headlineW?.valueLb ?? latestScaleW?.weightLb ?? null} onClose={() => setWeighOpen(false)} onOpenHistory={openWeightHistory} />
+    <QuickWeighSheet open={weighOpen} latestLb={headlineW?.valueLb ?? latestScaleW?.weightLb ?? null} deltaLb={wDelta} subtitle={weightSub} trend={w30} onClose={() => setWeighOpen(false)} onOpenHistory={openWeightHistory} />
     <div className="nx-today-top">
       <div className="nx-today-dial">
         <MultiDial metrics={metrics} selected={metric} onSelect={setMetric} />
@@ -252,7 +287,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
             {spend.checkedAt && !spend.loading ? <span>Checked {clock(spend.checkedAt)}</span> : null}<RotateCw size={15} aria-hidden="true" className={spend.loading ? 'is-spinning' : undefined} />
           </button>
         </div>}
-        <button type="button" className="nx-spend nx-weightline" onClick={openWeightHistory} aria-label={headlineW ? `Weight ${headlineW.valueLb.toFixed(1)} pounds, ${weightSub}. Open weight history` : 'Weight, no weigh-in. Open weight history'}>
+        <button type="button" className="nx-spend nx-weightline" onClick={() => setWeighOpen(true)} aria-label={headlineW ? `Weight ${headlineW.valueLb.toFixed(1)} pounds, ${weightSub}. Log weigh-in or open history` : 'Weight, no weigh-in. Log weigh-in or open history'}>
           <span className="nx-spend-main"><small>Weight</small><b>{headlineW ? headlineW.valueLb.toFixed(1) : '—'}{headlineW ? <i> lb</i> : null}</b>
             <span>{weightSub}</span></span>
           <ChevronRight size={16} aria-hidden="true" />

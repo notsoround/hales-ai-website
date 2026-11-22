@@ -52,7 +52,19 @@
 
 /* ---------- Ground ---------- */
 :root[data-cc-scheme=light] body:has(.cc-app[data-entry=account]), :root[data-cc-scheme=light] body:has(.cc-account-gate) { background: var(--cc-bg, #f4f6f7); }
-:root[data-cc-scheme=light] .cc-app[class][data-entry=account],
+:root[data-cc-scheme=light] .cc-app[class][data-entry=account] {
+  isolation: isolate;
+  background: var(--cc-bg);
+}
+:root[data-cc-scheme=light] .cc-app[class][data-entry=account]::before {
+  content: ""; position: fixed; inset: 0 0 auto 0; height: 420px; pointer-events: none; z-index: -1;
+  background: radial-gradient(110% 520px at 50% -120px, color-mix(in oklab, var(--cc-pink) 9%, transparent), transparent 70%);
+  opacity: var(--nx-atmo-opacity, 1);
+  transition: opacity .15s linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-cc-scheme=light] .cc-app[class][data-entry=account]::before { opacity: .85; transition: none; }
+}
 :root[data-cc-scheme=light] .cc-app[class].cc-account-gate {
   background: radial-gradient(110% 520px at 50% -120px, color-mix(in oklab, var(--cc-pink) 9%, transparent), transparent 70%), var(--cc-bg);
   background-attachment: fixed;

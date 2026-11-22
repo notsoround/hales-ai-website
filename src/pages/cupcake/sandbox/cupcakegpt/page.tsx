@@ -505,7 +505,7 @@ function TodayHome({setTab,onOpenWeight,setQuickAction,openTalkAbout,accountName
     {ACCOUNT_SESSIONS&&<button type="button" className="cc-notyet-toggle" aria-expanded={foldOpen} onClick={()=>setFoldOpen(open=>!open)}><span>{ACCOUNT_SESSIONS?'More detail':'Not logged yet'}</span><small>{foldOpen?'Hide':'Show'}</small></button>}
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Saves"><SavesHero todayItems={items} nutrition={nutrition} onOpenWins={()=>setTab('week')} onTalkAbout={it=>openTalkAbout(toEntry(it,0))} onOpenItem={openItem}/></SectionBoundary>}
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Apple Health uploads"><AccountHealthSyncCard/></SectionBoundary>}
-    <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
+    <SectionBoundary label="Food today"><NutritionTodayCard {...nutrition} compact={ACCOUNT_SESSIONS} onRetry={()=>void nutrition.reload()} onOpenMeal={setSelectedMeal} onOpenCalendar={()=>setTab('snap')}/></SectionBoundary>
     <section className="cc-card cc-signals"><div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="summary"/>Timeline</h3><button className="cc-text-button" onClick={()=>setTab('week')}>All signals</button></div>
       {err?<div className="cc-signal-error"><p role="alert">{ACCOUNT_SESSIONS?ACCOUNT_UNAVAILABLE:'Cupcake couldn’t load your latest signals. Check your connection.'}</p><button type="button" className="cc-secondary" onClick={load}>Retry</button></div>:!timelineItems?<Spinner/>:!timelineItems.length?<Empty text={ACCOUNT_SESSIONS?"Nothing logged yet today.":"Nothing yet today. Purchases, calls, meals and workouts show up here as they happen. Older history is in Wins & losses."}/>:<Timeline items={timelineItems} onOpen={openItem} onAll={()=>setTab('week')} formatClock={it=>it.time?signalClock(it.time,it.date,it.ts):''}/>}
       {ACCOUNT_SESSIONS&&coverage&&<details className="cc-coverage-details"><summary>Data coverage</summary><p className="cc-muted cc-small">{coverage}</p></details>}
@@ -515,7 +515,7 @@ function TodayHome({setTab,onOpenWeight,setQuickAction,openTalkAbout,accountName
     {ACCOUNT_SESSIONS&&<SectionBoundary label="Workout plan"><AccountWorkoutPlan/></SectionBoundary>}
     <SignalSheet open={!!selected} label={selected?.type==='intervention'?'Call details':'Details'} onClose={()=>setSelected(null)}>{selected&&<SignalDetail entry={selected} backLabel="Back to Today" onBack={()=>setSelected(null)} loadMeal={loadMeal} updateIntervention={updateIntervention} onUpdated={()=>{setSelected(null);load();}} onTalkAbout={entry=>{setSelected(null);openTalkAbout(entry);}}/>}</SignalSheet>
     <SavedMealDialog mealId={selectedMeal} meals={nutrition.history?.meals||[]} onSelect={setSelectedMeal} onClose={()=>setSelectedMeal(null)} onUpdated={()=>{notifyDataChanged('food');void nutrition.reload();load();}}/>
-    <SectionBoundary label="Weight"><TodayWeight onOpen={onOpenWeight||(()=>setTab('week'))}/></SectionBoundary>
+    {!ACCOUNT_SESSIONS&&<SectionBoundary label="Weight"><TodayWeight onOpen={onOpenWeight||(()=>setTab('week'))}/></SectionBoundary>}
     <SectionBoundary label="Body assessment"><BodyAssessmentCard/></SectionBoundary>
     </div>
   </>;
