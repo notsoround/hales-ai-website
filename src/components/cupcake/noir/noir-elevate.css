@@ -2,14 +2,25 @@
    two-tone depth, colour only where something needs you, and the camera as the centre key on phones. */
 .cc-app[data-entry=account] {
   --nx-good: var(--nx-a); --nx-ink-2: rgba(238,244,245,.7);
-  background: radial-gradient(90% 420px at 50% -110px, color-mix(in oklab, var(--nx-a2) 20%, transparent), transparent 72%),
-    radial-gradient(55% 300px at 88% 20px, color-mix(in oklab, var(--nx-a) 9%, transparent), transparent 70%), #030607;
-  background-attachment: fixed;
+  isolation: isolate;
+  background: #030607;
 }
 .cc-app[data-entry=account][data-appearance=rose] {
+  background: #050409;
+}
+.cc-app[data-entry=account]::before {
+  content: ""; position: fixed; inset: 0 0 auto 0; height: 420px; pointer-events: none; z-index: -1;
+  background: radial-gradient(90% 420px at 50% -110px, color-mix(in oklab, var(--nx-a2) 20%, transparent), transparent 72%),
+    radial-gradient(55% 300px at 88% 20px, color-mix(in oklab, var(--nx-a) 9%, transparent), transparent 70%);
+  opacity: var(--nx-atmo-opacity, 1);
+  transition: opacity .15s linear;
+}
+.cc-app[data-entry=account][data-appearance=rose]::before {
   background: radial-gradient(90% 420px at 50% -110px, color-mix(in oklab, var(--nx-a2) 22%, transparent), transparent 72%),
-    radial-gradient(55% 300px at 88% 20px, color-mix(in oklab, var(--nx-a) 10%, transparent), transparent 70%), #050409;
-  background-attachment: fixed;
+    radial-gradient(55% 300px at 88% 20px, color-mix(in oklab, var(--nx-a) 10%, transparent), transparent 70%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account]::before { opacity: .85; transition: none; }
 }
 
 /* ---------- The line she says ---------- */
@@ -205,6 +216,20 @@
 .cc-app[data-entry=account] .cc-coverage-details > p { margin: 4px 0 6px; font-size: 12px; line-height: 1.45; color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-today-grid [data-empty] { padding: 12px 14px; gap: 3px; }
 .cc-app[data-entry=account] .cc-today-grid :is(.cc-sugar, .cc-cgm)[data-empty] p { margin: 2px 0 0; }
+
+/* Compact Food today meal list inside More detail (avoids duplicating Today's hero calorie dial & ring) */
+.cc-app[data-entry=account] .nx-today-meals { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid var(--nx-hair); display: grid; }
+.cc-app[data-entry=account] .nx-today-meals li { border-bottom: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .nx-today-meals li:last-child { border-bottom: 0; }
+.cc-app[data-entry=account] .nx-today-meals button {
+  all: unset; box-sizing: border-box; width: 100%; min-height: 46px; padding: 10px 2px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-today-meals button > span { display: grid; gap: 2px; min-width: 0; }
+.cc-app[data-entry=account] .nx-today-meals strong { font: 500 14px/1.3 var(--nx-text); color: var(--nx-ink); overflow-wrap: anywhere; }
+.cc-app[data-entry=account] .nx-today-meals small { font: 400 12px/1.3 var(--nx-text); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-today-meals b { flex: none; font: 300 17px/1 var(--nx-display); font-variant-numeric: tabular-nums; color: var(--nx-ink-2); }
+.cc-app[data-entry=account] .nx-today-meals button:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 2px; border-radius: 8px; }
 
 /* ---------- Mobile 390×844 initial fold: keep "Talk to Cupcake" cleanly above .cc-nav & the raised Camera FAB ---------- */
 @media (max-width: 700px) {

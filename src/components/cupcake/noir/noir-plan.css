@@ -121,7 +121,17 @@
   background: color-mix(in oklab, var(--nx-a) 11%, transparent);
   color: var(--nx-ink); text-decoration: none;
 }
+.cc-app[data-entry=account] .nx-triage-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .cc-app[data-entry=account] .nx-triage-apply { justify-self: start; }
+.cc-app[data-entry=account] .nx-triage-ai-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cc-app[data-entry=account] .nx-triage-ai-head small { font: 600 11px/1.2 var(--nx-text); letter-spacing: .08em; text-transform: uppercase; color: var(--nx-a); }
+.cc-app[data-entry=account] .nx-triage-ai-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px;
+  border-radius: 99px; border: 1px solid color-mix(in oklab, var(--nx-a) 38%, transparent);
+  background: color-mix(in oklab, var(--nx-a) 10%, transparent); color: var(--nx-a);
+  font: 500 13px/1 var(--nx-text); cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-triage-ai-btn:disabled { opacity: .5; cursor: default; }
 
 /* ---------- Household Pantry / Supply Loop ---------- */
 .cc-app[data-entry=account] .nx-pantry {

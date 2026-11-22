@@ -164,7 +164,7 @@ function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal }
   </section>;
 }
 
-export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onOpenCalendar, now: fixedNow }: CommonProps & { onOpenCalendar: () => void }) {
+export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onOpenCalendar, now: fixedNow, compact = false }: CommonProps & { onOpenCalendar: () => void; compact?: boolean }) {
   const now = useNutritionClock(fixedNow), day = nutritionDay(now);
   const summary = history ? nutritionDays(history.meals, [day], settings, now)[0] : null;
   const comparisonReady = !!history?.complete && !history.pendingCount && !history.undatedLoggedCount;
@@ -175,6 +175,10 @@ export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTING
     <div className="cc-nutrition-heading"><span className="cc-nutrition-eyebrow" role="heading" aria-level={3}><Utensils size={16} aria-hidden="true"/> Food today</span><button type="button" className="cc-nutrition-link" onClick={onOpenCalendar}>Open calendar <ArrowUpRight size={16}/></button></div>
     {!history || !summary ? <LoadState loading={loading} error={error} onRetry={onRetry}/> : <>
       {error && <p role="alert" className="cc-nutrition-warning">{error} {onRetry && <button type="button" onClick={onRetry}>Try again</button>}</p>}
+      {compact ? <>
+        {summary.meals.length ? <ul className="nx-today-meals">{summary.meals.map(meal => <li key={meal.id}><button type="button" onClick={() => onOpenMeal(meal.id)}><span><strong>{meal.description || 'Logged meal'}</strong><small>{mealTimeLabel(meal.consumedAt, false)}</small></span><b>{meal.total?.calories != null ? `${Math.round(meal.total.calories).toLocaleString()} kcal` : '—'}</b></button></li>)}</ul>
+          : <p className="cc-nutrition-note">No meals logged yet today.</p>}
+      </> : <>
       <div className="cc-nutrition-today-values"><div><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}</strong><span>{summary.partial ? 'known kcal · partial estimate' : 'kcal logged today'}</span><small>{summary.meals.length ? `${summary.meals.length} logged meal${summary.meals.length === 1 ? '' : 's'}` : 'No meals logged today'}</small>
         {summary.meals.length > 0 && (() => {
           const totals = { protein: { sum: 0, count: 0 }, carbs: { sum: 0, count: 0 }, fat: { sum: 0, count: 0 } };
@@ -194,6 +198,7 @@ export function NutritionTodayCard({ history, settings = EMPTY_NUTRITION_SETTING
       </div>
         <div className="cc-nutrition-today-balance">{targetReady && <ProgressRing value={summary.calories / summary.target!} label={`${Math.round(summary.calories / summary.target! * 100)}% of the daily intake target`}/>}<div><small>Daily intake target</small><b>{targetReady ? (left! >= 0 ? `${Math.round(left!).toLocaleString()} kcal left` : `${Math.round(-left!).toLocaleString()} kcal over`) : 'Not available'}</b><span>{targetReady ? `of ${Math.round(summary.target!).toLocaleString()} kcal target` : summary.target === null ? 'Set a daily intake target in the calendar' : !summary.meals.length ? 'Log a meal to see what’s left today' : 'Some meals still need calories or a time. Review them in the calendar'}</span></div></div></div>
       <LastMeal meals={history.meals} now={now} onOpenMeal={onOpenMeal}/>
+      </>}
       {(!history.complete || history.pendingCount > 0 || history.undatedLoggedCount > 0) && <p className="cc-nutrition-note">{!history.complete ? 'Partial history. ' : ''}{history.pendingCount ? `${history.pendingCount} photos not logged. ` : ''}{history.undatedLoggedCount ? `${history.undatedLoggedCount} meals without eaten times. ` : ''}<button type="button" className="cc-nutrition-inline" onClick={onOpenCalendar}>Review coverage</button></p>}
     </>}
   </section>;

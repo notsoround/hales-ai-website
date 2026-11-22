@@ -203,6 +203,28 @@ export async function restoreSession() {
     }
   }
 }
+let lastSessionRefresh = 0;
+export async function refreshAccountSession() {
+  const snapshot = state;
+  if (!ACCOUNT_SESSIONS || !snapshot.identity) return;
+  const now = Date.now();
+  if (now - lastSessionRefresh < 12 * 3600000) return;
+  lastSessionRefresh = now;
+  try {
+    const response = await fetch('https://automate.hales.ai/api/account/session/refresh', {
+      method: 'POST', credentials: 'include', cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Cupcake-Request': 'account',
+        'X-Cupcake-Account-Context': snapshot.identity.account_id,
+      },
+      body: '{}',
+    });
+    if (!response.ok) lastSessionRefresh = 0;
+  } catch {
+    lastSessionRefresh = 0;
+  }
+}
 export async function verifySession() {
   const snapshot = state;
   if (!snapshot.identity) return;
@@ -212,6 +234,7 @@ export async function verifySession() {
       const result = await send<{ identity: unknown }>('session', undefined, snapshot.generation, snapshot.identity!.account_id);
       const verified = identity(result.identity);
       if (JSON.stringify(verified) !== JSON.stringify(snapshot.identity)) transition(verified);
+      void refreshAccountSession();
     } catch { /* A 401/409 already locks every view; transient 429/5xx/network errors never sign the user out. */ }
   })();
   verifying = run;

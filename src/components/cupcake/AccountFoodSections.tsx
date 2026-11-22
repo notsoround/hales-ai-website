@@ -1,12 +1,22 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { AccountFoodPlan } from './AccountFoodPlan';
+import ReceiptWorkspace from './ReceiptWorkspace';
 import './account-food-plan.css';
 
-type Section = 'log' | 'plan' | 'groceries';
-const phoneSections: ReadonlyArray<{ key: Section; label: string }> = [{ key: 'log', label: 'Food log' }, { key: 'plan', label: 'Meal plan' }, { key: 'groceries', label: 'Groceries' }];
+type Section = 'log' | 'plan' | 'groceries' | 'receipts';
+const phoneSections: ReadonlyArray<{ key: Section; label: string }> = [
+  { key: 'log', label: 'Food log' },
+  { key: 'plan', label: 'Meal plan' },
+  { key: 'groceries', label: 'Groceries' },
+  { key: 'receipts', label: 'Receipts' },
+];
 // Desktop has room for the plan and the grocery list together, so they share one tab and one draft.
-const desktopSections: ReadonlyArray<{ key: Section; label: string }> = [{ key: 'log', label: 'Food log' }, { key: 'plan', label: 'Plan & groceries' }];
+const desktopSections: ReadonlyArray<{ key: Section; label: string }> = [
+  { key: 'log', label: 'Food log' },
+  { key: 'plan', label: 'Plan & groceries' },
+  { key: 'receipts', label: 'Receipts' },
+];
 const DESKTOP = '(min-width: 1024px)';
 function useDesktop() {
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(DESKTOP).matches);
@@ -22,12 +32,22 @@ function FoodSections({ children }: { children: ReactNode }) {
   const wide = useDesktop(), sections = wide ? desktopSections : phoneSections, count = sections.length;
   const [chosen, setSection] = useState<Section>('log');
   const section: Section = wide && chosen === 'groceries' ? 'plan' : chosen;
-  const [opened, setOpened] = useState(false);
-  const choose = (key: Section) => { setSection(key); if (key !== 'log') setOpened(true); };
+  const [planOpened, setPlanOpened] = useState(false);
+  const [receiptsOpened, setReceiptsOpened] = useState(false);
+  const choose = (key: Section) => {
+    setSection(key);
+    if (key === 'plan' || key === 'groceries') setPlanOpened(true);
+    if (key === 'receipts') setReceiptsOpened(true);
+  };
+  const focusTab = (key: Section) => {
+    const index = sections.findIndex(item => item.key === key);
+    if (index >= 0) buttons.current[index]?.focus();
+  };
   return <>
     <div className="cc-food-sections" role="tablist" aria-label="Food sections">{sections.map((item, index) => <button key={item.key} ref={node => { buttons.current[index] = node; }} id={`${id}-${item.key}`} aria-controls={`${id}-panel-${item.key}`} type="button" role="tab" aria-selected={section === item.key} tabIndex={section === item.key ? 0 : -1} onClick={() => choose(item.key)} onKeyDown={event => { const next = event.key === 'ArrowRight' ? (index + 1) % count : event.key === 'ArrowLeft' ? (index + count - 1) % count : event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : -1; if (next >= 0) { event.preventDefault(); choose(sections[next].key); buttons.current[next]?.focus(); } }}>{item.label}</button>)}</div>
     <div className="space-y-4 nx-food-log-stack" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{children}</div>
-    {opened && <div id={`${id}-panel-${section === 'log' ? 'plan' : section}`} role="tabpanel" aria-labelledby={`${id}-${section === 'log' ? 'plan' : section}`} hidden={section === 'log'}><AccountFoodPlan section={wide ? 'both' : section === 'groceries' ? 'groceries' : 'plan'} onPlan={() => choose('plan')} onGroceries={() => { choose('groceries'); buttons.current[2]?.focus(); }}/></div>}
+    {planOpened && <div id={`${id}-panel-${section === 'groceries' ? 'groceries' : 'plan'}`} role="tabpanel" aria-labelledby={`${id}-${section === 'groceries' ? 'groceries' : 'plan'}`} hidden={section !== 'plan' && section !== 'groceries'}><AccountFoodPlan section={wide ? 'both' : section === 'groceries' ? 'groceries' : 'plan'} onPlan={() => choose('plan')} onGroceries={() => { choose('groceries'); focusTab('groceries'); }} onReceipts={() => { choose('receipts'); focusTab('receipts'); }}/></div>}
+    {receiptsOpened && <div id={`${id}-panel-receipts`} role="tabpanel" aria-labelledby={`${id}-receipts`} hidden={section !== 'receipts'}><ReceiptWorkspace active={section === 'receipts'} /></div>}
   </>;
 }
 export function AccountFoodSections({ children }: { children: ReactNode }) { return ACCOUNT_SESSIONS ? <FoodSections>{children}</FoodSections> : <>{children}</>; }

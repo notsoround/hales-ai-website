@@ -138,6 +138,17 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     } else {
       setStatus('Returned to the unmatched bank-match queue.');
     }
+    if (ACCOUNT_SESSIONS) {
+      void libraryRequest<{ receipt?: Receipt }>({
+        action: 'receipt_set_payment_method',
+        receiptId: receipt.id,
+        paymentMethod: markingCash ? 'cash' : null,
+      }).then(data => {
+        if (!data.receipt) return;
+        setReceipts(curr => curr.map(r => r.id === data.receipt!.id ? data.receipt! : r));
+        setSelected(curr => curr?.id === data.receipt!.id ? data.receipt! : curr);
+      }).catch(() => { /* Keep local cash status when offline or pre-Tier-3 server. */ });
+    }
   };
 
   const sendToPantry = (receipt: Receipt) => {
