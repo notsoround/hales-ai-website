@@ -8,9 +8,10 @@ import './signal-sheet.css';
 import './account-timeline.css';
 import { WeightHistoryConnected as WeightHistory } from './WeightHistoryConnected';
 import { loadWeightPage, weightProvenanceLabel, type WeightRecord } from './weightApi';
+import * as dataChanges from './dataChanges';
 import { weightTime } from './weightHistoryModel';
 import { PersonalOutcomes } from './PersonalOutcomes';
-import { dashboardSelectionEntries, entriesOfSignalType, interventionGroups, signalTypeLabel, signalTypeOptions, interventionOutcome, mergeEntries, metricScales, outcomeRate, rangeLabel, transactionAmount, validDashboardDates, type DashboardSelection } from './dashboardModel';
+import { consolidateSignals, dashboardSelectionEntries, entriesOfSignalType, interventionGroups, signalTypeLabel, signalTypeOptions, interventionOutcome, mergeEntries, metricScales, outcomeRate, rangeLabel, transactionAmount, validDashboardDates, type ConsolidatedSignalGroup, type DashboardSelection } from './dashboardModel';
 import { callPlace, callSubtitle, displaySummary, listTitle, ownerQuote, signalHeading } from './pulseModel';
 import { OutcomeChip } from './TodayPulse';
 import { calorieTotal } from './dataState';
@@ -92,10 +93,41 @@ function partialCoverageLine(coverage?: string) {
   return sentence.includes('Partial') && sentence.length <= 180 ? sentence : 'Partial coverage in this range.';
 }
 
-export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervention, onTalkAbout }: { loadStats?: DashboardLoader; feedLoader?: () => Promise<{ items: Array<Record<string, unknown>> }>; loadMeal?: (mealId: string) => Promise<FoodMeal>; updateIntervention?: InterventionUpdate; onTalkAbout?: TalkAboutEntry }) {
+function ConsolidatedSignalRow({ group, onSelect }: { group: ConsolidatedSignalGroup<DashboardEntry>; onSelect: (entry: DashboardEntry) => void }) {
+  const [open, setOpen] = useState(false);
+  const [shown, setShown] = useState(15);
+  const entry = group.representative;
+  if (group.count === 1) {
+    return <button className="cc-dashboard-entry" onClick={() => onSelect(entry)}>
+      <span className="cc-dashboard-entry-icon">{entry.icon || '•'}</span>
+      <span><strong>{listTitle(entry)}</strong><small>{entryWhen(entry)} · {entry.type === 'intervention' ? callSubtitle(entry) : entry.body || entry.type}</small></span>
+      <ChevronRight size={17} />
+    </button>;
+  }
+  return <div className="nx-signal-group">
+    <button type="button" className="cc-dashboard-entry is-group" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+      <span className="cc-dashboard-entry-icon">{entry.icon || '•'}</span>
+      <span>
+        <strong className="nx-signal-group-title"><span>{listTitle(entry)}</span><em className="nx-signal-count">{group.count.toLocaleString('en-US')}×</em></strong>
+        <small>Latest {entryWhen(entry)} · {group.count.toLocaleString('en-US')} events · Tap to {open ? 'collapse' : 'inspect'}</small>
+      </span>
+      <ChevronRight size={17} className={open ? 'is-open' : undefined} />
+    </button>
+    {open && <div className="nx-signal-group-items">
+      {group.entries.slice(0, shown).map(item => <button type="button" className="cc-dashboard-entry is-child" key={item.id} onClick={() => onSelect(item)}>
+        <span><strong>{entryWhen(item)}</strong><small>{item.type === 'intervention' ? callSubtitle(item) : item.body || item.title}</small></span>
+        <ChevronRight size={15} />
+      </button>)}
+      {shown < group.entries.length && <button type="button" className="cc-text-button nx-signal-group-more" onClick={() => setShown(n => n + 20)}>Show more ({(group.entries.length - shown).toLocaleString('en-US')} remaining)</button>}
+    </div>}
+  </div>;
+}
+
+export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervention, onTalkAbout, initialView = null }: { loadStats?: DashboardLoader; feedLoader?: () => Promise<{ items: Array<Record<string, unknown>> }>; loadMeal?: (mealId: string) => Promise<FoodMeal>; updateIntervention?: InterventionUpdate; onTalkAbout?: TalkAboutEntry; initialView?: 'weight' | null }) {
   const today = chicagoToday();
-  const [latestWeight,setLatestWeight]=useState<WeightRecord|null>(null);const [weightError,setWeightError]=useState(false);
-  useEffect(()=>{let live=true;void loadWeightPage().then(p=>{if(live)setLatestWeight(p.latestMeasurement);}).catch(()=>{if(live)setWeightError(true);});return()=>{live=false;};},[]);
+  const [latestWeight,setLatestWeight]=useState<WeightRecord|null>(null);const [weightError,setWeightError]=useState(false);const [weightVersion,setWeightVersion]=useState(0);
+  dataChanges.useDataChanged(['weight'],()=>setWeightVersion(v=>v+1));
+  useEffect(()=>{let live=true;void loadWeightPage().then(p=>{if(live){setLatestWeight(p.latestMeasurement);setWeightError(false);}}).catch(()=>{if(live)setWeightError(true);});return()=>{live=false;};},[weightVersion]);
   const [preset, setPreset] = useState<DashboardRange['preset']>('week');
   const [customEnd, setCustomEnd] = useState(today); const [customStart, setCustomStart] = useState(shift(today, -6));
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -104,8 +136,10 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
   const [pageBusy,setPageBusy]=useState(false);
   const pageRequestVersion = useRef<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [weightOpen, setWeightOpen] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(20);
+  const [weightOpen, setWeightOpen] = useState(initialView === 'weight');
+  useEffect(() => { if (initialView === 'weight') setWeightOpen(true); }, [initialView]);
+  const defaultVisible = ACCOUNT_SESSIONS ? 5 : 20;
+  const [visibleCount, setVisibleCount] = useState(defaultVisible);
   const [signalType, setSignalType] = useState<string | null>(null);
   const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const requestVersion=useRef(0); const statsKeyRef=useRef<string|null>(null); const errorKeyRef=useRef<string|null>(null);
   const range = useMemo<DashboardRange>(() => ({ preset, start: preset === 'custom' ? customStart : startFor(preset, today), end: preset === 'custom' ? customEnd : today, timezone: chicago }), [preset, today, customEnd, customStart]);
@@ -125,7 +159,7 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
     } catch (e) { if (version === requestVersion.current) { errorKeyRef.current = key; setError(dashboardLoadError(e, 'Could not load dashboard data.')); } }
     finally { if (version === requestVersion.current) setLoading(false); }
   }, [feedLoader, loadStats, range]);
-  useEffect(() => { setVisibleCount(20); setSelected(null); setSelectedList(null); void refresh(); return () => { requestVersion.current += 1; }; }, [refresh]);
+  useEffect(() => { setVisibleCount(defaultVisible); setSelected(null); setSelectedList(null); void refresh(); return () => { requestVersion.current += 1; }; }, [refresh, defaultVisible]);
   const loadMore = async () => {
     const version = requestVersion.current;
     const key = rangeKey(range);
@@ -163,7 +197,10 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
   const typeFilter = typeOptions.length > 1 || (ACCOUNT_SESSIONS && !!signalType);
   const activeType = typeFilter ? signalType : null;
   const listed = ready ? entriesOfSignalType(ready.entries, activeType) : [];
-  const chooseType = (type: string | null) => { setSignalType(type); setVisibleCount(20); };
+  const consolidated = ACCOUNT_SESSIONS ? consolidateSignals(listed) : null;
+  const topGroups = consolidated ? (activeType ? [...consolidated.primary, ...consolidated.lowPriority] : consolidated.primary) : [];
+  const quietGroups = consolidated && !activeType ? consolidated.lowPriority : [];
+  const chooseType = (type: string | null) => { setSignalType(type); setVisibleCount(defaultVisible); };
   const latest = latestWeight ? { lb: latestWeight.weightLb, at: Date.parse(latestWeight.measuredAt) } : null;
   const weightAge = latest ? relativeWeightAge(latest.at) : '';
   const weightButton = <button className="cc-dashboard-card" onClick={() => setWeightOpen(true)}><strong>{latest ? `${latest.lb.toFixed(1)} lb` : '—'}</strong><span>{latest ? `${weightProvenanceLabel(latestWeight?.basis, latestWeight?.source)} ${weightTime(latest.at)}${weightAge ? ` · ${weightAge}` : ''} · View graph` : weightError ? 'Weight unavailable · Open to retry' : 'Weight history · Awaiting a timestamped weigh-in'}</span></button>;
@@ -182,7 +219,9 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
         {preset !== 'all' && (latest || weightError) && weightButton}
         {ready.phoneOutcomesAvailable===false&&<PersonalOutcomes range={range} refreshKey={refreshKey}/>}
       </> : <>
-        {ready.phoneOutcomesAvailable===false ? <div className="cc-card"><h3>Purchase-call outcomes unavailable</h3><p className="cc-muted">This account feed contains saved local evidence. Purchase-call history is not connected; your personal outcomes below are scored separately.</p></div> : <>
+        {ready.phoneOutcomesAvailable===false ? (ACCOUNT_SESSIONS
+          ? <details className="cc-card nx-coverage-disclosure"><summary><h3>Purchase-call outcomes unavailable</h3></summary><p className="cc-muted">This account feed contains saved local evidence. Purchase-call history is not connected; your personal outcomes below are scored separately.</p></details>
+          : <div className="cc-card"><h3>Purchase-call outcomes unavailable</h3><p className="cc-muted">This account feed contains saved local evidence. Purchase-call history is not connected; your personal outcomes below are scored separately.</p></div>) : <>
         <h3>Saves · purchase calls</h3>
         <div className="cc-dashboard-cards cc-outcome-cards" aria-label="Recorded intervention outcomes">
           <button className="cc-dashboard-card" onClick={() => setSelectedList({ title: 'Times you won', kind: 'outcome', group: 'wins' })}><strong>{counts.wins}</strong><span>Saves · times you resisted</span></button>
@@ -208,11 +247,19 @@ export function FeedDashboard({ loadStats, feedLoader, loadMeal, updateIntervent
           <div className="cc-chart-legend"><span><i />Calories (kcal scale)</span><span><b />Spend ({ready.totals.currency || 'USD'} scale)</span></div>
           </>}
         </div>}
-        <div className="cc-dashboard-section"><div className="cc-heading-row"><h3 id="cc-signals-heading" tabIndex={-1}>Signals in this range</h3><span className="cc-muted cc-small" aria-live="polite">{activeType ? `${listed.length} of ${ready.entries.length} loaded` : `${ready.entries.length} loaded`}</span></div>{typeFilter && <div className="cc-signal-filter" role="group" aria-label="Show signal type"><button type="button" aria-pressed={!activeType} onClick={() => chooseType(null)}>All<span aria-hidden="true">{ready.entries.length}</span><span className="cc-visually-hidden">, {ready.entries.length} loaded</span></button>{typeOptions.map(option => <button type="button" key={option.type} aria-pressed={activeType === option.type} onClick={() => chooseType(activeType === option.type ? null : option.type)}>{option.label}<span aria-hidden="true">{option.count}</span><span className="cc-visually-hidden">, {option.count} loaded</span></button>)}</div>}{listed.slice(0, visibleCount).map(entry => <button className="cc-dashboard-entry" key={entry.id} onClick={() => setSelected(entry)}><span className="cc-dashboard-entry-icon">{entry.icon || '•'}</span><span><strong>{listTitle(entry)}</strong><small>{entryWhen(entry)} · {entry.type === 'intervention' ? callSubtitle(entry) : entry.body || entry.type}</small></span><ChevronRight size={17} /></button>)}{visibleCount < listed.length && <button className="cc-secondary cc-dashboard-more" onClick={() => setVisibleCount(count => count + 20)}>Show more ({listed.length - visibleCount} remaining)</button>}{!ready.entries.length ? <p className="cc-muted">No entries in this range.</p> : !listed.length && activeType && <p className="cc-muted">No {signalTypeLabel(activeType).toLowerCase()} loaded in this range.{ready.nextCursor ? ' Load older records to look further back.' : ''} <button type="button" className="cc-text-button" onClick={() => chooseType(null)}>Show all signals</button></p>}</div>
+        <div className="cc-dashboard-section"><div className="cc-heading-row"><h3 id="cc-signals-heading" tabIndex={-1}>Signals in this range</h3><span className="cc-muted cc-small" aria-live="polite">{activeType ? `${listed.length} of ${ready.entries.length} loaded` : `${ready.entries.length} loaded`}</span></div>{typeFilter && <div className="cc-signal-filter" role="group" aria-label="Show signal type"><button type="button" aria-pressed={!activeType} onClick={() => chooseType(null)}>All<span aria-hidden="true">{ready.entries.length}</span><span className="cc-visually-hidden">, {ready.entries.length} loaded</span></button>{typeOptions.map(option => <button type="button" key={option.type} aria-pressed={activeType === option.type} onClick={() => chooseType(activeType === option.type ? null : option.type)}>{option.label}<span aria-hidden="true">{option.count}</span><span className="cc-visually-hidden">, {option.count} loaded</span></button>)}</div>}{ACCOUNT_SESSIONS && consolidated ? <>
+          {topGroups.slice(0, visibleCount).map(group => <ConsolidatedSignalRow key={group.key} group={group} onSelect={setSelected} />)}
+          {visibleCount < topGroups.length && <button className="cc-secondary cc-dashboard-more" onClick={() => setVisibleCount(count => count + 15)}>Show more ({topGroups.length - visibleCount} remaining)</button>}
+          {quietGroups.length > 0 && <details className="nx-signal-quiet"><summary>System &amp; background signals ({consolidated.lowPriorityCount.toLocaleString('en-US')})</summary><div>{quietGroups.map(group => <ConsolidatedSignalRow key={group.key} group={group} onSelect={setSelected} />)}</div></details>}
+        </> : <>
+          {listed.slice(0, visibleCount).map(entry => <button className="cc-dashboard-entry" key={entry.id} onClick={() => setSelected(entry)}><span className="cc-dashboard-entry-icon">{entry.icon || '•'}</span><span><strong>{listTitle(entry)}</strong><small>{entryWhen(entry)} · {entry.type === 'intervention' ? callSubtitle(entry) : entry.body || entry.type}</small></span><ChevronRight size={17} /></button>)}
+          {visibleCount < listed.length && <button className="cc-secondary cc-dashboard-more" onClick={() => setVisibleCount(count => count + 20)}>Show more ({listed.length - visibleCount} remaining)</button>}
+        </>}{!ready.entries.length ? <p className="cc-muted">No entries in this range.</p> : !listed.length && activeType && <p className="cc-muted">No {signalTypeLabel(activeType).toLowerCase()} loaded in this range.{ready.nextCursor ? ' Load older records to look further back.' : ''} <button type="button" className="cc-text-button" onClick={() => chooseType(null)}>Show all signals</button></p>}</div>
         {ready.nextCursor&&<button className="cc-secondary" disabled={pageBusy} onClick={()=>void loadMore()}>{pageBusy?'Loading…':'Load older records'}</button>}
       </>}
-      {partial && <p className="cc-muted cc-small cc-dashboard-coverage">{partial}</p>}
-      <details className="cc-card"><summary>How these scores work</summary>
+      {!ACCOUNT_SESSIONS && partial && <p className="cc-muted cc-small cc-dashboard-coverage">{partial}</p>}
+      <details className="cc-card"><summary>{ACCOUNT_SESSIONS ? 'How these scores & coverage work' : 'How these scores work'}</summary>
+        {ACCOUNT_SESSIONS && partial && <p className="cc-muted cc-small cc-dashboard-coverage">{partial}</p>}
         <p className="cc-muted">This score covers purchase intervention calls only. Personal outcomes have their own score; the two are not added together. Tap a total to see its entries.</p>
         <p className="cc-muted">Wins + losses + missed + unscored = total intervention records. Missed calls are never automatic losses. A recorded agreement to stop or your explicit update that you did not buy counts as a win. These are reported outcomes, not independently verified follow-through. Choose All time to include older records.</p>
         <h3>Data coverage</h3>

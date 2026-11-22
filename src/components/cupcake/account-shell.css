@@ -2,7 +2,10 @@
 
 /* ---------- Mobile bottom navigation ---------- */
 @media (max-width: 1023px) {
-  .cc-app[data-entry=account] { --cc-nav-offset: 66px; }
+  .cc-app[data-entry=account] { --cc-nav-offset: 70px; }
+  html:has(.cc-app[data-entry=account]) { scroll-padding-bottom: calc(var(--cc-nav-offset, 70px) + 52px + env(safe-area-inset-bottom, 0px)); }
+  .cc-app[data-entry=account] .cc-shell { padding-bottom: calc(var(--cc-nav-offset, 70px) + 56px + env(safe-area-inset-bottom, 0px)); scroll-padding-bottom: calc(var(--cc-nav-offset, 70px) + 52px + env(safe-area-inset-bottom, 0px)); }
+  .cc-app[data-entry=account] .cc-detail { bottom: calc(var(--cc-nav-offset, 70px) + 20px + env(safe-area-inset-bottom, 0px)); }
   .cc-app[data-entry=account] .cc-nav > div { max-width: 560px; margin: 0 auto; }
   .cc-app[data-entry=account] .cc-nav button { position: relative; min-height: 66px; padding: 9px 2px 7px; gap: 4px; font-size: 11.5px; font-weight: 600; letter-spacing: .01em; }
   .cc-app[data-entry=account] .cc-nav button::before { content: ""; position: absolute; top: 6px; left: 50%; width: 56px; height: 32px; border-radius: 999px; transform: translateX(-50%) scaleX(.55); opacity: 0; background: color-mix(in srgb, var(--cc-pink) 17%, transparent); transition: transform .22s var(--ds-ease, ease), opacity .22s var(--ds-ease, ease); }
@@ -11,6 +14,13 @@
   .cc-app[data-entry=account] .cc-nav button > svg, .cc-app[data-entry=account] .cc-nav-portrait { position: relative; z-index: 1; height: 32px; }
   .cc-app[data-entry=account] .cc-nav button[aria-current=page] svg { filter: none; }
   .cc-app[data-entry=account] .cc-nav-label { position: relative; z-index: 1; }
+}
+/* Ensure Settings drawer/sheet always stacks cleanly above bottom nav, assistant panel and recap sheets. */
+.cc-app[data-entry=account] .cc-top:has(.cc-settings[open]) { z-index: 85; }
+.cc-app[data-entry=account] .cc-settings-scrim { z-index: 86; }
+.cc-app[data-entry=account] .cc-settings-panel { z-index: 90; scroll-padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 599px) {
+  .cc-app[data-entry=account] .cc-settings-panel { padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { .cc-app[data-entry=account] .cc-nav button::before { transition: none; } }
 
@@ -28,14 +38,30 @@
 }
 
 /* ---------- Assistant panel ---------- */
-/* On phones the panel stops above the tab bar, so navigation (and the Assistant tab that
-   minimizes it) stays reachable. Height still follows the visual viewport for the keyboard. */
-@media (max-width: 600px) {
-  .cc-app[data-entry=account] .cc-assistant-workspace.is-panel { height: calc(var(--assistant-vh, 100dvh) - 20px - var(--cc-nav-offset, 66px) - env(safe-area-inset-bottom)); z-index: 55; }
+/* On phones/tablets the panel docks flush above the tab bar with zero gap, so navigation
+   stays reachable and no underlying page copy ever peeks through. */
+@media (max-width: 1023px) {
+  :root .cc-app[data-entry=account] .cc-assistant-workspace.is-panel {
+    left: 0;
+    right: 0;
+    width: auto;
+    top: max(var(--assistant-vtop, 0px), env(safe-area-inset-top, 0px));
+    bottom: calc(var(--cc-nav-offset, 70px) + env(safe-area-inset-bottom, 0px));
+    height: auto;
+    max-height: none;
+    border-radius: 22px 22px 0 0;
+    border-inline: 0;
+    border-bottom: 0;
+    z-index: 55;
+  }
+  .cc-app[data-entry=account]:has(.cc-assistant-workspace.is-panel:not([hidden])) .cc-nav {
+    background: var(--ax-panel, #030607);
+    border-top: 1px solid var(--ax-hair, rgba(255,255,255,.07));
+  }
 }
 /* Composer sits at the bottom of the panel like any messaging app; history fills the space above. */
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body { display: flex; flex-direction: column; flex: 1 1 auto; }
-.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body > div:has(> .cc-assistant-text-intro):not([hidden]) { flex: 1 0 auto; display: flex; flex-direction: column; }
+.cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body > div:is(:has(> .cc-assistant-text-intro), :has(.cc-chat)):not([hidden]) { flex: 1 0 auto; display: flex; flex-direction: column; }
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body .cc-chat { flex: 1 0 auto; display: flex; flex-direction: column; }
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body .cc-chat > .cc-chat-composer { margin-top: auto; }
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-chat-composer textarea { border: 1px solid var(--cc-border); }

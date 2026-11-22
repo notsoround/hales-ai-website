@@ -1,9 +1,36 @@
 import { ACCOUNT_SESSIONS, privateFetch as fetch } from './accountMode';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { libraryRequest } from './library';
 import { useDataChanged } from './dataChanges';
 import { privateAccessHeaders } from './privateAccess';
+import { sessionSnapshot } from './accountSession';
 import { EMPTY_NUTRITION_SETTINGS, mealDay, nutritionDay, validDay, type FoodHistoryMeal, type NutritionHistory, type NutritionSettings, type NutritionSettingVersion } from './nutritionModel';
+
+type SharedNutritionState = { generation: number; history: NutritionHistory | null; settings: NutritionSettings };
+const EMPTY_SHARED: SharedNutritionState = { generation: -1, history: null, settings: EMPTY_NUTRITION_SETTINGS };
+let sharedNutrition: SharedNutritionState = EMPTY_SHARED;
+const nutritionListeners = new Set<() => void>();
+
+function publishNutrition(history: NutritionHistory | null, settings: NutritionSettings) {
+  const gen = ACCOUNT_SESSIONS ? sessionSnapshot().generation : 0;
+  sharedNutrition = { generation: gen, history, settings };
+  for (const listener of nutritionListeners) listener();
+}
+
+function subscribeNutritionSnapshot(listener: () => void) {
+  nutritionListeners.add(listener);
+  return () => { nutritionListeners.delete(listener); };
+}
+
+function getNutritionSnapshot(): SharedNutritionState {
+  const gen = ACCOUNT_SESSIONS ? sessionSnapshot().generation : 0;
+  return sharedNutrition.generation === gen ? sharedNutrition : EMPTY_SHARED;
+}
+
+/** Read the latest loaded nutrition history & settings without triggering extra network calls. */
+export function useNutritionSnapshot() {
+  return useSyncExternalStore(subscribeNutritionSnapshot, getNutritionSnapshot, () => EMPTY_SHARED);
+}
 
 export type FoodArchivePage = { meals: FoodHistoryMeal[]; total: number; nextCursor?: string | null; hasMore?: boolean; pendingCount: number; undatedLoggedCount: number; undatedMealIds?: string[]; coverageNote?: string };
 export type FoodLedgerEntry = { id: string; type: string; date: string; time?: string; title?: string; calories?: number | null; details?: { mealId?: string | null; protein?: number | null; carbs?: number | null; fat?: number | null; sugar?: number | null } };
@@ -95,10 +122,13 @@ export function useNutritionData() {
     const [food, preferences] = await Promise.allSettled([loadNutritionHistory(), libraryRequest<{ settings: NutritionSettings }>({ action: 'food_settings_get' })]);
     if (current !== generation.current) return;
     const errors: string[] = [];
-    if (food.status === 'fulfilled') { setHistory(food.value.history); if (food.value.error) errors.push(food.value.error); }
+    let nextHistory: NutritionHistory | null = null;
+    let nextSettings: NutritionSettings = EMPTY_NUTRITION_SETTINGS;
+    if (food.status === 'fulfilled') { nextHistory = food.value.history; setHistory(nextHistory); if (food.value.error) errors.push(food.value.error); }
     else errors.push(food.reason instanceof Error ? food.reason.message : 'Food history could not load.');
-    if (preferences.status === 'fulfilled') setSettings(preferences.value.settings);
+    if (preferences.status === 'fulfilled') { nextSettings = preferences.value.settings; setSettings(nextSettings); }
     else { setSettings(EMPTY_NUTRITION_SETTINGS); errors.push('Nutrition settings could not load. Target and energy comparisons are unavailable.'); }
+    publishNutrition(nextHistory, nextSettings);
     setError(errors.join(' ')); setLoading(false);
   }, []);
   useEffect(() => { void reload(); return invalidate; }, [reload, invalidate]);
@@ -106,6 +136,7 @@ export function useNutritionData() {
   const saveSettings = useCallback(async (version: NutritionSettingVersion) => {
     const response = await libraryRequest<{ settings: NutritionSettings }>({ action: 'food_settings_save', calorieTarget: version.calorieTarget, expenditureEstimate: version.expenditureEstimate, effectiveFrom: version.effectiveFrom }, { foodGesture: true });
     setSettings(response.settings);
+    publishNutrition(getNutritionSnapshot().history, response.settings);
   }, []);
   return { history, settings, loading, error, reload, saveSettings };
 }

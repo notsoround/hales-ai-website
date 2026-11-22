@@ -1,10 +1,13 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { libraryRequest } from './library';
 import { personalStorage } from './personalStorage';
 import { MealDialog } from './MealDialog';
 import { MealTimeInput } from './MealTimeInput';
+import { notifyDataChanged } from './dataChanges';
 import type { FoodMeal } from './DashboardView';
 import './account-manual-meal.css';
+
+export const OPEN_MANUAL_MEAL_EVENT = 'cc-open-manual-meal';
 
 const nutrients = [
   ['calories', 'Calories', 'kcal', 20000], ['protein_g', 'Protein', 'g', 2000],
@@ -38,6 +41,11 @@ export function AccountManualMeal({ onSaved }: { onSaved: () => void }) {
   const [notice, setNotice] = useState('');
   const trigger = useRef<HTMLButtonElement>(null);
   const sending = useRef(false);
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_MANUAL_MEAL_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_MANUAL_MEAL_EVENT, onOpen);
+  }, []);
   const time = Date.parse(consumedAt), now = Date.now();
   const validTime = Number.isFinite(time) && time <= now + 300000 && time >= now - 400 * 86400000;
   const validNumbers = nutrients.every(([key, , , max]) => !values[key]?.trim() || (Number.isFinite(Number(values[key])) && Number(values[key]) >= 0 && Number(values[key]) <= max));
@@ -55,7 +63,7 @@ export function AccountManualMeal({ onSaved }: { onSaved: () => void }) {
       if (!result.meal?.id) throw Error('The save returned no meal receipt. Retry the same meal to check it.');
       const saved = await libraryRequest<{ meal: FoodMeal }>({ action: 'food_get', mealId: result.meal.id });
       if (saved.meal?.id !== result.meal.id || saved.meal.source !== 'manual-entry' || saved.meal.description !== request.description || Date.parse(saved.meal.consumedAt || '') !== Date.parse(request.consumedAt) || !saved.meal.manualLoggedAt || !saved.meal.sheetLoggedAt || saved.meal.countedInTotals !== true || saved.meal.logState !== 'logged') throw Error('The saved meal could not be confirmed in your food log. Retry the same meal to check it.');
-      store.removeItem(recoveryKey); setIntent(null); setReceipt(saved.meal); onSaved();
+      store.removeItem(recoveryKey); setIntent(null); setReceipt(saved.meal); notifyDataChanged('food'); onSaved();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Save not confirmed. Retry the same meal.'); }
     finally { sending.current = false; setBusy(false); }
   };

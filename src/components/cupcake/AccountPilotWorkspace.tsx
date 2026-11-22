@@ -18,7 +18,7 @@ export function AccountPilotWorkspace({identity,onSharingChanged}:{identity:Acco
   return <section className="cc-card cc-pilot-workspace" aria-label="Clients and sharing">
     <details className="cc-pilot-disclosure">
     <summary><span><strong>Your connections</strong><small>Clients, invitations and sharing</small></span></summary>
-    <p>Keep your personal space and coaching workspace together. An invitation creates a connection; access to your data always needs a separate permission.</p>
+    <p>Connections and data permissions stay separate.</p>
     <div className="cc-invitation-actions"><button className="cc-secondary" aria-expanded={view==='clients'} onClick={()=>setView(view==='clients'?null:'clients')}>My clients & invitations</button><button className="cc-secondary" aria-expanded={view==='sharing'} onClick={()=>setView(view==='sharing'?null:'sharing')}>Sharing controls</button></div>
     {view==='clients'&&<CoachInvitations identity={identity}/>}
     {view==='sharing'&&<SharingControls identity={identity} onChanged={onSharingChanged}/>}
@@ -101,13 +101,13 @@ function SharingControls({identity,onChanged}:{identity:AccountIdentity;onChange
     try{await accountSharing('revoke',{grant_id:grant.id});if(alive.current){setNotice('Your sharing was revoked.');await load();onChanged();}}
     catch(reason){if(alive.current)setError(failure(reason));}finally{if(alive.current)setBusy(false);}
   };
-  return <section aria-label="Sharing controls"><h3>Sharing controls</h3><p>You control <strong>your own data</strong>. Connections do not authorize access, and sharing in one direction does not share the other person’s data.</p>
+  return <section aria-label="Sharing controls"><h3>Sharing controls</h3><p>Grant or revoke one-way access to your data.</p>
     {loading&&<p role="status">Checking your connections and permissions…</p>}{error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {!loading&&!error&&!relationships.length&&<p>No accepted connections yet. Accept a private invitation before choosing someone to share with.</p>}
     {!!relationships.length&&<><form onSubmit={event=>void share(event)} className="cc-invitation-form">
       <label className="cc-label">Share my data with<select aria-label="Share my data with" required value={selected} onChange={event=>{setSelected(event.target.value);setReport(false);setPhotos(false);setNotice('');}} disabled={busy||loading}><option value="">Choose a connected person</option>{relationships.map(item=><option key={item.id} value={item.id}>{otherName(item,identity)}</option>)}</select></label>
       <label className="cc-account-check"><input type="checkbox" checked={report} onChange={event=>setReport(event.target.checked)} disabled={busy||!selected}/>Share my clean health report</label>
-      <p className="cc-muted cc-small">Includes weight, body measurements, manual glucose, exercise, outcomes, steps, sleep and nutrition from your saved local records. Excludes private chats, notes, financial details and original meal photos.</p>
+      <p className="cc-muted cc-small">Saved health numbers only — excludes chats, notes, finances, and photos.</p>
       <label className="cc-account-check"><input type="checkbox" checked={photos} onChange={event=>setPhotos(event.target.checked)} disabled={busy||!selected}/>Share original meal photos (separate permission)</label>
       <label className="cc-label">Sharing expires in<select aria-label="Sharing expires in" value={days} onChange={event=>setDays(Number(event.target.value))} disabled={busy}>{[1,7,30].map(value=><option key={value} value={value}>{value} {value===1?'day':'days'}</option>)}</select></label>
       <button className="cc-primary" disabled={busy||loading||(!report&&!photos)||!selected}>{busy?'Please wait…':report?'Share my report':photos?'Share my meal photos':'Share selected data'}</button>

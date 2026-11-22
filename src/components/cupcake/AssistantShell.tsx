@@ -1,6 +1,6 @@
 import { personalStorage } from './personalStorage';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
-import { Headphones, Library, MessageCircle, Mic, Minus, X } from 'lucide-react';
+import { ArrowLeft, Headphones, Library, MessageCircle, Mic, Minus, X } from 'lucide-react';
 import { AssistantPortrait } from './AssistantPersona';
 import type { Persona } from './assistantAppearance';
 import { ACCOUNT_SESSIONS } from './accountMode';
@@ -44,44 +44,67 @@ export function AssistantShell({ open, library, mode, onMode, onOpen, onMinimize
     const vv = window.visualViewport;
     const top = Math.max(vv?.offsetTop || 0, 0);
     const height = vv?.height || window.innerHeight;
-    const width = vv?.width || window.innerWidth;
+    const width = window.innerWidth;
     const nav = document.querySelector('.cc-nav')?.getBoundingClientRect();
     const header = document.querySelector('.cc-top')?.getBoundingClientRect();
-    const minY = Math.max(top + 12, (header && header.bottom > top && header.bottom < top + height / 2 ? header.bottom + 12 : top + 12));
-    const maxY = Math.max(minY, Math.min(top + height - 100, nav && nav.width > width / 2 ? nav.top - 88 : top + height - 100));
-    const left = nav && nav.height > height / 2 && nav.width < width / 2 ? nav.right + 10 : 10;
+    const headerBottom = header && header.height > 0 && header.height < height * 0.35 ? Math.max(header.bottom, header.height) : 68;
+    const minY = Math.round(Math.max(top + 12, Math.min(top + height * 0.35, headerBottom + 12)));
+    const maxY = Math.round(Math.max(minY, Math.min(top + height - 96, nav && nav.width > width / 2 ? nav.top - 86 : top + height - 96)));
+    const left = Math.round(nav && nav.height > height / 2 && nav.width < width / 2 ? nav.right + 10 : 10);
     return { top, height, width, minY, maxY, left };
   }, []);
   useLayoutEffect(() => {
-    let frame = 0, placed = false;
-    // Placement is chosen when the layout changes (open/close, resize, a move), not on every
-    // scroll or content update, so the companion stays put instead of jumping as cards pass under it.
-    const measure = (replace = true) => {
+    let frame = 0, lastWidth = 0;
+    const checkBlockers = () => {
+      const blockers = [...document.querySelectorAll<HTMLElement>('dialog[open],.cc-photo-viewer,.cc-detail,.cc-settings[open]')].some(el => el.getClientRects().length > 0);
+      setObscured(prev => (prev === blockers ? prev : blockers));
+    };
+    // Placement is anchored strictly to the user's chosen edge and ratio within stable viewport
+    // bounds—never recalculated on scroll, DOM mutations, or Labs toggles—so it never drifts.
+    const place = (force = false) => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const b = bounds();
-        setViewport({ top: b.top, height: b.height });
-        const blockers = [...document.querySelectorAll<HTMLElement>('dialog[open],.cc-photo-viewer,.cc-detail,.cc-settings[open]')].some(el => el.getClientRects().length > 0);
-        setObscured(blockers);
-        if (drag.current || !replace && placed) return;
-        placed = true;
-        const x = latestPosition.current.side === 'left' ? b.left : b.width - 78;
-        const preferred = b.minY + latestPosition.current.ratio * (b.maxY - b.minY);
-        const controls = [...document.querySelectorAll<HTMLElement>('button,a,input,textarea,select,[role="button"]')].filter(el => !el.closest('.cc-assistant-launcher,.cc-assistant-workspace.is-panel') && el.getClientRects().length && !el.closest('[hidden]')).map(el => el.getBoundingClientRect());
-        const candidates = [preferred, ...Array.from({ length: Math.ceil((b.maxY - b.minY) / 12) + 1 }, (_, i) => b.minY + i * 12)].sort((a, c) => Math.abs(a - preferred) - Math.abs(c - preferred));
-        const y = candidates.find(y => !controls.some(r => r.width > 0 && r.height > 0 && x < r.right + 6 && x + 68 > r.left - 6 && y < r.bottom + 6 && y + 76 > r.top - 6));
-        setPlacement({ x, y: y ?? preferred, safe: y !== undefined });
+        if (open) setViewport(prev => (prev.top === b.top && prev.height === b.height ? prev : { top: b.top, height: b.height }));
+        checkBlockers();
+        if (drag.current) return;
+        const widthChanged = lastWidth !== 0 && Math.abs(b.width - lastWidth) > 2;
+        if (!force && !widthChanged) {
+          // On vertical-only resizes (e.g. mobile browser address bar), keep current y unless out of bounds.
+          setPlacement(prev => {
+            if (!prev.safe) return prev;
+            const clampedY = Math.round(clamp(prev.y, b.minY, b.maxY));
+            const nextX = latestPosition.current.side === 'left' ? b.left : Math.round(b.width - 78);
+            return prev.x === nextX && prev.y === clampedY ? prev : { x: nextX, y: clampedY, safe: true };
+          });
+          return;
+        }
+        lastWidth = b.width;
+        const x = latestPosition.current.side === 'left' ? b.left : Math.round(b.width - 78);
+        const y = Math.round(b.minY + latestPosition.current.ratio * (b.maxY - b.minY));
+        setPlacement(prev => (prev.x === x && prev.y === y && prev.safe ? prev : { x, y, safe: true }));
       });
     };
-    measure();
-    const settle = () => measure(false);
-    const observer = new MutationObserver(settle);
-    // Attribute changes on this shell are excluded to avoid observing our own layout writes.
+    place(true);
+    const onMutate = () => checkBlockers();
+    const observer = new MutationObserver(onMutate);
     observer.observe(document.querySelector('.cc-app') || document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'hidden'] });
-    const resize = () => measure();
-    window.addEventListener('resize', resize); window.addEventListener('scroll', settle, true);
-    window.visualViewport?.addEventListener('resize', resize); window.visualViewport?.addEventListener('scroll', settle);
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', resize); window.removeEventListener('scroll', settle, true); window.visualViewport?.removeEventListener('resize', resize); window.visualViewport?.removeEventListener('scroll', settle); };
+    const onResize = () => place(false);
+    const onViewportScroll = () => {
+      if (!open) return;
+      const b = bounds();
+      setViewport(prev => (prev.top === b.top && prev.height === b.height ? prev : { top: b.top, height: b.height }));
+    };
+    window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('scroll', onViewportScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('scroll', onViewportScroll);
+    };
   }, [bounds, position, open, library, hidden]);
   useEffect(() => {
     if (!open) return;
@@ -120,8 +143,17 @@ export function AssistantShell({ open, library, mode, onMode, onOpen, onMinimize
   };
   return <>
     <section ref={shell} id="cupcake-assistant" hidden={!open && !library} className={`cc-assistant-workspace ${library ? 'is-library' : 'is-panel'}`} aria-label={library ? 'Private Library' : `${name} assistant`} style={{ '--assistant-vh': `${viewport.height}px`, '--assistant-vtop': `${viewport.top}px` } as CSSProperties} onKeyDown={e => { if (e.key === 'Escape' && open && !e.defaultPrevented && !document.querySelector('dialog[open],.cc-photo-viewer,.cc-detail')) { e.preventDefault(); onMinimize(); } }}>
-      <header className="cc-assistant-head" hidden={library}><AssistantPortrait persona={persona} name={name} small busy={busy}/><div><h2 ref={heading} tabIndex={-1}>{name}</h2><p>{busy ? activity.label : ACCOUNT_SESSIONS ? 'Here with you' : 'Here with you · choose how to connect'}</p></div><button type="button" className="cc-assistant-icon" aria-label="Minimize assistant" onClick={onMinimize}><Minus size={20}/></button></header>
-      <div className="cc-assistant-modes" role="group" aria-label="Assistant mode" hidden={library} style={{ '--mode-index': Math.max(0, modes.findIndex(m => m.key === mode)) } as CSSProperties}><span className="cc-assistant-modes-thumb" aria-hidden="true"/>{modes.map(({ key, label, Icon }) => <button key={key} type="button" aria-pressed={mode === key} disabled={busy && key !== 'text' && activity.kind !== key} onClick={() => onMode(key)}><Icon size={17}/>{label}</button>)}</div>
+      <header className="cc-assistant-head" hidden={library}><AssistantPortrait persona={persona} name={name} small busy={busy}/><div><h2 ref={heading} tabIndex={-1}>{name}</h2>{(!ACCOUNT_SESSIONS || busy) && <p>{busy ? activity.label : 'Here with you · choose how to connect'}</p>}</div><button type="button" className="cc-assistant-icon" aria-label="Minimize assistant" onClick={onMinimize}><Minus size={20}/></button></header>
+      {ACCOUNT_SESSIONS ? (
+        !library && mode !== 'text' && <div className="cc-assistant-mode-bar" role="group" aria-label="Assistant mode">
+          <button type="button" className="cc-assistant-back" onClick={() => onMode('text')}><ArrowLeft size={15} aria-hidden="true"/>Back to chat</button>
+          {mode === 'voice'
+            ? <button type="button" className="cc-assistant-switch" disabled={busy && activity.kind !== 'record'} onClick={() => onMode('record')}><Mic size={15} aria-hidden="true"/>Record</button>
+            : <button type="button" className="cc-assistant-switch" disabled={busy && activity.kind !== 'voice'} onClick={() => onMode('voice')}><Headphones size={15} aria-hidden="true"/>Live voice</button>}
+        </div>
+      ) : (
+        <div className="cc-assistant-modes" role="group" aria-label="Assistant mode" hidden={library} style={{ '--mode-index': Math.max(0, modes.findIndex(m => m.key === mode)) } as CSSProperties}><span className="cc-assistant-modes-thumb" aria-hidden="true"/>{modes.map(({ key, label, Icon }) => <button key={key} type="button" aria-pressed={mode === key} disabled={busy && key !== 'text' && activity.kind !== key} onClick={() => onMode(key)}><Icon size={17}/>{label}</button>)}</div>
+      )}
       <div className="cc-assistant-body">{children}</div>
       <footer className="cc-assistant-footer" hidden={library}><button type="button" onClick={onLibrary}><Library size={15}/>Private Library & originals</button>{hidden && <button type="button" onClick={showCompanion}>Show floating companion</button>}<span>{ACCOUNT_SESSIONS ? 'Audio keeps running when minimized' : 'Minimizing keeps active audio running.'}</span></footer>
     </section>

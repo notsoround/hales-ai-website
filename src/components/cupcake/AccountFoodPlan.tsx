@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ChevronDown, Minus, Package, Plus, Receipt, RotateCcw, Sparkles, X } from 'lucide-react';
 import { libraryRequest } from './library';
 import { AccountRequestError } from './accountSession';
 import { personalStorage } from './personalStorage';
-import { draftPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, rebasePlanDraft, samePlan, PLAN_DRAFT_KEY, type MealPlan, type PlanDraft, type PlanIntent } from './foodPlanModel';
+import { draftPlan, matchTodayMealsToPlan, parseMealPlan, planDraft, planDraftError, readPlanRecovery, rebasePlanDraft, samePlan, suggestForMealSlot, PLAN_DRAFT_KEY, type MealPlan, type PlanDraft, type PlanIntent } from './foodPlanModel';
 import './account-food-plan.css';
 import './noir/noir-plan.css';
 import { parsePlanText } from './planImport';
@@ -10,7 +11,38 @@ import { useLab } from './labsFlags';
 import { useDataChanged } from './dataChanges';
 import { appConfirm } from './appConfirm';
 import { AccountPlanBuilder } from './AccountPlanBuilder';
-import { appendGroceryItems, checkGroceryItem, groceryHeadings, groceryItems, groceryNotes, missingGroceryItems } from './groceryChecklist';
+import { useNutritionSnapshot } from './nutritionApi';
+import { mealTimeLabel, nutritionDay, nutritionDays } from './nutritionModel';
+import {
+  GROCERY_CATEGORIES,
+  PANTRY_CHANGED_EVENT,
+  addPantryItem,
+  appendCategorizedGroceries,
+  appendGroceryItems,
+  checkGroceryItem,
+  estimatePantryWithMeals,
+  groceryHeadings,
+  groceryItems,
+  groceryNotes,
+  markPantryItemUsed,
+  missingGroceryItems,
+  readPantryItems,
+  registerPantryStorage,
+  removePantryItem,
+  restockPantryItem,
+  triageGroceryText,
+  type PantryItem,
+} from './groceryChecklist';
+
+registerPantryStorage(personalStorage);
+
+function receiptsTabHref() {
+  if (typeof location === 'undefined') return '?tab=library&view=receipts';
+  const url = new URL(location.href);
+  url.search = new URLSearchParams({ tab: 'library', view: 'receipts' }).toString();
+  url.hash = '';
+  return url.pathname + url.search;
+}
 
 /** `both` (desktop) shows the meal plan and groceries side by side from one draft and one save. */
 export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'plan' | 'groceries' | 'both'; onPlan: () => void; onGroceries?: () => void }) {
@@ -31,6 +63,17 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [choosingItems, setChoosingItems] = useState(false), [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [shoppingError, setShoppingError] = useState('');
+  const [expandedSlot, setExpandedSlot] = useState<number | null>(null);
+  const [smartImportText, setSmartImportText] = useState(''), [excludedTriaged, setExcludedTriaged] = useState<string[]>([]);
+  const [smartImportNotice, setSmartImportNotice] = useState('');
+  const [pantry, setPantry] = useState<PantryItem[]>(() => readPantryItems());
+  const [newPantryItem, setNewPantryItem] = useState('');
+  const nutritionSnapshot = useNutritionSnapshot();
+  useEffect(() => {
+    const syncPantry = () => setPantry(readPantryItems());
+    window.addEventListener(PANTRY_CHANGED_EVENT, syncPantry);
+    return () => window.removeEventListener(PANTRY_CHANGED_EVENT, syncPantry);
+  }, []);
   const checklistHeading = useRef<HTMLHeadingElement>(null), focusChecklist = useRef(false);
   const both = section === 'both', planTitle = useRef<HTMLInputElement>(null), shopHeading = useRef<HTMLHeadingElement>(null);
   // Side by side, both halves are already on screen: move focus instead of switching sections.
@@ -46,9 +89,32 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
   const groceries = groceryItems(draft.groceries);
   const suggestions = missingGroceryItems(draft.groceries, draft.meals.flatMap(meal => groceryItems(meal.items).map(item => item.label)));
   const selected = suggestions.filter(item => selectedItems.includes(item));
-  const reading = !editingPlan && !dirty && !!base?.meals.length;
+  const reading = !editingPlan && !pending && samePlan(value.meals, base?.meals || []) && !!base?.meals.length;
   const plannedKcal = draft.meals.reduce((sum, meal) => sum + (meal.kcal.trim() && Number.isFinite(Number(meal.kcal)) ? Number(meal.kcal) : 0), 0), unknownKcal = draft.meals.filter(meal => !meal.kcal.trim()).length;
   const checkedCount = groceries.filter(item => item.checked).length;
+
+  const today = nutritionDay();
+  const todayLoggedMeals = useMemo(() => {
+    if (!nutritionSnapshot.history?.meals.length) return [];
+    return nutritionDays(nutritionSnapshot.history.meals, [today], nutritionSnapshot.settings)[0]?.meals || [];
+  }, [nutritionSnapshot.history, nutritionSnapshot.settings, today]);
+  const todayLoggedKcal = useMemo(
+    () => Math.round(todayLoggedMeals.reduce((sum, meal) => sum + (typeof meal.total?.calories === 'number' && Number.isFinite(meal.total.calories) ? meal.total.calories : 0), 0)),
+    [todayLoggedMeals],
+  );
+  const slotTracking = useMemo(
+    () => matchTodayMealsToPlan(
+      draft.meals.map(meal => ({ name: meal.name, kcal: meal.kcal.trim() && Number.isFinite(Number(meal.kcal)) ? Number(meal.kcal) : null })),
+      todayLoggedMeals,
+    ),
+    [draft.meals, todayLoggedMeals],
+  );
+
+  const triagedPreview = useMemo(() => triageGroceryText(smartImportText), [smartImportText]);
+  const activeTriaged = useMemo(() => triagedPreview.filter(item => !excludedTriaged.includes(item.id)), [triagedPreview, excludedTriaged]);
+  const estimatedPantry = useMemo(() => estimatePantryWithMeals(pantry, nutritionSnapshot.history?.meals || []), [pantry, nutritionSnapshot.history]);
+  const runningLowItems = useMemo(() => estimatedPantry.filter(item => item.status === 'low'), [estimatedPantry]);
+  const missingLowLabels = useMemo(() => missingGroceryItems(draft.groceries, runningLowItems.map(item => item.name)), [draft.groceries, runningLowItems]);
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -136,10 +202,91 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
     {loaded && <>
       <p className="cc-plan-save-state" role="status">{pending ? 'Save unconfirmed · original request kept for retry' : dirty ? 'Unsaved changes · draft kept in this browser tab' : base ? 'Saved plan loaded from your account' : 'No saved meal plan yet'}</p>
       <fieldset disabled={busy || !!pending} className="cc-plan-fields">
-        {(() => { const planPart = reading ? <div className="nx-plan-read">
-          <header><div><h4>{draft.title || 'Meal plan'}</h4><p>{plannedKcal > 0 ? `${Math.round(plannedKcal).toLocaleString('en-US')} kcal planned` : `${draft.meals.length} planned ${draft.meals.length === 1 ? 'meal' : 'meals'}`}{plannedKcal > 0 && unknownKcal > 0 ? ` · ${unknownKcal} without calories` : ''}</p></div>
+        {(() => { const addItemsToDraft = (labels: string[], sourceLabel: string) => {
+          if (busy || pending || !labels.length) return;
+          try {
+            const missing = missingGroceryItems(draft.groceries, labels);
+            if (!missing.length) { setNotice('Those items are already on your grocery list.'); return; }
+            const nextGroceries = appendGroceryItems(draft.groceries, missing);
+            edit({ ...draft, groceries: nextGroceries });
+            setNotice(`Added ${missing.length} ${missing.length === 1 ? 'item' : 'items'} from ${sourceLabel} to your grocery draft. Save plan & groceries when ready.`);
+          } catch (cause) { setShoppingError(cause instanceof Error ? cause.message : 'These items could not be added.'); }
+        };
+        const applySmartImport = () => {
+          if (busy || pending || !activeTriaged.length) return;
+          try {
+            const nextGroceries = appendCategorizedGroceries(draft.groceries, activeTriaged);
+            if (nextGroceries === draft.groceries) { setSmartImportNotice('All parsed items are already on your list.'); return; }
+            edit({ ...draft, groceries: nextGroceries });
+            const addedCount = activeTriaged.length;
+            setSmartImportText(''); setExcludedTriaged([]);
+            setSmartImportNotice(`Triaged & added ${addedCount} ${addedCount === 1 ? 'item' : 'items'} to your grocery draft. Review below, then Save plan & groceries.`);
+          } catch (cause) { setSmartImportNotice(cause instanceof Error ? cause.message : 'Could not import these items.'); }
+        };
+        const planPart = reading ? <div className="nx-plan-read">
+          <header><div><h4>{draft.title || 'Meal plan'}</h4><p>{plannedKcal > 0 ? `${Math.round(plannedKcal).toLocaleString('en-US')} kcal planned` : `${draft.meals.length} planned ${draft.meals.length === 1 ? 'meal' : 'meals'}`}{plannedKcal > 0 && unknownKcal > 0 ? ` · ${unknownKcal} without calories` : ''}{todayLoggedMeals.length > 0 ? ` · ${todayLoggedKcal.toLocaleString('en-US')} logged today` : ''}</p></div>
             <button type="button" className="cc-secondary nx-plan-edit" onClick={() => { setEditingPlan(true); requestAnimationFrame(() => planTitle.current?.focus()); }}>Edit plan</button></header>
-          <ol>{draft.meals.map((meal, index) => <li key={index}><div><strong>{meal.name}</strong><span>{meal.items.split('\n').map(item => item.trim()).filter(Boolean).join(' · ')}</span></div>{meal.kcal.trim() ? <b>{Math.round(Number(meal.kcal)).toLocaleString('en-US')}<small>kcal</small></b> : <b className="is-unknown">—</b>}</li>)}</ol>
+          <ol>{draft.meals.map((meal, index) => {
+            const track = slotTracking[index];
+            const isOpen = expandedSlot === index;
+            const slotItems = meal.items.split('\n').map(item => item.trim()).filter(Boolean);
+            const targetVal = meal.kcal.trim() && Number.isFinite(Number(meal.kcal)) ? Number(meal.kcal) : null;
+            const slotIdeas = isOpen ? suggestForMealSlot({ name: meal.name, items: slotItems, kcal: targetVal }, track?.deltaKcal) : [];
+            const pct = track?.progress != null ? Math.min(100, Math.round(track.progress * 100)) : 0;
+            return <li key={index} className={`nx-plan-slot${isOpen ? ' is-open' : ''}${track?.status === 'over' ? ' is-over' : ''}`}>
+              <button type="button" className="nx-plan-slot-btn" aria-expanded={isOpen} onClick={() => setExpandedSlot(isOpen ? null : index)}>
+                <div className="nx-plan-slot-main">
+                  <div className="nx-plan-slot-title">
+                    <strong>{meal.name}</strong>
+                    {track?.status === 'over' && <span className="nx-slot-badge is-over"><AlertTriangle size={12} aria-hidden="true" />+{Math.abs(track.deltaKcal!).toLocaleString('en-US')} kcal over</span>}
+                    {track?.status === 'hit' && <span className="nx-slot-badge is-hit">On target</span>}
+                    {track?.status === 'on_track' && track.deltaKcal != null && <span className="nx-slot-badge is-track">{track.deltaKcal.toLocaleString('en-US')} kcal left</span>}
+                    {track?.status === 'logged_no_target' && <span className="nx-slot-badge is-track">{track.loggedKcal.toLocaleString('en-US')} kcal logged</span>}
+                  </div>
+                  <span className="nx-plan-slot-items">{slotItems.join(' · ')}</span>
+                  {track && track.loggedMeals.length > 0 && track.targetKcal != null && (
+                    <span className="nx-slot-bar" aria-hidden="true"><i className={track.status === 'over' ? 'is-over' : undefined} style={{ width: `${pct}%` }} /></span>
+                  )}
+                </div>
+                <span className="nx-plan-slot-right">
+                  {targetVal !== null ? <b>{Math.round(targetVal).toLocaleString('en-US')}<small>kcal</small></b> : <b className="is-unknown">—</b>}
+                  <ChevronDown size={15} aria-hidden="true" className="nx-slot-chev" />
+                </span>
+              </button>
+              {isOpen && <div className="nx-slot-drawer">
+                {track && track.loggedMeals.length > 0 && <div className={`nx-slot-logged${track.status === 'over' ? ' is-over' : ''}`}>
+                  <div className="nx-slot-logged-head">
+                    <span>Logged today ({track.loggedKcal.toLocaleString('en-US')} kcal{track.targetKcal ? ` / ${Math.round(track.targetKcal).toLocaleString('en-US')} target` : ''})</span>
+                    {track.status === 'over' && <strong>Exceeded target by {Math.abs(track.deltaKcal!).toLocaleString('en-US')} kcal</strong>}
+                    {track.status === 'on_track' && track.deltaKcal != null && <strong>{track.deltaKcal.toLocaleString('en-US')} kcal remaining</strong>}
+                  </div>
+                  <ul>{track.loggedMeals.map(logged => <li key={logged.id}><span>{logged.description}</span><small>{mealTimeLabel(logged.consumedAt, false)} · {typeof logged.total?.calories === 'number' ? `${Math.round(logged.total.calories)} kcal` : 'kcal unknown'}</small></li>)}</ul>
+                </div>}
+                <div className="nx-slot-ideas-head">
+                  <span>{track?.status === 'on_track' && track.deltaKcal && track.deltaKcal >= 100 && track.deltaKcal < (targetVal || 0) - 40 ? `Ideas to finish this slot (~${track.deltaKcal} kcal left)` : targetVal ? `Calorie-matched ideas (~${Math.round(targetVal)} kcal)` : `Balanced ideas for ${meal.name}`}</span>
+                </div>
+                <div className="nx-slot-ideas">
+                  {slotIdeas.map(idea => {
+                    const missing = missingGroceryItems(draft.groceries, idea.items);
+                    return <article key={idea.id} className={`nx-slot-idea${idea.fromPlan ? ' is-plan' : ''}`}>
+                      <div className="nx-slot-idea-top">
+                        <div>
+                          {idea.fromPlan && <span className="nx-slot-idea-tag">Your plan</span>}
+                          <h5>{idea.title}</h5>
+                          <p>{idea.subtitle}</p>
+                        </div>
+                        <span className="nx-slot-idea-kcal">~{idea.kcal}<small>kcal</small></span>
+                      </div>
+                      <div className="nx-slot-idea-foot">
+                        <span className="nx-slot-macros">{idea.proteinG}g P · {idea.carbsG}g C · {idea.fatG}g F</span>
+                        <button type="button" className="nx-slot-add-btn" disabled={!missing.length} onClick={() => addItemsToDraft(idea.items, idea.title)}>{missing.length ? `+ ${missing.length} to groceries` : 'On list'}</button>
+                      </div>
+                    </article>;
+                  })}
+                </div>
+              </div>}
+            </li>;
+          })}</ol>
           {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">{both ? '↓' : '→'}</span></button>}
         </div> : <>
           <details className="cc-plan-import"><summary>Paste or upload a plan</summary><div>
@@ -174,6 +321,32 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
               <button type="button" className="cc-secondary" disabled={!selected.length} onClick={addShoppingItems}>Add {selected.length} {selected.length === 1 ? 'item' : 'items'} to grocery draft</button>
             </fieldset>}
           </div>
+
+          <details className="nx-smart-import">
+            <summary><Sparkles size={15} aria-hidden="true" /><span>Smart import · paste a list or notes</span></summary>
+            <div className="nx-smart-import-body">
+              <p className="cc-muted cc-small">Paste texts, Robyn’s notes, or a rough list. Items are automatically sorted into Produce, Protein, Dairy, Pantry, Household, and Notes.</p>
+              <label>Paste unstructured list<textarea rows={4} maxLength={6000} value={smartImportText} placeholder={'Hey grab chicken breast, 2 avocados, Greek yogurt, oats, paper towels, and remind me to check olive oil'} onChange={event => { setSmartImportText(event.target.value); setExcludedTriaged([]); setSmartImportNotice(''); }} /></label>
+              {triagedPreview.length > 0 && <div className="nx-triage-preview" aria-label="Triaged grocery preview">
+                {GROCERY_CATEGORIES.map(category => {
+                  const group = triagedPreview.filter(item => item.category === category);
+                  if (!group.length) return null;
+                  return <div key={category} className="nx-triage-group">
+                    <small>{category}</small>
+                    <div className="nx-triage-chips">{group.map(item => {
+                      const kept = !excludedTriaged.includes(item.id);
+                      return <button key={item.id} type="button" className={`nx-triage-chip${kept ? ' is-kept' : ''}`} aria-pressed={kept} onClick={() => setExcludedTriaged(curr => curr.includes(item.id) ? curr.filter(id => id !== item.id) : [...curr, item.id])}>
+                        <span>{item.label}</span>
+                      </button>;
+                    })}</div>
+                  </div>;
+                })}
+                <button type="button" className="cc-secondary nx-triage-apply" disabled={!activeTriaged.length} onClick={applySmartImport}>Add {activeTriaged.length} categorized {activeTriaged.length === 1 ? 'item' : 'items'} to grocery draft</button>
+              </div>}
+              {smartImportNotice && <p role="status" className="cc-muted cc-small">{smartImportNotice}</p>}
+            </div>
+          </details>
+
           <div className="cc-grocery-checklist" aria-label="Grocery checklist">
             <div className="cc-heading-row"><h4 ref={checklistHeading} tabIndex={-1} className="cc-shopping-heading">Shopping checklist</h4><span className="cc-muted cc-small">{checkedCount} of {groceries.length} checked</span></div>
             {groceries.length > 0 && <div className="nx-grocery-progress" aria-hidden="true"><i style={{ width: `${checkedCount / groceries.length * 100}%` }}/></div>}
@@ -184,6 +357,44 @@ export function AccountFoodPlan({ section, onPlan, onGroceries }: { section: 'pl
             <form className="cc-grocery-add" onSubmit={event => { event.preventDefault(); const item = newItem.trim(); if (!item) return; try { edit({ ...draft, groceries: appendGroceryItems(draft.groceries, [item]) }); setNewItem(''); setAddError(''); } catch (failure) { setAddError(failure instanceof Error ? failure.message : 'That item could not be added.'); } }}><label className="cc-sr-only" htmlFor="cc-grocery-new">Add a grocery item</label><input id="cc-grocery-new" maxLength={300} value={newItem} placeholder="Add an item, e.g. 2 avocados" enterKeyHint="done" onChange={event => { setNewItem(event.target.value); setAddError(''); }}/><button type="submit" className="cc-secondary" disabled={!newItem.trim()}>Add</button></form>
             {addError && <p role="alert" className="cc-error cc-small">{addError}</p>}
           </div>
+
+          <section className="nx-pantry" aria-label="Household pantry">
+            <div className="nx-pantry-head">
+              <div>
+                <h4><Package size={15} aria-hidden="true" />Household pantry</h4>
+                <small>Estimated local inventory · updates as receipts are routed &amp; meals are logged</small>
+              </div>
+              <a className="nx-pantry-receipts-link" href={receiptsTabHref()}><Receipt size={14} aria-hidden="true" />Receipts</a>
+            </div>
+            {missingLowLabels.length > 0 && <div className="nx-pantry-low-banner" role="region" aria-label="Running low items">
+              <div>
+                <strong>Running low ({missingLowLabels.length})</strong>
+                <span>{missingLowLabels.slice(0, 4).join(', ')}{missingLowLabels.length > 4 ? ` +${missingLowLabels.length - 4} more` : ''}</span>
+              </div>
+              <button type="button" className="nx-pantry-low-btn" onClick={() => addItemsToDraft(missingLowLabels, 'running-low pantry')}>Add to shopping list</button>
+            </div>}
+            {estimatedPantry.length > 0 ? <ul className="nx-pantry-list">{estimatedPantry.map(item => {
+              const alreadyOnList = !missingGroceryItems(draft.groceries, [item.name]).length;
+              return <li key={item.id} className={item.status === 'low' ? 'is-low' : undefined}>
+                <div className="nx-pantry-item-info">
+                  <strong>{item.name}</strong>
+                  <small>{item.category} · {item.status === 'low' ? 'Running low' : `~${item.estimatedRemaining} left`}{item.sourceMerchant ? ` · ${item.sourceMerchant}` : ''}{item.matchedMealsCount > 0 ? ` · −${item.matchedMealsCount} from meals` : ''}</small>
+                </div>
+                <div className="nx-pantry-item-actions">
+                  {item.status === 'low' && !alreadyOnList && <button type="button" className="nx-pantry-pill" onClick={() => addItemsToDraft([item.name], 'pantry')}><Plus size={12} aria-hidden="true" />List</button>}
+                  <button type="button" className="nx-pantry-icon-btn" aria-label={`Use one serving of ${item.name}`} title="Mark 1 used" onClick={() => setPantry(markPantryItemUsed(item.id, 1))}><Minus size={13} aria-hidden="true" /></button>
+                  {item.status === 'low' && <button type="button" className="nx-pantry-icon-btn" aria-label={`Restock ${item.name}`} title="Restocked" onClick={() => setPantry(restockPantryItem(item.id))}><RotateCcw size={13} aria-hidden="true" /></button>}
+                  <button type="button" className="nx-pantry-icon-btn" aria-label={`Remove ${item.name} from pantry`} title="Remove" onClick={() => setPantry(removePantryItem(item.id))}><X size={13} aria-hidden="true" /></button>
+                </div>
+              </li>;
+            })}</ul> : <p className="cc-muted cc-small">Route a confirmed grocery receipt from Receipts or add staples on hand below.</p>}
+            <form className="nx-pantry-add" onSubmit={event => { event.preventDefault(); const label = newPantryItem.trim(); if (!label) return; setPantry(addPantryItem(label)); setNewPantryItem(''); }}>
+              <label className="cc-sr-only" htmlFor="nx-pantry-new">Add pantry staple</label>
+              <input id="nx-pantry-new" maxLength={120} value={newPantryItem} placeholder="Add staple on hand, e.g. Eggs" onChange={event => setNewPantryItem(event.target.value)} />
+              <button type="submit" className="cc-secondary" disabled={!newPantryItem.trim()}>Stock</button>
+            </form>
+          </section>
+
           {(() => { const showText = textOpen || !groceries.length; return <div className="cc-grocery-text">
             {groceries.length > 0 && <button type="button" className="cc-text-button cc-grocery-text-toggle" aria-expanded={showText} aria-controls="cc-grocery-text" onClick={() => setTextOpen(!showText)}>Edit list as text<span aria-hidden="true">▾</span></button>}
             {showText && <div id="cc-grocery-text">

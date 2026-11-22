@@ -32,3 +32,9 @@
 .cc-bought > :not(label){flex-basis:100%}
 /* Wins & losses: inside a detail, only the detail's own back link shows (no stacked "Back to Today" + "Back to …"). */
 .cc-app .cc-week-back:has(~ .cc-dashboard-detail, ~ * .cc-dashboard-detail){display:none}
+/* Account Noir: solid opaque surface & safe-area clearance in top layer. */
+.cc-app[data-entry=account] dialog.cc-signal-sheet{background:#0e1518;color:var(--nx-ink);border:1px solid rgba(255,255,255,.1)}
+.cc-app[data-entry=account][data-appearance=rose] dialog.cc-signal-sheet{background:#151020}
+@media(max-width:599px){
+  .cc-app[data-entry=account] dialog.cc-signal-sheet{padding:8px 18px calc(26px + env(safe-area-inset-bottom,0px))}
+}

@@ -69,3 +69,109 @@
   .cc-receipt-amount strong { font-size: .9rem; }
 }
 @media (prefers-reduced-motion: reduce) { .cc-receipt-candidate { transition: none; } }
+
+/* ---------- Status summary, filters, cash payment & pantry loop ---------- */
+.cc-receipt-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cc-receipt-top-row h2 { margin-top: 0; }
+.cc-receipt-pantry-jump {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px;
+  border-radius: 99px; border: 1px solid var(--nx-hair, rgba(255,255,255,.14));
+  background: var(--nx-surface, rgba(255,255,255,.04)); color: var(--nx-a, #39e6d2);
+  font: 500 12.5px/1 var(--nx-text, inherit); text-decoration: none; white-space: nowrap;
+}
+.cc-receipt-status-bar { display: grid; gap: 10px; margin: 0 0 14px; }
+.cc-receipt-counters {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px;
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--nx-hair, rgba(255,255,255,.12));
+  background: var(--nx-hair, rgba(255,255,255,.12));
+}
+.cc-receipt-stat {
+  display: grid; gap: 2px; padding: 12px 10px; text-align: center;
+  background: var(--cc-surface, rgba(255,255,255,.03));
+}
+.cc-app[data-entry=account] .cc-receipt-stat { background: var(--nx-surface); }
+.cc-receipt-stat strong {
+  font: 300 24px/1 var(--nx-display, inherit); letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums; color: var(--nx-ink, inherit);
+}
+.cc-receipt-stat span {
+  font: 500 10.5px/1.2 var(--nx-text, inherit); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--nx-ink-3, #b6a7bf);
+}
+.cc-receipt-stat.is-attention strong { color: var(--nx-warm, #f2b45b); }
+.cc-receipt-stat.is-matched strong { color: var(--nx-good, #5fe3a1); }
+.cc-receipt-stat.is-cash strong { color: var(--nx-a, #39e6d2); }
+
+.cc-receipt-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.cc-receipt-filters button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 13px;
+  border-radius: 99px; border: 1px solid var(--nx-hair, rgba(255,255,255,.14));
+  background: transparent; color: var(--nx-ink-3, #b6a7bf);
+  font: 500 12.5px/1 var(--nx-text, inherit); cursor: pointer;
+}
+.cc-receipt-filters button span {
+  font-variant-numeric: tabular-nums; opacity: .8; font-size: 11.5px;
+}
+.cc-receipt-filters button[aria-pressed=true] {
+  border-color: color-mix(in oklab, var(--nx-a, #39e6d2) 45%, transparent);
+  background: color-mix(in oklab, var(--nx-a, #39e6d2) 12%, transparent);
+  color: var(--nx-ink, #fff);
+}
+.cc-receipt-filter-empty {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 14px 16px; border-radius: 16px; border: 1px dashed var(--nx-hair, rgba(255,255,255,.16));
+  margin-bottom: 16px;
+}
+.cc-receipt-filter-empty p { margin: 0; }
+.cc-receipt-pill { font-style: normal; font-weight: 500; }
+.cc-receipt-pill.is-matched { color: var(--nx-good, #6be08a); }
+.cc-receipt-pill.is-cash { color: var(--nx-a, #39e6d2); }
+.cc-receipt-pill.is-unmatched { color: var(--nx-warm, #f2b45b); }
+
+.cc-receipt-match-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+.cc-receipt-cash-btn { display: inline-flex; align-items: center; gap: 7px; }
+.cc-receipt-cash-confirmed {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 14px 16px; border-radius: 16px;
+  border: 1px solid color-mix(in oklab, var(--nx-a, #39e6d2) 34%, transparent);
+  background: color-mix(in oklab, var(--nx-a, #39e6d2) 8%, transparent);
+}
+.cc-receipt-cash-confirmed strong {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--nx-a, #39e6d2);
+}
+.cc-receipt-cash-confirmed p { margin: 4px 0 0; font-size: 12.5px; }
+
+.cc-receipt-pantry-box {
+  display: grid; gap: 10px; padding: 14px 16px; margin: 0 0 16px; border-radius: 16px;
+  border: 1px solid var(--nx-hair, rgba(255,255,255,.12));
+  background: var(--nx-surface, rgba(255,255,255,.03));
+}
+.cc-receipt-pantry-box strong { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--nx-ink, inherit); }
+.cc-receipt-pantry-box strong svg { color: var(--nx-a, #39e6d2); }
+.cc-receipt-pantry-box small { display: block; margin-top: 3px; font-size: 12px; color: var(--nx-ink-3, #b6a7bf); }
+.cc-receipt-pantry-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cc-receipt-pantry-status { margin: 0; font-size: 12.5px; color: var(--nx-good, #6be08a); }
+
+/* ---------- Cupcake Noir Account overrides for Receipts ---------- */
+.cc-app[data-entry=account] .cc-receipts { --receipt-line: var(--nx-hair); color: var(--nx-ink); font-family: var(--nx-text); }
+.cc-app[data-entry=account] .cc-receipt-total small,
+.cc-app[data-entry=account] .cc-receipt-breakdown dt,
+.cc-app[data-entry=account] .cc-receipt-original figcaption,
+.cc-app[data-entry=account] .cc-receipt-hint,
+.cc-app[data-entry=account] .cc-receipt-merchant small,
+.cc-app[data-entry=account] .cc-receipt-amount small,
+.cc-app[data-entry=account] .cc-receipt-options legend { color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-receipt-total strong { font-family: var(--nx-display); font-weight: 300; color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-receipt-sources a { color: var(--nx-a); }
+.cc-app[data-entry=account] .cc-receipt-evidence { color: var(--nx-ink-2, var(--nx-ink)); }
+.cc-app[data-entry=account] .cc-receipt-evidence summary,
+.cc-app[data-entry=account] .cc-receipt-alternatives > summary { color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-receipt-confirmed {
+  border-color: color-mix(in oklab, var(--nx-good) 34%, transparent);
+  background: color-mix(in oklab, var(--nx-good) 8%, transparent);
+  color: var(--nx-good);
+}
+.cc-app[data-entry=account] .cc-receipt-candidate.is-selected,
+.cc-app[data-entry=account] .cc-receipt-saved .cc-library-item.is-current { border-color: var(--nx-a); }
+.cc-app[data-entry=account] .cc-receipts :is(button, a, input, summary):focus-visible { outline: 2px solid var(--nx-a); outline-offset: 3px; }

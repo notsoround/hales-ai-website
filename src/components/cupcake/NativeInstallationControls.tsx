@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { accountNative } from './accountSession';
 import { nativeClient } from './nativeClients';
 import './native-connections.css';
@@ -18,28 +18,53 @@ function installationList(result: unknown): Installation[] {
 export function NativeInstallationControls() {
   const [healthRevision, setHealthRevision] = useState(0);
   const [rows, setRows] = useState<Installation[] | null>(null), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
-  const load = async () => {
-    if (busy) return; setBusy(true); setMessage('');
-    try { setRows(installationList(await accountNative('installations/list', {}))); }
-    catch { setMessage('The connected-app list is unavailable. No connection changes were made.'); }
-    finally { setBusy(false); }
-  };
+  const mounted = useRef(true), busyRef = useRef(false), loadedRef = useRef(false), lastRefreshMs = useRef(0);
+  loadedRef.current = rows !== null;
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const load = useCallback(async (quiet = false) => {
+    if (busyRef.current) return;
+    busyRef.current = true; if (mounted.current) setBusy(true);
+    if (!quiet && mounted.current) setMessage('');
+    try {
+      const next = installationList(await accountNative('installations/list', {}));
+      if (mounted.current) { lastRefreshMs.current = Date.now(); setRows(next); }
+    } catch {
+      if (!quiet && mounted.current) setMessage('The connected-app list is unavailable. No connection changes were made.');
+    } finally {
+      busyRef.current = false; if (mounted.current) setBusy(false);
+    }
+  }, []);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && loadedRef.current && !busyRef.current && Date.now() - lastRefreshMs.current >= 10000) void load(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
   const revoke = async (id: string) => {
-    if (busy) return; setBusy(true); setMessage('');
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true); setMessage('');
     try {
       const result = await accountNative<{ revoked: boolean; installation_id: string }>('installations/revoke', { installation_id: id });
       if (result.installation_id !== id || typeof result.revoked !== 'boolean') throw Error('Unconfirmed response');
       const saved = installationList(await accountNative('installations/list', {}));
       if (saved.some(row => row.installation_id === id && row.status === 'active')) throw Error('Revocation not confirmed');
-      setRows(saved);
-      setMessage('This app connection is disconnected. Your saved account data is kept.');
-    } catch { setMessage('Disconnection could not be confirmed. Reload the list before trying again.'); setRows(null); }
-    finally { setBusy(false); setHealthRevision(value => value + 1); }
+      if (mounted.current) {
+        lastRefreshMs.current = Date.now();
+        setRows(saved);
+        setMessage('This app connection is disconnected. Your saved account data is kept.');
+      }
+    } catch {
+      if (mounted.current) { setMessage('Disconnection could not be confirmed. Reload the list before trying again.'); setRows(null); }
+    } finally {
+      busyRef.current = false;
+      if (mounted.current) { setBusy(false); setHealthRevision(value => value + 1); }
+    }
   };
   return <details className="cc-account-controls cc-native-app-controls"><summary>Mobile app connections</summary>
     <p>The Android and iPhone previews can confirm your name and email. Health uploads require a separate approval. Disconnecting stops an app’s account access and uploads, and keeps saved history.</p>
     <button type="button" className="cc-secondary" disabled={busy} onClick={() => void load()}>{busy ? 'Checking…' : rows === null ? 'Load connected apps' : 'Refresh connected apps'}</button>
-    {rows && (rows.length ? <ul>{rows.map(row => <li key={row.installation_id}><strong>{nativeClient(row.client_id)?.name}</strong><p>{row.status === 'active' ? 'Connected' : row.status === 'expired' ? 'Expired' : 'Disconnected'} · {row.installation_id.slice(-8)}</p><p className="cc-small">Last connected {new Date(row.refreshed * 1000).toLocaleString()}</p>{row.status === 'active' && <button type="button" className="cc-secondary" disabled={busy} aria-label={`Disconnect ${nativeClient(row.client_id)?.device} app ${row.installation_id.slice(-8)}`} onClick={() => void revoke(row.installation_id)}>Disconnect this app</button>}</li>)}</ul> : <p>No mobile apps are connected to this account.</p>)}
+    {rows && (rows.length ? <ul>{rows.map(row => <li key={row.installation_id}><strong>{nativeClient(row.client_id)?.name}</strong><p>{row.status === 'active' ? 'Connected' : row.status === 'expired' ? 'Expired' : 'Disconnected'} · {row.installation_id.slice(-8)}</p><p className="cc-small">Last connected {new Date(row.refreshed * 1000).toLocaleString()}</p>{row.status === 'active' && <button type="button" className="cc-secondary" disabled={busy} aria-label={`Disconnect ${nativeClient(row.client_id)?.device} app ${row.installation_id.slice(-8)}`} onClick={() => void revoke(row.installation_id)}>Disconnect this app</button>}{row.status === 'expired' && <p className="cc-muted cc-small">Reopen the {nativeClient(row.client_id)?.device || 'mobile'} app and reconnect to resume.</p>}</li>)}</ul> : <p>No mobile apps are connected to this account.</p>)}
     {message && <p role="status">{message}</p>}
     <NativeHealthControls key={healthRevision}/>
   </details>;

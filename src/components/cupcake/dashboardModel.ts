@@ -157,3 +157,54 @@ export function signalTypeOptions<T extends { type: string }>(entries: T[]): Sig
 export function entriesOfSignalType<T extends { type: string }>(entries: T[], type: string | null): T[] {
   return type ? entries.filter(entry => entry.type === type) : entries;
 }
+
+const LOW_PRIORITY_SIGNAL_TYPES = new Set(['phone_usage', 'phone_activity', 'sensor', 'shake', 'telemetry', 'system', 'device', 'native_health']);
+const LOW_PRIORITY_SIGNAL_TEXT = /\b(phone\s+shake|shake\s+detected|device\s+shake|motion\s+detected|accelerometer|background\s+sync|health\s+sync\s+ping|heartbeat|screen\s+wake|phone\s+pickup)\b/i;
+
+/** Identifies high-frequency system/device telemetry signals (such as phone shakes or background sync pings)
+ *  that belong in a collapsed group below the fold rather than crowding out real health/spend signals. */
+export function isLowPrioritySignal(entry: { type: string; title?: string; body?: string }): boolean {
+  if (LOW_PRIORITY_SIGNAL_TYPES.has(entry.type)) return true;
+  if (entry.type === 'food') return false;
+  return LOW_PRIORITY_SIGNAL_TEXT.test(`${entry.title || ''} ${entry.body || ''}`);
+}
+
+export type ConsolidatedSignalGroup<T> = {
+  key: string;
+  type: string;
+  title: string;
+  representative: T;
+  entries: T[];
+  count: number;
+  lowPriority: boolean;
+};
+
+/** Groups repeated signals of the same type + normalized title into one summary row with total count,
+ *  and separates low-priority system/device signals so they can be tucked below the fold. */
+export function consolidateSignals<T extends { id?: string; type: string; title?: string; body?: string }>(entries: T[]): {
+  primary: ConsolidatedSignalGroup<T>[];
+  lowPriority: ConsolidatedSignalGroup<T>[];
+  lowPriorityCount: number;
+} {
+  const byKey = new Map<string, ConsolidatedSignalGroup<T>>();
+  const ordered: ConsolidatedSignalGroup<T>[] = [];
+  for (const entry of entries) {
+    const lowPriority = isLowPrioritySignal(entry);
+    const title = String(entry.title || '').trim() || signalTypeLabel(entry.type);
+    const key = `${entry.type}|${title.toLowerCase().replace(/\s+/g, ' ')}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.entries.push(entry);
+      existing.count += 1;
+      if (lowPriority) existing.lowPriority = true;
+    } else {
+      const group: ConsolidatedSignalGroup<T> = { key, type: entry.type, title, representative: entry, entries: [entry], count: 1, lowPriority };
+      byKey.set(key, group);
+      ordered.push(group);
+    }
+  }
+  const primary = ordered.filter(g => !g.lowPriority);
+  const lowPriority = ordered.filter(g => g.lowPriority);
+  const lowPriorityCount = lowPriority.reduce((sum, g) => sum + g.count, 0);
+  return { primary, lowPriority, lowPriorityCount };
+}

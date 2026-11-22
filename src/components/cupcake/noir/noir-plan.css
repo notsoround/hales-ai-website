@@ -15,13 +15,166 @@
 .nx-plan-read header p { margin: 4px 0 0; font: 400 13px/1.3 var(--nx-text); color: var(--nx-ink-3); font-variant-numeric: tabular-nums; }
 .cc-app[data-entry=account] .nx-plan-edit { flex: none; min-height: 38px; padding: 0 16px; border-radius: 99px; font: 500 13px/1 var(--nx-text); }
 .nx-plan-read ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--nx-hair); }
-.nx-plan-read li { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--nx-hair); }
-.nx-plan-read li > div { display: grid; gap: 4px; min-width: 0; }
-.nx-plan-read li strong { font: 500 15px/1.25 var(--nx-text); color: var(--nx-ink); }
-.nx-plan-read li span { font: 400 13px/1.45 var(--nx-text); color: rgba(238,244,245,.66); overflow-wrap: anywhere; }
-.nx-plan-read li b { flex: none; font: 300 22px/1 var(--nx-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--nx-ink); }
-.nx-plan-read li b small { font: 400 11px var(--nx-text); color: var(--nx-ink-3); margin-left: 3px; }
-.nx-plan-read li b.is-unknown { color: var(--nx-ink-3); }
+.nx-plan-read li.nx-plan-slot { display: grid; gap: 0; padding: 0; border-bottom: 1px solid var(--nx-hair); }
+.nx-plan-slot-btn {
+  all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 14px; padding: 14px 2px; cursor: pointer;
+  min-height: 54px; -webkit-tap-highlight-color: transparent;
+}
+.nx-plan-slot-btn:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 2px; border-radius: 10px; }
+.nx-plan-slot-main { display: grid; gap: 5px; min-width: 0; flex: 1; }
+.nx-plan-slot-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nx-plan-slot-title strong { font: 500 15px/1.25 var(--nx-text); color: var(--nx-ink); }
+.nx-plan-slot-items { font: 400 13px/1.45 var(--nx-text); color: var(--nx-ink-2, rgba(238,244,245,.66)); overflow-wrap: anywhere; }
+.nx-plan-slot-right { display: inline-flex; align-items: center; gap: 8px; flex: none; padding-top: 1px; }
+.nx-plan-slot-right b { flex: none; font: 300 22px/1 var(--nx-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--nx-ink); }
+.nx-plan-slot-right b small { font: 400 11px var(--nx-text); color: var(--nx-ink-3); margin-left: 3px; }
+.nx-plan-slot-right b.is-unknown { color: var(--nx-ink-3); }
+.nx-slot-chev { color: var(--nx-ink-3); transition: transform .2s var(--ds-ease, ease); }
+.nx-plan-slot.is-open .nx-slot-chev { transform: rotate(180deg); color: var(--nx-a); }
+.nx-slot-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px;
+  font: 500 11px/1.1 var(--nx-text); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.nx-slot-badge.is-over {
+  color: var(--nx-warm);
+  background: color-mix(in oklab, var(--nx-warm) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--nx-warm) 36%, transparent);
+}
+.nx-slot-badge.is-hit {
+  color: var(--nx-good);
+  background: color-mix(in oklab, var(--nx-good) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--nx-good) 32%, transparent);
+}
+.nx-slot-badge.is-track {
+  color: var(--nx-a);
+  background: color-mix(in oklab, var(--nx-a) 11%, transparent);
+  border: 1px solid color-mix(in oklab, var(--nx-a) 28%, transparent);
+}
+.nx-slot-bar { display: block; width: 100%; max-width: 240px; height: 3px; border-radius: 3px; background: var(--nx-hair); overflow: hidden; margin-top: 2px; }
+.nx-slot-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--nx-a2), var(--nx-a)); }
+.nx-slot-bar i.is-over { background: var(--nx-warm); }
+
+/* ---------- Expanded Meal Slot Drawer ---------- */
+.nx-slot-drawer { display: grid; gap: 12px; padding: 2px 0 16px; min-width: 0; }
+.nx-slot-logged {
+  display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px;
+  background: var(--nx-surface); border: 1px solid var(--nx-hair);
+}
+.nx-slot-logged.is-over {
+  border-color: color-mix(in oklab, var(--nx-warm) 38%, transparent);
+  background: color-mix(in oklab, var(--nx-warm) 7%, var(--nx-surface));
+}
+.nx-slot-logged-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font: 500 12px/1.3 var(--nx-text); color: var(--nx-ink-3); font-variant-numeric: tabular-nums; }
+.nx-slot-logged-head strong { color: var(--nx-a); font-weight: 600; }
+.nx-slot-logged.is-over .nx-slot-logged-head strong { color: var(--nx-warm); }
+.nx-slot-logged ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.nx-slot-logged li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font: 400 13px/1.35 var(--nx-text); color: var(--nx-ink); padding: 0; border: 0; }
+.nx-slot-logged li small { flex: none; color: var(--nx-ink-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.nx-slot-ideas-head span { font: 500 11px/1.2 var(--nx-text); letter-spacing: .1em; text-transform: uppercase; color: var(--nx-ink-3); }
+.nx-slot-ideas { display: grid; gap: 8px; }
+.nx-slot-idea {
+  display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px;
+  background: var(--nx-surface); border: 1px solid var(--nx-hair);
+}
+.nx-slot-idea.is-plan {
+  border-color: color-mix(in oklab, var(--nx-a) 32%, var(--nx-hair));
+  background: color-mix(in oklab, var(--nx-a) 6%, var(--nx-surface));
+}
+.nx-slot-idea-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.nx-slot-idea-top > div { display: grid; gap: 3px; min-width: 0; }
+.nx-slot-idea-tag { font: 600 10px/1 var(--nx-text); letter-spacing: .1em; text-transform: uppercase; color: var(--nx-a); }
+.nx-slot-idea h5 { margin: 0; font: 500 14px/1.3 var(--nx-text); color: var(--nx-ink); }
+.nx-slot-idea p { margin: 0; font: 400 12.5px/1.4 var(--nx-text); color: var(--nx-ink-3); overflow-wrap: anywhere; }
+.nx-slot-idea-kcal { flex: none; font: 300 18px/1 var(--nx-display); font-variant-numeric: tabular-nums; color: var(--nx-ink); }
+.nx-slot-idea-kcal small { font: 400 10.5px var(--nx-text); color: var(--nx-ink-3); margin-left: 2px; }
+.nx-slot-idea-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.nx-slot-macros { font: 500 11.5px/1 var(--nx-text); color: var(--nx-ink-3); font-variant-numeric: tabular-nums; }
+.nx-slot-add-btn {
+  min-height: 34px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--nx-hair);
+  background: var(--nx-surface-2); color: var(--nx-a); font: 500 12px/1 var(--nx-text); cursor: pointer;
+}
+.nx-slot-add-btn:disabled { opacity: .5; color: var(--nx-ink-3); cursor: default; }
+
+/* ---------- Smart Import / Paste List ---------- */
+.cc-app[data-entry=account] .nx-smart-import {
+  border: 1px solid var(--nx-hair); border-radius: 20px; background: var(--nx-surface);
+  padding: 4px 16px; min-width: 0;
+}
+.cc-app[data-entry=account] .nx-smart-import > summary {
+  display: flex; align-items: center; gap: 8px; min-height: 46px; cursor: pointer;
+  font: 500 14px/1.3 var(--nx-text); color: var(--nx-ink); list-style: none;
+}
+.cc-app[data-entry=account] .nx-smart-import > summary svg { color: var(--nx-a); flex: none; }
+.cc-app[data-entry=account] .nx-smart-import-body { display: grid; gap: 12px; padding: 4px 0 14px; min-width: 0; }
+.cc-app[data-entry=account] .nx-triage-preview { display: grid; gap: 12px; padding-top: 4px; }
+.cc-app[data-entry=account] .nx-triage-group { display: grid; gap: 6px; }
+.cc-app[data-entry=account] .nx-triage-group small { font: 500 10.5px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-triage-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cc-app[data-entry=account] .nx-triage-chip {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 4px 12px; border-radius: 99px;
+  border: 1px solid var(--nx-hair); background: transparent; color: var(--nx-ink-3);
+  font: 400 13px/1.2 var(--nx-text); cursor: pointer; text-decoration: line-through;
+}
+.cc-app[data-entry=account] .nx-triage-chip.is-kept {
+  border-color: color-mix(in oklab, var(--nx-a) 38%, transparent);
+  background: color-mix(in oklab, var(--nx-a) 11%, transparent);
+  color: var(--nx-ink); text-decoration: none;
+}
+.cc-app[data-entry=account] .nx-triage-apply { justify-self: start; }
+
+/* ---------- Household Pantry / Supply Loop ---------- */
+.cc-app[data-entry=account] .nx-pantry {
+  display: grid; gap: 12px; padding: 16px; border-radius: 20px;
+  background: var(--nx-surface); border: 1px solid var(--nx-hair); min-width: 0;
+}
+.cc-app[data-entry=account] .nx-pantry-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cc-app[data-entry=account] .nx-pantry-head > div { display: grid; gap: 3px; min-width: 0; }
+.cc-app[data-entry=account] .nx-pantry-head h4 { display: inline-flex; align-items: center; gap: 7px; margin: 0; font: 500 15px/1.25 var(--nx-text); color: var(--nx-ink); }
+.cc-app[data-entry=account] .nx-pantry-head h4 svg { color: var(--nx-a); flex: none; }
+.cc-app[data-entry=account] .nx-pantry-head small { font: 400 12px/1.35 var(--nx-text); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-pantry-receipts-link {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px;
+  border-radius: 99px; border: 1px solid var(--nx-hair); background: var(--nx-surface-2);
+  color: var(--nx-a); font: 500 12px/1 var(--nx-text); text-decoration: none; white-space: nowrap; flex: none;
+}
+.cc-app[data-entry=account] .nx-pantry-low-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; border-radius: 16px;
+  border: 1px solid color-mix(in oklab, var(--nx-warm) 38%, transparent);
+  background: color-mix(in oklab, var(--nx-warm) 10%, transparent);
+}
+.cc-app[data-entry=account] .nx-pantry-low-banner > div { display: grid; gap: 2px; min-width: 0; }
+.cc-app[data-entry=account] .nx-pantry-low-banner strong { font: 600 13px/1.2 var(--nx-text); color: var(--nx-warm); }
+.cc-app[data-entry=account] .nx-pantry-low-banner span { font: 400 12.5px/1.35 var(--nx-text); color: var(--nx-ink-2, var(--nx-ink)); overflow-wrap: anywhere; }
+.cc-app[data-entry=account] .nx-pantry-low-btn {
+  min-height: 38px; padding: 0 14px; border-radius: 99px; border: 0;
+  background: var(--nx-warm); color: #160e02; font: 600 12.5px/1 var(--nx-text); cursor: pointer; white-space: nowrap;
+}
+.cc-app[data-entry=account] .nx-pantry-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.cc-app[data-entry=account] .nx-pantry-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--nx-hair);
+}
+.cc-app[data-entry=account] .nx-pantry-list li:last-child { border-bottom: 0; }
+.cc-app[data-entry=account] .nx-pantry-item-info { display: grid; gap: 2px; min-width: 0; }
+.cc-app[data-entry=account] .nx-pantry-item-info strong { font: 500 14px/1.3 var(--nx-text); color: var(--nx-ink); overflow-wrap: anywhere; }
+.cc-app[data-entry=account] .nx-pantry-item-info small { font: 400 12px/1.35 var(--nx-text); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-pantry-list li.is-low .nx-pantry-item-info small { color: var(--nx-warm); }
+.cc-app[data-entry=account] .nx-pantry-item-actions { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.cc-app[data-entry=account] .nx-pantry-pill {
+  display: inline-flex; align-items: center; gap: 3px; min-height: 34px; padding: 0 10px;
+  border-radius: 99px; border: 1px solid color-mix(in oklab, var(--nx-a) 38%, transparent);
+  background: color-mix(in oklab, var(--nx-a) 10%, transparent); color: var(--nx-a);
+  font: 500 11.5px/1 var(--nx-text); cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-pantry-icon-btn {
+  display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 99px;
+  border: 1px solid var(--nx-hair); background: transparent; color: var(--nx-ink-3); cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-pantry-add { display: flex; gap: 8px; }
+.cc-app[data-entry=account] .nx-pantry-add input { flex: 1; min-width: 0; border-radius: 99px; padding-left: 16px; min-height: 44px; }
+.cc-app[data-entry=account] .nx-pantry-add .cc-secondary { border-radius: 99px; min-height: 44px; padding: 0 16px; flex: none; }
 .cc-app[data-entry=account] .cc-plan-to-groceries { border-radius: 18px; border: 1px solid color-mix(in oklab, var(--nx-a) 30%, transparent); background: color-mix(in oklab, var(--nx-a) 7%, transparent); }
 .cc-app[data-entry=account] .cc-plan-to-groceries strong { color: var(--nx-ink); font-weight: 500; }
 .cc-app[data-entry=account] .cc-plan-to-groceries > span:last-child { color: var(--nx-a); }

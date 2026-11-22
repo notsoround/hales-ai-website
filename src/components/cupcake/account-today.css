@@ -74,9 +74,9 @@
 .cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-balance { padding: 10px 12px; }
 .cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-balance b { font-size: 17px; }
 .cc-app[data-entry=account] .cc-nutrition-today[data-quiet] :is(p, small, span) { font-size: 13px; }
-.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) { padding-top: 16px; padding-bottom: 14px; }
-.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) p { font-size: 14px; margin: 6px 0 0; }
-.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) .cc-small { font-size: 13px; }
+.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) { padding-top: 12px; padding-bottom: 10px; }
+.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) p { font-size: 13.5px; margin: 4px 0 0; }
+.cc-app[data-entry=account] .cc-signals:not(:has(.cc-timeline)) .cc-small { font-size: 12.5px; }
 .cc-app[data-entry=account] .cc-saves:has(.cc-saves-unavailable) .cc-sw-switch { margin-top: 8px; }
 @media (max-width: 600px) {
   .cc-app[data-entry=account] .cc-welcome-compact h2 { font-size: 27px; }

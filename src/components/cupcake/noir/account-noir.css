@@ -17,7 +17,8 @@
 .cc-app[data-entry=account] .cc-account-identity { font: 500 15px/1.2 var(--nx-text); letter-spacing: -.005em; }
 .cc-app[data-entry=account] .cc-top small { font: 400 12px/1.3 var(--nx-text); color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-version { font: 500 10px/1 var(--nx-text); letter-spacing: .04em; color: rgba(238,244,245,.62); border: 0; padding: 0; background: none; }
-.cc-app[data-entry=account] .cc-top :is(.cc-secondary, .cc-settings-trigger, button) { border-color: var(--nx-hair); background: var(--nx-surface); box-shadow: none; }
+.cc-app[data-entry=account] .cc-top > :is(.cc-secondary, .cc-settings-trigger, button),
+.cc-app[data-entry=account] .cc-top > .cc-settings > summary { border-color: var(--nx-hair); background: var(--nx-surface); box-shadow: none; }
 .cc-app[data-entry=account] .cc-account-note { display: none; }
 @media (max-width: 600px) {
   .cc-app[data-entry=account] .cc-top small:not(.cc-version) { display: none; }
@@ -33,9 +34,9 @@
 .cc-app[data-entry=account] .cc-shell h2 { font-family: var(--nx-display); font-weight: 300; letter-spacing: -.02em; }
 .cc-app[data-entry=account] .cc-muted { color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-text-button { font-weight: 500; }
-.cc-app[data-entry=account] .cc-shell .cc-primary { border-radius: 16px; background: linear-gradient(135deg, var(--cc-pink), color-mix(in oklab, var(--cc-pink) 60%, var(--cc-ocean))); box-shadow: 0 10px 30px -14px var(--cc-pink), inset 0 1px 0 rgba(255,255,255,.3); border: 0; }
-.cc-app[data-entry=account] .cc-shell .cc-secondary { border-radius: 16px; border-color: var(--nx-hair); background: var(--nx-surface); }
-.cc-app[data-entry=account] .cc-shell :is(input, select, textarea) { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.03); }
+.cc-app[data-entry=account] :is(.cc-shell, .cc-settings-panel) .cc-primary { border-radius: 16px; color: var(--cc-ink); background-color: var(--cc-pink); background-image: linear-gradient(135deg, var(--cc-pink), color-mix(in oklab, var(--cc-pink) 60%, var(--cc-ocean))); box-shadow: 0 10px 30px -14px var(--cc-pink), inset 0 1px 0 rgba(255,255,255,.3); border: 0; }
+.cc-app[data-entry=account] :is(.cc-shell, .cc-settings-panel) .cc-secondary { border-radius: 16px; border-color: var(--nx-hair); background-color: var(--nx-surface); color: var(--nx-ink); }
+.cc-app[data-entry=account] :is(.cc-shell, .cc-settings-panel) :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.03); }
 
 /* "Not logged yet" fold: quiet, not a box. */
 .cc-app[data-entry=account] .cc-notyet-toggle { border: 1px dashed var(--nx-hair); background: transparent; border-radius: 16px; color: var(--nx-ink-3); }

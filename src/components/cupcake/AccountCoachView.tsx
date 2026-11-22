@@ -67,6 +67,7 @@ export function AccountCoachView({identity,onPersonal,assistantName='Cupcake'}:{
   const period=useMemo(()=>periodFor(end,days),[end,days]);
   // Two clear jobs: reading what others shared with you, and managing what you share.
   const [view,setView]=useState<'received'|'mine'|null>(null);
+  const [sharingVersion,setSharingVersion]=useState(0);
   const shown=view??(received.length?'received':'mine');
   const open=(grant:Grant|null)=>{const next=grant&&received.find(item=>item.id===grant.id&&activeGrant(item))||null;setSelected(next);if(next){setLastOpened(next.id);requestAnimationFrame(()=>heading.current?.focus());}};
   const reading=shown==='received'&&selected;
@@ -75,23 +76,23 @@ export function AccountCoachView({identity,onPersonal,assistantName='Cupcake'}:{
       <div className="cc-rep-bar"><button type="button" className="cc-rep-back" onClick={()=>setSelected(null)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>All clients</button>
         <div className="cc-rep-seg" role="group" aria-label="Report period">{([7,30] as const).map(value=><button type="button" key={value} aria-pressed={days===value} onClick={()=>setDays(value)}>{value} days</button>)}</div></div>
       <div className="cc-rep-title"><h2 ref={heading} tabIndex={-1}><span className="cc-sr-only">Report — </span>{label(selected.ownerDisplayName)}</h2>{period&&<span>{rangeText(period)}</span>}</div>
-      <div className="cc-rep-range-row"><p className="cc-rep-lens" role="note" aria-label="Whose information is shown">{selected.scopes.map(scopeLabel).join(' · ')} · shared with you until {until(selected.expires)} CT</p><label className="cc-rep-through">Through<input type="date" aria-label="Report end date" max={today()} value={end} onChange={event=>setEnd(event.target.value)}/></label></div>
-    </div>:<div className="cc-coach-context"><div><span className="cc-eyebrow">AUTHORIZED VIEW</span>
+      <div className="cc-rep-range-row"><p className="cc-rep-lens" role="note" aria-label="Whose information is shown">{selected.scopes.map(scopeLabel).join(' · ')} · until {until(selected.expires)} CT</p><label className="cc-rep-through">Through<input type="date" aria-label="Report end date" max={today()} value={end} onChange={event=>setEnd(event.target.value)}/></label></div>
+    </div>:<div className="cc-coach-context"><div><span className="cc-eyebrow">{shown==='mine'?'SHARING & CLIENTS':'SHARED REPORTS'}</span>
       <h2 ref={heading} tabIndex={-1}>{shown==='mine'?'Your sharing & clients':'Reports shared with you'}</h2>
-      <p>Signed in as {identity.name||identity.email}. Your personal {assistantName} stays separate from these authorized views.</p>
+      <p>Signed in as {identity.name||identity.email} · Separate from your personal {assistantName}.</p>
     </div><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>}
     <div className="cc-coach-views" role="tablist" hidden={!!reading} aria-label="Reports sections" onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?'received':event.key==='End'?'mine':shown==='received'?'mine':'received';setView(next);document.getElementById(`cc-reports-tab-${next}`)?.focus();}}><button type="button" role="tab" id="cc-reports-tab-received" aria-controls="cc-reports-panel-received" tabIndex={shown==='received'?0:-1} aria-selected={shown==='received'} onClick={()=>setView('received')}>Shared with me{received.length?` · ${received.length}`:''}</button><button type="button" role="tab" id="cc-reports-tab-mine" aria-controls="cc-reports-panel-mine" tabIndex={shown==='mine'?0:-1} aria-selected={shown==='mine'} onClick={()=>setView('mine')}>My sharing &amp; clients</button></div>
-    <div className="cc-coach-view" role="tabpanel" id="cc-reports-panel-mine" aria-labelledby="cc-reports-tab-mine" hidden={shown!=='mine'}><p className="cc-muted">Choose who can see your reports and meal photos, invite clients, and revoke access at any time.</p><AccountPilotWorkspace identity={identity} onSharingChanged={()=>void reload()}/><OwnedGrants identity={identity}/></div>
+    <div className="cc-coach-view" role="tabpanel" id="cc-reports-panel-mine" aria-labelledby="cc-reports-tab-mine" hidden={shown!=='mine'}><p className="cc-muted">Manage who can view your reports and meal photos, or invite clients.</p><OwnedGrants identity={identity} active={shown==='mine'} version={sharingVersion}/><AccountPilotWorkspace identity={identity} onSharingChanged={()=>{setSharingVersion(v=>v+1);void reload();}}/></div>
     <div className="cc-coach-view" role="tabpanel" id="cc-reports-panel-received" aria-labelledby="cc-reports-tab-received" hidden={shown!=='received'}>
     {!selected&&<>
       <div className="cc-rep-roster-head"><span className="cc-eyebrow">Clients{received.length?` · ${received.length}`:''}</span><button className="cc-text-button cc-rep-quiet" onClick={()=>void reload()} disabled={loading} aria-label="Reload authorizations">Reload</button></div>
       {loading&&<p role="status" className="cc-rep-quiet-line">Checking active authorizations…</p>}{error&&<p role="alert">{error}</p>}
-      {!loading&&!error&&!received.length&&<p className="cc-rep-quiet-line">No active reports have been shared with this account. The owner must authorize your existing account before a report can appear. There is no public account search here.</p>}
+      {!loading&&!error&&!received.length&&<p className="cc-rep-quiet-line">No active reports have been shared with this account. Ask the owner to authorize you first.</p>}
       {received.length>0&&<ClientRoster grants={received} name={grant=>label(grant.ownerDisplayName)} scopeLabel={scope=>scopeLabel(scope as Scope)} onOpen={grant=>open(grant as Grant)} focusId={lastOpened}/>}
     </>}
     {selected&&<>
       {!period?<p role="alert">Choose a valid past or current Chicago date.</p>:<GrantView key={`${selected.id}:${period.start}:${period.end}`} grant={selected} period={period}/>}
-      <div className="cc-rep-footnote"><p>Chicago time. Each permission is checked separately, and the owner can revoke it at any time. Signed in as {identity.name||identity.email}; your personal {assistantName} stays separate from this view.</p><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>
+      <div className="cc-rep-footnote"><p>Chicago time · Permissions checked per view · Private from your personal {assistantName}.</p><button className="cc-secondary" onClick={onPersonal}>{personalAssistantLabel(assistantName,identity.name||identity.email)}</button></div>
     </>}
     </div>
   </section>;
@@ -144,7 +145,7 @@ function CleanReport({grant,period}:{grant:Grant;period:Period}) {
   const filled=sections.filter(item=>d[item.key]),empty=sections.filter(item=>!d[item.key]);
   return <section aria-label="Clean health report" className="cc-rep">
     <ReportGlance insight={insight}/>
-    <div className="cc-rep-section-head"><h3>Health numbers</h3><p className="cc-coach-provenance">Only numbers the owner saved. Private notes, messages, purchases and guessed meals are never included, and a missing day is left blank, not counted as zero.</p></div>
+    <div className="cc-rep-section-head"><h3>Health numbers</h3><p className="cc-coach-provenance">Saved numbers only. Private notes and missing days stay excluded.</p></div>
     <div className="cc-coach-grid cc-rep-grid">
     {filled.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}
     {empty.length>0&&<section className="cc-card cc-coach-empty-group" aria-label="No data this period"><h4>Nothing saved this period</h4>{empty.map(item=><Fragment key={item.key}>{item.node}</Fragment>)}</section>}
@@ -182,7 +183,7 @@ function MealPhotos({grant,period}:{grant:Grant;period:Period}) {
       if(alive){setEntries(rows(mealPhotos.entries).filter(row=>typeof row.mealId==='string'&&typeof row.savedAt==='string'));setCoverage(mealPhotos.coverage);}
     }).catch(reason=>{if(alive)setError(failure(reason));}).finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};
   },[grant,period,retry]);
-  return <section aria-label="Authorized meal photos" className="cc-rep-photos"><h3>Meal photos</h3><p>Saved originals shared separately from health numbers. A saved photo or its timestamp does not confirm that a meal was eaten.</p>{loading?<p role="status">Loading authorized photo references…</p>:error?<div role="alert"><p>{error} No earlier photos are shown.</p><button className="cc-secondary" onClick={()=>setRetry(value=>value+1)}>Retry meal photos</button></div>:<><p className="cc-muted">{coverage?.queryComplete===true?'Photo query covered the requested range.':'Photo query coverage is limited or unavailable.'} {entries.length?`${entries.length} saved references.`:'No saved photo references in this period.'}</p><div className="cc-coach-photos">{entries.slice(0,limit).map(entry=><MealPhoto key={String(entry.mealId)} grant={grant} entry={entry}/>)}</div>{entries.length>limit&&<button className="cc-secondary" onClick={()=>setLimit(value=>value+12)}>Show more photo references</button>}</>}</section>;
+  return <section aria-label="Authorized meal photos" className="cc-rep-photos"><h3>Meal photos</h3><p>Saved meal originals shared separately from health numbers.</p>{loading?<p role="status">Loading authorized photo references…</p>:error?<div role="alert"><p>{error} No earlier photos are shown.</p><button className="cc-secondary" onClick={()=>setRetry(value=>value+1)}>Retry meal photos</button></div>:<><p className="cc-muted">{entries.length?`${entries.length} saved`:'No saved photos in this period'}{coverage?.queryComplete===true?' · full range':' · partial range'}</p><div className="cc-coach-photos">{entries.slice(0,limit).map(entry=><MealPhoto key={String(entry.mealId)} grant={grant} entry={entry}/>)}</div>{entries.length>limit&&<button className="cc-secondary" onClick={()=>setLimit(value=>value+12)}>Show more photo references</button>}</>}</section>;
 }
 function MealPhoto({grant,entry}:{grant:Grant;entry:Row}) {
   const [url,setUrl]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
@@ -201,10 +202,23 @@ function MealPhoto({grant,entry}:{grant:Grant;entry:Row}) {
   };
   return <article className="cc-card"><p>Saved photo · {savedTime(entry.savedAt)}</p>{url&&<img src={url} alt="Authorized saved meal original"/>}<button className="cc-secondary" disabled={busy} onClick={()=>void load()}>{busy?'Checking photo access…':url?'Reload photo':'Load photo'}</button>{error&&<p role="alert">{error}</p>}</article>;
 }
-function OwnedGrants({identity}:{identity:AccountIdentity}) {
-  const [open,setOpen]=useState(false),[items,setItems]=useState<Grant[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-  const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
-  const load=async()=>{setBusy(true);setError('');setItems([]);try{const result=await accountCoach<{grants:unknown}>('grants/list',{});if(alive.current)setItems(grants(result.grants,identity,true));}catch(reason){if(alive.current)setError(failure(reason));}finally{if(alive.current)setBusy(false);}};
+function OwnedGrants({identity,active,version}:{identity:AccountIdentity;active:boolean;version:number}) {
+  const [open,setOpen]=useState(false),[items,setItems]=useState<Grant[]>([]),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const alive=useRef(true),req=useRef(0);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  const load=useCallback(async()=>{const id=++req.current;setBusy(true);setError('');try{const result=await accountCoach<{grants:unknown}>('grants/list',{});if(alive.current&&id===req.current){setItems(grants(result.grants,identity,true));setLoaded(true);}}catch(reason){if(alive.current&&id===req.current)setError(failure(reason));}finally{if(alive.current&&id===req.current)setBusy(false);}},[identity]);
+  useEffect(()=>{if(active)void load();},[active,version,load]);
   const revoke=async(grant:Grant)=>{if(!await appConfirm(`Revoke sharing with ${label(grant.subjectDisplayName,'Authorized account')}?`,{title:'Stop sharing?',yes:'Revoke',danger:true}))return;setBusy(true);setError('');try{await accountCoach('grants/revoke',{grant_id:grant.id});if(alive.current)await load();}catch(reason){if(alive.current)setError(failure(reason));}finally{if(alive.current)setBusy(false);}};
-  return <section className="cc-card"><button className="cc-text-button" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open)void load();}}>Sharing you authorized</button>{open&&<><p>All authorizations for your data. Use Sharing controls above to choose an accepted connection and create a permission.</p>{busy&&<p role="status">Checking your sharing…</p>}{error&&<p role="alert">{error}</p>}{!busy&&!error&&!items.length&&<p>You have not shared data with another account.</p>}{items.map(grant=>{const state=grant.revoked!==null?'Revoked':activeGrant(grant)?'Active':'Expired';return <article key={grant.id} className="cc-grant-card" data-state={state.toLowerCase()}><div className="cc-grant-head"><h4>{label(grant.subjectDisplayName,'Authorized account')}</h4><span className="cc-grant-state">{state}</span></div><p className="cc-grant-scopes">{grant.scopes.map(scope=><span key={scope}>{scopeLabel(scope)}</span>)}</p><p className="cc-sr-only">{grant.scopes.map(scopeLabel).join(' + ')} · Until {new Date(grant.expires*1000).toLocaleString()} · {state}</p><p className="cc-muted cc-small" aria-hidden="true">Until {new Date(grant.expires*1000).toLocaleString()}</p><button className="cc-secondary" disabled={busy||!activeGrant(grant)} onClick={()=>void revoke(grant)}>Revoke sharing</button></article>;})}{error&&<button className="cc-secondary" onClick={()=>void load()} disabled={busy}>Retry sharing list</button>}</>}</section>;
+  const activeItems=items.filter(activeGrant);
+  return <section className="cc-card cc-owned-grants">
+    <div className="cc-owned-grants-head">
+      <div className="cc-owned-grants-title">
+        <span className="cc-eyebrow">ACTIVE AUTHORIZATIONS</span>
+        <span className={`cc-grant-pill${activeItems.length?' is-active':''}`}>{!loaded&&busy?'Checking…':activeItems.length?`${activeItems.length} active`:'None active'}</span>
+      </div>
+      <button className="cc-text-button" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open)void load();}}>Sharing you authorized</button>
+    </div>
+    {loaded&&!open&&activeItems.length>0&&<ul className="cc-grant-summary" aria-label="Active sharing summary">{activeItems.map(grant=><li key={grant.id}><strong>{label(grant.subjectDisplayName,'Authorized account')}</strong><span>{grant.scopes.map(scopeLabel).join(' · ')}</span><small>Until {until(grant.expires)} CT</small></li>)}</ul>}
+    {loaded&&!open&&!activeItems.length&&!error&&<p className="cc-muted cc-small">Not sharing with anyone right now.</p>}
+    {open&&<>{busy&&<p role="status">Checking your sharing…</p>}{error&&<p role="alert">{error}</p>}{!busy&&!error&&!items.length&&<p className="cc-muted cc-small">You have not shared data with another account.</p>}<div className="cc-grant-list">{items.map(grant=>{const state=grant.revoked!==null?'Revoked':activeGrant(grant)?'Active':'Expired';return <article key={grant.id} className="cc-grant-card" data-state={state.toLowerCase()}><div className="cc-grant-head"><h4>{label(grant.subjectDisplayName,'Authorized account')}</h4><span className="cc-grant-state">{state}</span></div><p className="cc-grant-scopes">{grant.scopes.map(scope=><span key={scope}>{scopeLabel(scope)}</span>)}</p><p className="cc-sr-only">{grant.scopes.map(scopeLabel).join(' + ')} · Until {new Date(grant.expires*1000).toLocaleString()} · {state}</p><p className="cc-muted cc-small" aria-hidden="true">Until {until(grant.expires)} CT</p><button className="cc-secondary" disabled={busy||!activeGrant(grant)} onClick={()=>void revoke(grant)}>Revoke sharing</button></article>;})}</div>{error&&<button className="cc-secondary" onClick={()=>void load()} disabled={busy}>Retry sharing list</button>}</>}
+  </section>;
 }

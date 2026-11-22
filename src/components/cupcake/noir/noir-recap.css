@@ -24,16 +24,16 @@
 .cc-app[data-entry=account] .nx-recap-card dd { color: var(--nx-ink); font: 300 16px/1.2 var(--nx-display); }
 .cc-app[data-entry=account] .nx-recap-card dd.nx-warn { color: var(--nx-warm); }
 .cc-app[data-entry=account] .nx-recap-card dd.nx-good { color: var(--nx-ink); }
-.cc-app[data-entry=account] .nx-recap-actions { gap: 10px; margin-top: 18px; }
-.cc-app[data-entry=account] .nx-recap-actions button { min-height: 52px; line-height: 52px; border-radius: 17px; border: 0; font-size: 15px; background: rgba(255,255,255,.06); }
+.cc-app[data-entry=account] .nx-recap-actions { gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.cc-app[data-entry=account] .nx-recap-actions button { min-height: 50px; padding: 12px 16px; line-height: 1.25; border-radius: 17px; border: 0; font-size: 15px; background: rgba(255,255,255,.06); }
 .cc-app[data-entry=account] .nx-recap-actions button.is-primary { background: linear-gradient(135deg, var(--nx-a), color-mix(in oklab, var(--nx-a) 50%, var(--nx-a2))); box-shadow: inset 0 1px 0 rgba(255,255,255,.4); }
 @media (max-width: 700px) {
-  .cc-app[data-entry=account] .nx-recap-card { position: fixed; z-index: 70; left: 0; right: 0; top: auto; bottom: 0; width: auto; border-radius: 30px 30px 0 0;
-    padding: 26px 22px calc(26px + env(safe-area-inset-bottom)); box-shadow: 0 -1px 0 rgba(255,255,255,.1), 0 0 0 100vmax rgba(0,0,0,.6), 0 -30px 80px -20px color-mix(in oklab, var(--nx-a) 30%, transparent); }
-  .cc-app[data-entry=account] .nx-recap-card::before { content: ""; position: absolute; top: 10px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 4px; background: rgba(255,255,255,.18); }
+  .cc-app[data-entry=account] dialog.nx-recap-card { position: fixed; inset: auto 0 0 0; margin: auto 0 0; width: 100%; max-width: 100vw; max-height: 86dvh; border-radius: 30px 30px 0 0;
+    padding: 26px 22px calc(26px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -1px 0 rgba(255,255,255,.1), 0 -30px 80px -20px color-mix(in oklab, var(--nx-a) 30%, transparent); }
+  .cc-app[data-entry=account] dialog.nx-recap-card::before { content: ""; position: absolute; top: 10px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 4px; background: rgba(255,255,255,.18); }
 }
 @media (max-width: 700px) and (prefers-reduced-motion: no-preference) {
-  .cc-app[data-entry=account] .nx-recap-card { animation: nx-sheet-up .32s cubic-bezier(.2,.85,.25,1); transform-origin: bottom; }
+  .cc-app[data-entry=account] dialog.nx-recap-card[open] { animation: nx-sheet-up .3s cubic-bezier(.2,.85,.25,1); transform-origin: bottom; }
 }
 @keyframes nx-sheet-up { from { transform: translateY(40%); opacity: 0; } }
 
@@ -44,4 +44,31 @@
 .cc-app[data-entry=account] .nx-recap-chip.is-pulsing > span:last-child { color: var(--nx-a); }
 @media (max-width: 1023px) {
   .cc-app[data-entry=account] .cc-top > .cc-assistant-portrait { display: none; }
+}
+
+/* Quick Weigh-in sheet (opened from Catch up "Weigh in" or Today). Top-layer <dialog>, opaque surface, safe-area aware. */
+.cc-app[data-entry=account] dialog.nx-weigh-sheet { box-sizing: border-box; width: min(380px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); margin: auto; padding: 22px 20px 20px; border: 0; border-radius: 26px; overflow: auto; overscroll-behavior: contain;
+  background: linear-gradient(180deg, #0e171b, #080d10); color: var(--nx-ink); font-family: var(--nx-text);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 30px 80px -20px #000; }
+.cc-app[data-entry=account][data-appearance=rose] dialog.nx-weigh-sheet { background: linear-gradient(180deg, #151021, #0b0813); }
+.cc-app[data-entry=account] dialog.nx-weigh-sheet:not([open]) { display: none; }
+.cc-app[data-entry=account] dialog.nx-weigh-sheet::backdrop { background: rgba(3,6,8,.68); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.cc-app[data-entry=account] dialog.nx-weigh-sheet header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cc-app[data-entry=account] dialog.nx-weigh-sheet header small { display: block; font: 500 10.5px/1 var(--nx-text); letter-spacing: .14em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] dialog.nx-weigh-sheet header h3 { margin: 6px 0 0; font: 300 24px/1.15 var(--nx-display); letter-spacing: -.02em; color: var(--nx-ink); }
+.cc-app[data-entry=account] .nx-weigh-field { display: grid; gap: 8px; margin-top: 18px; }
+.cc-app[data-entry=account] .nx-weigh-field span { font: 500 12.5px/1.2 var(--nx-text); color: var(--nx-ink-2); }
+.cc-app[data-entry=account] .nx-weigh-field input { box-sizing: border-box; width: 100%; min-height: 54px; padding: 12px 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,.14); background: #141e22; color: var(--nx-ink); font: 300 26px/1.1 var(--nx-display); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.cc-app[data-entry=account][data-appearance=rose] .nx-weigh-field input { background: #1d162c; }
+.cc-app[data-entry=account] .nx-weigh-field input:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 2px; border-color: var(--nx-a); }
+.cc-app[data-entry=account] .nx-weigh-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.cc-app[data-entry=account] .nx-weigh-actions button { all: unset; box-sizing: border-box; flex: 1 1 130px; display: inline-flex; align-items: center; justify-content: center; text-align: center; min-height: 50px; padding: 12px 16px; border-radius: 17px; cursor: pointer; font: 600 15px/1.25 var(--nx-text); color: var(--nx-ink); background: rgba(255,255,255,.06); }
+.cc-app[data-entry=account] .nx-weigh-actions button.is-primary { color: #021412; background: linear-gradient(135deg, var(--nx-a), color-mix(in oklab, var(--nx-a) 50%, var(--nx-a2))); box-shadow: inset 0 1px 0 rgba(255,255,255,.4); }
+.cc-app[data-entry=account][data-appearance=rose] .nx-weigh-actions button.is-primary { color: #12081f; }
+.cc-app[data-entry=account] .nx-weigh-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.cc-app[data-entry=account] .nx-weigh-actions button:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; }
+@media (max-width: 700px) {
+  .cc-app[data-entry=account] dialog.nx-weigh-sheet { position: fixed; inset: auto 0 0 0; margin: auto 0 0; width: 100%; max-width: 100vw; max-height: 86dvh; border-radius: 30px 30px 0 0;
+    padding: 26px 22px calc(26px + env(safe-area-inset-bottom, 0px)); }
+  .cc-app[data-entry=account] dialog.nx-weigh-sheet::before { content: ""; position: absolute; top: 10px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 4px; background: rgba(255,255,255,.18); }
 }

@@ -1,9 +1,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useBackClose } from './nativeFeel';
 import './signal-sheet.css';
 
 /** Detail over Today: a bottom sheet on phones, a centred panel on wider screens. Today stays put underneath. */
 export function SignalSheet({ open, onClose, label, children }: { open: boolean; onClose: () => void; label: string; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
+  useBackClose(open, onClose);
   useEffect(() => {
     const dialog = ref.current;
     if (!open || !dialog) return;

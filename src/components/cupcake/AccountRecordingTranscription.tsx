@@ -5,7 +5,7 @@ import './account-transcription.css';
 
 const MAX_STATUS_POLLS = 60;
 
-export default function AccountRecordingTranscription({ recording, active }: { recording: ArchivedRecording; active: boolean }) {
+export default function AccountRecordingTranscription({ recording, active, onStatusChange }: { recording: ArchivedRecording; active: boolean; onStatusChange?: (badge: { label: string; tone: string }) => void }) {
   const [initial] = useState(() => {
     try { const recovery = transcriptionRecovery(recording); return { recovery, intent: recovery.load(), error: '' }; }
     catch { return { recovery: null, intent: null, error: 'Browser transcription recovery is unavailable or does not match this original. No new transcription request was sent.' }; }
@@ -15,6 +15,16 @@ export default function AccountRecordingTranscription({ recording, active }: { r
   const [language, setLanguage] = useState('');
   const current = useRef<TranscriptionIntent | null>(initial.intent), client = useRef<AccountRecordingClient | null>(null), alive = useRef(false), inFlight = useRef(false), confirmed = useRef<TranscriptionResult | null>(null);
   useEffect(() => { alive.current = true; const transport = new AccountRecordingClient(); client.current = transport; return () => { alive.current = false; transport.dispose(); }; }, []);
+  useEffect(() => {
+    if (!onStatusChange) return;
+    const status = result?.request.status;
+    if (result?.transcript || status === 'completed') onStatusChange({ label: 'Transcript saved', tone: 'ready' });
+    else if (status === 'queued' || status === 'running') onStatusChange({ label: 'Transcribing…', tone: 'pending' });
+    else if (status === 'publication_pending') onStatusChange({ label: 'Ready to save', tone: 'pending' });
+    else if (status === 'failed' || status === 'uncertain') onStatusChange({ label: 'Needs attention', tone: 'warn' });
+    else if (intent) onStatusChange({ label: 'Transcript requested', tone: 'pending' });
+    else onStatusChange({ label: 'Original saved', tone: 'saved' });
+  }, [intent, result, onStatusChange]);
   const act = useCallback(async (action: 'transcribe' | 'transcription-status' | 'transcription-retry' | 'transcription-publish', automatic = false) => {
     if (!active || inFlight.current || !client.current || !initial.recovery) return;
     const known = confirmed.current?.request;
@@ -49,7 +59,7 @@ export default function AccountRecordingTranscription({ recording, active }: { r
   if (recording.status !== 'stored' || !recording.originalStored || !recording.originalSha256) return null;
   const request = result?.request;
   return <section className="cc-audio-transcription" aria-label="Audio transcription">
-    <h4>Transcript</h4><p className="cc-muted cc-small">Transcribe the complete saved clip, up to ten minutes. Longer clips are rejected, never trimmed. This uses your account’s shared AI allowance; the original stays unchanged.</p>
+    <h4>Transcript</h4><p className="cc-muted cc-small">Transcribe this saved recording (server-side transcription currently supports clips up to 10 minutes). Uses your account’s shared AI allowance; your original stays unchanged.</p>
     {!intent && <><label className="cc-label">Spoken language<select aria-label="Spoken language" value={language} disabled={busy || !initial.recovery} onChange={event => setLanguage(event.target.value)}><option value="">Detect automatically</option><option value="en">English</option><option value="fr">French</option></select></label><button className="cc-secondary" disabled={!active || busy || !initial.recovery} onClick={() => void act('transcribe')}>Transcribe full clip</button></>}
     {intent && <div className="cc-action-row"><button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcription-status')}>{busy ? 'Checking transcription…' : 'Check transcription status'}</button>{missing && <button className="cc-secondary" disabled={!active || busy} onClick={() => void act('transcribe')}>Send saved transcription request</button>}</div>}
     {intent && !request && !error && <p className="cc-muted cc-small">This browser has a saved transcription request. Check its status before continuing.</p>}

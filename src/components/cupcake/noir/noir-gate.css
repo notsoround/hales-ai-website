@@ -23,6 +23,9 @@
 .cc-account-gate .cc-unlock .cc-primary + .cc-text-button { margin-top: 14px; }
 .cc-account-gate .cc-unlock .cc-muted.cc-small { margin: 18px 0 6px; font-size: 12px; line-height: 1.5; color: rgba(238,244,245,.45); }
 .cc-account-gate .cc-unlock [role=alert] { margin: 14px 0 0; padding: 12px 14px; border-left: 2px solid #ffb547; border-radius: 0 12px 12px 0; background: rgba(255,181,71,.09); font-size: 14px; }
+.cc-account-gate .cc-session-reconnect { margin: 14px 0 0; padding: 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); display: grid; gap: 10px; }
+.cc-account-gate .cc-session-reconnect p { margin: 0; font-size: 13.5px; line-height: 1.45; color: rgba(238,244,245,.82); }
+.cc-account-gate .cc-session-reconnect .cc-secondary { width: 100%; min-height: 46px; border-radius: 14px; }
 @media (prefers-reduced-motion: no-preference) {
   .cc-account-gate .cc-unlock > * { animation: nx-gate-in .6s cubic-bezier(.2,.8,.2,1) both; }
   .cc-account-gate .cc-unlock > :nth-child(2) { animation-delay: .05s; } .cc-account-gate .cc-unlock > :nth-child(3) { animation-delay: .1s; } .cc-account-gate .cc-unlock > :nth-child(4) { animation-delay: .15s; }

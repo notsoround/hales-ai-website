@@ -1,9 +1,167 @@
 /* Account entry (Food photo, meal plan and groceries). Presentation only; scoped to [data-entry=account] so the original /cupcake app is unchanged. */
 
-/* ---------- Food: camera first ---------- */
+/* ---------- Food Log stack: Noir dashboard first, utility cards quiet below, active uploads promoted ---------- */
+.cc-app[data-entry=account] .nx-food-log-stack:not([hidden]) { display: flex; flex-direction: column; gap: 14px; }
+.cc-app[data-entry=account] .nx-food-log-stack[hidden] { display: none !important; }
+.cc-app[data-entry=account] .nx-food-log-stack > * { margin-top: 0 !important; }
+.cc-app[data-entry=account] .nx-food-log-stack > .cc-account-photo[data-active=true] { order: 0; }
+.cc-app[data-entry=account] .nx-food-log-stack > .cc-nutrition-workspace { order: 1; }
+.cc-app[data-entry=account] .nx-food-log-stack > .cc-account-photo { order: 2; padding: 16px; gap: 12px; }
+.cc-app[data-entry=account] .nx-food-log-stack > .cc-manual-entry { order: 3; margin: 0; padding: 14px 16px; }
+.cc-app[data-entry=account] .nx-food-log-stack > .cc-snap-queue { order: 4; }
+
+/* ---------- Cupcake Noir Food Hero Dashboard ---------- */
+.cc-app[data-entry=account] .nx-food-hero {
+  display: grid; gap: 16px; padding: 20px 18px 18px; border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.014));
+  border: 1px solid var(--nx-hair); font-family: var(--nx-text); color: var(--nx-ink);
+}
+.cc-app[data-entry=account] .nx-food-hero-ring { display: grid; gap: 10px; justify-items: center; }
+.cc-app[data-entry=account] .nx-food-dial { position: relative; width: 100%; max-width: 248px; margin: 0 auto; }
+.cc-app[data-entry=account] .nx-food-dial svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cc-app[data-entry=account] .nx-food-tick { stroke: var(--nx-hair); stroke-width: 1; stroke-linecap: round; opacity: .7; }
+.cc-app[data-entry=account] .nx-food-tick.is-mid { stroke: var(--nx-ink-3); opacity: .45; }
+.cc-app[data-entry=account] .nx-food-tick.is-major { stroke: var(--nx-ink-3); stroke-width: 1.4; opacity: .75; }
+.cc-app[data-entry=account] .nx-food-track { fill: none; stroke: rgba(255,255,255,.06); stroke-linecap: round; }
+.cc-app[data-entry=account] .nx-food-track.is-empty { stroke-dasharray: 2 7; stroke: rgba(255,255,255,.2); stroke-linecap: butt; }
+.cc-app[data-entry=account] .nx-food-fill { fill: none; stroke-linecap: round; }
+.cc-app[data-entry=account] .nx-food-glow { fill: none; stroke-linecap: round; opacity: .4; }
+.cc-app[data-entry=account] .nx-food-over { fill: none; stroke: var(--nx-warm); stroke-linecap: round; }
+.cc-app[data-entry=account] .nx-food-head-ring { fill: var(--nx-a); opacity: .28; }
+.cc-app[data-entry=account] .nx-food-head { fill: var(--nx-ink); }
+.cc-app[data-entry=account] .nx-food-dial-centre {
+  position: absolute; inset: 4% 12% 10%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; pointer-events: none;
+}
+.cc-app[data-entry=account] .nx-food-dial-centre small {
+  font: 500 10.5px/1 var(--nx-text); letter-spacing: .14em; text-transform: uppercase; color: var(--nx-ink-3);
+}
+.cc-app[data-entry=account] .nx-food-hero-num {
+  display: block; font: 200 clamp(46px, 14vw, 60px)/.96 var(--nx-display);
+  letter-spacing: -.04em; font-variant-numeric: tabular-nums; margin: 8px 0 6px; color: var(--nx-ink);
+}
+.cc-app[data-entry=account] .nx-food-hero-sub {
+  font: 400 12.5px/1.35 var(--nx-text); color: var(--nx-ink-2, rgba(238,244,245,.72));
+  font-variant-numeric: tabular-nums; text-wrap: balance;
+}
+.cc-app[data-entry=account] .nx-food-hero-macros { display: flex; justify-content: center; gap: 26px; width: 100%; }
+.cc-app[data-entry=account] .nx-food-hero-macros > div { display: grid; justify-items: center; gap: 2px; min-width: 58px; }
+.cc-app[data-entry=account] .nx-food-hero-macros b { font: 300 19px/1 var(--nx-display); font-variant-numeric: tabular-nums; color: var(--nx-ink); }
+.cc-app[data-entry=account] .nx-food-hero-macros b small { font: 400 11.5px var(--nx-text); color: var(--nx-ink-3); margin-left: 1px; }
+.cc-app[data-entry=account] .nx-food-hero-macros span { font: 500 10.5px/1 var(--nx-text); letter-spacing: .06em; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-food-hero-macros i { display: block; width: 48px; height: 2px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 4px; }
+.cc-app[data-entry=account] .nx-food-hero-macros u { display: block; height: 100%; background: var(--nx-a); border-radius: 2px; }
+
+.cc-app[data-entry=account] .nx-food-hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cc-app[data-entry=account] .nx-food-snap-btn,
+.cc-app[data-entry=account] .nx-food-manual-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 16px; border-radius: 16px; font: 600 14.5px/1 var(--nx-text);
+  cursor: pointer; transition: transform .15s var(--ds-ease, ease);
+}
+.cc-app[data-entry=account] .nx-food-snap-btn {
+  border: 0; color: #021412;
+  background: linear-gradient(135deg, var(--nx-a), color-mix(in oklab, var(--nx-a) 55%, var(--nx-a2)));
+  box-shadow: 0 12px 30px -14px color-mix(in oklab, var(--nx-a) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.32);
+}
+.cc-app[data-entry=account][data-appearance=rose] .nx-food-snap-btn { color: #12081f; }
+.cc-app[data-entry=account] .nx-food-manual-btn {
+  border: 1px solid var(--nx-hair); background: var(--nx-surface-2); color: var(--nx-ink); font-weight: 500;
+}
+.cc-app[data-entry=account] .nx-food-snap-btn:active,
+.cc-app[data-entry=account] .nx-food-manual-btn:active { transform: scale(.98); }
+
+.cc-app[data-entry=account] .nx-food-hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 4px; border-top: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .nx-food-last-pill {
+  flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 40px;
+  padding: 6px 10px; border-radius: 12px; border: 0; background: transparent; color: var(--nx-ink-2, rgba(238,244,245,.75));
+  text-align: left; font: 400 12.5px/1.35 var(--nx-text); cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-food-last-pill:hover { background: var(--nx-surface); }
+.cc-app[data-entry=account] .nx-food-last-pill > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-app[data-entry=account] .nx-food-last-pill strong { color: var(--nx-ink); font-weight: 500; }
+.cc-app[data-entry=account] .nx-food-last-pill em { font-style: normal; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-food-last-pill svg { flex: none; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-food-last-empty {
+  display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 6px 2px;
+  font: 400 12.5px/1.3 var(--nx-text); color: var(--nx-ink-3);
+}
+.cc-app[data-entry=account] .nx-food-pending-pill {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+  border-radius: 99px; border: 1px solid color-mix(in oklab, var(--nx-warm) 40%, transparent);
+  background: color-mix(in oklab, var(--nx-warm) 10%, transparent); color: var(--nx-warm);
+  font: 500 12px/1 var(--nx-text); cursor: pointer; white-space: nowrap;
+}
+
+/* ---------- Noir overrides for Food Calendar (Account only) ---------- */
+.cc-app[data-entry=account] .cc-nutrition-workspace { padding: 0 0 12px; color: var(--nx-ink); font-family: var(--nx-text); }
+.cc-app[data-entry=account] .cc-nutrition-controls { margin-top: 16px; gap: 10px; }
+.cc-app[data-entry=account] .cc-nutrition-scale { border-color: var(--nx-hair); background: var(--nx-surface); padding: 3px; border-radius: 14px; }
+.cc-app[data-entry=account] .cc-nutrition-scale button { color: var(--nx-ink-3); font: 500 13px/1 var(--nx-text); min-height: 36px; padding: 6px 14px; border-radius: 10px; }
+.cc-app[data-entry=account] .cc-nutrition-scale button[aria-pressed=true] { background: var(--nx-surface-2); color: var(--nx-ink); box-shadow: inset 0 0 0 1px var(--nx-hair); }
+.cc-app[data-entry=account] .cc-nutrition-arrows button { border-color: var(--nx-hair); background: var(--nx-surface); color: var(--nx-ink); border-radius: 12px; min-height: 38px; min-width: 38px; font: 500 12.5px/1 var(--nx-text); }
+.cc-app[data-entry=account] .cc-nutrition-period { font: 300 21px/1.2 var(--nx-display); letter-spacing: -.015em; color: var(--nx-ink); margin: 16px 0 12px; }
+.cc-app[data-entry=account] .cc-nutrition-timeline { margin-top: 0; margin-bottom: 16px; }
+.cc-app[data-entry=account] .cc-nutrition-timeline > .cc-nutrition-heading h3 { font: 500 14px/1.2 var(--nx-text); color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-nutrition-timeline > .cc-nutrition-heading > span { color: var(--nx-ink-3); font-size: 12px; }
+.cc-app[data-entry=account] .cc-nutrition-timeline-item button {
+  background: var(--nx-surface); border-color: var(--nx-hair); border-radius: 16px; color: var(--nx-ink); padding: 14px;
+}
+.cc-app[data-entry=account] .cc-nutrition-timeline-item button:hover {
+  border-color: color-mix(in oklab, var(--nx-a) 40%, var(--nx-hair)); background: var(--nx-surface-2);
+}
+.cc-app[data-entry=account] .cc-nutrition-meal-time { color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-nutrition-meal-name small,
+.cc-app[data-entry=account] .cc-nutrition-meal-kcal small { color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-nutrition-meal-kcal { font-family: var(--nx-display); font-weight: 300; color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-nutrition-gap { color: var(--nx-ink-3); border-left-color: var(--nx-hair); }
+.cc-app[data-entry=account] .cc-nutrition-overview {
+  border-color: var(--nx-hair); border-radius: 20px; background: var(--nx-surface); margin-top: 12px;
+}
+.cc-app[data-entry=account] .cc-nutrition-overview > div { padding: 16px; }
+.cc-app[data-entry=account] .cc-nutrition-overview > div + div { border-color: var(--nx-hair); background: transparent; }
+.cc-app[data-entry=account] .cc-nutrition-overview strong { font-family: var(--nx-display); font-weight: 300; color: var(--nx-ink); font-size: clamp(28px, 5vw, 38px); margin: 6px 0; }
+.cc-app[data-entry=account] .cc-nutrition-overview span,
+.cc-app[data-entry=account] .cc-nutrition-overview p,
+.cc-app[data-entry=account] .cc-nutrition-overview small { color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-nutrition-target-track { background: var(--nx-hair); }
+.cc-app[data-entry=account] .cc-nutrition-target-track span { background: var(--nx-a); }
+.cc-app[data-entry=account] .cc-nutrition-method { color: var(--nx-ink-3); margin: 10px 0; }
+.cc-app[data-entry=account] .cc-nutrition-method summary { color: var(--nx-ink-3); font-weight: 500; }
+.cc-app[data-entry=account] .cc-nutrition-empty { border-color: var(--nx-hair); color: var(--nx-ink-3); border-radius: 18px; padding: 22px 16px; }
+.cc-app[data-entry=account] .cc-nutrition-empty small { color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-nutrition-day-list button,
+.cc-app[data-entry=account] .cc-nutrition-week button,
+.cc-app[data-entry=account] .cc-nutrition-month button,
+.cc-app[data-entry=account] .cc-nutrition-year > button {
+  background: var(--nx-surface); border-color: var(--nx-hair); color: var(--nx-ink);
+}
+.cc-app[data-entry=account] .cc-nutrition-day-list button.is-today,
+.cc-app[data-entry=account] .cc-nutrition-month button.is-today {
+  border-color: color-mix(in oklab, var(--nx-a) 55%, var(--nx-hair));
+  background: color-mix(in oklab, var(--nx-a) 8%, var(--nx-surface));
+}
+.cc-app[data-entry=account] .cc-nutrition-bar-space > span,
+.cc-app[data-entry=account] .cc-nutrition-month-dots i.has-log { background: var(--nx-a); }
+.cc-app[data-entry=account] .cc-nutrition-view-options button { border-color: var(--nx-hair); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-nutrition-view-options button[aria-pressed=true] { border-color: var(--nx-a); background: color-mix(in oklab, var(--nx-a) 10%, transparent); color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-nutrition-settings { border-top-color: var(--nx-hair); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-nutrition-settings summary { color: var(--nx-ink-2, var(--nx-ink)); font-weight: 500; }
+.cc-app[data-entry=account] .cc-nutrition-settings input { border-color: var(--nx-hair); background: var(--nx-surface); color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-nutrition-settings form button { border-color: color-mix(in oklab, var(--nx-a) 45%, transparent); background: color-mix(in oklab, var(--nx-a) 14%, transparent); color: var(--nx-ink); font-weight: 500; }
+.cc-app[data-entry=account] .cc-nutrition-workspace :is(button, summary):focus-visible { outline: 2px solid var(--nx-a); outline-offset: 2px; }
+
+/* ---------- Food: compact secondary photo & manual utility cards ---------- */
 .cc-app[data-entry=account] .cc-account-photo-head p { margin: 4px 0 0; }
-.cc-app[data-entry=account] .cc-account-photo .cc-snap-actions .cc-primary { min-height: 56px; font-size: 17px; }
-.cc-app[data-entry=account] .cc-account-photo-adjustments summary { color: var(--cc-pink-bright); font-size: 14px; }
+.cc-app[data-entry=account] .cc-account-photo .cc-snap-actions .cc-primary { min-height: 48px; font-size: 15px; }
+.cc-app[data-entry=account] .cc-account-photo .cc-snap-actions .cc-secondary { min-height: 48px; font-size: 13.5px; }
+.cc-app[data-entry=account] .cc-account-photo-adjustments summary { color: var(--nx-ink-3); font-size: 13px; }
+@media (min-width: 960px) {
+  .cc-app[data-entry=account] .nx-food-hero { grid-template-columns: 260px minmax(0, 1fr); align-items: center; gap: 16px 28px; padding: 24px 26px; }
+  .cc-app[data-entry=account] .nx-food-hero-ring { grid-row: 1 / span 2; }
+  .cc-app[data-entry=account] .nx-food-hero-actions { align-self: end; }
+  .cc-app[data-entry=account] .nx-food-hero-meta { align-self: start; }
+}
 
 /* ---------- Meal plan → groceries handoff ---------- */
 .cc-app[data-entry=account] .cc-plan-to-groceries { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; margin: 4px 0 8px; padding: 12px 16px; text-align: left; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--cc-pink) 40%, var(--cc-border)); background: linear-gradient(120deg, var(--cc-accent-wash), var(--cc-surface)); color: var(--cc-text); font: inherit; cursor: pointer; }

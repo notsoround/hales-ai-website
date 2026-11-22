@@ -92,12 +92,12 @@ html .cc-app[data-entry=account] .cc-chat select.cc-chat-saved.cc-chat-saved:foc
 @keyframes cc-ax-pulse { 50% { opacity: .25; transform: scale(.75); } }
 .cc-app[data-entry=account] .cc-chat .cc-chat-locked { border: 1px solid var(--ax-hair, rgba(255,255,255,.07)); border-radius: 14px; background: rgba(255,255,255,.035); color: var(--ax-ink-2, rgba(238,244,245,.74)); font: 400 13px/1.45 var(--ax-text); }
 
-/* ---------- Composer: one pill, inline mic, circular send ---------- */
+/* ---------- Composer: ChatGPT/Gemini-clean single rounded bar with inline voice/record/TTS tools ---------- */
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-assistant-body .cc-chat > .cc-chat-pill,
 .cc-app[data-entry=account] .cc-chat > .cc-chat-pill {
   position: sticky; left: auto; right: auto; bottom: 0; z-index: 4;
-  display: flex; align-items: flex-end; gap: 2px; min-height: 50px; padding: 5px 5px 5px 18px;
-  border: 1px solid var(--ax-hair-2, rgba(255,255,255,.11)); border-radius: 25px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 10px 8px 16px;
+  border: 1px solid var(--ax-hair-2, rgba(255,255,255,.11)); border-radius: 24px;
   background: color-mix(in srgb, #fff 6%, var(--ax-panel, #070b0e));
   box-shadow: 0 12px 0 6px var(--ax-panel, #070b0e), 0 -16px 22px -2px var(--ax-panel, #070b0e), inset 0 1px 0 rgba(255,255,255,.05);
   transition: border-color .2s var(--ax-ease, ease), box-shadow .2s var(--ax-ease, ease);
@@ -108,18 +108,27 @@ html .cc-app[data-entry=account] .cc-chat select.cc-chat-saved.cc-chat-saved:foc
 }
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-chat-composer.cc-chat-pill textarea,
 .cc-app[data-entry=account] .cc-chat .cc-chat-composer.cc-chat-pill.cc-chat-pill textarea {
-  flex: 1; min-width: 0; min-height: 38px; max-height: 148px; padding: 9px 4px 8px 0; margin: 0; resize: none; overflow-y: auto;
+  width: 100%; min-width: 0; min-height: 26px; max-height: 148px; padding: 2px 6px 2px 0; margin: 0; resize: none; overflow-y: auto;
   border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: none;
-  color: var(--ax-ink, #eef4f5); font: 400 16px/1.35 var(--ax-text); caret-color: var(--cc-pink);
+  color: var(--ax-ink, #eef4f5); font: 400 16px/1.4 var(--ax-text); caret-color: var(--cc-pink);
 }
 .cc-app[data-entry=account] .cc-assistant-workspace.is-panel .cc-chat-composer.cc-chat-pill textarea:focus { border: 0; box-shadow: none; outline: none; }
 .cc-app[data-entry=account] .cc-chat-pill textarea::placeholder { color: var(--ax-ink-3, rgba(238,244,245,.58)); }
-.cc-app[data-entry=account] .cc-chat-pill :is(.cc-chat-mic, .cc-chat-send) {
-  display: grid; place-items: center; flex: none; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%;
+.cc-app[data-entry=account] .cc-chat-pill-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.cc-app[data-entry=account] .cc-chat-pill-tools {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: -6px;
+}
+.cc-app[data-entry=account] .cc-chat-pill :is(.cc-chat-tool, .cc-chat-send) {
+  display: grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
   transition: background .2s var(--ax-ease, ease), color .2s var(--ax-ease, ease), transform .15s var(--ax-ease, ease), box-shadow .2s;
 }
-.cc-app[data-entry=account] .cc-chat-pill .cc-chat-mic { background: transparent; color: var(--ax-ink-2, rgba(238,244,245,.74)); }
-.cc-app[data-entry=account] .cc-chat-pill .cc-chat-mic:hover:not(:disabled) { background: rgba(255,255,255,.07); color: var(--ax-ink, #eef4f5); }
+.cc-app[data-entry=account] .cc-chat-pill .cc-chat-tool { background: transparent; color: var(--ax-ink-3, rgba(238,244,245,.58)); }
+.cc-app[data-entry=account] .cc-chat-pill .cc-chat-tool:hover:not(:disabled) { background: rgba(255,255,255,.07); color: var(--ax-ink, #eef4f5); }
+.cc-app[data-entry=account] .cc-chat-pill .cc-chat-speak.is-on {
+  background: color-mix(in oklab, var(--cc-pink) 16%, transparent); color: var(--cc-pink);
+}
 .cc-app[data-entry=account] .cc-chat-pill.is-listening .cc-chat-mic { background: color-mix(in oklab, var(--cc-pink) 18%, transparent); color: var(--cc-pink); box-shadow: 0 0 0 0 color-mix(in oklab, var(--cc-pink) 40%, transparent); animation: cc-ax-listen 1.6s ease-out infinite; }
 @keyframes cc-ax-listen { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--cc-pink) 40%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
 .cc-app[data-entry=account] .cc-chat-pill .cc-chat-send { background: rgba(255,255,255,.09); color: var(--ax-ink-3, rgba(238,244,245,.58)); }
@@ -128,9 +137,9 @@ html .cc-app[data-entry=account] .cc-chat select.cc-chat-saved.cc-chat-saved:foc
   box-shadow: 0 6px 18px -6px color-mix(in oklab, var(--cc-pink) 80%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
 }
 .cc-app[data-entry=account] .cc-chat-pill.is-ready .cc-chat-send:active { transform: scale(.94); }
-.cc-app[data-entry=account] .cc-chat-pill :is(.cc-chat-mic, .cc-chat-send):disabled { cursor: default; }
-.cc-app[data-entry=account] .cc-chat-pill .cc-chat-mic:disabled { opacity: .35; }
-.cc-app[data-entry=account] .cc-chat-pill :is(.cc-chat-mic, .cc-chat-send):focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+.cc-app[data-entry=account] .cc-chat-pill :is(.cc-chat-tool, .cc-chat-send):disabled { cursor: default; }
+.cc-app[data-entry=account] .cc-chat-pill .cc-chat-tool:disabled { opacity: .35; }
+.cc-app[data-entry=account] .cc-chat-pill :is(.cc-chat-tool, .cc-chat-send):focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
 .cc-app[data-entry=account] .cc-chat-pill:has(textarea:disabled) { opacity: .55; }
 
 @media (prefers-reduced-motion: reduce) {

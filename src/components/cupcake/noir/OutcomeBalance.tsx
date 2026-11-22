@@ -53,7 +53,7 @@ export function OutcomeBalance({ counts, percent, entries, allEntries, filter, o
     strip.current?.querySelectorAll<HTMLButtonElement>('button')[i]?.focus();
   };
 
-  return <section className="nx-wl" aria-label="Personal wins and losses">
+  return <section className="nx-wl" aria-label="Personal wins and losses" data-empty={counts && counts.total === 0 ? '' : undefined}>
     <header className="nx-wl-head"><h3>Wins &amp; losses</h3>
       <button type="button" className="nx-wl-refresh" onClick={onRefresh} disabled={busy} aria-label="Refresh personal outcomes"><RotateCw size={15} aria-hidden="true" className={busy ? 'is-spinning' : undefined} /></button></header>
     {error && <p className="cc-error" role="alert">{error}</p>}

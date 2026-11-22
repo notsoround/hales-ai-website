@@ -1,13 +1,13 @@
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { feedRequest } from './feedApi';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowRight, CreditCard, Droplet, Dumbbell, Moon, Phone, PhoneMissed, Quote, Scale, Smartphone, Utensils } from 'lucide-react';
-import type { DashboardOutcome } from './dashboardModel';
+import { consolidateSignals, type ConsolidatedSignalGroup, type DashboardOutcome } from './dashboardModel';
 import { nutritionDays, nutritionDay } from './nutritionModel';
 import type { useNutritionData } from './nutritionApi';
 import { ToneIcon } from './design/ToneIcon';
 import { todayKcalBit } from './dataState';
-import { OUTCOME_LABEL, dayHeading, freshness, lastNDays, latestQuote, savesWeek, timelineRow, type PulseItem, type QuoteMoment, type Tone } from './pulseModel';
+import { OUTCOME_LABEL, dayHeading, freshness, lastNDays, latestQuote, savesWeek, timelineRow, type PulseItem, type QuoteMoment, type TimelineRow, type Tone } from './pulseModel';
 
 const WEEKDAY = (date: string) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'narrow' }).format(new Date(`${date}T12:00:00Z`));
 const OUTCOME_CLASS: Record<DashboardOutcome, string> = { win: 'is-win', loss: 'is-loss', missed: 'is-missed', unscored: 'is-unscored' };
@@ -77,28 +77,91 @@ function QuoteCard({ moment, onTalkAbout }: { moment: QuoteMoment; onTalkAbout: 
 }
 
 const TONE_ICON: Record<Tone, typeof Phone> = { call: Phone, missed: PhoneMissed, spend: CreditCard, food: Utensils, body: Scale, glucose: Droplet, sleep: Moon, phone: Smartphone, exercise: Dumbbell };
+type TimelineRowWithGroup = TimelineRow & { group: ConsolidatedSignalGroup<PulseItem> | null };
 
 export function Timeline({ items, onOpen, max = 3, onAll, formatClock }: { items: PulseItem[]; onOpen: (item: PulseItem, index: number) => void; max?: number; onAll: () => void; formatClock?: (item: PulseItem) => string }) {
   const [expanded, setExpanded] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const entriesId = useId(), entriesRef = useRef<HTMLDivElement>(null);
-  const rows = (expanded ? items : items.slice(0, max)).map((item, i) => { const row = timelineRow(item, i, items); const clock = formatClock?.(item); return clock ? { ...row, clock } : row; });
-  const groups: Array<{ date: string; rows: typeof rows }> = [];
-  rows.forEach(r => { const g = groups[groups.length - 1]; if (g && g.date === r.item.date) g.rows.push(r); else groups.push({ date: r.item.date, rows: [r] }); });
+  const consolidated = useMemo(() => ACCOUNT_SESSIONS ? consolidateSignals(items) : null, [items]);
+  const primaryItems = consolidated ? consolidated.primary : null;
+  const visibleRows = useMemo<TimelineRowWithGroup[]>(() => {
+    if (primaryItems) {
+      return (expanded ? primaryItems : primaryItems.slice(0, max)).map((group, i) => {
+        const row = timelineRow(group.representative, i, items);
+        const clock = formatClock?.(group.representative);
+        return { ...(clock ? { ...row, clock } : row), group };
+      });
+    }
+    return (expanded ? items : items.slice(0, max)).map((item, i) => {
+      const row = timelineRow(item, i, items);
+      const clock = formatClock?.(item);
+      return { ...(clock ? { ...row, clock } : row), group: null };
+    });
+  }, [primaryItems, expanded, max, items, formatClock]);
+  const groups: Array<{ date: string; rows: TimelineRowWithGroup[] }> = [];
+  visibleRows.forEach(r => { const g = groups[groups.length - 1]; if (g && g.date === r.item.date) g.rows.push(r); else groups.push({ date: r.item.date, rows: [r] }); });
+  const totalPrimary = primaryItems ? primaryItems.length : items.length;
   const fresh = freshness(items);
+  const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
   return <div className="cc-timeline">
     {fresh.length > 0 && <p className="cc-freshness" aria-label="Latest from each source">{fresh.map(f => <span key={f.label}>{f.label} <b>{f.ago}</b></span>)}</p>}
     <div ref={entriesRef} id={entriesId} className="cc-timeline-entries" role="region" aria-label="Recent signals" tabIndex={0}>
     {groups.map(g => <section key={g.date} className="cc-timeline-day" aria-label={dayHeading(g.date)}>
       <h4>{dayHeading(g.date)}</h4>
-      <ol>{g.rows.map(r => { const Icon = TONE_ICON[r.tone]; return <li key={r.key} className={`cc-tl-is-${r.tone}`}><button type="button" onClick={() => onOpen(r.item, items.indexOf(r.item))} aria-label={`Open ${r.title}`}>
-        <time>{r.clock}</time>
-        <span className="cc-tl-node" aria-hidden="true"><Icon size={14} strokeWidth={2.2} /></span>
-        <span className="cc-tl-body"><strong>{r.title}</strong>{r.quote ? <q>{r.quote}</q> : r.sub ? <small>{r.sub}</small> : null}</span>
-        <span className="cc-tl-value">{r.outcome ? <OutcomeChip outcome={r.outcome} /> : r.value}</span>
-      </button></li>; })}</ol>
+      <ol>{g.rows.map(r => {
+        const Icon = TONE_ICON[r.tone];
+        const multi = r.group && r.group.count > 1;
+        const isGroupOpen = multi ? !!openGroups[r.group!.key] : false;
+        return <li key={r.group ? r.group.key : r.key} className={`cc-tl-is-${r.tone}`}>
+          <button type="button" aria-expanded={multi ? isGroupOpen : undefined} onClick={() => multi ? toggleGroup(r.group!.key) : onOpen(r.item, items.indexOf(r.item))} aria-label={multi ? `${r.title}, ${r.group!.count} events` : `Open ${r.title}`}>
+            <time>{r.clock}</time>
+            <span className="cc-tl-node" aria-hidden="true"><Icon size={14} strokeWidth={2.2} /></span>
+            <span className="cc-tl-body">
+              <strong>{r.title}{multi ? <em className="nx-signal-count">{r.group!.count.toLocaleString('en-US')}×</em> : null}</strong>
+              {multi ? <small>{r.group!.count.toLocaleString('en-US')} events · Tap to {isGroupOpen ? 'collapse' : 'inspect'}</small> : r.quote ? <q>{r.quote}</q> : r.sub ? <small>{r.sub}</small> : null}
+            </span>
+            <span className="cc-tl-value">{r.outcome ? <OutcomeChip outcome={r.outcome} /> : r.value}</span>
+          </button>
+          {multi && isGroupOpen && <div className="nx-tl-group-items">
+            {r.group!.entries.slice(0, 15).map((entry, idx) => {
+              const subRow = timelineRow(entry, idx, items);
+              const subClock = formatClock?.(entry) || subRow.clock;
+              return <button key={subRow.key} type="button" className="nx-tl-group-child" onClick={() => onOpen(entry, items.indexOf(entry))}>
+                <time>{subClock || entry.date}</time><span>{subRow.sub || subRow.title}</span>
+              </button>;
+            })}
+            {r.group!.entries.length > 15 && <button type="button" className="cc-text-button" onClick={onAll}>View all {r.group!.entries.length.toLocaleString('en-US')} in history →</button>}
+          </div>}
+        </li>;
+      })}</ol>
     </section>)}
     </div>
-    {items.length > max && <button type="button" className="cc-secondary cc-timeline-all" aria-expanded={expanded} aria-controls={entriesId} onClick={() => { setExpanded(value => !value); if (entriesRef.current) entriesRef.current.scrollTop = 0; }}>{expanded ? `Show latest ${max}` : `Show all ${items.length} signals`}</button>}
+    {totalPrimary > max && <button type="button" className="cc-secondary cc-timeline-all" aria-expanded={expanded} aria-controls={entriesId} onClick={() => { setExpanded(value => !value); if (entriesRef.current) entriesRef.current.scrollTop = 0; }}>{expanded ? `Show latest ${max}` : `Show all ${totalPrimary} signals`}</button>}
+    {consolidated && consolidated.lowPriority.length > 0 && <details className="nx-signal-quiet">
+      <summary>System &amp; background signals ({consolidated.lowPriorityCount.toLocaleString('en-US')})</summary>
+      <div>{consolidated.lowPriority.map(group => {
+        const isOpen = !!openGroups[group.key];
+        const rep = timelineRow(group.representative, 0, items);
+        const repClock = formatClock?.(group.representative) || rep.clock;
+        return <div key={group.key} className="nx-signal-quiet-item">
+          <button type="button" className="nx-tl-quiet-btn" aria-expanded={group.count > 1 ? isOpen : undefined} onClick={() => group.count > 1 ? toggleGroup(group.key) : onOpen(group.representative, items.indexOf(group.representative))}>
+            <span><strong>{rep.title}</strong>{group.count > 1 && <em className="nx-signal-count">{group.count.toLocaleString('en-US')}×</em>}</span>
+            <small>{repClock ? `Latest ${repClock}` : group.representative.date}</small>
+          </button>
+          {group.count > 1 && isOpen && <div className="nx-tl-group-items">
+            {group.entries.slice(0, 15).map((entry, idx) => {
+              const subRow = timelineRow(entry, idx, items);
+              const subClock = formatClock?.(entry) || subRow.clock;
+              return <button key={subRow.key} type="button" className="nx-tl-group-child" onClick={() => onOpen(entry, items.indexOf(entry))}>
+                <time>{subClock || entry.date}</time><span>{subRow.sub || subRow.title}</span>
+              </button>;
+            })}
+            {group.entries.length > 15 && <button type="button" className="cc-text-button" onClick={onAll}>View all {group.entries.length.toLocaleString('en-US')} in history →</button>}
+          </div>}
+        </div>;
+      })}</div>
+    </details>}
     {expanded && <button type="button" className="cc-text-button" onClick={onAll}>Open full history<ArrowRight size={16}/></button>}
   </div>;
 }
