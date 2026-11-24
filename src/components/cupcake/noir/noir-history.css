@@ -2,31 +2,33 @@
    light display numerals, one segmented control style. Loaded with the wins and losses view, which lives on the history page. */
 .cc-app[data-entry=account] .cc-dashboard > .cc-heading-row h2 { font: 300 30px/1.12 var(--nx-display); letter-spacing: -.02em; }
 .cc-app[data-entry=account] .cc-dashboard .cc-eyebrow { color: var(--nx-ink-3); }
-.cc-app[data-entry=account] .cc-dashboard-range { gap: 0; padding: 4px; border-radius: 14px; background: rgba(255,255,255,.035); border: 0; }
-.cc-app[data-entry=account] .cc-dashboard-range button { border: 0; border-radius: 10px; background: transparent; color: var(--nx-ink-3); font: 500 12.5px/1.15 var(--nx-text); box-shadow: none; min-height: 40px; }
-.cc-app[data-entry=account] .cc-dashboard-range button[aria-selected=true] { background: rgba(255,255,255,.09); color: var(--nx-ink); border: 0; }
+.cc-app[data-entry=account] .cc-dashboard-range { gap: 0; padding: 4px; border-radius: 14px; background: var(--nx-surface); border: 0; }
+.cc-app[data-entry=account] .cc-dashboard-range button { border: 0; border-radius: 10px; background: transparent; color: var(--nx-ink-3); font: 500 12.5px/1.15 var(--nx-text); box-shadow: none; min-height: 40px; transition: opacity 160ms ease, transform 110ms var(--nx-ease, cubic-bezier(.22, 1, .36, 1)); }
+.cc-app[data-entry=account] .cc-dashboard-range button:active { transform: scale(.97); }
+.cc-app[data-entry=account] .cc-dashboard-range button[aria-selected=true] { background: var(--nx-surface-2); color: var(--nx-ink); border: 0; }
 .cc-app[data-entry=account] .cc-dashboard-coverage { font-size: 12px; color: var(--nx-ink-3); }
-.cc-app[data-entry=account] .cc-signal-jump { color: var(--nx-ink-2, rgba(238,244,245,.7)); font-size: 13.5px; }
+.cc-app[data-entry=account] .cc-signal-jump { color: var(--nx-ink-2); font-size: 13.5px; }
 /* Notices about sources that are not connected: a quiet note, not a card with a headline. */
-.cc-app[data-entry=account] .cc-dashboard > .cc-card:has(> h3 + .cc-muted) { background: none; border: 0; border-left: 2px solid var(--nx-hair); border-radius: 0; padding: 2px 0 2px 14px; margin: 14px 0; }
-.cc-app[data-entry=account] .cc-dashboard > .cc-card:has(> h3 + .cc-muted) h3 { font: 500 13px/1.3 var(--nx-text); color: var(--nx-ink-2, rgba(238,244,245,.7)); margin: 0 0 4px; }
+.cc-app[data-entry=account] .cc-dashboard > .cc-card:has(> h3 + .cc-muted) { background: none !important; border: 0 !important; border-left: 2px solid var(--nx-hair) !important; border-radius: 0 !important; box-shadow: none !important; padding: 2px 0 2px 14px; margin: 14px 0; }
+.cc-app[data-entry=account] .cc-dashboard > .cc-card:has(> h3 + .cc-muted) h3 { font: 500 13px/1.3 var(--nx-text); color: var(--nx-ink-2); margin: 0 0 4px; }
 .cc-app[data-entry=account] .cc-dashboard > .cc-card:has(> h3 + .cc-muted) .cc-muted { font-size: 12.5px; margin: 0; }
 /* Totals: a ruled row of numbers. */
 .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-block: 1px solid var(--nx-hair); margin: 8px 0 22px; }
-.cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards > .cc-dashboard-card { background: none !important; border: 0 !important; border-left: 1px solid var(--nx-hair) !important; border-radius: 0 !important; box-shadow: none; padding: 16px 0 16px 12px; min-width: 0; text-align: left; }
+.cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards > .cc-dashboard-card { display: grid; align-content: start; background: none !important; border: 0 !important; border-left: 1px solid var(--nx-hair) !important; border-radius: 0 !important; box-shadow: none !important; padding: 14px 10px; min-width: 0; text-align: left; }
 .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards > .cc-dashboard-card:first-child { border-left: 0 !important; padding-left: 0; }
-.cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards > .cc-dashboard-card strong { display: block; font: 300 24px/1 var(--nx-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--nx-ink); white-space: nowrap; }
+.cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards > .cc-dashboard-card:last-child { padding-right: 0; }
+.cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards > .cc-dashboard-card strong { display: block; font: 300 clamp(19px, 5.2vw, 24px)/1.05 var(--nx-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--nx-ink); white-space: nowrap; }
 .cc-app[data-entry=account] .cc-dashboard > .cc-dashboard-cards > .cc-dashboard-card span { display: block; margin-top: 8px; font: 400 11.5px/1.35 var(--nx-text); color: var(--nx-ink-3); }
-.cc-app[data-entry=account] .cc-dashboard .cc-dashboard-chart.cc-card { background: none; border: 0; border-radius: 0; padding: 0 0 8px; }
+.cc-app[data-entry=account] .cc-dashboard .cc-dashboard-chart.cc-card { background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 0 8px; }
 /* Signal rows: ruled list. */
 .cc-app[data-entry=account] .cc-dashboard .cc-dashboard-entry { background: none; border: 0; border-bottom: 1px solid var(--nx-hair); border-radius: 0; padding: 12px 0; margin: 0; min-height: 60px; }
 .cc-app[data-entry=account] .cc-dashboard .cc-dashboard-entry strong { font: 500 15px/1.3 var(--nx-text); }
 .cc-app[data-entry=account] .cc-dashboard .cc-dashboard-entry small { color: var(--nx-ink-3); font-size: 12px; }
 .cc-app[data-entry=account] .cc-dashboard .cc-dashboard-entry-icon { filter: grayscale(1) brightness(1.3); opacity: .7; }
-.cc-app[data-entry=account] .cc-dashboard details.cc-card { background: none; border: 0; border-radius: 0; padding: 0; }
+.cc-app[data-entry=account] .cc-dashboard details.cc-card { background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0; }
 .cc-app[data-entry=account] .cc-dashboard details.cc-card > summary { color: var(--nx-ink-3); font: 500 13px/1 var(--nx-text); min-height: 44px; display: flex; align-items: center; cursor: pointer; }
-.cc-app[data-entry=account] .cc-dashboard details.nx-coverage-disclosure { margin: 6px 0 10px; border-left: 2px solid var(--nx-hair); padding: 0 0 0 12px; }
-.cc-app[data-entry=account] .cc-dashboard details.nx-coverage-disclosure > summary { min-height: 36px; gap: 8px; }
+.cc-app[data-entry=account] .cc-dashboard details.nx-coverage-disclosure { margin: 6px 0 10px; border-left: 2px solid var(--nx-hair) !important; padding: 0 0 0 12px; }
+.cc-app[data-entry=account] .cc-dashboard details.nx-coverage-disclosure > summary { min-height: 44px; gap: 8px; }
 .cc-app[data-entry=account] .cc-dashboard details.nx-coverage-disclosure > summary h3 { margin: 0; font: 500 13px/1.3 var(--nx-text); color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-dashboard details.nx-coverage-disclosure > p { margin: 4px 0 8px; font-size: 12.5px; line-height: 1.45; }
 
@@ -50,3 +52,6 @@
 .cc-app[data-entry=account] .cc-nutrition-overview strong { font-family: var(--nx-display); font-weight: 200; letter-spacing: -.035em; }
 .cc-app[data-entry=account] :is(.cc-nutrition-last, .cc-nutrition-timeline-item button) { background: none; border: 0; border-bottom: 1px solid var(--nx-hair); border-radius: 0; padding-inline: 0; box-shadow: none; }
 .cc-app[data-entry=account] .cc-nutrition-meal-kcal { font-family: var(--nx-display); font-weight: 300; }
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account] .cc-dashboard-range button { transition: none; }
+}

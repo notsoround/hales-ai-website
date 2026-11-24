@@ -174,6 +174,7 @@ export function FitnessWorkspace({
         </button>
       </header>
 
+      <div className="nx-fitness-top">
       <article className="cc-card nx-steps-card" aria-label="Steps">
         <div className="cc-heading-row">
           <h3 className="cc-card-title">
@@ -289,9 +290,6 @@ export function FitnessWorkspace({
             <button type="button" className="cc-secondary" onClick={() => { setWeighOpen(true); setWeighSaved(''); }}>
               Quick weigh-in
             </button>
-            <button type="button" className="cc-text-button" onClick={onOpenWeight}>
-              Weight trend →
-            </button>
           </div>
         ) : (
           <form className="nx-fitness-weigh-form" onSubmit={e => void submitWeighIn(e)}>
@@ -321,6 +319,7 @@ export function FitnessWorkspace({
           </form>
         )}
       </article>
+      </div>
 
       <SectionBoundary label="Exercise & energy">
         <TodayEnergy
