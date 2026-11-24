@@ -1,6 +1,7 @@
 # Cupcake Noir — Comprehensive Below-the-Fold Visual & Code Audit (Stage 4)
 
 **Branch:** `antigravity/tier5-noir-craft`  
+**Resolution Status (`v2026.11.24-1`):** All 35 audit findings (`7 P0`, `18 P1`, `10 P2`) resolved across Lane A (`polish-today-fitness`), Lane B (`polish-food-library`), and Lane C (`polish-settings-motion`), with `noir-light.generated.css` regenerated and verified post-merge.  
 **Audit Method:** Full Playwright capture (`RICH=1`) across **390×844** (scroll slices `y=0, 760, 1520, 2280, 3040`) and **1280×900** desktop, in **Dark** and **Light (Porcelain)** schemes, across **Caribbean** (primary) and **Rose/Violet** (spot-checks), covering every tab, sub-tab, popover, and expanded drawer state, paired with live DOM/CSS metrics and static CSS inspection.
 
 ---
