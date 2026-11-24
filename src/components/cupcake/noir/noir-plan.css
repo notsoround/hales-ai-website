@@ -1,12 +1,15 @@
 /* Meal plan and Groceries in the Noir language: a plan you read (ruled rows, display numerals), a checklist you tick,
    one primary action. Account app only (AccountFoodPlan is account-only); scoped all the same. */
 .cc-app[data-entry=account] .cc-food-plan { gap: 14px; font-family: var(--nx-text); }
+.cc-app[data-entry=account] .cc-food-plan:has(.nx-plan-read) { gap: 10px; }
+.cc-app[data-entry=account] .cc-food-plan:has(.nx-plan-read) .cc-plan-fields { gap: 12px; }
 .cc-app[data-entry=account] .cc-food-plan > .cc-heading-row h3 { font: 300 22px/1.2 var(--nx-display); letter-spacing: -.01em; }
-.cc-app[data-entry=account] .cc-food-plan .nx-plan-reload { min-height: 34px; padding: 0 12px; border-radius: 99px; font: 500 12px/1 var(--nx-text); color: var(--nx-ink-3); background: transparent; border: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .cc-food-plan .nx-plan-reload { position: relative; min-height: 40px; padding: 0 14px; border-radius: 99px; font: 500 12.5px/1 var(--nx-text); color: var(--nx-ink-2); background: transparent; border: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .cc-food-plan .nx-plan-reload::after { content: ""; position: absolute; inset: -3px 0; }
 /* Explanations stay for screen readers and for the empty state; a saved plan speaks for itself. */
 .cc-app[data-entry=account] .cc-food-plan:has(.nx-plan-read, .cc-grocery-item) .nx-plan-intro { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .cc-app[data-entry=account] .cc-food-plan .nx-plan-hint { color: var(--nx-ink-3); font-size: 12px; }
-.cc-app[data-entry=account] .cc-plan-save-state { font: 500 11px/1.3 var(--nx-text); letter-spacing: .1em; text-transform: uppercase; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .cc-plan-save-state { font: 500 11px/1.3 var(--nx-text); letter-spacing: .1em; text-transform: uppercase; color: var(--nx-ink-3); margin-bottom: -2px; }
 
 /* ---------- The plan, read ---------- */
 .nx-plan-read { display: grid; gap: 14px; min-width: 0; }
@@ -30,7 +33,7 @@
 .nx-plan-slot-right b { flex: none; font: 300 22px/1 var(--nx-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--nx-ink); }
 .nx-plan-slot-right b small { font: 400 11px var(--nx-text); color: var(--nx-ink-3); margin-left: 3px; }
 .nx-plan-slot-right b.is-unknown { color: var(--nx-ink-3); }
-.nx-slot-chev { color: var(--nx-ink-3); transition: transform .2s var(--ds-ease, ease); }
+.nx-slot-chev { color: var(--nx-ink-3); transition: transform .2s cubic-bezier(.22, 1, .36, 1); }
 .nx-plan-slot.is-open .nx-slot-chev { transform: rotate(180deg); color: var(--nx-a); }
 .nx-slot-badge {
   display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px;
@@ -91,10 +94,10 @@
 .nx-slot-idea-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .nx-slot-macros { font: 500 11.5px/1 var(--nx-text); color: var(--nx-ink-3); font-variant-numeric: tabular-nums; }
 .nx-slot-add-btn {
-  min-height: 34px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--nx-hair);
+  min-height: 36px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--nx-hair);
   background: var(--nx-surface-2); color: var(--nx-a); font: 500 12px/1 var(--nx-text); cursor: pointer;
 }
-.nx-slot-add-btn:disabled { opacity: .5; color: var(--nx-ink-3); cursor: default; }
+.nx-slot-add-btn:disabled { opacity: 1; color: rgba(238,244,245,.6); background: var(--nx-surface); cursor: default; }
 
 /* ---------- Smart Import / Paste List ---------- */
 .cc-app[data-entry=account] .nx-smart-import {
@@ -131,7 +134,7 @@
   background: color-mix(in oklab, var(--nx-a) 10%, transparent); color: var(--nx-a);
   font: 500 13px/1 var(--nx-text); cursor: pointer;
 }
-.cc-app[data-entry=account] .nx-triage-ai-btn:disabled { opacity: .5; cursor: default; }
+.cc-app[data-entry=account] .nx-triage-ai-btn:disabled { opacity: 1; color: rgba(238,244,245,.6); background: var(--nx-surface); border-color: var(--nx-hair); cursor: default; }
 
 /* ---------- Household Pantry / Supply Loop ---------- */
 .cc-app[data-entry=account] .nx-pantry {
@@ -144,10 +147,11 @@
 .cc-app[data-entry=account] .nx-pantry-head h4 svg { color: var(--nx-a); flex: none; }
 .cc-app[data-entry=account] .nx-pantry-head small { font: 400 12px/1.35 var(--nx-text); color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .nx-pantry-receipts-link {
-  display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px;
-  border-radius: 99px; border: 1px solid var(--nx-hair); background: var(--nx-surface-2);
-  color: var(--nx-a); font: 500 12px/1 var(--nx-text); text-decoration: none; white-space: nowrap; flex: none;
+  position: relative; display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px;
+  border-radius: 99px; border: 1px solid var(--nx-hair); background: transparent;
+  color: var(--cc-pink-bright, var(--nx-a)); font: 500 12px/1 var(--nx-text); text-decoration: none; white-space: nowrap; flex: none;
 }
+.cc-app[data-entry=account] .nx-pantry-receipts-link::after { content: ""; position: absolute; inset: -4px 0; }
 .cc-app[data-entry=account] .nx-pantry-low-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 12px 14px; border-radius: 16px;
@@ -159,7 +163,7 @@
 .cc-app[data-entry=account] .nx-pantry-low-banner span { font: 400 12.5px/1.35 var(--nx-text); color: var(--nx-ink-2, var(--nx-ink)); overflow-wrap: anywhere; }
 .cc-app[data-entry=account] .nx-pantry-low-btn {
   min-height: 38px; padding: 0 14px; border-radius: 99px; border: 0;
-  background: var(--nx-warm); color: #160e02; font: 600 12.5px/1 var(--nx-text); cursor: pointer; white-space: nowrap;
+  background: var(--nx-warm); color: var(--cc-ink, #160e02); font: 600 12.5px/1 var(--nx-text); cursor: pointer; white-space: nowrap;
 }
 .cc-app[data-entry=account] .nx-pantry-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .cc-app[data-entry=account] .nx-pantry-list li {
@@ -173,48 +177,53 @@
 .cc-app[data-entry=account] .nx-pantry-list li.is-low .nx-pantry-item-info small { color: var(--nx-warm); }
 .cc-app[data-entry=account] .nx-pantry-item-actions { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .cc-app[data-entry=account] .nx-pantry-pill {
-  display: inline-flex; align-items: center; gap: 3px; min-height: 34px; padding: 0 10px;
+  position: relative; display: inline-flex; align-items: center; gap: 3px; min-height: 34px; padding: 0 10px;
   border-radius: 99px; border: 1px solid color-mix(in oklab, var(--nx-a) 38%, transparent);
   background: color-mix(in oklab, var(--nx-a) 10%, transparent); color: var(--nx-a);
   font: 500 11.5px/1 var(--nx-text); cursor: pointer;
 }
+.cc-app[data-entry=account] .nx-pantry-pill::after { content: ""; position: absolute; inset: -5px 0; }
 .cc-app[data-entry=account] .nx-pantry-icon-btn {
-  display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 99px;
+  position: relative; display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 99px;
   border: 1px solid var(--nx-hair); background: transparent; color: var(--nx-ink-3); cursor: pointer;
 }
+.cc-app[data-entry=account] .nx-pantry-icon-btn::after { content: ""; position: absolute; inset: -5px; }
 .cc-app[data-entry=account] .nx-pantry-add { display: flex; gap: 8px; }
 .cc-app[data-entry=account] .nx-pantry-add input { flex: 1; min-width: 0; border-radius: 99px; padding-left: 16px; min-height: 44px; }
 .cc-app[data-entry=account] .nx-pantry-add .cc-secondary { border-radius: 99px; min-height: 44px; padding: 0 16px; flex: none; }
+.cc-app[data-entry=account] .cc-plan-fields :is(.cc-grocery-add, .nx-pantry-add, .cc-plan-import, .cc-shopping-choices, .nx-triage-actions) .cc-secondary:disabled {
+  opacity: 1; color: rgba(238, 244, 245, .6); background: var(--nx-surface); border-color: var(--nx-hair); box-shadow: none; cursor: default;
+}
 .cc-app[data-entry=account] .cc-plan-to-groceries { border-radius: 18px; border: 1px solid color-mix(in oklab, var(--nx-a) 30%, transparent); background: color-mix(in oklab, var(--nx-a) 7%, transparent); }
 .cc-app[data-entry=account] .cc-plan-to-groceries strong { color: var(--nx-ink); font-weight: 500; }
 .cc-app[data-entry=account] .cc-plan-to-groceries > span:last-child { color: var(--nx-a); }
 
 /* ---------- The plan, edited ---------- */
 .cc-app[data-entry=account] .cc-plan-fields label { font: 500 12px/1.3 var(--nx-text); color: var(--nx-ink-3); }
-.cc-app[data-entry=account] .cc-plan-fields :is(input:not([type=checkbox]), textarea) { border-radius: 14px; border-color: rgba(255,255,255,.09); background: rgba(255,255,255,.03); color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-plan-fields :is(input:not([type=checkbox]), textarea) { border-radius: 14px; border-color: var(--nx-hair); background: var(--nx-surface); color: var(--nx-ink); }
 .cc-app[data-entry=account] .cc-shell .cc-plan-meal { padding: 16px; border-radius: 20px; gap: 12px; }
 .cc-app[data-entry=account] .cc-plan-meal .cc-heading-row strong { font: 500 11px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-plan-meal .cc-text-button { font-size: 12.5px; color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-plan-import { border: 1px dashed var(--nx-hair); border-radius: 16px; }
-.cc-app[data-entry=account] .cc-plan-import summary { color: rgba(238,244,245,.8); font: 500 13.5px/1.3 var(--nx-text); }
+.cc-app[data-entry=account] .cc-plan-import summary { color: var(--nx-ink-2); font: 500 13.5px/1.3 var(--nx-text); }
 
 /* ---------- Groceries ---------- */
 .cc-app[data-entry=account] .cc-shell .cc-shopping-builder { padding: 16px; border-radius: 20px; border-color: var(--nx-hair); }
 .cc-app[data-entry=account] .cc-shopping-heading { font: 500 15px/1.25 var(--nx-text); }
-.nx-grocery-progress { height: 3px; border-radius: 3px; background: rgba(255,255,255,.07); overflow: hidden; }
-.nx-grocery-progress i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--nx-a2), var(--nx-a)); transition: width .35s var(--ds-ease, ease); }
+.nx-grocery-progress { height: 3px; border-radius: 3px; background: var(--nx-hair); overflow: hidden; }
+.nx-grocery-progress i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--nx-a2), var(--nx-a)); }
 .cc-app[data-entry=account] .cc-grocery-checklist { gap: 0; }
 .cc-app[data-entry=account] .cc-grocery-checklist > .cc-heading-row { margin-bottom: 8px; }
 .cc-app[data-entry=account] .cc-grocery-checklist > .nx-grocery-progress { margin-bottom: 6px; }
 .cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item { min-height: 52px; padding: 8px 2px; border: 0; border-bottom: 1px solid var(--nx-hair); border-radius: 0; gap: 14px; font: 400 15px/1.4 var(--nx-text); color: var(--nx-ink); }
-.cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; min-height: 24px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.28); background: transparent; display: grid; place-items: center; cursor: pointer; transition: background .2s, border-color .2s; }
+.cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; min-height: 24px; border-radius: 50%; border: 1.5px solid color-mix(in oklab, var(--nx-ink-3) 58%, transparent); background: transparent; display: grid; place-items: center; cursor: pointer; transition: transform .15s cubic-bezier(.22, 1, .36, 1), opacity .18s ease; }
 .cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input:checked { background: var(--nx-a); border-color: var(--nx-a); }
-.cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input:checked::after { content: ""; width: 10px; height: 6px; border-left: 2px solid #021412; border-bottom: 2px solid #021412; transform: translateY(-1px) rotate(-45deg); }
+.cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input:checked::after { content: ""; width: 10px; height: 6px; border-left: 2px solid var(--cc-ink, #021412); border-bottom: 2px solid var(--cc-ink, #021412); transform: translateY(-1px) rotate(-45deg); }
 .cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 3px; }
 .cc-app[data-entry=account] .cc-grocery-checked { color: var(--nx-ink-3); opacity: 1; }
 .cc-app[data-entry=account] .cc-grocery-section { margin: 14px 0 2px; font: 500 11px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-grocery-notes { margin: 12px 0 0; padding: 0; list-style: none; border: 0; background: none; }
-.cc-app[data-entry=account] .cc-grocery-notes li { padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,.035); border: 0; color: rgba(238,244,245,.72); font-size: 13px; }
+.cc-app[data-entry=account] .cc-grocery-notes li { padding: 8px 12px; border-radius: 12px; background: var(--nx-surface); border: 1px solid var(--nx-hair); color: var(--nx-ink-2); font-size: 13px; }
 .cc-app[data-entry=account] .cc-grocery-add { margin-top: 14px; }
 .cc-app[data-entry=account] .cc-grocery-add input { border-radius: 99px; padding-left: 18px; }
 .cc-app[data-entry=account] .cc-grocery-add .cc-secondary { border-radius: 99px; }
@@ -222,8 +231,7 @@
 
 /* ---------- One primary action: Save is quiet until there is something to save ---------- */
 .cc-app[data-entry=account] .nx-plan-save:not(.is-dirty) .cc-primary:disabled { background: transparent; box-shadow: none; border: 1px solid var(--nx-hair); color: var(--nx-ink-3); min-height: 40px; font-size: 13px; opacity: 1; }
-.cc-app[data-entry=account] .nx-plan-save.is-dirty .cc-primary { width: 100%; min-height: 54px; border-radius: 18px; color: #021412; box-shadow: 0 18px 40px -14px rgba(0,0,0,.8), 0 10px 30px -14px var(--nx-a); }
-.cc-app[data-entry=account][data-appearance=rose] .nx-plan-save.is-dirty .cc-primary, .cc-app[data-entry=account][data-appearance=rose] .cc-plan-fields .cc-grocery-item input:checked::after { color: #12081f; border-color: #12081f; }
+.cc-app[data-entry=account] .nx-plan-save.is-dirty .cc-primary { width: 100%; min-height: 54px; border-radius: 18px; color: var(--cc-ink, #021412); box-shadow: 0 18px 40px -14px rgba(0,0,0,.8), 0 10px 30px -14px var(--nx-a); }
 @media (min-width: 1024px) {
   .cc-app[data-entry=account] .cc-plan-split { gap: 28px; }
   .cc-app[data-entry=account] .cc-plan-col-title { font: 500 11px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); }
@@ -255,7 +263,6 @@
 .cc-app[data-entry=account] .nx-allowance-track i {
   display: block; height: 100%; border-radius: 99px;
   background: linear-gradient(90deg, var(--nx-a2), var(--nx-a));
-  transition: width .3s var(--ds-ease, ease);
 }
 .cc-app[data-entry=account] .nx-allowance.is-low .nx-allowance-track i { background: var(--nx-warm); }
 
@@ -264,12 +271,13 @@
   display: flex; justify-content: flex-start; margin-bottom: 2px;
 }
 .cc-app[data-entry=account] .nx-receipts-pill {
-  display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 13px;
+  position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 13px;
   border-radius: 999px; border: 1px solid color-mix(in oklab, var(--nx-warm) 36%, var(--nx-hair));
   background: color-mix(in oklab, var(--nx-warm) 10%, var(--nx-surface));
   color: var(--nx-ink); font: 500 12.5px/1.2 var(--nx-text); cursor: pointer;
-  transition: border-color .18s ease, background .18s ease;
+  transition: transform .14s cubic-bezier(.22, 1, .36, 1), opacity .18s ease;
 }
+.cc-app[data-entry=account] .nx-receipts-pill::after { content: ""; position: absolute; inset: -4px 0; }
 .cc-app[data-entry=account] .nx-receipts-pill svg { color: var(--nx-warm); flex: none; }
 .cc-app[data-entry=account] .nx-receipts-pill:hover {
   border-color: color-mix(in oklab, var(--nx-warm) 60%, var(--nx-hair));
@@ -279,6 +287,9 @@
 }
 
 /* ---------- Unified Saved Audio Flow ---------- */
+:root .cc-app[data-entry=account] .cc-shell .cc-audio-archive {
+  padding-bottom: 28px;
+}
 .cc-app[data-entry=account] .nx-audio-flow {
   display: grid; gap: 12px;
 }
@@ -292,6 +303,15 @@
 .cc-app[data-entry=account] .nx-audio-flow .nx-audio-step h4 {
   margin: 0 0 6px; font: 600 12px/1.2 var(--nx-text); letter-spacing: .08em;
   text-transform: uppercase; color: var(--nx-ink-3);
+}
+.cc-app[data-entry=account] .nx-audio-flow .cc-audio-transcription select {
+  border-radius: 12px; border: 1px solid var(--nx-hair); background: var(--nx-surface-2);
+  color: var(--nx-ink); padding: 0 12px;
+}
+.cc-app[data-entry=account] .nx-audio-flow .cc-audio-transcript pre {
+  margin: 10px 0; padding: 12px 14px; border-radius: 14px;
+  border: 1px solid var(--nx-hair); background: var(--nx-surface-2);
+  font: 400 13.5px/1.6 var(--nx-text); color: var(--nx-ink-2, var(--nx-ink));
 }
 
 /* ---------- Talk-to-Update Card ---------- */
@@ -312,7 +332,7 @@
   border-radius: 999px; border: 1px solid color-mix(in oklab, var(--nx-a) 42%, var(--nx-hair));
   background: var(--nx-surface-2); color: var(--nx-a); font: 500 12.5px/1 var(--nx-text); cursor: pointer;
 }
-.cc-app[data-entry=account] .nx-voice-updates-scan:disabled { opacity: .55; cursor: default; }
+.cc-app[data-entry=account] .nx-voice-updates-scan:disabled { opacity: 1; color: rgba(238,244,245,.6); background: var(--nx-surface); border-color: var(--nx-hair); cursor: default; }
 .cc-app[data-entry=account] .nx-voice-updates-list {
   list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
 }
@@ -323,7 +343,7 @@
   border-color: color-mix(in oklab, var(--nx-good) 34%, var(--nx-hair));
 }
 .cc-app[data-entry=account] .nx-voice-updates-list label {
-  display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; cursor: pointer; min-width: 0;
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 9px 11px; cursor: pointer; min-width: 0;
 }
 .cc-app[data-entry=account] .nx-voice-updates-list input[type=checkbox] {
   width: 18px; height: 18px; min-width: 18px; margin-top: 2px; accent-color: var(--nx-a);
@@ -343,9 +363,8 @@
 .cc-app[data-entry=account] .nx-voice-update-err { color: var(--nx-bad) !important; }
 .cc-app[data-entry=account] .nx-voice-updates-foot { display: flex; justify-content: flex-start; }
 .cc-app[data-entry=account] .nx-voice-updates-foot .cc-primary {
-  min-height: 40px; padding: 0 16px; border-radius: 999px; font: 600 13px/1 var(--nx-text); color: #021412;
+  min-height: 44px; padding: 0 16px; border-radius: 999px; font: 600 13px/1 var(--nx-text); color: var(--cc-ink, #021412);
 }
-.cc-app[data-entry=account][data-appearance=rose] .nx-voice-updates-foot .cc-primary { color: #12081f; }
 .cc-app[data-entry=account] .nx-voice-updates-status {
   margin: 0; font: 500 12.5px/1.4 var(--nx-text); color: var(--nx-good);
 }
@@ -371,6 +390,36 @@
 :root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-voice-updates-list li {
   background: var(--nx-card); border-color: var(--nx-hair);
 }
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-pantry-receipts-link {
+  background-color: transparent; color: var(--cc-pink-bright, var(--nx-a));
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-pantry-low-btn {
+  color: var(--cc-ink, #ffffff);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .cc-plan-fields :is(.cc-grocery-add, .nx-pantry-add, .cc-plan-import, .cc-shopping-choices, .nx-triage-actions) .cc-secondary:disabled,
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-slot-add-btn:disabled,
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-triage-ai-btn:disabled,
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-voice-updates-scan:disabled {
+  opacity: 1; color: var(--nx-ink-3); background-color: var(--cc-surface-2); border-color: var(--nx-hair); box-shadow: none;
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .cc-plan-import summary {
+  color: var(--nx-ink-2);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .cc-grocery-notes li {
+  background-color: var(--nx-surface); border-color: var(--nx-hair); color: var(--nx-ink-2);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-plan-save.is-dirty .cc-primary,
+:root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose] .nx-plan-save.is-dirty .cc-primary {
+  color: var(--cc-ink, #ffffff);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input:checked::after,
+:root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose] .cc-plan-fields .cc-grocery-item input:checked::after {
+  border-color: var(--cc-ink, #ffffff);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-audio-flow .cc-audio-transcription select,
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-audio-flow .cc-audio-transcript pre {
+  background: var(--nx-surface);
+}
 :root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-receipts-pill {
   background: color-mix(in oklab, var(--nx-warm) 9%, var(--nx-card));
   color: var(--nx-ink);
@@ -383,8 +432,15 @@
 }
 :root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-voice-updates-foot .cc-primary,
 :root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose] .nx-voice-updates-foot .cc-primary {
-  color: #ffffff;
+  color: var(--cc-ink, #ffffff);
 }
 :root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-library-updates-dock {
   background: var(--nx-card); box-shadow: var(--nx-card-shadow);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nx-slot-chev,
+  .cc-app[data-entry=account] .cc-plan-fields .cc-grocery-item input,
+  .cc-app[data-entry=account] .nx-receipts-pill {
+    transition: none;
+  }
 }
