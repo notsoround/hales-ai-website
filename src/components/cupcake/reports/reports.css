@@ -9,8 +9,8 @@
   --rp-s1: rgba(255,255,255,.028);
   --rp-s2: rgba(255,255,255,.05);
   --rp-ink: var(--cc-text);
-  --rp-ink-2: color-mix(in srgb, var(--cc-text) 66%, transparent);
-  --rp-ink-3: color-mix(in srgb, var(--cc-text) 46%, transparent);
+  --rp-ink-2: color-mix(in srgb, var(--cc-text) 68%, transparent);
+  --rp-ink-3: color-mix(in srgb, var(--cc-text) 58%, transparent);
   --rp-num: 'Outfit', Inter, system-ui, sans-serif;
   --nx-display: 'Outfit', Inter, system-ui, sans-serif;
   font-family: Inter, system-ui, -apple-system, sans-serif;
@@ -37,7 +37,7 @@
 /* ---------- Client roster ---------- */
 .cc-app[data-entry=account] .cc-rep-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 10px; }
 .cc-app[data-entry=account] .cc-rep-roster-head .cc-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); }
-.cc-app[data-entry=account] .cc-coach .cc-rep-quiet { min-height: 32px; padding: 4px 2px; border: 0; background: none; color: var(--rp-ink-3); font-size: 13px; font-weight: 500; text-decoration: none; }
+.cc-app[data-entry=account] .cc-coach .cc-rep-quiet { min-height: 38px; padding: 6px 8px; border: 0; background: none; color: var(--rp-ink-3); font-size: 13px; font-weight: 500; text-decoration: none; }
 .cc-app[data-entry=account] .cc-coach .cc-rep-quiet:hover { color: var(--rp-ink); }
 .cc-app[data-entry=account] .cc-rep-quiet-line { font-size: 13.5px; line-height: 1.55; color: var(--rp-ink-3); margin: 8px 2px 14px; }
 .cc-app[data-entry=account] .cc-rep-roster { list-style: none; margin: 0; padding: 0; border-radius: 20px; background: var(--rp-s1); box-shadow: inset 0 0 0 1px var(--rp-hair); overflow: hidden; }
@@ -70,7 +70,7 @@
 .cc-app[data-entry=account] .cc-rep-range-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; margin: 0 2px; }
 .cc-app[data-entry=account] .cc-rep-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--rp-ink-3); font-variant-numeric: tabular-nums; }
 .cc-app[data-entry=account] .cc-rep-through { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--rp-ink-3); }
-.cc-app[data-entry=account] .cc-rep-through input { min-height: 32px; padding: 4px 10px; border: 0; border-radius: 9px; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair); color: var(--rp-ink-2); font: 500 13px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; color-scheme: dark; }
+.cc-app[data-entry=account] .cc-rep-through input { min-height: 32px; padding: 4px 10px; border: 0; border-radius: 9px; background: var(--rp-s2); box-shadow: inset 0 0 0 1px var(--rp-hair); color: var(--rp-ink-2); font: 500 13px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 .cc-app[data-entry=account] .cc-rep-through input:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
 
 /* ---------- At a glance ---------- */
@@ -204,8 +204,18 @@
 .cc-app[data-entry=account] .cc-rep-kpi { background: none; padding: 0 14px; border-left: 1px solid var(--rp-hair); }
 .cc-app[data-entry=account] .cc-rep-kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
 .cc-app[data-entry=account] .cc-rep-kpi[data-kpi=weight] .cc-rep-num { color: inherit; }
-.cc-app[data-entry=account] .cc-shell .cc-coach .cc-rep-card { background: none; border: 0; border-top: 1px solid var(--rp-hair); border-radius: 0; box-shadow: none; padding: 22px 0 6px; }
+.cc-app[data-entry=account] :is(.cc-shell, .cc-settings-panel) .cc-coach .cc-rep-card { background: none; border: 0; border-top: 1px solid var(--rp-hair); border-radius: 0; box-shadow: none; padding: 22px 0 6px; }
 @media (min-width: 900px) {
   .cc-app[data-entry=account] .cc-rep-kpi:nth-child(odd) { padding-left: 14px; border-left: 1px solid var(--rp-hair); }
   .cc-app[data-entry=account] .cc-rep-kpi:first-child { padding-left: 0; border-left: 0; }
 }
+
+/* ---------- Settings drawer containment: always stack cleanly inside the narrow drawer ---------- */
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-coach-context { flex-direction: column; gap: 10px; }
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-coach-context > .cc-secondary { max-width: 100%; align-self: flex-start; }
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-coach-context h2 { font-size: 26px; }
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-rep-grid { grid-template-columns: 1fr; gap: 12px; }
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-rep-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-rep-kpi { padding: 0 12px; border-left: 1px solid var(--rp-hair); }
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-rep-kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
+.cc-app[data-entry=account] .cc-settings-panel .cc-coach .cc-rep-headline { font-size: 26px; }

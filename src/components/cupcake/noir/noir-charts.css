@@ -1,5 +1,5 @@
 /* Noir chart kit. Accent tokens come from the account theme: --nx-a (accent), --nx-a2 (second tone). */
-.cc-app { --nx-a: var(--cc-pink, #2fe0c8); --nx-a2: var(--cc-ocean, #3c8cff); --nx-warm: #ffb547; --nx-good: #4be08f; --nx-bad: #ff6b7a; --nx-ink: var(--cc-text, #eef4f5); --nx-ink-3: rgba(238,244,245,.48); --nx-hair: rgba(255,255,255,.07); }
+.cc-app { --nx-a: var(--cc-pink, #2fe0c8); --nx-a2: var(--cc-ocean, #3c8cff); --nx-warm: #ffb547; --nx-good: #4be08f; --nx-bad: #ff6b7a; --nx-ink: var(--cc-text, #eef4f5); --nx-ink-3: rgba(238,244,245,.58); --nx-hair: rgba(255,255,255,.07); --nx-ease: cubic-bezier(.22, 1, .36, 1); --nx-ease-press: cubic-bezier(.3, .7, .4, 1); }
 .nx-dial { position: relative; width: 100%; max-width: 340px; margin: 0 auto; }
 .nx-dial svg { display: block; width: 100%; height: auto; overflow: visible; }
 .nx-tick { stroke: rgba(255,255,255,.1); stroke-width: 1; }
@@ -49,9 +49,9 @@
 .nx-readout b { font: 500 13px/1.1 var(--nx-display, Outfit, Inter, system-ui, sans-serif); font-variant-numeric: tabular-nums; color: var(--nx-ink); }
 .nx-readout span { font: 500 10px/1.1 var(--nx-text, Inter, system-ui, sans-serif); color: var(--nx-ink-3); }
 @media (prefers-reduced-motion: no-preference) {
-  .nx-draw { stroke-dasharray: var(--nx-len); stroke-dashoffset: var(--nx-len); animation: nx-draw 1.4s cubic-bezier(.2,.8,.2,1) .15s forwards; }
+  .nx-draw { stroke-dasharray: var(--nx-len); stroke-dashoffset: var(--nx-len); animation: nx-draw 1.4s var(--nx-ease) .15s forwards; }
   .nx-pulse { animation: nx-pulse 2.4s ease-out 3; transform-box: fill-box; transform-origin: center; }
-  .nx-bar { animation: nx-rise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 18ms); transform-box: fill-box; transform-origin: bottom; }
+  .nx-bar { animation: nx-rise .7s var(--nx-ease) both; animation-delay: calc(var(--i, 0) * 18ms); transform-box: fill-box; transform-origin: bottom; }
 }
 @keyframes nx-draw { to { stroke-dashoffset: 0; } }
 @keyframes nx-pulse { 0% { transform: scale(.6); opacity: .35; } 100% { transform: scale(1.8); opacity: 0; } }

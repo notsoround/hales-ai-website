@@ -8,8 +8,90 @@
 .cc-app .cc-settings-group-danger>summary{color:var(--cc-text-2)}
 .cc-app .cc-settings-group>summary:focus-visible,.cc-app .cc-settings-extra>summary:focus-visible,.cc-app .cc-account-note>summary:focus-visible{outline:2px solid var(--cc-pink);outline-offset:2px;border-radius:8px}
 .cc-app .cc-settings-footer{border-top:1px solid var(--cc-border);margin-top:12px;padding-top:16px}
-.cc-app .cc-settings-signout{width:100%;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600}
+.cc-app .cc-settings-panel .cc-settings-signout.cc-lock{width:100%;min-height:46px;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;white-space:nowrap}
 .cc-app .cc-account-note{margin:4px 0 12px;color:var(--cc-text-2);font-size:13px}
 .cc-app .cc-account-note>summary{min-height:36px;display:flex;align-items:center;gap:8px;cursor:pointer}
 .cc-app .cc-account-note>p{margin:4px 0 12px;max-width:70ch;line-height:1.5}
 @media(max-width:600px){.cc-app .cc-account-note>summary{min-height:44px}}
+
+/* ---------- Noir account Settings: unified chevrons, AA disabled states & footer polish ---------- */
+.cc-app[data-entry=account] .cc-settings-group,
+.cc-app[data-entry=account] .cc-settings-extra { border-top-color: var(--nx-hair, var(--cc-border)); }
+.cc-app[data-entry=account] .cc-settings-group > summary,
+.cc-app[data-entry=account] .cc-settings-extra > summary { font-weight: 550; color: var(--nx-ink, var(--cc-text)); }
+.cc-app[data-entry=account] .cc-settings-group > summary::after,
+.cc-app[data-entry=account] .cc-settings-extra > summary::after {
+  content: ""; flex: none; width: 7px; height: 7px; margin-right: 4px; font-size: 0;
+  border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
+  color: var(--nx-ink-3, var(--cc-text-2));
+  transform: rotate(-45deg);
+  transition: transform .22s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)), color .18s;
+}
+.cc-app[data-entry=account] .cc-settings-group[open] > summary::after,
+.cc-app[data-entry=account] .cc-settings-extra[open] > summary::after {
+  content: ""; color: var(--nx-ink-2, var(--cc-text));
+  transform: rotate(45deg) translateY(-1px);
+}
+.cc-app[data-entry=account] .cc-settings-group-danger > summary { color: var(--nx-ink-2, var(--cc-text-2)); }
+
+/* Normalize nested disclosures inside Settings (Download my data, Mobile app connections, Sharing pilot, etc.). */
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-group details:not(.nx-connect-item, .cc-rep-numbers, .cc-coach-empty-row) > summary {
+  list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 44px; cursor: pointer;
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-group details:not(.nx-connect-item, .cc-rep-numbers, .cc-coach-empty-row) > summary::-webkit-details-marker { display: none; }
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-group details:not(.nx-connect-item, .cc-rep-numbers, .cc-coach-empty-row) > summary::after {
+  content: ""; flex: none; width: 6.5px; height: 6.5px; margin-right: 4px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  color: var(--nx-ink-3, var(--cc-text-2));
+  transform: rotate(-45deg);
+  transition: transform .22s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)), color .18s;
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-group details:not(.nx-connect-item, .cc-rep-numbers, .cc-coach-empty-row)[open] > summary::after {
+  color: var(--nx-ink-2, var(--cc-text));
+  transform: rotate(45deg) translateY(-1px);
+}
+
+/* Account & security subsection rhythm: avoid double borders and give Mobile app connections a proper header. */
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-group > div > .cc-account-controls {
+  border-top: 1px solid var(--nx-hair, var(--cc-border)); margin-top: 14px; padding-top: 14px;
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-group > div > .cc-account-controls:first-child {
+  border-top: 0; margin-top: 0; padding-top: 4px;
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-native-app-controls {
+  margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--nx-hair, var(--cc-border));
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-native-app-controls > summary {
+  font: 500 14px/1.3 var(--nx-text, Inter, system-ui, sans-serif); color: var(--nx-ink, var(--cc-text));
+}
+
+/* AA contrast for disabled actions inside Settings (Dark Noir & Light Porcelain). */
+.cc-app[data-entry=account] .cc-settings-panel :is(button, .cc-secondary, .cc-text-button):disabled {
+  opacity: 1; color: var(--nx-ink-3, rgba(238,244,245,.58)); cursor: not-allowed;
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-secondary:disabled {
+  background-color: var(--nx-surface); border-color: var(--nx-hair); box-shadow: none;
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-primary:disabled {
+  background-color: var(--nx-surface-2); background-image: none;
+  color: var(--nx-ink-3, rgba(238,244,245,.58)); border: 1px solid var(--nx-hair); box-shadow: none;
+}
+
+/* Footer Sign out pill & safe-area breathing room. */
+.cc-app[data-entry=account] .cc-settings-footer {
+  border-top: 1px solid var(--nx-hair, var(--cc-border));
+  margin-top: 16px; padding-top: 18px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-signout.cc-lock {
+  width: 100%; padding: 12px 18px;
+  border-radius: 14px; background: var(--nx-surface); border: 1px solid var(--nx-hair); color: var(--nx-ink);
+  transition: background .18s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)), border-color .18s;
+}
+.cc-app[data-entry=account] .cc-settings-panel .cc-settings-signout.cc-lock:hover:not(:disabled) { background: var(--nx-surface-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account] .cc-settings-panel summary::after,
+  .cc-app[data-entry=account] .cc-settings-signout { transition: none; }
+}
