@@ -1,5 +1,54 @@
-.cc-recording-summary{border-top:1px solid var(--cc-line,#302c36);margin-top:16px;padding-top:12px;min-width:0;overflow-wrap:anywhere}
-.cc-recording-summary .cc-action-row{display:flex;gap:8px;flex-wrap:wrap}
-.cc-recording-summary button,.cc-recording-summary a{min-height:44px;max-width:100%;white-space:normal}
-.cc-recording-summary-result{margin-top:16px}
-.cc-recording-summary-result pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6;margin:12px 0}
+.cc-recording-summary {
+  border-top: 1px solid var(--nx-hair, var(--cc-line, rgba(255, 255, 255, .1)));
+  margin-top: 14px;
+  padding-top: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cc-recording-summary .cc-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.cc-recording-summary button, .cc-recording-summary a { min-height: 44px; max-width: 100%; white-space: normal; }
+.cc-recording-summary-result { margin-top: 14px; }
+.cc-recording-summary-result pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; margin: 10px 0 0; }
+
+.cc-app[data-entry=account] .cc-recording-summary {
+  font-family: var(--nx-text);
+  color: var(--nx-ink);
+}
+.cc-app[data-entry=account] .cc-recording-summary .cc-action-row { margin: 10px 0 4px; }
+.cc-app[data-entry=account] .cc-recording-summary > [role=status],
+.cc-app[data-entry=account] .cc-recording-summary > [role=alert] {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--nx-ink-2);
+}
+.cc-app[data-entry=account] .cc-recording-summary > [role=alert] { color: var(--nx-warm); }
+.cc-app[data-entry=account] .cc-recording-summary-result {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--nx-hair);
+  background: var(--nx-surface-2);
+  display: grid;
+  gap: 6px;
+}
+.cc-app[data-entry=account] .cc-recording-summary-result strong {
+  font: 600 13.5px/1.3 var(--nx-text);
+  color: var(--nx-ink);
+}
+.cc-app[data-entry=account] .cc-recording-summary-result .cc-muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--nx-ink-3);
+}
+.cc-app[data-entry=account] .cc-recording-summary-result pre {
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 400 13.5px/1.6 var(--nx-text);
+  color: var(--nx-ink-2, var(--nx-ink));
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .cc-recording-summary-result {
+  background: var(--nx-surface);
+}

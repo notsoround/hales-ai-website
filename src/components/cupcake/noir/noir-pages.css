@@ -72,4 +72,40 @@
 .cc-app[data-entry=account] .cc-coverage-details > p { margin: 4px 0 0; }
 
 /* ---------- Errors: a calm warm note, not a pink slab ---------- */
-.cc-app[data-entry=account] .cc-shell .cc-error, .cc-app[data-entry=account] .cc-meal-dialog .cc-error { background: color-mix(in oklab, var(--nx-warm) 9%, transparent); border: 0; border-left: 2px solid var(--nx-warm); border-radius: 0 12px 12px 0; color: var(--nx-ink); padding: 12px 14px; font-size: 14px; line-height: 1.45; }
+.cc-app[data-entry=account] .cc-shell .cc-error,
+.cc-app[data-entry=account] .cc-meal-dialog .cc-error {
+  align-items: center; gap: 10px;
+  background: color-mix(in oklab, var(--nx-warm) 9%, transparent);
+  border: 0; border-left: 2px solid var(--nx-warm); border-radius: 0 12px 12px 0 !important;
+  color: var(--nx-ink); padding: 12px 14px; font-size: 14px; line-height: 1.45;
+}
+.cc-app[data-entry=account] .cc-shell .cc-error button,
+.cc-app[data-entry=account] .cc-meal-dialog .cc-error button {
+  min-width: 44px; min-height: 44px; margin: -6px -8px -6px auto; padding: 0;
+  display: inline-grid; place-items: center; flex: none;
+  color: var(--nx-ink-2, var(--nx-ink)); border-radius: 10px;
+}
+
+/* ---------- Receipts & Library polish ---------- */
+.cc-app[data-entry=account] .cc-shell .cc-receipt-top-row { margin-bottom: 14px; }
+.cc-app[data-entry=account] .cc-shell .cc-receipt-top-row p { margin-bottom: 0; }
+.cc-app[data-entry=account] .cc-shell .cc-receipts .cc-error { margin: 14px 0; }
+.cc-app[data-entry=account] .cc-shell .cc-receipt-pantry-jump {
+  position: relative; background: transparent; color: var(--cc-pink-bright, var(--nx-a)); min-height: 40px;
+}
+.cc-app[data-entry=account] .cc-shell .cc-receipt-pantry-jump::after,
+.cc-app[data-entry=account] .cc-shell .cc-receipt-filters button::after {
+  content: ""; position: absolute; inset: -3px 0;
+}
+.cc-app[data-entry=account] .cc-shell .cc-receipt-filters button { position: relative; }
+.cc-app[data-entry=account] .cc-shell .cc-primary:disabled {
+  opacity: 1; background-image: none; background-color: var(--nx-surface-2);
+  color: rgba(238, 244, 245, .62); box-shadow: none; border: 1px solid var(--nx-hair); cursor: default;
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .cc-shell .cc-primary:disabled {
+  opacity: 1; background-image: none; background-color: var(--cc-surface-2);
+  color: var(--cc-text-2); box-shadow: none; border: 1px solid var(--nx-hair);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .cc-shell .cc-receipt-pantry-jump {
+  background-color: transparent; color: var(--cc-pink-bright, var(--nx-a));
+}
