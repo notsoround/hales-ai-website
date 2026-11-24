@@ -1,10 +1,26 @@
 /* Account app Timeline: type filter over the full signal history. Scoped so /cupcake is unchanged. */
-.cc-app[data-entry=account] .cc-signal-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
-.cc-app[data-entry=account] .cc-signal-filter button { position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 13px; border: 1px solid var(--cc-border); border-radius: 999px; background: transparent; color: var(--cc-text-2, inherit); font: inherit; font-size: 13px; cursor: pointer; }
-.cc-app[data-entry=account] .cc-signal-filter button > span[aria-hidden] { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--cc-accent-wash); color: inherit; font-size: 11px; font-variant-numeric: tabular-nums; text-align: center; }
-.cc-app[data-entry=account] .cc-signal-filter button:hover { border-color: var(--cc-pink); }
-.cc-app[data-entry=account] .cc-signal-filter button[aria-pressed=true] { border-color: var(--cc-pink); background: var(--cc-accent-wash); color: var(--cc-pink-bright, var(--cc-pink)); font-weight: 600; }
-.cc-app[data-entry=account] .cc-signal-filter button:focus-visible { outline: 2px solid var(--cc-pink); outline-offset: 2px; }
+.cc-app[data-entry=account] .cc-signal-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.cc-app[data-entry=account] .cc-signal-filter button {
+  position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 14px;
+  border: 1px solid var(--nx-hair); border-radius: 999px; background: var(--nx-surface);
+  color: var(--nx-ink-2); font: 500 13px/1 var(--nx-text, inherit); cursor: pointer;
+  transition: transform 110ms var(--nx-ease, cubic-bezier(.22, 1, .36, 1)), opacity 160ms ease;
+}
+.cc-app[data-entry=account] .cc-signal-filter button > span[aria-hidden] {
+  min-width: 20px; padding: 2px 6px; border-radius: 999px; background: var(--nx-surface-2);
+  color: var(--nx-ink); font-size: 11px; font-variant-numeric: tabular-nums; text-align: center;
+}
+.cc-app[data-entry=account] .cc-signal-filter button:hover { border-color: color-mix(in oklab, var(--nx-a) 45%, var(--nx-hair)); color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-signal-filter button:active { transform: scale(.97); }
+.cc-app[data-entry=account] .cc-signal-filter button[aria-pressed=true] {
+  border-color: color-mix(in oklab, var(--nx-a) 48%, var(--nx-hair));
+  background: color-mix(in oklab, var(--nx-a) 12%, var(--nx-surface));
+  color: var(--nx-ink); font-weight: 600;
+}
+.cc-app[data-entry=account] .cc-signal-filter button[aria-pressed=true] > span[aria-hidden] {
+  background: color-mix(in oklab, var(--nx-a) 22%, transparent); color: var(--nx-ink);
+}
+.cc-app[data-entry=account] .cc-signal-filter button:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 2px; }
 /* Jump past the scorecards to the history list. */
 .cc-app[data-entry=account] .cc-signal-jump { min-height: 44px; margin: -4px 0 4px; padding: 0; }
 .cc-app[data-entry=account] #cc-signals-heading { scroll-margin-top: 96px; }
@@ -22,22 +38,25 @@
 /* Consolidated signal groups & collapsed low-priority system signals (account app only). */
 .cc-app[data-entry=account] .nx-signal-group-title { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cc-app[data-entry=account] .nx-signal-count { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font: 600 11px/1.2 var(--nx-text); font-style: normal; font-variant-numeric: tabular-nums; color: var(--nx-ink); background: var(--nx-surface-2, rgba(255,255,255,.08)); border: 1px solid var(--nx-hair); margin-left: 6px; vertical-align: middle; }
-.cc-app[data-entry=account] .cc-dashboard-entry.is-group > svg { transition: transform .18s; }
+.cc-app[data-entry=account] .cc-dashboard-entry.is-group > svg { transition: transform 180ms var(--nx-ease, cubic-bezier(.22, 1, .36, 1)); }
 .cc-app[data-entry=account] .cc-dashboard-entry.is-group > svg.is-open { transform: rotate(90deg); }
 .cc-app[data-entry=account] .nx-signal-group-items { padding-left: 16px; border-left: 1px solid var(--nx-hair); margin: 0 0 8px 10px; }
 .cc-app[data-entry=account] .cc-dashboard-entry.is-child { min-height: 48px; padding: 8px 0; }
 .cc-app[data-entry=account] .cc-dashboard-entry.is-child strong { font-size: 13.5px; font-weight: 500; }
-.cc-app[data-entry=account] .nx-signal-group-more { min-height: 40px; padding: 6px 0; font-size: 13px; color: var(--nx-a); }
+.cc-app[data-entry=account] .nx-signal-group-more { min-height: 44px; padding: 6px 0; font-size: 13px; color: var(--nx-a); }
 .cc-app[data-entry=account] .nx-signal-quiet { margin-top: 14px; border-top: 1px solid var(--nx-hair); }
 .cc-app[data-entry=account] .nx-signal-quiet > summary { display: flex; align-items: center; justify-content: space-between; min-height: 46px; cursor: pointer; font: 500 13px/1.2 var(--nx-text); color: var(--nx-ink-3); list-style: none; }
 .cc-app[data-entry=account] .nx-signal-quiet > summary::-webkit-details-marker { display: none; }
-.cc-app[data-entry=account] .nx-signal-quiet > summary::after { content: "▾"; font-size: 12px; opacity: .7; transition: transform .18s; }
+.cc-app[data-entry=account] .nx-signal-quiet > summary::after { content: "▾"; font-size: 12px; opacity: .7; transition: transform 180ms var(--nx-ease, cubic-bezier(.22, 1, .36, 1)); }
 .cc-app[data-entry=account] .nx-signal-quiet[open] > summary::after { transform: rotate(180deg); }
 .cc-app[data-entry=account] .nx-signal-quiet-item { border-top: 1px solid var(--nx-hair); }
 .cc-app[data-entry=account] .nx-tl-quiet-btn { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 10px 0; cursor: pointer; font-family: var(--nx-text); color: var(--nx-ink); }
 .cc-app[data-entry=account] .nx-tl-quiet-btn strong { font: 500 14px/1.25 var(--nx-text); color: var(--nx-ink); }
 .cc-app[data-entry=account] .nx-tl-quiet-btn small { font: 400 12px/1.2 var(--nx-text); color: var(--nx-ink-3); white-space: nowrap; }
 .cc-app[data-entry=account] .nx-tl-group-items { display: grid; gap: 2px; padding: 2px 0 8px 16px; border-left: 1px solid var(--nx-hair); margin-left: 10px; }
-.cc-app[data-entry=account] .nx-tl-group-child { all: unset; box-sizing: border-box; display: flex; align-items: baseline; gap: 10px; min-height: 40px; padding: 6px 0; cursor: pointer; font: 400 13px/1.3 var(--nx-text); color: var(--nx-ink-2); border-bottom: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .nx-tl-group-child { all: unset; box-sizing: border-box; display: flex; align-items: baseline; gap: 10px; min-height: 44px; padding: 6px 0; cursor: pointer; font: 400 13px/1.3 var(--nx-text); color: var(--nx-ink-2); border-bottom: 1px solid var(--nx-hair); }
 .cc-app[data-entry=account] .nx-tl-group-child time { font-variant-numeric: tabular-nums; color: var(--nx-ink-3); font-size: 12px; white-space: nowrap; }
 .cc-app[data-entry=account] :is(.nx-tl-quiet-btn, .nx-tl-group-child, .nx-signal-quiet > summary):focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account] :is(.cc-signal-filter button, .cc-dashboard-entry.is-group > svg, .nx-signal-quiet > summary::after) { transition: none; }
+}

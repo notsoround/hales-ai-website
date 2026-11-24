@@ -8,16 +8,35 @@
 
 /* A finger gets an answer the moment it lands; it eases back on release. Mouse hover styles are untouched. */
 @media (hover: none) {
-  .cc-app[data-entry=account] :is(button, summary, [role=button], .cc-text-button):not(:disabled, [aria-disabled=true]) { transition: opacity .28s ease; }
-  .cc-app[data-entry=account] :is(button, summary, [role=button], .cc-text-button):not(:disabled, [aria-disabled=true]):active { opacity: .62; transition-duration: 0s; }
+  .cc-app[data-entry=account] :is(button, summary, [role=button], .cc-text-button):not(:disabled, [aria-disabled=true]) {
+    transition-property: opacity, transform;
+    transition-duration: .22s, .12s;
+    transition-timing-function: var(--nx-ease, cubic-bezier(.22, 1, .36, 1)), var(--nx-ease-press, cubic-bezier(.3, .7, .4, 1));
+  }
+  .cc-app[data-entry=account] :is(button, summary, [role=button], .cc-text-button):not(:disabled, [aria-disabled=true]):active {
+    opacity: .62;
+    transition-duration: 0s, .11s;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account] :is(button, summary, [role=button], .cc-text-button) { transition: none; }
 }
 
 /* Compact controls keep their size on screen but accept a touch at least 44px tall. */
-.cc-app[data-entry=account] :is(.nx-minor > button, header > .nx-link, .cc-food-sections > button, .cc-assistant-icon, .cc-chat-mic, .cc-chat-send, .cc-assistant-footer > button, .cc-coach-context > .cc-secondary, .cc-rep-quiet) { position: relative; }
-.cc-app[data-entry=account] :is(.nx-md-drill, .nx-minor > button, header > .nx-link, .cc-food-sections > button, .cc-assistant-icon, .cc-assistant-modes > button, .cc-chat-mic, .cc-chat-send, .cc-assistant-footer > button, .cc-coach-context > .cc-secondary, .cc-rep-quiet)::after {
+.cc-app[data-entry=account] :is(.nx-minor > button, header > .nx-link, .cc-food-sections > button, .cc-assistant-icon, .cc-chat-mic, .cc-chat-send, .cc-assistant-footer > button, .cc-coach-context > .cc-secondary, .cc-rep-quiet, .nx-notif-icon-btn, .nx-voice-about > summary) { position: relative; }
+.cc-app[data-entry=account] :is(.nx-md-drill, .nx-minor > button, header > .nx-link, .cc-food-sections > button, .cc-assistant-icon, .cc-assistant-modes > button, .cc-chat-mic, .cc-chat-send, .cc-assistant-footer > button, .cc-coach-context > .cc-secondary, .cc-rep-quiet, .nx-notif-icon-btn, .nx-voice-about > summary)::after {
   content: ""; position: absolute; inset: -6px 0;
 }
 .cc-app[data-entry=account] :is(.cc-assistant-icon, .cc-chat-mic, .cc-chat-send)::after { inset: -4px; }
+.cc-app[data-entry=account] .nx-notif-icon-btn { width: 38px; height: 38px; min-width: 38px; min-height: 38px; }
+.cc-app[data-entry=account] .nx-notif-icon-btn::after { inset: -3px; }
+
+/* Notifications popover GPU-only entrance motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .cc-app[data-entry=account] .nx-notif-panel { animation: nx-pop-in .18s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)) both; transform-origin: top right; }
+  .cc-app[data-entry=account] .nx-notif-scrim { animation: nx-confirm-fade .16s ease both; }
+}
+@keyframes nx-pop-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
 
 /* Typing never zooms the page on a phone. */
 @media (pointer: coarse) {
@@ -43,7 +62,7 @@
 .cc-app[data-entry=account] dialog.nx-confirm {
   position: fixed; inset: auto 0 0 0; margin: 0 auto; width: min(100%, 440px); max-width: none; box-sizing: border-box;
   padding: 22px 20px calc(18px + env(safe-area-inset-bottom, 0px)); border: 1px solid var(--nx-hair); border-bottom: 0; border-radius: 24px 24px 0 0;
-  background: var(--cc-surface); color: var(--nx-ink); font-family: var(--nx-text); animation: nx-confirm-in .24s cubic-bezier(.2, .8, .2, 1) both;
+  background: var(--cc-surface); color: var(--nx-ink); font-family: var(--nx-text); animation: nx-confirm-in .24s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)) both;
 }
 .cc-app[data-entry=account] dialog.nx-confirm::backdrop { background: rgba(2, 4, 6, .58); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); animation: nx-confirm-fade .2s ease both; }
 .cc-app[data-entry=account] .nx-confirm-title { margin: 0 0 6px; font: 500 17px/1.3 var(--nx-text); letter-spacing: -.01em; color: var(--nx-ink); }

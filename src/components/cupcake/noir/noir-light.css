@@ -75,7 +75,7 @@
   color-scheme: dark;
   --cc-text: #edf8fc; --cc-text-2: #b7ccd5; --cc-text-3: #9fb7c2; --cc-bg: #050a0d; --cc-surface: #0c171d; --cc-surface-2: #132631; --cc-border: #29434f; --cc-line: #29434f;
   --cc-pink: #39e6d2; --cc-pink-strong: #39e6d2; --cc-pink-bright: #80eee1; --cc-ocean: #328dff; --cc-ink: #042d33;
-  --nx-a: var(--cc-pink); --nx-a2: var(--cc-ocean); --nx-ink: #eef4f5; --nx-ink-2: rgba(238,244,245,.7); --nx-ink-3: rgba(238,244,245,.48); --nx-hair: rgba(255,255,255,.07);
+  --nx-a: var(--cc-pink); --nx-a2: var(--cc-ocean); --nx-ink: #eef4f5; --nx-ink-2: rgba(238,244,245,.7); --nx-ink-3: rgba(238,244,245,.58); --nx-hair: rgba(255,255,255,.07);
   --nx-surface: rgba(255,255,255,.028); --nx-surface-2: rgba(255,255,255,.05);
 }
 :root[data-cc-scheme=light] .cc-app[class][data-appearance=rose] :is(.cc-cam, .cc-photo-viewer)[class] {
@@ -83,8 +83,17 @@
   --cc-pink: #ae78ff; --cc-pink-strong: #ae78ff; --cc-pink-bright: #d6b8ff; --cc-ocean: #8650d5; --cc-ink: #180d27;
 }
 
-/* ---------- Surfaces: white cards lifted by shadow, not washes ---------- */
-:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-shell :is(.cc-card, .cc-dashboard-card) {
+/* ---------- Surfaces: white cards lifted by shadow, not washes (preserve hairline-ruled Noir sections) ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-shell .cc-card:not(.cc-dashboard-chart, .cc-saves, .cc-signals, .cc-last-night, .cc-sugar, .cc-cgm, .cc-energy-curve, .cc-health-sync, .cc-nutrition-today, .cc-rep-card, .cc-coach-empty-row, .cc-account-photo, .nx-coverage-disclosure) {
+  background: var(--nx-card); border-color: var(--nx-hair); box-shadow: var(--nx-card-shadow);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-shell .cc-dashboard > .cc-card:has(> h3 + .cc-muted),
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-shell .cc-dashboard details.cc-card,
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-shell .cc-card:has(> h3:first-child + .cc-muted),
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-shell .cc-dashboard-card {
+  background: none; border-color: var(--nx-hair); box-shadow: none;
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.nx-food-hero, .nx-pantry) {
   background: var(--nx-card); border-color: var(--nx-hair); box-shadow: var(--nx-card-shadow);
 }
 :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .cc-shell .cc-secondary,
@@ -117,10 +126,10 @@
 }
 
 /* ---------- Segmented controls: a white thumb on a tinted track (the iOS pattern) ---------- */
-:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.cc-food-sections, .cc-dashboard-range, .cc-nutrition-scale, .cc-coach-views, .cc-rep-seg, .cc-assistant-modes) {
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.cc-food-sections, .cc-dashboard-range, .cc-nutrition-scale, .cc-coach-views, .cc-rep-seg, .cc-assistant-modes, .cc-library-tabs) {
   background: rgba(118,118,128,.12); border-color: transparent;
 }
-:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.cc-food-sections button[aria-selected=true], .cc-dashboard-range button[aria-selected=true], .cc-nutrition-scale button[aria-pressed=true], .cc-coach .cc-coach-views button[aria-selected=true], .cc-coach .cc-rep-seg button[aria-pressed=true], .cc-assistant-modes-thumb) {
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.cc-food-sections button[aria-selected=true], .cc-dashboard-range button[aria-selected=true], .cc-nutrition-scale button[aria-pressed=true], .cc-coach .cc-coach-views button[aria-selected=true], .cc-coach .cc-rep-seg button[aria-pressed=true], .cc-library-workspace .cc-library-tabs button[aria-selected=true], .cc-assistant-modes-thumb) {
   background: #fff; color: var(--nx-ink); box-shadow: 0 1px 2px rgba(16,30,36,.1), 0 3px 8px -2px rgba(16,30,36,.1);
 }
 
@@ -169,3 +178,44 @@
 :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-steps-mini-track { stroke: rgba(12,24,28,.12); }
 /* Confirmation sheet: the destructive answer keeps AA contrast on porcelain. */
 :root[data-cc-scheme=light] .cc-app[data-entry=account][class] .nx-confirm-actions button[data-answer=yes][data-danger] { background-color: #c5352a; color: #fff; }
+
+/* ---------- Dials, charts, tooltips & timeline marks on porcelain ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.nx-dial-head, .nx-food-head, .nx-head) { fill: #ffffff; }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-dial-head-ring { fill: var(--cc-bg); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-bar.is-now { fill: var(--cc-pink-bright); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-today-grid .cc-tl-node { background: var(--nx-ink-3); box-shadow: 0 0 0 4px var(--cc-bg); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-readout {
+  background: rgba(255,255,255,.96); border: 1px solid var(--nx-hair); color: var(--nx-ink);
+  box-shadow: 0 10px 28px -10px rgba(12,20,23,.2);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-marker line { stroke: rgba(12,24,28,.16); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-marker circle { fill: #ffffff; stroke: rgba(12,24,28,.36); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-bar-missing { fill: rgba(12,24,28,.16); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-dial-track { stroke: rgba(12,24,28,.08); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-tick { stroke: rgba(12,24,28,.14); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-tick.is-mid { stroke: rgba(12,24,28,.26); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-tick.is-major { stroke: rgba(12,24,28,.44); }
+
+/* ---------- Sharing & Reports tokens and client avatar on porcelain ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-coach {
+  --rp-hair: var(--nx-hair); --rp-hair-2: rgba(12,24,28,.15); --rp-s1: #ffffff; --rp-s2: rgba(12,24,28,.04);
+  --rp-ink: var(--nx-ink); --rp-ink-2: var(--nx-ink-2); --rp-ink-3: var(--nx-ink-3);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose][class][class] .cc-coach {
+  --rp-hair-2: rgba(30,16,52,.15); --rp-s2: rgba(30,16,52,.04);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-rep-avatar[data-tone=b] { color: var(--cc-ocean); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-coach .cc-rep-client:hover { background: var(--nx-surface); }
+
+/* ---------- Assistant Record & Live voice surfaces on porcelain ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-assistant-workspace .cc-recorder {
+  background: var(--nx-card) !important; border-color: var(--nx-hair); box-shadow: var(--nx-card-shadow);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-assistant-workspace .cc-recorder .cc-record-button {
+  color: #ffffff;
+  box-shadow: 0 0 0 5px #ffffff, 0 0 0 6px color-mix(in oklab, var(--nx-a) 30%, transparent), 0 12px 26px -8px color-mix(in oklab, var(--nx-a) 55%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .cc-assistant-workspace .cc-voice-history > article.cc-card:not(.cc-voice-saved) {
+  background: var(--nx-card); border-color: var(--nx-hair); box-shadow: var(--nx-card-shadow);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-connect-cta { color: #ffffff; }

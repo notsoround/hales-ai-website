@@ -21,9 +21,12 @@ export function ConnectionsHub({ appleHealth, iphoneInstall, canInstall, onInsta
   appleHealth: ReactNode; iphoneInstall: ReactNode; canInstall: boolean; onInstall: () => void; assistantName: string;
 }) {
   const [platform] = useState(detectPlatform);
-  // Phones open only what matters on that phone; a computer shows every detail.
+  const [narrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  // Phones and narrow viewports open only the top relevant rows; a wide computer shows every detail.
   const standalone = typeof window !== 'undefined' && !!window.matchMedia?.('(display-mode: standalone)').matches;
-  const startOpen = (key: string) => platform === 'desktop' || (platform === 'ios' && (key === 'apple-health' || (key === 'install' && !standalone))) || (platform === 'android' && key === 'install' && !standalone);
+  const startOpen = (key: string) => (platform === 'desktop' && !narrow)
+    || ((platform === 'ios' || (platform === 'desktop' && narrow)) && (key === 'apple-health' || (key === 'install' && !standalone)))
+    || (platform === 'android' && key === 'install' && !standalone);
   const androidInstall = <div className="nx-connect-steps">
     {canInstall ? <button type="button" className="nx-connect-cta" onClick={onInstall}>Install {assistantName}</button>
       : <ol><li>Open this page in Chrome.</li><li>Tap the ⋮ menu, then Install app (or Add to Home screen).</li><li>Open {assistantName} from your home screen.</li></ol>}
@@ -38,7 +41,7 @@ export function ConnectionsHub({ appleHealth, iphoneInstall, canInstall, onInsta
   const bank: Row = { key: 'bank', icon: <Landmark size={18} aria-hidden="true" />, title: 'Bank connection', note: 'Connect transactions for receipt matching', detail: <AccountBankConnection/> };
   const rows = platform === 'android' ? [install, android, cgm, health, bank] : [install, health, cgm, android, bank];
   return <section className="nx-connect" aria-label="Connections">
-    <p className="nx-connect-device">{platform === 'ios' ? 'On iPhone · iPhone steps first' : platform === 'android' ? 'On Android · Android steps first' : 'On a computer · every option shown'}</p>
+    <p className="nx-connect-device">{platform === 'ios' ? 'On iPhone · iPhone steps first' : platform === 'android' ? 'On Android · Android steps first' : narrow ? 'Compact view · tap any connection for details' : 'On a computer · every option shown'}</p>
     <ul>{rows.map(row => <li key={row.key}><details className="nx-connect-item" open={startOpen(row.key)}>
       <summary className="nx-connect-row">
         <span className="nx-connect-icon">{row.icon}</span>

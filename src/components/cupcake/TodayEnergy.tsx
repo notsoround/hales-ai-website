@@ -44,7 +44,7 @@ export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: 
       <div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="energy"/>Energy balance today</h3></div>
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
         : !series ? <p className="cc-muted">Add a daily expenditure estimate in Food settings to draw today’s curve.</p>
-          : <EnergyCurve series={series} comparisonReady={comparisonReady} steps={steps} exerciseStatus={exercise.status}/>}
+          : <EnergyCurve series={series} day={day} comparisonReady={comparisonReady} steps={steps} exerciseStatus={exercise.status}/>}
       <ExerciseQuickLog state={exercise} openRequest={openLogRequest}/>
     </div>
   </section>;
@@ -100,7 +100,7 @@ function SleepSummary({ n }: { n: RingconnNight }) {
   const main = n.asleepMinutes ?? n.sessionMinutes;
   const share = n.asleepMinutes !== null && n.sessionMinutes ? Math.min(1, n.asleepMinutes / n.sessionMinutes) : null;
   return <div className="cc-sleep" aria-label={nightSummary(n)}>
-    <b>{main !== null ? hoursMinutes(main) : 'No sleep session'}{main !== null && <small> {n.asleepMinutes !== null ? 'asleep' : 'in bed (no stages)'}</small>}</b>
+    <b className="cc-sleep-main"><span>{main !== null ? hoursMinutes(main) : 'No sleep session'}</span>{main !== null && <> <small className="cc-sleep-unit">{n.asleepMinutes !== null ? 'asleep' : 'in bed (no stages)'}</small></>}</b>
     {share !== null && <><div className="cc-sleep-bar" aria-hidden="true"><i style={{ width: `${Math.round(share * 100)}%` }}/></div>
       <span className="cc-sleep-of">of {hoursMinutes(n.sessionMinutes!)} in bed · {Math.round(share * 100)}% asleep</span></>}
     {chips.length > 0 && <div className="cc-sleep-chips">{chips.map(c => <span key={c}>{c}</span>)}</div>}
@@ -123,7 +123,7 @@ function useWidth(fallback: number) {
   }, []);
   return [ref, width] as const;
 }
-function EnergyCurve({ series, comparisonReady, steps, exerciseStatus }: { series: MetabolicSeries; comparisonReady: boolean; steps: StepsState; exerciseStatus: ExerciseState['status'] }) {
+function EnergyCurve({ series, day, comparisonReady, steps, exerciseStatus }: { series: MetabolicSeries; day: string; comparisonReady: boolean; steps: StepsState; exerciseStatus: ExerciseState['status'] }) {
   const exerciseFigure = exerciseStat(exerciseStatus, series.exercise);
   const [svgRef, W] = useWidth(640);
   const span = series.dayEnd - series.dayStart;
@@ -159,7 +159,7 @@ function EnergyCurve({ series, comparisonReady, steps, exerciseStatus }: { serie
       <div><dt>Eaten (logged)</dt><dd>{known ? kcal(series.eaten) : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Burned so far</dt><dd>{kcal(series.living)}</dd></div>
       <div><dt>Exercise</dt><dd>{exerciseFigure.kind === 'value' ? <>{exerciseFigure.text} <small className="cc-energy-unit-word">burned</small></> : exerciseFigure.kind === 'loading' ? exerciseFigure.text : <span className="cc-na">{exerciseFigure.text}</span>}</dd></div>
-      <div><dt>Steps{steps.day ? ` · ${stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : <span className="cc-na">Not available</span>}</dd></div>
+      <div><dt>Steps{steps.day ? ` · ${steps.day.date === day ? 'Today' : stepsDayLabel(steps.day.date)}` : ''}</dt><dd>{steps.day ? steps.day.count.toLocaleString('en-US') : steps.status === 'loading' ? '…' : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Net now</dt><dd>{known ? signedCalories(series.net) : <span className="cc-na">Not available</span>}</dd></div>
       <div><dt>Projected midnight</dt><dd>{known ? signedCalories(series.projectedEndOfDay) : <span className="cc-na">Not available</span>}</dd></div>
     </dl>

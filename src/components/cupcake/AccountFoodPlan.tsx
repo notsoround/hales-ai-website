@@ -346,7 +346,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries, onReceipts }: { 
               </div>}
             </li>;
           })}</ol>
-          {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">{both ? '↓' : '→'}</span></button>}
+          {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">→</span></button>}
         </div> : <>
           <details className="cc-plan-import"><summary>Paste or upload a plan</summary><div>
             <p className="cc-muted cc-small">A routine, a meal plan or a coach’s notes. Headings such as “Monday” or “Lunch:” become planned meals and the lines under them become items. Nothing is saved until you choose Save plan &amp; groceries.</p>
@@ -364,7 +364,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries, onReceipts }: { 
           </article>)}
           <button type="button" className="cc-secondary" disabled={draft.meals.length >= 10} onClick={() => edit({ ...draft, meals: [...draft.meals, { original: null, name: '', items: '', kcal: '' }] })}>Add planned meal</button>
           <p className="cc-muted cc-small nx-plan-hint">Up to 10 meals. Enter planned calories only when you know them; otherwise leave them blank.</p>
-          {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">{both ? '↓' : '→'}</span></button>}
+          {toGroceries && suggestions.length > 0 && <button type="button" className="cc-plan-to-groceries" onClick={toGroceries}><span><strong>Shop this plan</strong><small>{suggestions.length} planned {suggestions.length === 1 ? 'item isn’t' : 'items aren’t'} on your grocery list yet</small></span><span aria-hidden="true">→</span></button>}
         </>; const groceryPart = <>
           <div className="cc-card cc-shopping-builder">
             <div><h4 ref={shopHeading} tabIndex={-1} className="cc-shopping-heading">Shop your meal plan</h4><p className="cc-muted cc-small">Choose the food items you still need. Your quantities, notes and checked items stay as they are.</p></div>
@@ -455,7 +455,7 @@ export function AccountFoodPlan({ section, onPlan, onGroceries, onReceipts }: { 
             })}</ul> : <p className="cc-muted cc-small">Route a confirmed grocery receipt from Receipts or add staples on hand below.</p>}
             <form className="nx-pantry-add" onSubmit={event => { event.preventDefault(); const label = newPantryItem.trim(); if (!label) return; syncPantryRemote(addPantryItem(label)); setNewPantryItem(''); }}>
               <label className="cc-sr-only" htmlFor="nx-pantry-new">Add pantry staple</label>
-              <input id="nx-pantry-new" maxLength={120} value={newPantryItem} placeholder="Add staple on hand, e.g. Eggs" onChange={event => setNewPantryItem(event.target.value)} />
+              <input id="nx-pantry-new" maxLength={120} value={newPantryItem} placeholder="Add staple, e.g. eggs" onChange={event => setNewPantryItem(event.target.value)} />
               <button type="submit" className="cc-secondary" disabled={!newPantryItem.trim()}>Stock</button>
             </form>
           </section>

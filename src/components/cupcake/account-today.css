@@ -55,9 +55,16 @@
   .cc-app[data-entry=account] .cc-today-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
   .cc-app[data-entry=account] .cc-today-grid > .cc-energy > :is(.cc-sugar, .cc-last-night, .cc-cgm) { grid-column: span 4; }
   .cc-app[data-entry=account] .cc-today-grid > :is(.cc-weight-card, .cc-health-sync) { grid-column: span 6; }
-  .cc-app[data-entry=account] .cc-today-grid [data-empty] { grid-column: span 3 !important; }
-  /* A lone vital with data takes the full row instead of leaving two empty thirds. */
-  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-sugar:not([data-empty]))):not(:has(.cc-last-night:not([data-empty])))> .cc-energy > .cc-cgm { grid-column: 1 / -1; }
+  .cc-app[data-entry=account] .cc-today-grid [data-empty] { grid-column: span 6 !important; }
+  .cc-app[data-entry=account] .cc-today-grid.is-fold-open > :is(.cc-nutrition-today, .cc-weight-card) { grid-column: span 6; }
+  /* Two active vitals fill all 12 columns cleanly without a 4-column void. */
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-sugar:not([data-empty]))) > .cc-energy > :is(.cc-last-night, .cc-cgm):not([data-empty]),
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-last-night:not([data-empty]))) > .cc-energy > :is(.cc-sugar, .cc-cgm):not([data-empty]),
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-cgm:not([data-empty]))) > .cc-energy > :is(.cc-sugar, .cc-last-night):not([data-empty]) { grid-column: span 6; }
+  /* A lone vital with data takes the full row instead of leaving empty columns. */
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-sugar:not([data-empty]))):not(:has(.cc-last-night:not([data-empty]))) > .cc-energy > .cc-cgm:not([data-empty]),
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-sugar:not([data-empty]))):not(:has(.cc-cgm:not([data-empty]))) > .cc-energy > .cc-last-night:not([data-empty]),
+  .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-last-night:not([data-empty]))):not(:has(.cc-cgm:not([data-empty]))) > .cc-energy > .cc-sugar:not([data-empty]) { grid-column: 1 / -1; }
   .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-weight-card:not([data-empty]))) > .cc-health-sync:not([data-empty]), .cc-app[data-entry=account] .cc-today-grid:not(:has(.cc-health-sync:not([data-empty]))) > .cc-weight-card:not([data-empty]) { grid-column: 1 / -1; }
 }
 
@@ -122,8 +129,8 @@
 .cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-saves-head .cc-text-button { flex: none; width: 44px; min-height: 44px; margin: -9px -10px -9px 0; justify-content: center; font-size: 0 !important; }
 .cc-app[data-entry=account] .cc-today-grid > .cc-pulse[data-empty] .cc-saves-head .cc-text-button svg { width: 18px; height: 18px; }
 .cc-app[data-entry=account] .cc-today-grid .cc-health-sync[data-empty] .cc-action-row { justify-content: flex-start; align-items: center; margin-top: 10px; }
-/* One title colour on Today; the icon carries each source's tone. */
-.cc-app[data-entry=account] .cc-today-grid :is(.cc-nutrition-today .cc-nutrition-eyebrow, .cc-card-title, [data-empty] .cc-eyebrow, [data-empty] .cc-weight-eyebrow) { color: var(--cc-pink-bright); }
+/* One title colour on Today; Noir uses calm primary ink rather than accent tint on headings. */
+.cc-app[data-entry=account] .cc-today-grid :is(.cc-nutrition-today .cc-nutrition-eyebrow, .cc-card-title, [data-empty] .cc-eyebrow, [data-empty] .cc-weight-eyebrow) { color: var(--nx-ink, var(--cc-text)); }
 .cc-app[data-entry=account] .cc-today-grid { reading-flow: grid-order; }
 /* Empty Food today: one plain line instead of a dash, a unit, and two notes saying the same thing. */
 .cc-app[data-entry=account] .cc-nutrition-today[data-quiet] .cc-nutrition-today-values > div:first-child > :is(strong, span) { display: none; }

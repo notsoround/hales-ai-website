@@ -60,7 +60,7 @@ export function SavesHero({ todayItems, nutrition, onOpenWins, onTalkAbout }: { 
           </div>
           <p className="cc-saves-facts">{s.ratePercent !== null && <span className="cc-saves-rate"><b>{s.ratePercent}%</b> of decided calls ended in a save</span>}<span><i className="is-loss" />{s.losses} gave in</span><span><i className="is-missed" />{s.missed} missed</span>{s.unscored > 0 && <span><i className="is-unscored" />{s.unscored} no decision</span>}</p>
         </>}
-      {todayBits.length > 0 && <p className="cc-today-line" aria-label="Today so far"><span className="cc-today-line-label">Today</span>{todayBits.map(b => <span key={b.k}><b>{b.v}</b> {b.l}</span>)}</p>}
+      {!ACCOUNT_SESSIONS && todayBits.length > 0 && <p className="cc-today-line" aria-label="Today so far"><span className="cc-today-line-label">Today</span>{todayBits.map(b => <span key={b.k}><b>{b.v}</b> {b.l}</span>)}</p>}
     </section>
     {quote && <QuoteCard moment={quote} onTalkAbout={onTalkAbout} />}
   </div>;
