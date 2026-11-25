@@ -98,14 +98,21 @@ test('steps: latestSteps asks steps_list for the range and returns the newest va
 });
 
 test('ringconn: latest night summary from ringconn_night_list, nulls stay unknown',async()=>{
-  const {RingconnUnavailableError,latestRingconnNight,nightSummary,parseRingconnNight,hoursMinutes}=await import('../src/components/cupcake/ringconnApi.ts');
+  const {RingconnUnavailableError,hasRingconnMetrics,latestRingconnNight,nightSummary,parseRingconnNight,hoursMinutes}=await import('../src/components/cupcake/ringconnApi.ts');
   const calls=[];
   const summary=(night,over={})=>({night_id:night,captured_at:`${night}T13:00:00Z`,metrics:{sleep:{asleep_minutes:397,session_duration_minutes:435},average_heart_rate:{value_bpm:61.4},resting_heart_rate:{value_bpm:55},spo2:{mean_percent:96.2,min_percent:91}},coverage:{all_reads_complete:true,types:{sleep:{status:'ok'}}},...over});
+  const emptyShell=night=>summary(night,{metrics:{sleep:{asleep_minutes:null,session_duration_minutes:null},average_heart_rate:{value_bpm:null},resting_heart_rate:{value_bpm:null},spo2:{mean_percent:null,min_percent:null}},coverage:{all_reads_complete:true,types:{sleep:{status:'no_data'}}}});
   const request=async body=>{calls.push(body);return {entries:[summary('2026-10-20'),summary('2026-10-21'),{night_id:'bad'}]};};
   const n=await latestRingconnNight(request,'2026-10-20','2026-10-21');
   assert.deepEqual(calls,[{action:'ringconn_night_list',start:'2026-10-20',end:'2026-10-21'}]);
-  assert.equal(n.nightId,'2026-10-21'); assert.equal(n.complete,true);
+  assert.equal(n.nightId,'2026-10-21'); assert.equal(n.complete,true); assert.equal(hasRingconnMetrics(n),true);
   assert.equal(nightSummary(n),'Asleep 6 h 37 m of 7 h 15 m · resting HR 55 · avg HR 61 · SpO₂ 96% (min 91)');
+  // Newer empty no_data shell must not shadow a prior night that actually carried RingConn metrics
+  const withEmptyToday=await latestRingconnNight(async()=>({entries:[emptyShell('2026-10-21'),summary('2026-10-20')]}),'2026-10-20','2026-10-21');
+  assert.equal(withEmptyToday.nightId,'2026-10-20'); assert.equal(hasRingconnMetrics(withEmptyToday),true);
+  // If only empty no_data shells exist, still return the newest empty shell
+  const onlyEmpty=await latestRingconnNight(async()=>({entries:[emptyShell('2026-10-20'),emptyShell('2026-10-21')]}),'2026-10-20','2026-10-21');
+  assert.equal(onlyEmpty.nightId,'2026-10-21'); assert.equal(hasRingconnMetrics(onlyEmpty),false);
   const partial=parseRingconnNight(summary('2026-10-21',{metrics:{sleep:{asleep_minutes:null,session_duration_minutes:null},spo2:{mean_percent:null}},coverage:{all_reads_complete:false,types:{spo2:{status:'read_error'}}}}));
   assert.equal(partial.spo2Mean,null); assert.deepEqual(partial.failed,['spo2']); assert.equal(nightSummary(partial),'No sleep session');
   assert.equal(await latestRingconnNight(async()=>({entries:[]}),'2026-10-20','2026-10-21'),null);

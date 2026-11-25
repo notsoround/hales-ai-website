@@ -11,6 +11,7 @@ import { SectionBoundary } from '../SectionBoundary';
 import { useDataChanged } from '../dataChanges';
 import { isUnknownAction } from '../exerciseApi';
 import {
+  hasRingconnMetrics,
   latestRingconnNight,
   RingconnUnavailableError,
   type RingconnNight,
@@ -245,14 +246,15 @@ export function FitnessWorkspace({
   const stepPct = activeSteps ? Math.min(100, Math.round((activeSteps.count / STEP_GOAL) * 100)) : 0;
   const stepsStale = Boolean(activeSteps && isOlderThan36h(activeSteps.date, activeSteps.updatedAt, nowMs));
   const sleepNight = sleepState.night;
-  const sleepStale = Boolean(sleepNight && isOlderThan36h(sleepNight.nightId, sleepNight.capturedAt, nowMs));
+  const validSleepNight = sleepNight && hasRingconnMetrics(sleepNight) ? sleepNight : null;
+  const sleepStale = Boolean(validSleepNight && isOlderThan36h(validSleepNight.nightId, validSleepNight.capturedAt, nowMs));
   const hasConnectedHealthState = Boolean(
     activeSteps ||
-    sleepNight ||
+    validSleepNight ||
     measurements.some(m => m.basis === 'health_connect' || m.source.toLowerCase().includes('health')),
   );
   const stepsMissingConnected = stepsState.status === 'ready' && !activeSteps && hasConnectedHealthState;
-  const sleepMissingConnected = sleepState.status === 'ready' && !sleepNight && hasConnectedHealthState;
+  const sleepMissingConnected = sleepState.status === 'ready' && !validSleepNight && hasConnectedHealthState;
 
   return (
     <section className="nx-fitness" aria-label="Fitness">
@@ -301,8 +303,8 @@ export function FitnessWorkspace({
             <strong className="nx-steps-big">—</strong>
             <p className="cc-muted">
               {stepsMissingConnected
-                ? sleepNight
-                  ? `Last synced ${shortMonthDay(sleepNight.nightId)} · Check Health Connect in Settings`
+                ? validSleepNight
+                  ? `Last synced ${shortMonthDay(validSleepNight.nightId)} · Check Health Connect in Settings`
                   : 'No recent steps synced · Check Health Connect in Settings'
                 : 'No steps synced in the last 30 days. Connect Apple Health or Health Connect in Settings → Connections.'}
             </p>
@@ -444,13 +446,13 @@ export function FitnessWorkspace({
 
       {sleepState.status === 'error' ? (
         <InlineErrorLine message="Couldn't load RingConn sleep sync right now." onRetry={loadSleep} />
-      ) : sleepStale && sleepNight ? (
+      ) : sleepStale && validSleepNight ? (
         <p className="nx-stale-note cc-muted cc-small" role="status" style={{ margin: 0 }}>
-          RingConn last synced {shortMonthDay(sleepNight.nightId)} · Check Health Connect in Settings
+          RingConn last synced {shortMonthDay(validSleepNight.nightId)} · Open RingConn app to sync
         </p>
       ) : sleepMissingConnected ? (
         <p className="nx-stale-note cc-muted cc-small" role="status" style={{ margin: 0 }}>
-          RingConn sleep hasn’t synced recently · Check Health Connect in Settings
+          No recent RingConn sleep · Open RingConn app to sync
         </p>
       ) : null}
 
