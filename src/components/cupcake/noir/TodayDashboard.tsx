@@ -416,7 +416,15 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
             type="button"
             className="nx-steps-mini"
             onClick={stepsError ? signals.retrySignals : onOpenFitness}
-            aria-label={stepsError ? "Steps · Couldn't load · Retry" : stepsShown ? `Steps ${fmtInt(stepsShown.count)}, ${stepSub}. Open Fitness` : 'Steps not synced yet. Open Fitness'}
+            aria-label={
+              stepsError
+                ? "Steps · Couldn't load · Retry"
+                : stepsShown
+                  ? stepsToday
+                    ? `Steps today ${fmtInt(stepsShown.count)}, ${stepSub}. Open Fitness`
+                    : `Steps ${shortDay(stepsShown.date)} ${fmtInt(stepsShown.count)}, ${stepSub}. Open Fitness`
+                  : 'Steps not synced yet. Open Fitness'
+            }
           >
             <span className="nx-steps-mini-gauge" aria-hidden="true">
               <svg viewBox="0 0 34 34" width="34" height="34">
@@ -434,7 +442,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
               <Footprints size={13} />
             </span>
             <span className="nx-steps-mini-copy">
-              <small>{stepsToday ? 'Steps today' : 'Steps'}</small>
+              <small>{stepsToday ? 'Steps today' : stepsShown ? `Steps · ${shortDay(stepsShown.date)}` : 'Steps'}</small>
               <b>{stepsShown ? fmtInt(stepsShown.count) : '—'}</b>
               <span>{stepSub}</span>
             </span>

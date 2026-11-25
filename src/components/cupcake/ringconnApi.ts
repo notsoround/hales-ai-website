@@ -30,13 +30,18 @@ export function parseRingconnNight(value: unknown): RingconnNight | null {
   };
 }
 
-/** Newest uploaded night in [start, end] (YYYY-MM-DD morning dates), or null. */
+export function hasRingconnMetrics(n: RingconnNight): boolean {
+  return n.asleepMinutes !== null || n.sessionMinutes !== null || n.avgHeartRate !== null || n.restingHeartRate !== null || n.spo2Mean !== null;
+}
+
+/** Newest uploaded night with measurable data (falling back to newest shell) in [start, end], or null. */
 export async function latestRingconnNight(request: LibraryRequest, start: string, end: string): Promise<RingconnNight | null> {
   let data: { entries?: unknown };
   try { data = await request<{ entries?: unknown }>({ action: 'ringconn_night_list', start, end }); }
   catch (error) { if (isUnknownAction(error)) throw new RingconnUnavailableError(); throw error; }
   const nights = (Array.isArray(data.entries) ? data.entries : []).map(parseRingconnNight).filter((n): n is RingconnNight => n !== null);
-  return nights.sort((a, b) => b.nightId.localeCompare(a.nightId))[0] || null;
+  const sorted = nights.sort((a, b) => b.nightId.localeCompare(a.nightId));
+  return sorted.find(hasRingconnMetrics) || sorted[0] || null;
 }
 
 export function hoursMinutes(minutes: number): string {
