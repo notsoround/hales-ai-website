@@ -28,11 +28,32 @@ export default function AiAllowanceBar({ refreshKey }: { refreshKey?: string | n
   const [view, setView] = useState<View | null>(null);
   useEffect(() => {
     if (!ACCOUNT_SESSIONS) return;
-    const controller = new AbortController();
-    accountData<Budget>({ action: 'ai_budget_status' }, controller.signal)
-      .then(data => { if (!controller.signal.aborted) setView(allowanceView(data)); })
-      .catch(() => { if (!controller.signal.aborted) setView(null); });
-    return () => controller.abort();
+    let controller: AbortController | null = null;
+    let alive = true;
+    const isSettingsOpen = () => Boolean(document.querySelector('.cc-settings[open]'));
+    const canFetchNow = () => refreshKey !== undefined || isSettingsOpen();
+    const fetchAllowance = () => {
+      if (!alive) return;
+      controller?.abort();
+      const next = new AbortController();
+      controller = next;
+      accountData<Budget>({ action: 'ai_budget_status' }, next.signal)
+        .then(data => { if (alive && !next.signal.aborted) setView(allowanceView(data)); })
+        .catch(() => { if (alive && !next.signal.aborted) setView(null); });
+    };
+    if (canFetchNow()) fetchAllowance();
+    const onSettingsOpened = () => { fetchAllowance(); };
+    const onDataChanged = () => { if (canFetchNow()) fetchAllowance(); };
+    window.addEventListener('cc-settings-opened', onSettingsOpened);
+    window.addEventListener('cupcake-data-changed', onDataChanged);
+    window.addEventListener('cupcake-account-data-changed', onDataChanged);
+    return () => {
+      alive = false;
+      controller?.abort();
+      window.removeEventListener('cc-settings-opened', onSettingsOpened);
+      window.removeEventListener('cupcake-data-changed', onDataChanged);
+      window.removeEventListener('cupcake-account-data-changed', onDataChanged);
+    };
   }, [refreshKey]);
   if (!view) return null;
   const share = Math.min(1, Math.max(0, view.used / view.limit));

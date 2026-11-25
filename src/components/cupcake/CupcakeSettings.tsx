@@ -76,7 +76,16 @@ export default function CupcakeSettings({
   const wasOpen = useRef(false);
   const onOpenChangeRef = useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
-  const close = useCallback(() => { if (root.current) root.current.open = false; setOpen(false); trigger.current?.focus(); }, []);
+  const close = useCallback((byPointer = false) => {
+    if (root.current) root.current.open = false;
+    setOpen(false);
+    if (byPointer) {
+      trigger.current?.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
+    } else {
+      trigger.current?.focus();
+    }
+  }, []);
+  const closeByKeyboard = useCallback(() => close(false), [close]);
 
   useEffect(() => {
     if (!openRequest || !root.current) return;
@@ -94,9 +103,10 @@ export default function CupcakeSettings({
     if (wasOpen.current === open) return;
     wasOpen.current = open;
     onOpenChangeRef.current?.(open);
+    if (open) window.dispatchEvent(new CustomEvent('cc-settings-opened'));
   }, [open]);
 
-  useBackClose(open, close);
+  useBackClose(open, closeByKeyboard);
   useLayoutEffect(() => {
     if (!open || !panel.current) return;
     const container = panel.current;
@@ -105,7 +115,7 @@ export default function CupcakeSettings({
     if (!container.contains(document.activeElement)) (focusable()[0] || container).focus();
     const key = (event: KeyboardEvent) => {
       if (!root.current?.open || document.querySelector('dialog[open]')) return;
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); return; }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(false); return; }
       if (event.key !== 'Tab') return;
       const controls = focusable(), first = controls[0], last = controls[controls.length - 1];
       if (!first) { event.preventDefault(); container.focus(); }
@@ -123,11 +133,11 @@ export default function CupcakeSettings({
         <Settings size={18} aria-hidden="true" />
         <span className="cc-top-label">Settings</span>
       </summary>
-      <div className="cc-settings-scrim" aria-hidden="true" onClick={close} />
+      <div className="cc-settings-scrim" aria-hidden="true" onClick={() => close(true)} />
       <div ref={panel} className="cc-settings-panel" role="dialog" aria-modal={open || undefined} aria-label="Settings" tabIndex={-1}>
         <div className="cc-settings-head">
           <strong>Settings</strong>
-          <button type="button" className="cc-settings-close" aria-label="Close settings" onClick={close}>
+          <button type="button" className="cc-settings-close" aria-label="Close settings" onClick={event => close(event.detail > 0)}>
             <X size={20} aria-hidden="true" />
           </button>
         </div>

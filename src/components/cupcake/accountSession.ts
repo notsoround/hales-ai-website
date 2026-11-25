@@ -8,6 +8,25 @@ type Session = Readonly<{ identity: AccountIdentity | null; generation: number; 
 let state: Session = { identity: null, generation: 0, checking: true, message: '', transient: false };
 const listeners = new Set<() => void>();
 const requests = new Set<AbortController>();
+const MAX_IN_FLIGHT = 6;
+let inFlightCount = 0;
+type QueueEntry = {
+  priority: number;
+  seq: number;
+  generation: number;
+  signal?: AbortSignal;
+  resolve: (release: () => void) => void;
+  reject: (error: unknown) => void;
+  onAbort?: () => void;
+};
+const requestQueue: QueueEntry[] = [];
+let queueSeq = 0;
+type InFlightRead = {
+  controller: AbortController;
+  waiters: number;
+  promise: Promise<unknown>;
+};
+const inFlightReads = new Map<string, InFlightRead>();
 let verifying: Promise<void> | null = null;
 let channel: BroadcastChannel | undefined;
 export const SESSION_EVENT = 'cupcake-account-session-change';
@@ -16,9 +35,18 @@ export const subscribeSession = (listener: () => void) => { listeners.add(listen
 export function assertGeneration(generation: number) {
   if (generation !== state.generation) throw new DOMException('The signed-in account changed. This response was discarded.', 'AbortError');
 }
+function drainQueueForTransition() {
+  const pending = requestQueue.splice(0, requestQueue.length);
+  for (const entry of pending) {
+    if (entry.onAbort) entry.signal?.removeEventListener('abort', entry.onAbort);
+    entry.reject(new DOMException('The signed-in account changed. This response was discarded.', 'AbortError'));
+  }
+}
 function transition(identity: AccountIdentity | null, message = '', checking = false, transient = false) {
   for (const request of requests) request.abort();
   requests.clear();
+  inFlightReads.clear();
+  drainQueueForTransition();
   verifying = null;
   state = { identity, message, checking, transient, generation: state.generation + 1 };
   try { window.speechSynthesis?.cancel(); } catch { /* Media components also stop on keyed unmount. */ }
@@ -68,18 +96,174 @@ function abortableDelay(ms: number, signal: AbortSignal) {
     signal.addEventListener('abort', stop, { once: true });
   });
 }
+const READ_ONLY_DATA_ACTIONS = new Set([
+  'list', 'search', 'fetch', 'projects', 'analysis_list', 'analysis_get', 'decision_list',
+  'food_list', 'food_get', 'food_history', 'food_settings_get', 'food_photo_status',
+  'weight_list', 'weight_get', 'glucose_manual_list', 'checkin_list', 'health_observation_get',
+  'exercise_list', 'outcome_list', 'outcome_get', 'body_checkin_list', 'body_assessment_get',
+  'coach_plan_get', 'phone_daily_list', 'steps_list', 'ringconn_night_list', 'ringconn_night_get',
+  'personal_snapshot', 'body_headline_get', 'persona_get', 'feed_get',
+  'receipt_list', 'receipt_get', 'receipt_match_candidates', 'receipt_read_status', 'reconcile_list',
+  'bank_connection_status', 'quick_chat_list', 'quick_chat_get', 'recording_summary_get',
+  'ai_budget_status', 'notifications_summary', 'reset_list', 'reset_get',
+]);
+const READ_ONLY_ROUTES = new Set([
+  'coach/grants/received', 'coach/grants/list', 'coach/workspace', 'coach/invitations/list',
+  'health/devices/list', 'health/cgm/latest',
+]);
+function isDedupableRead(route: string, body: Record<string, unknown> | undefined): boolean {
+  if (route === 'data') return typeof body?.action === 'string' && READ_ONLY_DATA_ACTIONS.has(body.action);
+  if (READ_ONLY_ROUTES.has(route)) return true;
+  if (route === 'health/sync') return !body || Object.keys(body).length === 0;
+  return false;
+}
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(v => v === undefined ? 'null' : canonicalJson(v)).join(',') + ']';
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).filter(key => record[key] !== undefined).sort();
+  return '{' + keys.map(key => JSON.stringify(key) + ':' + canonicalJson(record[key])).join(',') + '}';
+}
+function shouldQueue(route: string): boolean {
+  return route === 'data' || route.startsWith('health/');
+}
+function requestPriority(route: string, body: Record<string, unknown> | undefined): number {
+  if (route === 'session' || (route === 'data' && body?.action === 'persona_get')) return 0;
+  if (route === 'data' && (body?.action === 'notifications_summary' || body?.action === 'ai_budget_status')) return 2;
+  return 1;
+}
+function makeReleaser(): () => void {
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    inFlightCount = Math.max(0, inFlightCount - 1);
+    pumpQueue();
+  };
+}
+function pumpQueue() {
+  while (inFlightCount < MAX_IN_FLIGHT && requestQueue.length > 0) {
+    const next = requestQueue.shift()!;
+    if (next.onAbort) next.signal?.removeEventListener('abort', next.onAbort);
+    if (next.generation !== state.generation) {
+      next.reject(new DOMException('The signed-in account changed. This response was discarded.', 'AbortError'));
+      continue;
+    }
+    if (next.signal?.aborted) {
+      next.reject(new DOMException('Aborted', 'AbortError'));
+      continue;
+    }
+    inFlightCount++;
+    next.resolve(makeReleaser());
+  }
+}
+function acquireSlot(priority: number, generation: number, signal?: AbortSignal): Promise<() => void> {
+  assertGeneration(generation);
+  if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  if (inFlightCount < MAX_IN_FLIGHT) {
+    inFlightCount++;
+    return Promise.resolve(makeReleaser());
+  }
+  return new Promise<() => void>((resolve, reject) => {
+    const entry: QueueEntry = { priority, seq: ++queueSeq, generation, signal, resolve, reject };
+    if (signal) {
+      const onAbort = () => {
+        const index = requestQueue.indexOf(entry);
+        if (index !== -1) requestQueue.splice(index, 1);
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+      entry.onAbort = onAbort;
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    let insertAt = requestQueue.length;
+    for (let i = 0; i < requestQueue.length; i++) {
+      const current = requestQueue[i]!;
+      if (priority < current.priority || (priority === current.priority && entry.seq < current.seq)) {
+        insertAt = i;
+        break;
+      }
+    }
+    requestQueue.splice(insertAt, 0, entry);
+  });
+}
 async function send<T>(route: string, body: Record<string, unknown> | undefined, generation: number, expectedAccount?: string, signal?: AbortSignal): Promise<T> {
   if (!ACCOUNT_SESSIONS) throw Error('Account sign-in is disabled in this build.');
   assertGeneration(generation);
-  const controller = new AbortController(); requests.add(controller);
-  const abort = () => controller.abort();
-  signal?.addEventListener('abort', abort, { once:true }); if (signal?.aborted) controller.abort();
-  const timer = setTimeout(() => controller.abort(), 60000);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  if (!isDedupableRead(route, body)) {
+    return executeSend<T>(route, body, generation, expectedAccount, signal);
+  }
+  const key = `${generation}:${expectedAccount || ''}:${route}:${canonicalJson(body)}`;
+  let entry = inFlightReads.get(key);
+  if (!entry) {
+    const sharedController = new AbortController();
+    const sharedEntry: InFlightRead = { controller: sharedController, waiters: 0, promise: Promise.resolve() };
+    const promise = executeSend<T>(route, body, generation, expectedAccount, sharedController.signal).finally(() => {
+      if (inFlightReads.get(key) === sharedEntry) inFlightReads.delete(key);
+    });
+    // Suppress unhandled rejections if all callers abort before the shared fetch rejects.
+    promise.catch(() => {});
+    sharedEntry.promise = promise;
+    inFlightReads.set(key, sharedEntry);
+    entry = sharedEntry;
+  }
+  entry.waiters++;
+  const activeEntry = entry;
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const finishWaiter = () => {
+      if (settled) return false;
+      settled = true;
+      signal?.removeEventListener('abort', onAbort);
+      activeEntry.waiters = Math.max(0, activeEntry.waiters - 1);
+      return true;
+    };
+    const onAbort = () => {
+      if (!finishWaiter()) return;
+      if (activeEntry.waiters === 0) {
+        if (inFlightReads.get(key) === activeEntry) inFlightReads.delete(key);
+        activeEntry.controller.abort();
+      }
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    if (signal) {
+      if (signal.aborted) { onAbort(); return; }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    activeEntry.promise.then(
+      value => {
+        if (!finishWaiter()) return;
+        try { assertGeneration(generation); resolve(value as T); }
+        catch (err) { reject(err); }
+      },
+      err => {
+        if (!finishWaiter()) return;
+        reject(err);
+      },
+    );
+  });
+}
+async function executeSend<T>(route: string, body: Record<string, unknown> | undefined, generation: number, expectedAccount?: string, signal?: AbortSignal): Promise<T> {
+  if (!ACCOUNT_SESSIONS) throw Error('Account sign-in is disabled in this build.');
+  assertGeneration(generation);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  const release = shouldQueue(route) ? await acquireSlot(requestPriority(route, body), generation, signal) : null;
+  let controller: AbortController | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const abort = () => controller?.abort();
   try {
+    assertGeneration(generation);
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    controller = new AbortController(); requests.add(controller);
+    signal?.addEventListener('abort', abort, { once:true }); if (signal?.aborted) controller.abort();
+    timer = setTimeout(() => controller?.abort(), 60000);
     let response: Response, result: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     const sessionRetryDelays = [400, 1000];
+    const retryableRead = isDedupableRead(route, body);
     let sessionTransientAttempt = 0;
-    for (let attempt = 0; ; attempt++) {
+    let readNetworkAttempt = 0;
+    let edgeAttempt = 0;
+    for (;;) {
       try {
         response = await fetch('https://automate.hales.ai/api/account/' + route, {
           method: body === undefined ? 'GET' : 'POST', credentials: 'include', cache: 'no-store',
@@ -95,6 +279,13 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
           assertGeneration(generation);
           continue;
         }
+        if (retryableRead && !controller.signal.aborted && readNetworkAttempt < 1) {
+          readNetworkAttempt++;
+          const wait = 400 + Math.floor(Math.random() * 250);
+          await abortableDelay(wait, controller.signal);
+          assertGeneration(generation);
+          continue;
+        }
         throw networkError;
       }
       assertGeneration(generation);
@@ -103,8 +294,9 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       // Opening Today sends a burst of reads. The proxy in front of the server
       // turns the excess away with a bare 429 before Cupcake sees the request,
       // so waiting and sending the same request again is safe.
-      const wait = edgeThrottleRetryDelay(route, response.status, result, attempt);
+      const wait = edgeThrottleRetryDelay(route, response.status, result, edgeAttempt);
       if (wait !== null) {
+        edgeAttempt++;
         await abortableDelay(wait, controller.signal);
         assertGeneration(generation);
         continue;
@@ -153,6 +345,9 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
     if (route === 'data' && typeof result?.error === 'string' && result.error.startsWith('bank_')) {
       throw new AccountRequestError('Bank connection could not be confirmed.', result.error);
     }
+    if (route === 'data' && !response.ok && (result?.error === 'unknown_action' || result?.error === 'account_action_not_ready')) {
+      throw new AccountRequestError(response.status === 503 ? ACCOUNT_UNAVAILABLE : 'Cupcake could not complete that request. Check your details and try again.', result.error);
+    }
     if (!response.ok && typeof result?.error === 'string' && (result.error.startsWith('recording_summary_') || result.error === 'account_recording_summary_not_ready')) throw new AccountRequestError('The saved transcript summary is unavailable. Your original and transcript are kept.', result.error);
     const photoErrors: Record<string, string> = {
       account_food_photo_not_ready: 'Photo meal logging is not available for this account yet. Your original is kept on this device.',
@@ -184,7 +379,12 @@ async function send<T>(route: string, body: Record<string, unknown> | undefined,
       : result?.error === 'observation_conflict' ? 'That request ID already belongs to a saved original.'
       : 'Cupcake could not complete that request. Check your details and try again.');
     return result as T;
-  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); requests.delete(controller); }
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
+    if (controller) requests.delete(controller);
+    release?.();
+  }
 }
 export async function restoreSession() {
   const expectedAccount = state.identity?.account_id;
