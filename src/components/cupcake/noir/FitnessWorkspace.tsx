@@ -9,6 +9,12 @@ import { TodayEnergy, useTodayExercise } from '../TodayEnergy';
 import { AccountWorkoutPlan } from '../AccountWorkoutPlan';
 import { SectionBoundary } from '../SectionBoundary';
 import { useDataChanged } from '../dataChanges';
+import { isUnknownAction } from '../exerciseApi';
+import {
+  latestRingconnNight,
+  RingconnUnavailableError,
+  type RingconnNight,
+} from '../ringconnApi';
 import {
   StepsUnavailableError,
   listStepsDays,
@@ -29,7 +35,23 @@ import {
 import { Sparkline } from '../design/Visuals';
 
 const STEP_GOAL = 8000;
+const STALE_SYNC_MS = 36 * 3600000;
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
+const shortMonthDay = (dayIso: string) =>
+  new Date(`${dayIso}T12:00:00Z`).toLocaleDateString('en-US', {
+    timeZone: 'UTC',
+    month: 'short',
+    day: 'numeric',
+  });
+
+function isOlderThan36h(dateIso: string, timestampIso?: string, nowMs = Date.now()): boolean {
+  if (timestampIso) {
+    const ms = Date.parse(timestampIso);
+    if (Number.isFinite(ms)) return nowMs - ms > STALE_SYNC_MS;
+  }
+  const dayEndMs = Date.parse(`${dateIso}T23:59:59Z`);
+  return Number.isFinite(dayEndMs) && nowMs - dayEndMs > STALE_SYNC_MS;
+}
 
 type FeedRow = {
   id?: string;
@@ -43,6 +65,39 @@ type FeedRow = {
   currency?: string | null;
   details?: Record<string, unknown>;
 };
+
+function InlineErrorLine({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div
+      className="nx-fitness-error"
+      role="alert"
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '4px 12px',
+        padding: '8px 12px',
+        borderLeft: '2px solid var(--nx-warm)',
+        borderRadius: '0 12px 12px 0',
+        background: 'color-mix(in oklab, var(--nx-warm) 9%, transparent)',
+        color: 'var(--nx-ink)',
+        fontSize: '13.5px',
+        lineHeight: 1.4,
+      }}
+    >
+      <span>{message}</span>
+      <button
+        type="button"
+        className="cc-text-button nx-retry-btn"
+        onClick={onRetry}
+        style={{ minHeight: 44, padding: '0 4px', fontWeight: 600 }}
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
 
 export function FitnessWorkspace({
   onOpenWeight,
@@ -62,21 +117,34 @@ export function FitnessWorkspace({
 
   const [weightState, setWeightState] = useState<{
     loading: boolean;
+    error: boolean;
     page: WeightPage | null;
     body: BodyWeightSummary | null;
-  }>({ loading: true, page: null, body: null });
+  }>({ loading: true, error: false, page: null, body: null });
+
+  const [sleepState, setSleepState] = useState<{
+    status: 'loading' | 'ready' | 'unavailable' | 'error';
+    night: RingconnNight | null;
+  }>({ status: 'loading', night: null });
 
   const [weighOpen, setWeighOpen] = useState(false);
   const [weighRaw, setWeighRaw] = useState('');
   const [weighBusy, setWeighBusy] = useState(false);
   const [weighErr, setWeighErr] = useState('');
   const [weighSaved, setWeighSaved] = useState('');
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const loadSteps = useCallback(() => {
+    setNowMs(Date.now());
     setStepsState(prev => ({ ...prev, status: 'loading' }));
-    listStepsDays(body => libraryRequest(body), addDays(today, -13), today)
+    listStepsDays(body => libraryRequest(body), addDays(today, -30), today)
       .then(days => setStepsState({ status: 'ready', days }))
-      .catch(err => setStepsState({ status: err instanceof StepsUnavailableError ? 'unavailable' : 'error', days: [] }));
+      .catch(err =>
+        setStepsState(prev => ({
+          status: err instanceof StepsUnavailableError ? 'unavailable' : 'error',
+          days: err instanceof StepsUnavailableError ? [] : prev.days,
+        })),
+      );
   }, [today]);
 
   const loadFeed = useCallback(() => {
@@ -86,24 +154,43 @@ export function FitnessWorkspace({
   }, [today]);
 
   const loadWeight = useCallback(() => {
+    setWeightState(prev => ({ ...prev, loading: true, error: false }));
     void Promise.allSettled([
       loadWeightPage(),
       libraryRequest<{ body?: BodyWeightSummary }>({ action: 'body_headline_get' }),
     ]).then(([w, b]) => {
-      setWeightState({
+      const pageFailed = w.status === 'rejected';
+      const bodyFailed = b.status === 'rejected' && !isUnknownAction(b.reason);
+      setWeightState(prev => ({
         loading: false,
-        page: w.status === 'fulfilled' ? w.value : null,
-        body: b.status === 'fulfilled' ? b.value.body ?? null : null,
-      });
+        error: pageFailed || bodyFailed,
+        page: w.status === 'fulfilled' ? w.value : prev.page,
+        body: b.status === 'fulfilled' ? (b.value.body ?? null) : prev.body,
+      }));
     });
   }, []);
+
+  const loadSleep = useCallback(() => {
+    setSleepState(prev => ({ ...prev, status: 'loading' }));
+    latestRingconnNight(body => libraryRequest(body), addDays(today, -30), today)
+      .then(night => setSleepState({ status: 'ready', night }))
+      .catch(err =>
+        setSleepState(prev => ({
+          status: err instanceof RingconnUnavailableError ? 'unavailable' : 'error',
+          night: err instanceof RingconnUnavailableError ? null : prev.night,
+        })),
+      );
+  }, [today]);
 
   useEffect(() => {
     loadSteps();
     loadFeed();
     loadWeight();
-  }, [loadSteps, loadFeed, loadWeight]);
+    loadSleep();
+  }, [loadSteps, loadFeed, loadWeight, loadSleep]);
 
+  useDataChanged([], loadSteps);
+  useDataChanged([], loadSleep);
   useDataChanged(['weight'], loadWeight);
   useDataChanged(['exercise', 'food', 'glucose'], loadFeed);
 
@@ -156,6 +243,16 @@ export function FitnessWorkspace({
   };
 
   const stepPct = activeSteps ? Math.min(100, Math.round((activeSteps.count / STEP_GOAL) * 100)) : 0;
+  const stepsStale = Boolean(activeSteps && isOlderThan36h(activeSteps.date, activeSteps.updatedAt, nowMs));
+  const sleepNight = sleepState.night;
+  const sleepStale = Boolean(sleepNight && isOlderThan36h(sleepNight.nightId, sleepNight.capturedAt, nowMs));
+  const hasConnectedHealthState = Boolean(
+    activeSteps ||
+    sleepNight ||
+    measurements.some(m => m.basis === 'health_connect' || m.source.toLowerCase().includes('health')),
+  );
+  const stepsMissingConnected = stepsState.status === 'ready' && !activeSteps && hasConnectedHealthState;
+  const sleepMissingConnected = sleepState.status === 'ready' && !sleepNight && hasConnectedHealthState;
 
   return (
     <section className="nx-fitness" aria-label="Fitness">
@@ -197,12 +294,18 @@ export function FitnessWorkspace({
           <p className="cc-muted" role="status">Checking synced steps…</p>
         ) : stepsState.status === 'unavailable' ? (
           <p className="cc-muted">Steps sync isn’t enabled on this account yet. Connect Apple Health or Health Connect in Settings → Connections.</p>
-        ) : stepsState.status === 'error' ? (
-          <p className="cc-muted" role="alert">Couldn’t load steps right now. Tap Refresh to try again.</p>
+        ) : stepsState.status === 'error' && !activeSteps ? (
+          <InlineErrorLine message="Couldn't load steps right now." onRetry={loadSteps} />
         ) : !activeSteps ? (
           <div className="nx-steps-empty">
             <strong className="nx-steps-big">—</strong>
-            <p className="cc-muted">No steps synced in the last 14 days. Connect Apple Health or Health Connect in Settings → Connections.</p>
+            <p className="cc-muted">
+              {stepsMissingConnected
+                ? sleepNight
+                  ? `Last synced ${shortMonthDay(sleepNight.nightId)} · Check Health Connect in Settings`
+                  : 'No recent steps synced · Check Health Connect in Settings'
+                : 'No steps synced in the last 30 days. Connect Apple Health or Health Connect in Settings → Connections.'}
+            </p>
           </div>
         ) : (
           <>
@@ -213,13 +316,23 @@ export function FitnessWorkspace({
               </div>
               <div className="nx-steps-meta">
                 <span className="nx-steps-source">{stepsSourceSummary(activeSteps)}</span>
-                <small>{stepsUpdatedLabel(activeSteps)}</small>
+                <small>{stepsUpdatedLabel(activeSteps, nowMs)}</small>
               </div>
             </div>
 
             <div className="nx-steps-bar" role="progressbar" aria-valuenow={activeSteps.count} aria-valuemin={0} aria-valuemax={STEP_GOAL} aria-label="Daily step progress">
               <i style={{ width: `${stepPct}%` }} />
             </div>
+
+            {stepsState.status === 'error' && (
+              <InlineErrorLine message="Couldn't load steps right now." onRetry={loadSteps} />
+            )}
+
+            {stepsStale && (
+              <p className="nx-stale-note cc-muted cc-small" role="status" style={{ margin: 0 }}>
+                Last synced {shortMonthDay(activeSteps.date)} · Check Health Connect in Settings
+              </p>
+            )}
 
             {activeSteps.sources && activeSteps.sources.length > 1 && (
               <div className="nx-steps-sources" aria-label="Synced devices">
@@ -264,16 +377,20 @@ export function FitnessWorkspace({
         <div className="nx-fitness-weight-row">
           <div>
             <strong className="nx-fitness-weight-val">
-              {weightState.loading ? '—' : headlineW ? headlineW.valueLb.toFixed(1) : '—'}
+              {weightState.loading && !headlineW ? '—' : headlineW ? headlineW.valueLb.toFixed(1) : '—'}
               {headlineW && <small> lb</small>}
             </strong>
-            <span className="cc-muted cc-small">
-              {headlineW
-                ? headlineW.deltaLb !== null
-                  ? `${headlineW.deltaLb <= 0 ? '▼ −' : '▲ +'}${Math.abs(headlineW.deltaLb).toFixed(1)} lb this week`
-                  : headlineW.label
-                : 'No weigh-in logged yet'}
-            </span>
+            {weightState.loading && !headlineW ? (
+              <span className="cc-muted cc-small">Checking weight…</span>
+            ) : weightState.error && !headlineW ? null : (
+              <span className="cc-muted cc-small">
+                {headlineW
+                  ? headlineW.deltaLb !== null
+                    ? `${headlineW.deltaLb <= 0 ? '▼ −' : '▲ +'}${Math.abs(headlineW.deltaLb).toFixed(1)} lb this week`
+                    : headlineW.label
+                  : 'No weigh-in logged yet'}
+              </span>
+            )}
           </div>
           {trend30.length >= 2 && (
             <div className="nx-fitness-spark" aria-hidden="true">
@@ -282,6 +399,10 @@ export function FitnessWorkspace({
             </div>
           )}
         </div>
+
+        {weightState.error && (
+          <InlineErrorLine message="Couldn't load weight right now." onRetry={loadWeight} />
+        )}
 
         {weighSaved && <p className="nx-fitness-saved" role="status">{weighSaved}</p>}
 
@@ -320,6 +441,18 @@ export function FitnessWorkspace({
         )}
       </article>
       </div>
+
+      {sleepState.status === 'error' ? (
+        <InlineErrorLine message="Couldn't load RingConn sleep sync right now." onRetry={loadSleep} />
+      ) : sleepStale && sleepNight ? (
+        <p className="nx-stale-note cc-muted cc-small" role="status" style={{ margin: 0 }}>
+          RingConn last synced {shortMonthDay(sleepNight.nightId)} · Check Health Connect in Settings
+        </p>
+      ) : sleepMissingConnected ? (
+        <p className="nx-stale-note cc-muted cc-small" role="status" style={{ margin: 0 }}>
+          RingConn sleep hasn’t synced recently · Check Health Connect in Settings
+        </p>
+      ) : null}
 
       <SectionBoundary label="Exercise & energy">
         <TodayEnergy

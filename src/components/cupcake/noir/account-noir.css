@@ -20,13 +20,20 @@
   border-bottom: 1px solid var(--nx-hair);
 }
 .cc-app[data-entry=account][data-appearance=rose] .cc-top { background: rgba(7, 6, 11, .82); }
+.cc-app[data-entry=account]:has(.nx-sky-stage) .cc-top { background: rgba(4, 7, 10, .46); }
+.cc-app[data-entry=account][data-appearance=rose]:has(.nx-sky-stage) .cc-top { background: rgba(7, 6, 11, .46); }
 .cc-app[data-entry=account] .cc-top:has(.cc-settings[open]),
-.cc-app[data-entry=account] .cc-top:has(.nx-notif.is-open) { backdrop-filter: none; -webkit-backdrop-filter: none; z-index: 85; }
+.cc-app[data-entry=account] .cc-top:has(.nx-notif.is-open) { background: #04070a; backdrop-filter: none; -webkit-backdrop-filter: none; z-index: 85; }
+.cc-app[data-entry=account][data-appearance=rose] .cc-top:has(.cc-settings[open]),
+.cc-app[data-entry=account][data-appearance=rose] .cc-top:has(.nx-notif.is-open) { background: #07060b; }
+.cc-app[data-entry=account] .cc-top > div { min-width: 0; flex: 1 1 auto; }
 .cc-app[data-entry=account] .cc-account-identity { font: 500 15px/1.2 var(--nx-text); letter-spacing: -.005em; }
 .cc-app[data-entry=account] .cc-top small { font: 400 12px/1.3 var(--nx-text); color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-version { font: 500 10px/1 var(--nx-text); letter-spacing: .04em; color: rgba(238,244,245,.62); border: 0; padding: 0; background: none; }
 .cc-app[data-entry=account] .cc-top > :is(.cc-secondary, .cc-settings-trigger, button),
 .cc-app[data-entry=account] .cc-top > .cc-settings > summary { border-color: var(--nx-hair); background: var(--nx-surface); box-shadow: none; }
+.cc-app[data-entry=account] .cc-top > .cc-settings > summary:focus:not(:focus-visible),
+.cc-app[data-entry=account] .nx-notif-btn:focus:not(:focus-visible) { outline: none; box-shadow: none; }
 .cc-app[data-entry=account] .cc-account-note { display: none; }
 @media (max-width: 600px) {
   .cc-app[data-entry=account] .cc-top small:not(.cc-version) { display: none; }

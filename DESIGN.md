@@ -230,15 +230,26 @@ A release passes only when all gates exit `0`, zero `transition: all` rules exis
 
 ---
 
-## 8. Tier 6: Living Sky & Commitment Mood System
+## 8. Living Sky, Earned Mood & Honest Telemetry (Tier 6–7)
 
-- **Confined Hero Atmospheric Stage (`Today` only):**
-  - `.nx-sky-stage` sits strictly behind the upper `Today` hero (`height: min(470px, 68dvh);`, faded smoothly with `mask-image` into solid Obsidian `#030607` / Porcelain `#F4F7F8` below scroll).
-  - **Time-of-day phases (`resolveDayPhase`):** `dawn` (5–8), `morning` (8–12), `afternoon` (12–17), `golden` (17–20), `night` (20–5).
-  - **Behavioral mood tiers (`resolveLivingSky`):** `rain` (`tier 0`, unresolved missed calls + 0 logs today), `mist` (`tier 1`, calm morning/day horizon awaiting first action), `sunbreak` (`tier 2`, commitment set or first signal logged), `clear` (`tier 3`, commitment + signal or 2+ balanced pillars), `radiant` (`tier 4`, commitment completed or full multi-pillar momentum).
-- **Synchronized Mood Carrier & Commitment Lever:**
+- **Confined Hero Atmospheric Stage & Translucent Today Header (`Today` only):**
+  - `.nx-sky-stage` sits strictly behind the upper `Today` hero (`height: min(470px, 68dvh);`, faded smoothly with `mask-image` into solid Obsidian `#030607` / Porcelain `#f4f6f7` below scroll), presenting on-screen gradient washes (`y = 20–120px`), `.nx-sky-orb` (sunlit warm disc by day / soft lunar halo at night), and `.nx-sky-mist` clouds.
+  - When `.nx-sky-stage` is mounted on `Today`, `.cc-top` shifts to translucent frosted glass (`rgba(4,7,10,.46)` / rose `rgba(7,6,11,.46)` in Dark Noir; `rgba(244,246,247,.58)` / rose `rgba(246,245,249,.58)` in Light Porcelain) so the sky flows cleanly beneath the top bar while keeping open Settings (`:has(.cc-settings[open])`) and Notifications (`:has(.nx-notif.is-open)`) 100% opaque.
+  - **Time-of-day phases (`resolveDayPhase`):** `dawn` (5–8), `morning` (8–12), `afternoon` (12–17), `golden` (17–20), `night` (20–5). Base phase CSS rules precede mood rules, followed by combined `[data-phase][data-mood]` washes so every mood stays visually distinct at dawn, golden hour, and night.
+- **Tier 7 Earned-Sky Rules (`resolveLivingSky`):**
+  - `rain` (`tier 0`): unresolved missed calls + `0` logged pillars today.
+  - `mist` (`tier 1`): calm horizon awaiting first move.
+  - `sunbreak` (`tier 2`): active commitment (or manual check-off alone with `0` real signal pillars) or first real signal pillar logged. **Manual check-off alone caps at `sunbreak` (`tier 2`)** so the sky cannot be gamed without verified data.
+  - `clear` (`tier 3`): active commitment + `>= 1` real pillar, or `>= 2` balanced pillars.
+  - `radiant` (`tier 4`): verified commitment completion (`commitmentDone` + `>= 1` real pillar) or full multi-pillar momentum (`mealsToday >= 2` + `stepsToday >= 6000` within calorie target).
+- **Synchronized Mood Carrier, Action Links & Storage Separation:**
   - `<WelcomeBack>` companion portrait carries matching mood halo glow (`data-mood`) and summarizes the live sky & mood inside its recap dialog.
-  - `<TodayCommitmentBar>` provides an inline, owner-scoped (`personalStorage('localStorage')`) 1-tap commitment bar (`36–44px` hit targets, `16px` mobile custom input) that triggers a one-shot 1.15s radial sunbreak bloom (`.nx-sky-burst`) on upward mood transitions.
+  - `<TodayCommitmentBar>` links recognizable commitments (`commitmentActionKind` → `.nx-commit-action` pill: `Snap →`, `Weigh →`, `Fitness →`, `Talk →`) directly to live capture/views, auto-completes verifiable commitments (`isCommitmentSatisfied`) from logged signals, and triggers a one-shot 1.15s radial bloom (`.nx-sky-burst`) on upward tier transitions (`36–44px` hit targets, `16px` mobile custom input).
+  - **Storage boundary:** `accountSkyPreference.ts` stores `Living` / `Static` (`cupcake-account-sky-v1`) as a device preference in `localStorage` (matching `Theme` in `accountScheme.ts`), while `todayCommitment.ts` stores daily commitments strictly per signed-in account via `personalStorage('localStorage')`.
+- **Universal Telemetry State Invariant (`ok | empty | stale | error`):**
+  - Every health and nutrition telemetry surface (`TodayDashboard`, `FitnessWorkspace`, `TodayEnergy`, `assistantAppearance`) MUST distinguish all four states:
+    - **Errors never pretend to be empty:** rejected or `429`-throttled fetches (`Promise.allSettled` or single requests) never collapse into `"No weigh-in yet"` or `"No steps synced"`; they surface a calm inline error (`"Couldn't load … right now."`) with a working `Retry` control while preserving any previously loaded historical readings.
+    - **Stale sources surface last sync age:** Health Connect / Steps / RingConn readings older than **36 hours** (or missing despite a connected health state) preserve valid historical readings and surface a muted sync-age indicator (`Last synced <Date> · Check Health Connect in Settings`). Fasting timers past **24 hours** drop the active ring and display the last logged meal timestamp instead of runaway hours.
 - **Compositor Motion, Reduced Motion & Pause Control:**
-  - All continuous mist/rain/ray/star animations opt in strictly under `@media (prefers-reduced-motion: no-preference)` and `[data-sky=living]`, animate only `transform` and `opacity`, stay below `0.3 Hz`, and obey both the **`Settings → Appearance → Sky atmosphere` (`Living` / `Static`)** preference and the inline tray **`Pause sky motion` / `Resume sky motion`** control.
-- **Light Porcelain Guardrail:** All `:root[data-cc-scheme=light]` sky washes use pastel high-green-channel translucent tints (`rgba(..., >=150, ...)` terminating in `rgba(255, 255, 255, 0)`) and `#ffffff` commitment surfaces so Light mode stays bright, airy, and `>= 4.5:1` AA compliant.
+  - All continuous mist/rain/ray/star animations opt in strictly under `@media (prefers-reduced-motion: no-preference)` and `[data-sky=living]`, animate only `transform` and `opacity`, stay below `0.3 Hz`, and obey both **`Settings → Appearance → Sky atmosphere` (`Living` / `Static`)** and the inline tray **`Pause sky motion` / `Resume sky motion`** control.
+- **Light Porcelain Guardrail:** All `:root[data-cc-scheme=light]` sky washes, `.nx-sky-orb`, and `.nx-sky-mist` layers use pastel high-green-channel translucent tints (`rgba(..., >=140, ...)` terminating in `rgba(255, 255, 255, 0)`) with `#ffffff` / translucent frosted Porcelain surfaces and AA `>= 4.5:1` error/retry/action-pill contrast.

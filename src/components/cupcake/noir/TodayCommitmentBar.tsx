@@ -18,6 +18,8 @@ export function TodayCommitmentBar({
   commitment,
   suggestions,
   skyPref,
+  actionLabel,
+  onAction,
   onToggleSkyPref,
   onCommit,
   onToggleDone,
@@ -27,6 +29,8 @@ export function TodayCommitmentBar({
   commitment: TodayCommitment | null;
   suggestions: string[];
   skyPref: SkyPreference;
+  actionLabel?: string;
+  onAction?: () => void;
   onToggleSkyPref: () => void;
   onCommit: (text: string) => void;
   onToggleDone: () => void;
@@ -77,6 +81,15 @@ export function TodayCommitmentBar({
               </span>
               <span className="nx-commit-label">{commitment.text}</span>
             </button>
+            {!commitment.done && actionLabel && onAction && (
+              <button
+                type="button"
+                className="nx-commit-action"
+                onClick={onAction}
+              >
+                {actionLabel}
+              </button>
+            )}
             <span className="nx-commit-pill">{sky.label}</span>
             <button
               type="button"

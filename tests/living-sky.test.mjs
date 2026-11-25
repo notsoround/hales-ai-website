@@ -16,6 +16,7 @@ const server = await createServer({
   plugins: [
     {
       name: 'living-sky-root',
+      enforce: 'pre',
       configureServer(srv) {
         srv.middlewares.use((req, _res, next) => {
           const route = req.url?.split('?')[0];
@@ -23,6 +24,14 @@ const server = await createServer({
           if (route === '/cupcake' || route === '/cupcake/') req.url = '/tests/assistant-integration-preview.html';
           next();
         });
+      },
+      transform(code, id) {
+        if (id.endsWith('/tests/account-browser-preview.tsx')) {
+          return code.replace(
+            "if(body.action==='list')",
+            "if((window as unknown as {syntheticDataOverride?:(action:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}|null>}).syntheticDataOverride){const ov=await (window as unknown as {syntheticDataOverride:(action:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}|null>}).syntheticDataOverride(String(body.action),body);if(ov)return response(ov.status,{...ov.value,identity});}\n  if(body.action==='list')",
+          );
+        }
       },
     },
   ],
@@ -72,13 +81,40 @@ try {
   assert.equal(clearState.tier, 3);
   assert.equal(clearState.label, 'Golden hour');
 
-  const radiantState = skyMod.resolveLivingSky({
+  // Earned sky: manually checking commitment with 0 real pillars stays sunbreak (never falsely jumps to radiant)
+  const unearnedDoneState = skyMod.resolveLivingSky({
     hour: 22, mealsToday: 0, stepsToday: 0, weighedToday: false,
+    missedCallsCount: 0, hasCommitment: true, commitmentDone: true, caloriesLeft: null, persona: 'cupcake',
+  });
+  assert.equal(unearnedDoneState.mood, 'sunbreak');
+  assert.equal(unearnedDoneState.tier, 2);
+
+  // Earned sky: commitment done + >= 1 real pillar -> radiant
+  const radiantState = skyMod.resolveLivingSky({
+    hour: 22, mealsToday: 1, stepsToday: 0, weighedToday: false,
     missedCallsCount: 0, hasCommitment: true, commitmentDone: true, caloriesLeft: null, persona: 'cupcake',
   });
   assert.equal(radiantState.mood, 'radiant');
   assert.equal(radiantState.tier, 4);
   assert.equal(radiantState.label, 'Calm night glow');
+
+  // Auto-satisfaction & action kind helpers
+  assert.equal(skyMod.isCommitmentSatisfied('Log breakfast', { mealsToday: 0, stepsToday: 0, weighedToday: false }), false);
+  assert.equal(skyMod.isCommitmentSatisfied('Log breakfast', { mealsToday: 1, stepsToday: 0, weighedToday: false }), true);
+  assert.equal(skyMod.isCommitmentSatisfied('Log dinner', { mealsToday: 1, stepsToday: 0, weighedToday: false }), true);
+  assert.equal(skyMod.isCommitmentSatisfied('Walk 6,000 steps', { mealsToday: 0, stepsToday: 5999, weighedToday: false }), false);
+  assert.equal(skyMod.isCommitmentSatisfied('Walk 6,000 steps', { mealsToday: 0, stepsToday: 6000, weighedToday: false }), true);
+  assert.equal(skyMod.isCommitmentSatisfied('Quick weigh-in', { mealsToday: 0, stepsToday: 0, weighedToday: false }), false);
+  assert.equal(skyMod.isCommitmentSatisfied('Quick weigh-in', { mealsToday: 0, stepsToday: 0, weighedToday: true }), true);
+  assert.equal(skyMod.isCommitmentSatisfied('10-minute reset', { mealsToday: 3, stepsToday: 10000, weighedToday: true }), false);
+
+  assert.equal(skyMod.commitmentActionKind('Log breakfast'), 'camera');
+  assert.equal(skyMod.commitmentActionKind('Log next meal cleanly'), 'camera');
+  assert.equal(skyMod.commitmentActionKind('Quick weigh-in'), 'weigh');
+  assert.equal(skyMod.commitmentActionKind('Walk 6,000 steps'), 'fitness');
+  assert.equal(skyMod.commitmentActionKind('Exercise 20 min'), 'fitness');
+  assert.equal(skyMod.commitmentActionKind('Catch up with Cupcake'), 'talk');
+  assert.equal(skyMod.commitmentActionKind('10-minute reset'), null);
 
   const suggestions = skyMod.commitmentSuggestions({
     hour: 9, mealsToday: 0, stepsToday: 0, weighedToday: false, missedCallsCount: 1, assistantName: 'Cupcake',
@@ -89,7 +125,7 @@ try {
   // 2. Playwright browser workflows across Dark/Light, Caribbean/Rose, 320/390/1280 + owner isolation
   const health = { ok: true, devices: [], last_received_at: null, last_observed_at: null, metrics: [], coverage_note: 'Synthetic only.' };
 
-  async function openSignedIn(width, appearance, scheme, email = 'a@example.invalid') {
+  async function openSignedIn(width, appearance, scheme, email = 'a@example.invalid', dataOverride = null) {
     const context = await browser.newContext({
       viewport: { width, height: width < 600 ? 844 : 900 },
       colorScheme: scheme,
@@ -102,6 +138,9 @@ try {
     );
     if (scheme === 'light') {
       await context.addInitScript(() => localStorage.setItem('cupcake-account-scheme-v1', 'light'));
+    }
+    if (dataOverride) {
+      await context.exposeFunction('syntheticDataOverride', dataOverride);
     }
     await context.exposeFunction('syntheticPersonaServer', async () => ({
       status: 200,
@@ -138,17 +177,22 @@ try {
     try {
       const stage = page.locator('.nx-sky-stage');
       assert.equal(await stage.getAttribute('data-mood'), 'mist', `${cfg.width} ${cfg.appearance} starts in mist`);
+      assert.equal(await page.locator('.nx-sky-orb').count(), 1, 'sky orb renders when mood !== rain');
+      assert.equal(await page.locator('.nx-macros').count(), 0, 'empty Today fold hides 0g macros');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'no horizontal overflow before commit');
 
-      // Open commitment tray and choose first suggestion
+      // Open commitment tray and choose first suggestion (meal -> Snap -> quick action)
       await page.getByRole('button', { name: 'Set today’s commitment', exact: true }).click();
       await page.locator('.nx-commit-tray').waitFor();
       await page.locator('.nx-commit-chip').first().click();
 
-      // Mood upgrades immediately mist -> sunbreak + burst renders
+      // Mood upgrades immediately mist -> sunbreak + burst renders + quick-action pill renders
       await page.waitForFunction(() => document.querySelector('.nx-sky-stage')?.getAttribute('data-mood') === 'sunbreak');
+      await page.locator('.nx-sky-burst').waitFor({ state: 'attached' });
       assert.equal(await page.locator('.nx-sky-burst').count(), 1, 'sunbreak burst triggers on upward mood jump');
       assert.equal(await page.locator('.nx-commit-check').count(), 1);
+      assert.equal(await page.locator('.nx-commit-action').count(), 1, 'quick-action button renders for meal commitment');
+      assert.equal(await page.locator('.nx-commit-action').innerText(), 'Snap →');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'no overflow after commit');
 
       // Persist across reload
@@ -156,10 +200,11 @@ try {
       await page.locator('.nx-sky-stage').waitFor();
       assert.equal(await page.locator('.nx-sky-stage').getAttribute('data-mood'), 'sunbreak');
 
-      // Mark commitment done -> immediate shift to radiant
+      // Earned sky: marking commitment done with 0 logged pillars stays sunbreak (not radiant)
       await page.locator('.nx-commit-check').click();
-      await page.waitForFunction(() => document.querySelector('.nx-sky-stage')?.getAttribute('data-mood') === 'radiant');
-      assert.equal(await page.locator('.nx-commit').getAttribute('data-done'), 'true');
+      await page.waitForFunction(() => document.querySelector('.nx-commit')?.getAttribute('data-done') === 'true');
+      assert.equal(await page.locator('.nx-sky-stage').getAttribute('data-mood'), 'sunbreak', '0 real pillars stays sunbreak');
+      assert.equal(await page.locator('.nx-commit-action').count(), 0, 'quick-action button hides when done');
 
       // Toggle Sky atmosphere in Settings -> Appearance
       await page.locator('.cc-settings > summary').click();
@@ -170,6 +215,7 @@ try {
       assert.equal(await page.evaluate(() => document.documentElement.getAttribute('data-cc-sky')), 'static');
       assert.equal(await stage.getAttribute('data-sky'), 'static');
       assert.equal(await page.locator('.nx-sky-sunbeam').count(), 0);
+      assert.equal(await page.locator('.nx-sky-orb').count(), 1, 'static sky keeps subtle static orb');
 
       // Reload keeps Static; inline Resume switches back to Living
       await page.reload();
@@ -182,6 +228,111 @@ try {
       assert.equal(await page.getByRole('button', { name: 'Pause sky motion', exact: true }).getAttribute('aria-pressed'), null);
 
       assert.deepEqual(remote, []);
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  }
+
+  // 2b. Dawn & Night washes must differ across all 5 moods (no phase clobber bug)
+  {
+    const { context, page } = await openSignedIn(390, 'caribbean', 'dark', 'a@example.invalid');
+    try {
+      for (const phase of ['dawn', 'night']) {
+        const backgrounds = await page.evaluate(ph => {
+          const stage = document.querySelector('.nx-sky-stage');
+          const wash = stage.querySelector('.nx-sky-wash');
+          stage.setAttribute('data-phase', ph);
+          return ['rain', 'mist', 'sunbreak', 'clear', 'radiant'].map(m => {
+            stage.setAttribute('data-mood', m);
+            return getComputedStyle(wash).backgroundImage;
+          });
+        }, phase);
+        assert.equal(new Set(backgrounds).size, 5, `${phase} must produce 5 distinct washes across moods`);
+      }
+    } finally {
+      await context.close();
+    }
+  }
+
+  // 2c. > 24h stale fasting -> '—' + failed weight_list -> retry (never 'No weigh-in yet')
+  {
+    let failWeight = true;
+    let weightCalls = 0;
+    const staleMealIso = new Date(Date.now() - 48 * 3600000).toISOString();
+    const { context, page, errors } = await openSignedIn(390, 'caribbean', 'dark', 'a@example.invalid', async action => {
+      if (action === 'weight_list') {
+        weightCalls++;
+        if (failWeight) return { status: 503, value: { ok: false, error: 'temporary_unavailable' } };
+        return {
+          status: 200,
+          value: {
+            ok: true,
+            measurements: [{ id: 'w1', kind: 'measurement', weightLb: 194.2, measuredAt: new Date().toISOString(), source: 'owner-reported-weight', recordId: 'r1', basis: 'owner_reported' }],
+            latestMeasurement: { id: 'w1', kind: 'measurement', weightLb: 194.2, measuredAt: new Date().toISOString(), source: 'owner-reported-weight', recordId: 'r1', basis: 'owner_reported' },
+            total: 1, nextCursor: null, coverage: {},
+          },
+        };
+      }
+      if (action === 'food_history') {
+        return {
+          status: 200,
+          value: {
+            ok: true,
+            meals: [{ id: 'stale_1', description: 'Old dinner', consumedAt: staleMealIso, source: 'manual-entry', logState: 'logged', countedInTotals: true, total: { calories: 640 } }],
+            total: 1, nextCursor: null, pendingCount: 0, undatedLoggedCount: 0,
+          },
+        };
+      }
+      return null;
+    });
+    try {
+      // Failed weight_list shows retry, not "No weigh-in yet"
+      const weightBtn = page.locator('.nx-weightline');
+      await page.waitForFunction(() => document.querySelector('.nx-weightline')?.textContent?.includes("Couldn't load — Retry"));
+      assert.equal((await weightBtn.innerText()).includes('No weigh-in yet'), false);
+      const beforeRetry = weightCalls;
+      failWeight = false;
+      await weightBtn.click();
+      await page.waitForFunction(() => document.querySelector('.nx-weightline')?.textContent?.includes('194.2'));
+      assert.ok(weightCalls > beforeRetry, 'tapping failed weight row retries weight_list');
+
+      // > 24h stale fasting shows '—' and Last logged meal
+      const fastingTab = page.getByRole('tab', { name: /Fasting/ });
+      assert.match(await fastingTab.innerText(), /—/, 'stale >24h fasting chip shows em-dash');
+      await fastingTab.click();
+      assert.equal(await page.locator('.nx-md-centre .nx-big').innerText(), '—');
+      assert.match(await page.locator('.nx-md-detail').innerText(), /Last logged meal/);
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  }
+
+  // 2d. Real meal today auto-satisfies meal commitment -> radiant + shows .nx-macros
+  {
+    const todayMealIso = new Date(Date.now() - 20 * 60000).toISOString();
+    const { context, page, errors } = await openSignedIn(390, 'caribbean', 'dark', 'a@example.invalid', async action => {
+      if (action === 'food_history') {
+        return {
+          status: 200,
+          value: {
+            ok: true,
+            meals: [{ id: 'today_1', description: 'Eggs & avocado', consumedAt: todayMealIso, source: 'manual-entry', logState: 'logged', countedInTotals: true, total: { calories: 480, protein_g: 28, carbs_g: 14, fat_g: 32 } }],
+            total: 1, nextCursor: null, pendingCount: 0, undatedLoggedCount: 0,
+          },
+        };
+      }
+      return null;
+    });
+    try {
+      await page.locator('.nx-macros').waitFor();
+      await page.getByRole('button', { name: 'Set today’s commitment', exact: true }).click();
+      await page.getByLabel('Custom commitment for today', { exact: true }).fill('Log breakfast');
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.waitForFunction(() => document.querySelector('.nx-sky-stage')?.getAttribute('data-mood') === 'radiant');
+      assert.equal(await page.locator('.nx-commit').getAttribute('data-done'), 'true');
+      assert.equal(await page.locator('.nx-commit-action').count(), 0);
       assert.deepEqual(errors, []);
     } finally {
       await context.close();

@@ -16,6 +16,8 @@ export type AssistantAppearanceState = Preferences & {
 };
 
 const STORAGE_KEY = 'cupcake-assistant-appearance-v1';
+const ACCOUNT_CACHE_KEY = 'cupcake-account-persona-cache-v1';
+const LOAD_RETRY_DELAYS = [600, 1500, 3000];
 const defaults: Preferences = { appearance: 'caribbean', persona: 'cupcake', name: 'Cupcake' };
 const defaultName = (persona: Persona) => persona === 'matthieu' ? 'Matthieu' : 'Cupcake';
 const cleanName = (name: string) => Array.from(name).filter(char => char.charCodeAt(0) >= 32 && char.charCodeAt(0) !== 127).join('').slice(0, 24);
@@ -35,6 +37,28 @@ function readPreferences(): Preferences {
     };
   } catch { return defaults; }
 }
+function readAccountPersonaCache(): Preferences {
+  try {
+    const value: unknown = JSON.parse(personalStorage('localStorage').getItem(ACCOUNT_CACHE_KEY) || 'null');
+    if (!value || typeof value !== 'object') return defaults;
+    const saved = value as Partial<Preferences>;
+    const persona: Persona = saved.persona === 'matthieu' ? 'matthieu' : 'cupcake';
+    return {
+      appearance: saved.appearance === 'rose' ? 'rose' : 'caribbean',
+      persona,
+      name: typeof saved.name === 'string' ? accountName(saved.name, persona) : defaultName(persona),
+    };
+  } catch { return defaults; }
+}
+function writeAccountPersonaCache(prefs: Preferences) {
+  try {
+    personalStorage('localStorage').setItem(ACCOUNT_CACHE_KEY, JSON.stringify({
+      appearance: prefs.appearance,
+      persona: prefs.persona,
+      name: prefs.name,
+    }));
+  } catch { /* Cache is best-effort; server remains source of truth. */ }
+}
 function confirmedRecord(value: AccountPreferences): AccountPreferences {
   const p = value?.preferences;
   if (!p || !['caribbean', 'rose'].includes(p.appearance) || !['cupcake', 'matthieu'].includes(p.persona)
@@ -49,33 +73,52 @@ function confirmedRecord(value: AccountPreferences): AccountPreferences {
 
 /** Presentation preferences never select an account or authorize an action. */
 export function useAssistantAppearance(): AssistantAppearanceState {
-  const [preferences, setPreferences] = useState<Preferences>(() => ACCOUNT_SESSIONS ? defaults : readPreferences());
+  const [preferences, setPreferences] = useState<Preferences>(() => ACCOUNT_SESSIONS ? readAccountPersonaCache() : readPreferences());
   const [persistence, setPersistence] = useState<Persistence>({ mode: ACCOUNT_SESSIONS ? 'account' : 'browser', editable: !ACCOUNT_SESSIONS, message: ACCOUNT_SESSIONS ? 'Loading your account preferences…' : 'Saved in this browser when device storage is available.' });
   const generation = useRef(sessionSnapshot().generation).current;
-  const mounted = useRef(false), editable = useRef(!ACCOUNT_SESSIONS), saving = useRef(false);
+  const mounted = useRef(false), editable = useRef(!ACCOUNT_SESSIONS), saving = useRef(false), loading = useRef(false);
   const desired = useRef(preferences), confirmed = useRef<AccountPreferences | null>(null);
-  const loadSequence = useRef(0);
+  const loadSequence = useRef(0), retryAttempt = useRef(0), lastConflict = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
+  const retryTimer = useRef<ReturnType<typeof setTimeout>>();
   const saveRef = useRef<() => Promise<void>>(async () => {});
-  const loadRef = useRef<(conflict?: boolean) => Promise<void>>(async () => {});
+  const loadRef = useRef<(conflict?: boolean, quiet?: boolean) => Promise<void>>(async () => {});
   const active = useCallback(() => mounted.current && (!ACCOUNT_SESSIONS || generation === sessionSnapshot().generation), [generation]);
-  const cancelLoads = useCallback(() => { loadSequence.current++; }, []);
+  const cancelLoads = useCallback(() => { loadSequence.current++; loading.current = false; }, []);
   const cancelTimer = useCallback(() => { clearTimeout(timer.current); timer.current = undefined; }, []);
+  const cancelRetry = useCallback(() => { clearTimeout(retryTimer.current); retryTimer.current = undefined; }, []);
   const schedule = useCallback(() => { cancelTimer(); timer.current = setTimeout(() => { void saveRef.current(); }, 500); }, [cancelTimer]);
 
-  loadRef.current = async (conflict = false) => {
+  loadRef.current = async (conflict = false, quiet = false) => {
     if (!active()) return;
+    cancelRetry();
     const sequence = ++loadSequence.current;
+    lastConflict.current = conflict;
+    loading.current = true;
     cancelTimer(); editable.current = false;
-    setPersistence({ mode:'account', editable:false, message:conflict ? 'Preferences changed elsewhere. Loading the latest settings…' : 'Loading your account preferences…' });
+    if (!quiet) {
+      setPersistence({ mode:'account', editable:false, message:conflict ? 'Preferences changed elsewhere. Loading the latest settings…' : 'Loading your account preferences…' });
+    }
     try {
       const record = confirmedRecord(await accountData<AccountPreferences>({action:'persona_get'}));
       if (!active() || sequence !== loadSequence.current) return;
+      retryAttempt.current = 0;
       confirmed.current = record; desired.current = record.preferences; editable.current = true;
+      writeAccountPersonaCache(record.preferences);
       setPreferences(record.preferences);
       setPersistence({ mode:'account', editable:true, message:conflict ? 'Preferences changed elsewhere. The latest settings are loaded; your unsaved changes were not applied.' : record.saved ? 'Saved to your account.' : 'Account defaults. Changes will save to your account.' });
     } catch {
-      if (active() && sequence === loadSequence.current) setPersistence({ mode:'account', editable:false, message:conflict ? 'Preferences changed elsewhere, but the latest settings could not load. Editing is paused.' : 'Your account preferences could not load. Editing is paused; nothing was saved in this browser.', retry:() => { void loadRef.current(conflict); } });
+      if (!active() || sequence !== loadSequence.current) return;
+      setPersistence({ mode:'account', editable:false, message:conflict ? 'Preferences changed elsewhere, but the latest settings could not load. Editing is paused.' : 'Your account preferences could not load. Editing is paused; nothing was saved in this browser.', retry:() => { retryAttempt.current = 0; void loadRef.current(conflict, false); } });
+      if (retryAttempt.current < LOAD_RETRY_DELAYS.length) {
+        const delay = LOAD_RETRY_DELAYS[retryAttempt.current++]!;
+        retryTimer.current = setTimeout(() => {
+          retryTimer.current = undefined;
+          if (active() && !editable.current && !loading.current) void loadRef.current(conflict, true);
+        }, delay);
+      }
+    } finally {
+      if (sequence === loadSequence.current) loading.current = false;
     }
   };
   saveRef.current = async () => {
@@ -95,6 +138,7 @@ export function useAssistantAppearance(): AssistantAppearanceState {
       if (!active()) return;
       if (!record.saved || record.revision <= confirmed.current.revision || !equal(record.preferences, target)) throw Error('The updated preferences were not confirmed.');
       confirmed.current = record;
+      writeAccountPersonaCache(record.preferences);
       // An edit made during this request stays pending and uses the new revision.
       const latest = { ...desired.current, name:accountName(desired.current.name, desired.current.persona) };
       continueSaving = !equal(latest, target);
@@ -105,7 +149,8 @@ export function useAssistantAppearance(): AssistantAppearanceState {
       cancelTimer();
       if (error instanceof AccountRequestError && error.code === 'persona_conflict') {
         // Never retry stale edits against a newer revision automatically.
-        await loadRef.current(true);
+        retryAttempt.current = 0;
+        await loadRef.current(true, false);
       } else {
         setPersistence({mode:'account',editable:true,message:'Could not save to your account. Your changes are unsaved; retry before leaving.',retry:() => { void saveRef.current(); }});
       }
@@ -118,9 +163,26 @@ export function useAssistantAppearance(): AssistantAppearanceState {
   useEffect(() => {
     mounted.current = true;
     editable.current = !ACCOUNT_SESSIONS;
-    if (ACCOUNT_SESSIONS) void loadRef.current();
-    return () => { mounted.current = false; editable.current = false; cancelLoads(); cancelTimer(); };
-  }, [cancelLoads, cancelTimer]);
+    retryAttempt.current = 0;
+    if (ACCOUNT_SESSIONS) void loadRef.current(false, false);
+    return () => { mounted.current = false; editable.current = false; cancelLoads(); cancelTimer(); cancelRetry(); };
+  }, [cancelLoads, cancelTimer, cancelRetry]);
+  useEffect(() => {
+    if (!ACCOUNT_SESSIONS) return;
+    const onUnlockTrigger = () => {
+      if (!active() || editable.current || loading.current) return;
+      retryAttempt.current = 0;
+      void loadRef.current(lastConflict.current, true);
+    };
+    window.addEventListener('cc-settings-opened', onUnlockTrigger);
+    window.addEventListener('cupcake-data-changed', onUnlockTrigger);
+    window.addEventListener('cupcake-account-data-changed', onUnlockTrigger);
+    return () => {
+      window.removeEventListener('cc-settings-opened', onUnlockTrigger);
+      window.removeEventListener('cupcake-data-changed', onUnlockTrigger);
+      window.removeEventListener('cupcake-account-data-changed', onUnlockTrigger);
+    };
+  }, [active]);
   useEffect(() => {
     if (ACCOUNT_SESSIONS) return;
     try { personalStorage('localStorage').setItem(STORAGE_KEY, JSON.stringify(preferences)); }

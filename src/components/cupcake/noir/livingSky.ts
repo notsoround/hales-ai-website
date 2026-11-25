@@ -60,7 +60,7 @@ export function resolveLivingSky(inputs: SkyInputs): SkyState {
   let mood: SkyMood;
   let tier: number;
   if (
-    inputs.commitmentDone ||
+    (inputs.commitmentDone && pillars >= 1) ||
     (inputs.mealsToday >= 2 && inputs.stepsToday >= 6000 && (inputs.caloriesLeft === null || inputs.caloriesLeft >= 0))
   ) {
     mood = 'radiant';
@@ -71,7 +71,7 @@ export function resolveLivingSky(inputs: SkyInputs): SkyState {
   ) {
     mood = 'clear';
     tier = 3;
-  } else if (inputs.hasCommitment || pillars >= 1) {
+  } else if (inputs.hasCommitment || inputs.commitmentDone || pillars >= 1) {
     mood = 'sunbreak';
     tier = 2;
   } else if (inputs.missedCallsCount > 0) {
@@ -93,13 +93,17 @@ export function resolveLivingSky(inputs: SkyInputs): SkyState {
     prompt = calm ? 'Momentum is holding steady.' : 'Clear skies — keep that rhythm rolling.';
     orbCue = calm ? 'Clear & steady' : 'Sunny momentum';
   } else if (mood === 'sunbreak') {
-    prompt = inputs.hasCommitment
+    prompt = inputs.commitmentDone
       ? calm
-        ? 'First light broke through — follow through when ready.'
-        : 'Clouds parted. Lock in one win today.'
-      : calm
-        ? 'First signal is in — name one focus to brighten the day.'
-        : 'Light broke through. Add one commitment to build on it.';
+        ? 'Commitment checked — log a meal, steps, or weigh-in to open the sky.'
+        : 'Checked off — log one real move to open the full sky.'
+      : inputs.hasCommitment
+        ? calm
+          ? 'First light broke through — follow through when ready.'
+          : 'Clouds parted. Lock in one win today.'
+        : calm
+          ? 'First signal is in — name one focus to brighten the day.'
+          : 'Light broke through. Add one commitment to build on it.';
     orbCue = calm ? 'First light breaking' : 'Warming up';
   } else if (mood === 'rain') {
     prompt = calm
@@ -145,4 +149,34 @@ export function commitmentSuggestions({
   if (!weighedToday) add('Quick weigh-in');
   add('10-minute reset');
   return out.slice(0, 4);
+}
+
+export type CommitmentActionKind = 'camera' | 'weigh' | 'fitness' | 'talk';
+
+export function isCommitmentSatisfied(
+  text: string,
+  state: { mealsToday: number; stepsToday: number; weighedToday: boolean },
+): boolean {
+  const low = text.trim().toLowerCase();
+  if (!low) return false;
+  if (/\bweigh(?:-?in)?\b|\bscale\b/.test(low)) return state.weighedToday;
+  const stepMatch = low.match(/(\d[\d,]*)\s*steps?\b/);
+  if (stepMatch) {
+    const goal = Number(stepMatch[1].replace(/,/g, ''));
+    if (Number.isFinite(goal) && goal > 0) return state.stepsToday >= goal;
+  }
+  if (/\b(steps?|walk(?:ing)?)\b/.test(low)) return state.stepsToday >= 6000;
+  if (/\bnext\s+meal\b/.test(low)) return state.mealsToday >= 2;
+  if (/\b(breakfast|lunch|dinner|meal)\b/.test(low)) return state.mealsToday > 0;
+  return false;
+}
+
+export function commitmentActionKind(text: string): CommitmentActionKind | null {
+  const low = text.trim().toLowerCase();
+  if (!low) return null;
+  if (/\b(breakfast|lunch|dinner|meal)\b/.test(low)) return 'camera';
+  if (/\bweigh(?:-?in)?\b/.test(low)) return 'weigh';
+  if (/\b(steps?|walk(?:ing)?|exercise|workout)\b/.test(low)) return 'fitness';
+  if (/\b(catch\s*up|talk|call)\b/.test(low)) return 'talk';
+  return null;
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, ChevronRight, PhoneMissed, Receipt, RefreshCw, Scale, Sparkles, Utensils, X } from 'lucide-react';
+import { AccountRequestError } from '../accountSession';
 import { libraryRequest } from '../library';
 import { useDataChanged } from '../dataChanges';
 import { useBackClose } from '../nativeFeel';
@@ -57,6 +58,8 @@ type FallbackReceipt = {
 };
 
 const CASH_RECEIPTS_KEY = 'cupcake-receipt-cash-v1';
+const SEEN_NOTIF_KEY = 'cc-notif-seen-v1';
+const INITIAL_FETCH_DELAY_MS = 600;
 
 function readCashReceiptIds(): Set<string> {
   try {
@@ -67,6 +70,40 @@ function readCashReceiptIds(): Set<string> {
   } catch {
     return new Set();
   }
+}
+
+function readSeenFingerprint(): string {
+  try {
+    return personalStorage('localStorage').getItem(SEEN_NOTIF_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeSeenFingerprint(fingerprint: string) {
+  try {
+    if (fingerprint) personalStorage('localStorage').setItem(SEEN_NOTIF_KEY, fingerprint);
+  } catch {
+    // Storage may be unavailable or signed out.
+  }
+}
+
+function notificationSummaryFingerprint(summary: NotificationsSummarySnapshot | null): string {
+  if (!summary || !summary.items.length) return '';
+  return summary.items
+    .map(item => `${item.id}:${item.kind}:${item.count}:${item.title}`)
+    .sort()
+    .join('|');
+}
+
+function isActionUnsupportedError(error: unknown): boolean {
+  if (error instanceof AccountRequestError) {
+    return error.code === 'unknown_action' || error.code === 'account_action_not_ready';
+  }
+  if (error instanceof Error) {
+    return error.message === 'unknown_action' || error.message === 'account_action_not_ready';
+  }
+  return false;
 }
 
 function asNonNegInt(value: unknown): number {
@@ -174,9 +211,11 @@ function parseServerSummary(data: ServerSummaryResponse): NotificationsSummarySn
     }
   }
 
-  const derivedCount = items.reduce((sum, item) => sum + Math.max(1, item.count), 0);
+  const derivedCount = items.length;
   const reportedUnread = asNonNegInt(data.unreadCount);
-  const unreadCount = reportedUnread > 0 ? reportedUnread : items.length > 0 ? derivedCount : 0;
+  const unreadCount = items.length > 0
+    ? (reportedUnread > 0 && reportedUnread < derivedCount ? reportedUnread : derivedCount)
+    : reportedUnread;
 
   return {
     unreadCount,
@@ -260,7 +299,7 @@ async function deriveClientFallback(): Promise<NotificationsSummarySnapshot> {
   }
 
   return {
-    unreadCount: items.reduce((s, it) => s + Math.max(1, it.count), 0),
+    unreadCount: items.length,
     missedCalls7d: 0,
     unmatchedReceipts,
     lowAllowance: false,
@@ -289,45 +328,84 @@ export function NotificationsPopover({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<NotificationsSummarySnapshot | null>(null);
+  const [seenFingerprint, setSeenFingerprint] = useState<string>(() => readSeenFingerprint());
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(true);
+  const openRef = useRef(false);
+  openRef.current = open;
+  const initialTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const onSummaryRef = useRef(onSummary);
   onSummaryRef.current = onSummary;
 
+  const markSeen = useCallback((target: NotificationsSummarySnapshot | null) => {
+    const fingerprint = notificationSummaryFingerprint(target);
+    if (!fingerprint) return;
+    writeSeenFingerprint(fingerprint);
+    setSeenFingerprint(fingerprint);
+  }, []);
+
   const refresh = useCallback(async () => {
+    if (initialTimerRef.current !== undefined) {
+      window.clearTimeout(initialTimerRef.current);
+      initialTimerRef.current = undefined;
+    }
     setLoading(true);
     try {
       const raw = await libraryRequest<ServerSummaryResponse>({ action: 'notifications_summary' });
+      if (!mountedRef.current) return;
       const parsed = parseServerSummary(raw || {});
       setSummary(parsed);
+      if (openRef.current) markSeen(parsed);
       onSummaryRef.current?.(parsed);
-    } catch {
-      try {
-        const fallback = await deriveClientFallback();
-        setSummary(fallback);
-        onSummaryRef.current?.(fallback);
-      } catch {
-        // Stay quiet when offline or unauthenticated.
+    } catch (error) {
+      if (!mountedRef.current) return;
+      if (isActionUnsupportedError(error)) {
+        try {
+          const fallback = await deriveClientFallback();
+          if (!mountedRef.current) return;
+          setSummary(fallback);
+          if (openRef.current) markSeen(fallback);
+          onSummaryRef.current?.(fallback);
+        } catch {
+          // Stay quiet when offline or unauthenticated.
+        }
       }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  }, []);
+  }, [markSeen]);
 
   useEffect(() => {
-    void refresh();
+    mountedRef.current = true;
+    initialTimerRef.current = window.setTimeout(() => {
+      initialTimerRef.current = undefined;
+      void refresh();
+    }, INITIAL_FETCH_DELAY_MS);
+    return () => {
+      mountedRef.current = false;
+      if (initialTimerRef.current !== undefined) {
+        window.clearTimeout(initialTimerRef.current);
+        initialTimerRef.current = undefined;
+      }
+    };
   }, [refresh]);
 
   useDataChanged(['food', 'weight', 'exercise', 'outcome', 'purchase'], () => {
     void refresh();
   });
 
-  const close = useCallback(() => {
+  const close = useCallback((byPointer = false) => {
     setOpen(false);
-    triggerRef.current?.focus();
+    if (byPointer) {
+      triggerRef.current?.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
+    } else {
+      triggerRef.current?.focus();
+    }
   }, []);
+  const closeByKeyboard = useCallback(() => close(false), [close]);
 
-  useBackClose(open, close);
+  useBackClose(open, closeByKeyboard);
 
   useEffect(() => {
     if (!open) return;
@@ -335,21 +413,26 @@ export function NotificationsPopover({
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        close();
+        close(false);
       }
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
   }, [open, close]);
 
-  const unread = summary?.unreadCount ?? 0;
+  const currentFingerprint = notificationSummaryFingerprint(summary);
+  const seen = Boolean(currentFingerprint && currentFingerprint === seenFingerprint);
+  const unread = seen ? 0 : (summary?.unreadCount ?? 0);
   const badge = unread > 99 ? '99+' : String(unread);
   const items = summary?.items ?? [];
 
   const handleToggle = () => {
     const next = !open;
     setOpen(next);
-    if (next) void refresh();
+    if (next) {
+      markSeen(summary);
+      void refresh();
+    }
   };
 
   const handlePick = (item: NotificationActionItem) => {
@@ -374,12 +457,12 @@ export function NotificationsPopover({
 
       {open && (
         <>
-          <div className="nx-notif-scrim" aria-hidden="true" onClick={close} />
+          <div className="nx-notif-scrim" aria-hidden="true" onClick={() => close(true)} />
           <div ref={panelRef} className="nx-notif-panel" role="dialog" aria-label="Notifications">
             <header className="nx-notif-head">
               <div>
                 <strong>Notifications</strong>
-                {unread > 0 && <small>{unread} needing attention</small>}
+                {items.length > 0 && <small>{items.length} needing attention</small>}
               </div>
               <div className="nx-notif-head-actions">
                 <button
@@ -395,7 +478,7 @@ export function NotificationsPopover({
                   type="button"
                   className="nx-notif-icon-btn"
                   aria-label="Close notifications"
-                  onClick={close}
+                  onClick={event => close(event.detail > 0)}
                 >
                   <X size={16} aria-hidden="true" />
                 </button>
