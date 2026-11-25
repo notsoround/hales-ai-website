@@ -1,6 +1,6 @@
 /** Today's instrument panel for the account app: the calorie dial, one camera button with voice beside it,
  *  a strip of three key readings, and touchable charts for intake, glucose and weight. Everything below it is drill-down. */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, ChevronRight, Dumbbell, Footprints, Lightbulb, Mic, PhoneMissed, Radio, RotateCw, X } from 'lucide-react';
 import { spendSourceLabel } from '../savesModel';
 import { BarChart, TrendChart, type ChartScrub } from './NoirCharts';
@@ -8,7 +8,7 @@ import { libraryRequest } from '../library';
 import { loadWeightPage, normalizeWeightMeasurements, recordQuickWeight, resolveHeadlineWeight, type BodyWeightSummary, type WeightPage } from '../weightApi';
 import { parseGlucoseEntries, type GlucoseReading } from '../glucoseApi';
 import { parseRingconnNight, type RingconnNight } from '../ringconnApi';
-import { latestSteps, stepsSourceSummary, stepsUpdatedLabel, type StepsDay } from '../stepsApi';
+import { StepsUnavailableError, latestSteps, stepsSourceSummary, stepsUpdatedLabel, type StepsDay } from '../stepsApi';
 import { addDays, lastLoggedMeal, nutritionDay, nutritionDays, type FoodHistoryMeal, type NutritionHistory, type NutritionSettings } from '../nutritionModel';
 import { useDataChanged } from '../dataChanges';
 import { useBackClose } from '../nativeFeel';
@@ -21,7 +21,7 @@ import type { ReactNode } from 'react';
 import { MultiDial, type DialMetric } from './MultiDial';
 import { LivingSkyCanvas } from './LivingSkyCanvas';
 import { TodayCommitmentBar } from './TodayCommitmentBar';
-import { commitmentSuggestions, resolveLivingSky } from './livingSky';
+import { commitmentActionKind, commitmentSuggestions, isCommitmentSatisfied, resolveLivingSky } from './livingSky';
 import { useTodayCommitment } from './todayCommitment';
 import { useAccountSky } from '../accountSkyPreference';
 import './noir-elevate.css';
@@ -41,8 +41,10 @@ const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', curr
 /** "14:05" from the feed becomes "2:05p". Anything else is shown as given. */
 const feedClock = (t: string) => { const m = /^(\d{1,2}):(\d{2})/.exec(t); if (!m) return t; const h = Number(m[1]); return `${h % 12 || 12}:${m[2]}${h < 12 ? 'a' : 'p'}`; };
 
-type Nutrition = { history: NutritionHistory | null; settings: NutritionSettings; loading: boolean };
-type Signals = { weightPage: WeightPage | null; body: BodyWeightSummary | null; loaded: boolean; glucose: GlucoseReading[] | null; nights: RingconnNight[] | null; steps: StepsDay | null };
+type Nutrition = { history: NutritionHistory | null; settings: NutritionSettings; loading: boolean; error?: string; reload?: () => void };
+type SignalErrors = { weight: boolean; steps: boolean; glucose: boolean; nights: boolean };
+type SignalsState = { weightPage: WeightPage | null; body: BodyWeightSummary | null; loaded: boolean; glucose: GlucoseReading[] | null; nights: RingconnNight[] | null; steps: StepsDay | null; errors: SignalErrors };
+type Signals = SignalsState & { retrySignals: () => void };
 
 /** Latest counted meal up to now (+5 min tolerance for device clock skew), including manual-entry meals. */
 function latestConsumedMeal(meals: FoodHistoryMeal[] | undefined, nowMs: number): { meal: FoodHistoryMeal; at: number } | null {
@@ -77,9 +79,18 @@ function useNowMinute(): number {
 }
 
 function useSignals(): Signals {
-  const [signals, setSignals] = useState<Signals>({ weightPage: null, body: null, loaded: false, glucose: null, nights: null, steps: null });
+  const [signals, setSignals] = useState<SignalsState>({
+    weightPage: null,
+    body: null,
+    loaded: false,
+    glucose: null,
+    nights: null,
+    steps: null,
+    errors: { weight: false, steps: false, glucose: false, nights: false },
+  });
   const [version, setVersion] = useState(0);
-  useDataChanged(['weight', 'glucose', 'exercise'], () => setVersion(v => v + 1));
+  const retrySignals = useCallback(() => setVersion(v => v + 1), []);
+  useDataChanged(['weight', 'glucose', 'exercise'], retrySignals);
   useEffect(() => {
     let live = true;
     const today = nutritionDay(), start = addDays(today, -13);
@@ -98,11 +109,17 @@ function useSignals(): Signals {
         glucose: g.status === 'fulfilled' ? parseGlucoseEntries(g.value.entries) : [],
         nights: n.status === 'fulfilled' && Array.isArray(n.value.entries) ? n.value.entries.map(parseRingconnNight).filter((x): x is RingconnNight => !!x && x.asleepMinutes !== null).sort((a, b) => a.nightId.localeCompare(b.nightId)) : [],
         steps: s.status === 'fulfilled' ? s.value : null,
+        errors: {
+          weight: w.status === 'rejected' || b.status === 'rejected',
+          steps: s.status === 'rejected' && !(s.reason instanceof StepsUnavailableError),
+          glucose: g.status === 'rejected',
+          nights: n.status === 'rejected',
+        },
       });
     });
     return () => { live = false; };
   }, [version]);
-  return signals;
+  return { ...signals, retrySignals };
 }
 
 function useScrollAtmosphere() {
@@ -232,8 +249,19 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   const avgSleep = nights.length > 1 ? nights.slice(0, -1).reduce((s, n) => s + n.asleepMinutes!, 0) / (nights.length - 1) : null;
   const inRange = glucose.length ? Math.round(glucose.filter(g => g.valueMgDl >= 70 && g.valueMgDl <= 140).length / glucose.length * 100) : null;
 
-  const dialLabel = target !== null ? `${fmtInt(Math.abs(left!))} calories ${left! >= 0 ? 'left' : 'over'} today, ${fmtInt(eaten)} of ${fmtInt(target)} eaten` : `${fmtInt(eaten)} calories eaten today`;
-  const status = !day || !day.meals.length ? (mealHint ? `${mealHint} time` : 'Nothing logged yet') : pace === null ? `${day.meals.length} ${day.meals.length === 1 ? 'meal' : 'meals'} logged` : pace > 0.12 ? 'Ahead of pace' : pace < -0.2 ? 'Room to eat' : 'On pace';
+  const nutritionError = Boolean(nutrition.error && (!day || !day.meals.length));
+  const dialLabel = nutritionError
+    ? 'Calories could not load today'
+    : target !== null
+      ? `${fmtInt(Math.abs(left!))} calories ${left! >= 0 ? 'left' : 'over'} today, ${fmtInt(eaten)} of ${fmtInt(target)} eaten`
+      : `${fmtInt(eaten)} calories eaten today`;
+  const status = nutritionError
+    ? 'Couldn’t load food log'
+    : !day || !day.meals.length
+      ? (mealHint ? `${mealHint} time` : 'Nothing logged yet')
+      : pace === null
+        ? `${day.meals.length} ${day.meals.length === 1 ? 'meal' : 'meals'} logged`
+        : pace > 0.12 ? 'Ahead of pace' : pace < -0.2 ? 'Room to eat' : 'On pace';
 
   const latestMeal = useMemo(() => latestConsumedMeal(nutrition.history?.meals, nowMs), [nutrition.history?.meals, nowMs]);
   const lastMealAt = latestMeal?.at ?? null;
@@ -250,72 +278,103 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   const [glucoseScrub, setGlucoseScrub] = useState<ChartScrub | null>(null);
   const [weightScrub, setWeightScrub] = useState<ChartScrub | null>(null);
   const fastMin = lastMealAt !== null ? Math.max(0, (nowMs - lastMealAt) / 60000) : null, FAST_GOAL = 16 * 60;
+  const fastStale = fastMin !== null && fastMin > 24 * 60;
+  const activeFastMin = fastStale ? null : fastMin;
   const freshG = latestG && nowMs - latestG.at < 864e5 ? latestG : null;
   const sleepNight = lastNight && lastNight.nightId >= addDays(today, -1) ? lastNight : null, SLEEP_GOAL = 8 * 60;
   const metrics: DialMetric[] = [
-    { key: 'cal', label: 'Calories', tone: 'cal', fraction: target ? Math.max(0, Math.min(1, 1 - eaten / target)) : null, over: target ? eaten / target - 1 : 0, notch: expected !== null ? 1 - expected : null, scale,
-      eyebrow: target === null ? 'Eaten today' : left! >= 0 ? 'Left today' : 'Over today', value: nutrition.loading && !day ? '—' : fmtInt(target === null ? eaten : Math.abs(left!)),
-      detail: target !== null ? <>{fmtInt(eaten)} kcal eaten · <em>{status}</em></> : <em>{status}</em>, chip: target === null ? fmtInt(eaten) : fmtInt(Math.abs(left!)), spoken: dialLabel, drill: { label: 'Food log', run: onOpenFood },
+    { key: 'cal', label: 'Calories', tone: 'cal', fraction: nutritionError ? null : target ? Math.max(0, Math.min(1, 1 - eaten / target)) : null, over: nutritionError ? 0 : target ? eaten / target - 1 : 0, notch: nutritionError ? null : expected !== null ? 1 - expected : null, scale,
+      eyebrow: target === null ? 'Eaten today' : left! >= 0 ? 'Left today' : 'Over today', value: (nutrition.loading && !day) || nutritionError ? '—' : fmtInt(target === null ? eaten : Math.abs(left!)),
+      detail: nutritionError ? <em>{status}</em> : target !== null ? <>{fmtInt(eaten)} kcal eaten · <em>{status}</em></> : <em>{status}</em>, chip: nutritionError ? '—' : target === null ? fmtInt(eaten) : fmtInt(Math.abs(left!)), spoken: dialLabel, drill: { label: 'Food log', run: onOpenFood },
       facts: [{ k: 'Eaten', v: `${fmtInt(eaten)} kcal` }, ...(target !== null ? [{ k: 'Target', v: `${fmtInt(target)} kcal` }] : []), ...(target && expected !== null ? [{ k: 'An even day would be at', v: `${fmtInt(target * expected)} kcal` }] : []), { k: 'Meals logged', v: String(day?.meals.length ?? 0) }] },
-    { key: 'fast', label: 'Fasting', tone: 'fast', fraction: fastMin === null ? null : Math.min(1, fastMin / FAST_GOAL), scale: ['0', '4h', '8h', '12h', '16h'],
-      eyebrow: 'Fasting', value: fastMin === null ? '—' : hm(fastMin), unit: fastMin === null ? undefined : 'h',
-      detail: fastMin === null ? 'No meal logged yet' : <>Since your last logged meal · <em>{fastMin >= FAST_GOAL ? '16 h window reached' : `${Math.floor((FAST_GOAL - fastMin) / 60)} h ${Math.round((FAST_GOAL - fastMin) % 60)} m to go`}</em></>,
-      chip: fastMin === null ? '—' : hm(fastMin), spoken: fastMin === null ? 'Fasting, no meal logged yet' : `Fasting ${Math.floor(fastMin / 60)} hours ${Math.round(fastMin % 60)} minutes since your last logged meal`, drill: { label: 'Meals', run: onOpenFood },
-      facts: lastMealAt !== null ? [{ k: 'Last logged meal', v: `${latestMeal?.meal.description ? `${latestMeal.meal.description.slice(0, 32)} · ` : ''}${shortDate(lastMealAt)} · ${clock(lastMealAt)}` }, { k: fastMin! >= FAST_GOAL ? '16 hours reached' : '16 hours lands at', v: `${shortDate(lastMealAt + FAST_GOAL * 60000)} · ${clock(lastMealAt + FAST_GOAL * 60000)}` }, { k: 'Measured from', v: 'Your food log' }] : [{ k: 'Last logged meal', v: 'None yet' }] },
+    { key: 'fast', label: 'Fasting', tone: 'fast', fraction: activeFastMin === null ? null : Math.min(1, activeFastMin / FAST_GOAL), scale: ['0', '4h', '8h', '12h', '16h'],
+      eyebrow: 'Fasting', value: activeFastMin === null ? '—' : hm(activeFastMin), unit: activeFastMin === null ? undefined : 'h',
+      detail: fastStale ? <>Last logged meal {shortDate(lastMealAt!)} · {clock(lastMealAt!)}</> : activeFastMin === null ? 'No meal logged yet' : <>Since your last logged meal · <em>{activeFastMin >= FAST_GOAL ? '16 h window reached' : `${Math.floor((FAST_GOAL - activeFastMin) / 60)} h ${Math.round((FAST_GOAL - activeFastMin) % 60)} m to go`}</em></>,
+      chip: activeFastMin === null ? '—' : hm(activeFastMin), spoken: fastStale ? `Fasting paused, last logged meal ${shortDate(lastMealAt!)} at ${clock(lastMealAt!)}` : activeFastMin === null ? 'Fasting, no meal logged yet' : `Fasting ${Math.floor(activeFastMin / 60)} hours ${Math.round(activeFastMin % 60)} minutes since your last logged meal`, drill: { label: 'Meals', run: onOpenFood },
+      facts: lastMealAt !== null ? [{ k: 'Last logged meal', v: `${latestMeal?.meal.description ? `${latestMeal.meal.description.slice(0, 32)} · ` : ''}${shortDate(lastMealAt)} · ${clock(lastMealAt)}` }, ...(fastStale ? [{ k: 'Fasting timer', v: 'Paused after 24 h without a logged meal' }] : [{ k: activeFastMin! >= FAST_GOAL ? '16 hours reached' : '16 hours lands at', v: `${shortDate(lastMealAt + FAST_GOAL * 60000)} · ${clock(lastMealAt + FAST_GOAL * 60000)}` }]), { k: 'Measured from', v: 'Your food log' }] : [{ k: 'Last logged meal', v: 'None yet' }] },
     { key: 'glucose', label: 'Glucose', tone: 'glucose', fraction: freshG && inRange !== null ? inRange / 100 : null, scale: ['0', '25%', '50%', '75%', '100%'],
       eyebrow: 'Glucose', value: freshG ? String(freshG.valueMgDl) : '—', unit: freshG ? 'mg/dL' : undefined,
-      detail: freshG ? <><em>{inRange}% in range</em> over 14 days · read {clock(freshG.at)}</> : latestG ? `No reading since ${shortDate(latestG.at)}` : 'No readings yet',
+      detail: freshG ? <><em>{inRange}% in range</em> over 14 days · read {clock(freshG.at)}</> : latestG ? `No reading since ${shortDate(latestG.at)}` : signals.errors.glucose ? 'Couldn’t load readings' : 'No readings yet',
       chip: freshG ? String(freshG.valueMgDl) : '—', spoken: freshG ? `Glucose ${freshG.valueMgDl} milligrams per deciliter, ${inRange} percent of readings in range over 14 days` : 'Glucose, no recent reading', drill: { label: 'Readings', run: onOpenHistory },
       facts: glucose.length ? [{ k: 'Latest', v: `${latestG!.valueMgDl} mg/dL · ${shortDate(latestG!.at)} ${clock(latestG!.at)}` }, { k: 'In range, 14 days', v: `${inRange}%` }, { k: 'Lowest to highest', v: `${Math.min(...glucose.map(g => g.valueMgDl))} to ${Math.max(...glucose.map(g => g.valueMgDl))} mg/dL` }, { k: 'Readings', v: String(glucose.length) }] : [{ k: 'Readings', v: 'None in 14 days' }] },
     { key: 'sleep', label: 'Sleep', tone: 'sleep', fraction: sleepNight ? Math.min(1, sleepNight.asleepMinutes! / SLEEP_GOAL) : null, scale: ['0', '2h', '4h', '6h', '8h'],
       eyebrow: 'Slept last night', value: sleepNight ? hm(sleepNight.asleepMinutes!) : '—', unit: sleepNight ? 'h' : undefined,
-      detail: sleepNight ? <>Ring estimate{avgSleep !== null ? <> · <em>{sleepNight.asleepMinutes! >= avgSleep ? '+' : '−'}{Math.round(Math.abs(sleepNight.asleepMinutes! - avgSleep))} min vs your average</em></> : null}</> : 'No night uploaded',
+      detail: sleepNight ? <>Ring estimate{avgSleep !== null ? <> · <em>{sleepNight.asleepMinutes! >= avgSleep ? '+' : '−'}{Math.round(Math.abs(sleepNight.asleepMinutes! - avgSleep))} min vs your average</em></> : null}</> : signals.errors.nights ? 'Couldn’t load sleep' : 'No night uploaded',
       chip: sleepNight ? hm(sleepNight.asleepMinutes!) : '—', spoken: sleepNight ? `Slept ${Math.floor(sleepNight.asleepMinutes! / 60)} hours ${Math.round(sleepNight.asleepMinutes! % 60)} minutes last night, an estimate from your ring` : 'Sleep, no night uploaded', drill: { label: 'History', run: onOpenHistory },
       facts: sleepNight ? [{ k: 'Asleep', v: `${hm(sleepNight.asleepMinutes!)} h` }, ...(avgSleep !== null ? [{ k: 'Your average', v: `${hm(avgSleep)} h` }] : []), { k: 'Against 8 hours', v: sleepNight.asleepMinutes! >= SLEEP_GOAL ? 'Reached' : `${hm(SLEEP_GOAL - sleepNight.asleepMinutes!)} short` }, { k: 'Source', v: 'Ring estimate' }] : [{ k: 'Last night', v: 'Not uploaded' }] },
   ];
-  const weightSub = headlineW
-    ? headlineW.isScale
-      ? wDelta !== null
-        ? `${wDelta <= 0 ? '−' : '+'}${Math.abs(wDelta).toFixed(1)} this week · ${shortDate(headlineW.measuredAtMs!)}`
-        : `Weighed ${shortDate(headlineW.measuredAtMs!)}`
-      : `${headlineW.label} · ${shortDay(headlineW.dateIso)}${headlineW.latestScale ? ` · Scale ${headlineW.latestScale.weightLb.toFixed(1)} lb` : ''}`
-    : 'No weigh-in yet';
+  const weightError = signals.errors.weight && !headlineW;
+  const weightSub = weightError
+    ? "Couldn't load — Retry"
+    : headlineW
+      ? headlineW.isScale
+        ? wDelta !== null
+          ? `${wDelta <= 0 ? '−' : '+'}${Math.abs(wDelta).toFixed(1)} this week · ${shortDate(headlineW.measuredAtMs!)}`
+          : `Weighed ${shortDate(headlineW.measuredAtMs!)}`
+        : `${headlineW.label} · ${shortDay(headlineW.dateIso)}${headlineW.latestScale ? ` · Scale ${headlineW.latestScale.weightLb.toFixed(1)} lb` : ''}`
+      : 'No weigh-in yet';
   const stepsDay = signals.steps;
   const stepsToday = stepsDay && stepsDay.date === today ? stepsDay : null;
   const stepsShown = stepsToday ?? stepsDay;
+  const stepsError = signals.errors.steps && !stepsShown;
+  const stepsStale = Boolean(stepsShown && nowMs - Date.parse(`${stepsShown.date}T23:59:59Z`) > 36 * 3600000);
   const STEP_GOAL = 8000;
   const stepFraction = stepsShown ? Math.min(1, stepsShown.count / STEP_GOAL) : 0;
   const stepRingR = 13;
   const stepRingC = 2 * Math.PI * stepRingR;
-  const stepSub = stepsShown
-    ? `${stepsSourceSummary(stepsShown)} · ${stepsUpdatedLabel(stepsShown, nowMs)}`
-    : 'Daily max across devices · Open Fitness';
+  const stepSub = stepsError
+    ? "Couldn't load · Retry"
+    : stepsShown
+      ? stepsStale
+        ? `${stepsSourceSummary(stepsShown)} · Last synced ${shortDay(stepsShown.date)} · Open Fitness`
+        : `${stepsSourceSummary(stepsShown)} · ${stepsUpdatedLabel(stepsShown, nowMs)}`
+      : 'Daily max across devices · Open Fitness';
   const localHour = new Date(nowMs).getHours();
+  const mealsTodayCount = day?.meals.length ?? 0;
+  const stepsTodayCount = stepsToday?.count ?? 0;
   const weighedToday = Boolean(headlineW?.measuredAtMs && shortDate(headlineW.measuredAtMs) === shortDate(nowMs));
+  const autoSatisfied = Boolean(
+    commitment && isCommitmentSatisfied(commitment.text, {
+      mealsToday: mealsTodayCount,
+      stepsToday: stepsTodayCount,
+      weighedToday,
+    }),
+  );
+  const effectiveDone = Boolean(commitment?.done || autoSatisfied);
+  const actionKind = commitment && !effectiveDone ? commitmentActionKind(commitment.text) : null;
+  const commitAction = actionKind === 'camera'
+    ? { label: 'Snap →', run: onCamera }
+    : actionKind === 'weigh'
+      ? { label: 'Weigh →', run: () => setWeighOpen(true) }
+      : actionKind === 'fitness'
+        ? { label: 'Fitness →', run: onOpenFitness ?? onExercise }
+        : actionKind === 'talk'
+          ? { label: 'Talk →', run: onTalk }
+          : null;
   const sky = useMemo(
     () => resolveLivingSky({
       hour: localHour,
-      mealsToday: day?.meals.length ?? 0,
-      stepsToday: stepsToday?.count ?? 0,
+      mealsToday: mealsTodayCount,
+      stepsToday: stepsTodayCount,
       weighedToday,
       missedCallsCount,
       hasCommitment: Boolean(commitment),
-      commitmentDone: Boolean(commitment?.done),
+      commitmentDone: effectiveDone,
       caloriesLeft: left,
       persona: sassy ? 'cupcake' : 'matthieu',
     }),
-    [localHour, day?.meals.length, stepsToday?.count, weighedToday, missedCallsCount, commitment, left, sassy],
+    [localHour, mealsTodayCount, stepsTodayCount, weighedToday, missedCallsCount, commitment, effectiveDone, left, sassy],
   );
   const skySuggestions = useMemo(
     () => commitmentSuggestions({
       hour: localHour,
-      mealsToday: day?.meals.length ?? 0,
-      stepsToday: stepsToday?.count ?? 0,
+      mealsToday: mealsTodayCount,
+      stepsToday: stepsTodayCount,
       weighedToday,
       missedCallsCount,
       assistantName,
     }),
-    [localHour, day?.meals.length, stepsToday?.count, weighedToday, missedCallsCount, assistantName],
+    [localHour, mealsTodayCount, stepsTodayCount, weighedToday, missedCallsCount, assistantName],
   );
   const prevTierRef = useRef<number | null>(null);
   const [burstKey, setBurstKey] = useState(0);
@@ -332,9 +391,11 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
       <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} mood={sky.mood} moodLabel={sky.label} moodCue={sky.orbCue} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={() => setWeighOpen(true)} /></header>
     <TodayCommitmentBar
       sky={sky}
-      commitment={commitment}
+      commitment={commitment ? { ...commitment, done: effectiveDone } : null}
       suggestions={skySuggestions}
       skyPref={skyPref}
+      actionLabel={commitAction?.label}
+      onAction={commitAction?.run}
       onToggleSkyPref={() => setSkyPref(skyPref === 'living' ? 'static' : 'living')}
       onCommit={commit}
       onToggleDone={toggleDone}
@@ -354,8 +415,8 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
           <button
             type="button"
             className="nx-steps-mini"
-            onClick={onOpenFitness}
-            aria-label={stepsShown ? `Steps ${fmtInt(stepsShown.count)}, ${stepSub}. Open Fitness` : 'Steps not synced yet. Open Fitness'}
+            onClick={stepsError ? signals.retrySignals : onOpenFitness}
+            aria-label={stepsError ? "Steps · Couldn't load · Retry" : stepsShown ? `Steps ${fmtInt(stepsShown.count)}, ${stepSub}. Open Fitness` : 'Steps not synced yet. Open Fitness'}
           >
             <span className="nx-steps-mini-gauge" aria-hidden="true">
               <svg viewBox="0 0 34 34" width="34" height="34">
@@ -377,7 +438,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
               <b>{stepsShown ? fmtInt(stepsShown.count) : '—'}</b>
               <span>{stepSub}</span>
             </span>
-            <ChevronRight size={16} aria-hidden="true" />
+            {stepsError ? <RotateCw size={15} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
           </button>
         )}
         {spend && <div className="nx-spend" role="group" aria-label="Spent today">
@@ -390,15 +451,17 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
             {spend.checkedAt && !spend.loading ? <span>Checked {clock(spend.checkedAt)}</span> : null}<RotateCw size={15} aria-hidden="true" className={spend.loading ? 'is-spinning' : undefined} />
           </button>
         </div>}
-        <button type="button" className="nx-spend nx-weightline" onClick={() => setWeighOpen(true)} aria-label={headlineW ? `Weight ${headlineW.valueLb.toFixed(1)} pounds, ${weightSub}. Log weigh-in or open history` : 'Weight, no weigh-in. Log weigh-in or open history'}>
+        <button type="button" className="nx-spend nx-weightline" onClick={weightError ? signals.retrySignals : () => setWeighOpen(true)} aria-label={weightError ? "Weight · Couldn't load — Retry" : headlineW ? `Weight ${headlineW.valueLb.toFixed(1)} pounds, ${weightSub}. Log weigh-in or open history` : 'Weight, no weigh-in. Log weigh-in or open history'}>
           <span className="nx-spend-main"><small>Weight</small><b>{headlineW ? headlineW.valueLb.toFixed(1) : '—'}{headlineW ? <i> lb</i> : null}</b>
             <span>{weightSub}</span></span>
-          <ChevronRight size={16} aria-hidden="true" />
+          {weightError ? <RotateCw size={15} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
         </button>
-        <div className="nx-macros" aria-label="Macros today">
-          {([['Protein', macros.protein, 150], ['Carbs', macros.carbs, 220], ['Fat', macros.fat, 70]] as const).map(([label, value, goal]) =>
-            <div key={label}><b>{Math.round(value)}<small>g</small></b><span>{label}</span><i><u style={{ width: `${Math.min(100, value / goal * 100)}%` }} /></i></div>)}
-        </div>
+        {day && day.meals.length > 0 && (
+          <div className="nx-macros" aria-label="Macros today">
+            {([['Protein', macros.protein, 150], ['Carbs', macros.carbs, 220], ['Fat', macros.fat, 70]] as const).map(([label, value, goal]) =>
+              <div key={label}><b>{Math.round(value)}<small>g</small></b><span>{label}</span><i><u style={{ width: `${Math.min(100, value / goal * 100)}%` }} /></i></div>)}
+          </div>
+        )}
         <div className="nx-dock">
           <button type="button" className="nx-cam" onClick={onCamera}><Camera size={20} aria-hidden="true" />Log a meal</button>
           <button type="button" className="nx-mic" onClick={onTalk} aria-label={`Talk to ${assistantName}`}><Mic size={22} aria-hidden="true" /><span>Talk to {assistantName}</span></button>

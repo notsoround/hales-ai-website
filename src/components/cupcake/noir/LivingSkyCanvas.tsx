@@ -51,12 +51,14 @@ export function LivingSkyCanvas({
       aria-hidden="true"
     >
       <div className="nx-sky-wash" />
+      {mood !== 'rain' && <div className="nx-sky-orb" />}
       {skyPref === 'living' && (
         <>
-          {(mood === 'mist' || mood === 'rain') && (
+          {(mood === 'mist' || mood === 'rain' || mood === 'sunbreak') && (
             <div className="nx-sky-mist">
               <span className="is-a" />
               <span className="is-b" />
+              <span className="is-c" />
             </div>
           )}
           {mood === 'rain' && (
