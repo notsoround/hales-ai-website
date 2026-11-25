@@ -219,3 +219,95 @@
   background: var(--nx-card); border-color: var(--nx-hair); box-shadow: var(--nx-card-shadow);
 }
 :root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-connect-cta { color: #ffffff; }
+
+/* ---------- Tier 6: Light Porcelain airy Living Sky, One Commitment Bar & Mood Carrier ---------- */
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-wash {
+  background:
+    radial-gradient(100% 380px at 52% -85px, rgba(132, 196, 206, .18), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(64% 260px at 84% 10px, rgba(248, 206, 134, .14), rgba(255, 255, 255, 0) 70%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose][class][class] .nx-sky-wash {
+  background:
+    radial-gradient(100% 380px at 52% -85px, rgba(182, 162, 234, .18), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(64% 260px at 84% 10px, rgba(248, 198, 140, .14), rgba(255, 255, 255, 0) 70%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stage[data-mood=mist] .nx-sky-wash {
+  background:
+    radial-gradient(105% 360px at 45% -85px, rgba(154, 188, 210, .20), rgba(255, 255, 255, 0) 74%),
+    radial-gradient(65% 240px at 82% 16px, rgba(176, 208, 224, .14), rgba(255, 255, 255, 0) 70%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stage[data-mood=rain] .nx-sky-wash {
+  background:
+    radial-gradient(105% 360px at 48% -80px, rgba(128, 174, 218, .22), rgba(255, 255, 255, 0) 74%),
+    radial-gradient(65% 240px at 20% 10px, rgba(156, 186, 222, .14), rgba(255, 255, 255, 0) 68%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stage[data-mood=sunbreak] .nx-sky-wash {
+  background:
+    radial-gradient(92% 350px at 82% -45px, rgba(252, 204, 118, .26), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(75% 320px at 26% -70px, rgba(134, 198, 206, .18), rgba(255, 255, 255, 0) 72%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stage[data-mood=clear] .nx-sky-wash {
+  background:
+    radial-gradient(96% 380px at 56% -95px, rgba(126, 202, 216, .20), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(64% 260px at 84% -20px, rgba(248, 212, 138, .18), rgba(255, 255, 255, 0) 68%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stage[data-mood=radiant] .nx-sky-wash {
+  background:
+    radial-gradient(92% 380px at 78% -70px, rgba(252, 208, 122, .28), rgba(255, 255, 255, 0) 68%),
+    radial-gradient(82% 360px at 30% -85px, rgba(136, 206, 210, .20), rgba(255, 255, 255, 0) 72%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose][class][class] .nx-sky-stage:is([data-mood=clear], [data-mood=radiant], [data-mood=sunbreak]) .nx-sky-wash {
+  background:
+    radial-gradient(92% 380px at 78% -70px, rgba(250, 202, 132, .26), rgba(255, 255, 255, 0) 68%),
+    radial-gradient(82% 360px at 30% -85px, rgba(182, 160, 232, .20), rgba(255, 255, 255, 0) 72%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stage[data-phase=golden]:is([data-mood=clear], [data-mood=radiant], [data-mood=sunbreak]) .nx-sky-wash {
+  background:
+    radial-gradient(95% 370px at 80% -70px, rgba(248, 178, 124, .26), rgba(255, 255, 255, 0) 68%),
+    radial-gradient(80% 340px at 26% -80px, rgba(176, 162, 224, .18), rgba(255, 255, 255, 0) 72%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stage[data-phase=night] .nx-sky-wash {
+  background:
+    radial-gradient(100% 370px at 50% -85px, rgba(152, 166, 222, .20), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(65% 240px at 84% -20px, rgba(146, 186, 214, .16), rgba(255, 255, 255, 0) 68%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-mist span {
+  background: radial-gradient(closest-side, rgba(154, 184, 206, .16), rgba(255, 255, 255, 0) 74%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-rain i {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(112, 162, 208, .44), rgba(255, 255, 255, 0));
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-sunbeam .is-halo {
+  background: radial-gradient(closest-side, rgba(252, 206, 122, .24), rgba(255, 255, 255, 0) 72%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-sunbeam .is-ray {
+  background: linear-gradient(to bottom, rgba(252, 206, 126, .24), rgba(252, 206, 126, .06) 55%, rgba(255, 255, 255, 0));
+  mask-image: linear-gradient(to right, transparent 0%, #000 34%, #000 64%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 34%, #000 64%, transparent 100%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-stars i {
+  background: rgba(118, 152, 212, .45);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-sky-burst {
+  background: radial-gradient(closest-side, rgba(252, 210, 132, .34), rgba(132, 204, 212, .16) 48%, rgba(255, 255, 255, 0) 74%);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-commit {
+  background: var(--nx-card); border-color: var(--nx-hair); box-shadow: var(--nx-card-shadow);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-commit-pill {
+  background: var(--nx-surface-2); color: var(--nx-ink-2);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-commit-box { color: #ffffff; }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-commit-form input { background: var(--nx-surface); }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-commit-form button:not(:disabled) {
+  background: var(--cc-pink); color: #ffffff;
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-commit-form button:disabled {
+  background: var(--nx-surface-2); color: var(--nx-ink-3); border: 1px solid var(--nx-hair);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-recap-chip[data-mood=rain] {
+  border-color: rgba(84, 136, 194, .32);
+}
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] .nx-recap-chip[data-mood=sunbreak] {
+  border-color: rgba(206, 146, 56, .36);
+}

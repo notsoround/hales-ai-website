@@ -19,8 +19,14 @@ import './noir-today.css';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
 import type { ReactNode } from 'react';
 import { MultiDial, type DialMetric } from './MultiDial';
+import { LivingSkyCanvas } from './LivingSkyCanvas';
+import { TodayCommitmentBar } from './TodayCommitmentBar';
+import { commitmentSuggestions, resolveLivingSky } from './livingSky';
+import { useTodayCommitment } from './todayCommitment';
+import { useAccountSky } from '../accountSkyPreference';
 import './noir-elevate.css';
 import './noir-recap.css';
+import './living-sky.css';
 
 const TZ = 'America/Chicago';
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -196,8 +202,10 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   const nowMs = useNowMinute();
   const signals = useSignals();
   const [weighOpen, setWeighOpen] = useState(false);
+  const [skyPref, setSkyPref] = useAccountSky();
   const openWeightHistory = onOpenWeight ?? onOpenHistory;
   const today = nutritionDay();
+  const { commitment, commit, toggleDone, clear } = useTodayCommitment(today);
   const days14 = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(today, i - 13)), [today]);
   const intake = useMemo(() => nutrition.history ? nutritionDays(nutrition.history.meals, days14, nutrition.settings) : null, [nutrition.history, nutrition.settings, days14]);
   const day = intake?.[intake.length - 1] || null;
@@ -282,10 +290,56 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   const stepSub = stepsShown
     ? `${stepsSourceSummary(stepsShown)} · ${stepsUpdatedLabel(stepsShown, nowMs)}`
     : 'Daily max across devices · Open Fitness';
+  const localHour = new Date(nowMs).getHours();
+  const weighedToday = Boolean(headlineW?.measuredAtMs && shortDate(headlineW.measuredAtMs) === shortDate(nowMs));
+  const sky = useMemo(
+    () => resolveLivingSky({
+      hour: localHour,
+      mealsToday: day?.meals.length ?? 0,
+      stepsToday: stepsToday?.count ?? 0,
+      weighedToday,
+      missedCallsCount,
+      hasCommitment: Boolean(commitment),
+      commitmentDone: Boolean(commitment?.done),
+      caloriesLeft: left,
+      persona: sassy ? 'cupcake' : 'matthieu',
+    }),
+    [localHour, day?.meals.length, stepsToday?.count, weighedToday, missedCallsCount, commitment, left, sassy],
+  );
+  const skySuggestions = useMemo(
+    () => commitmentSuggestions({
+      hour: localHour,
+      mealsToday: day?.meals.length ?? 0,
+      stepsToday: stepsToday?.count ?? 0,
+      weighedToday,
+      missedCallsCount,
+      assistantName,
+    }),
+    [localHour, day?.meals.length, stepsToday?.count, weighedToday, missedCallsCount, assistantName],
+  );
+  const prevTierRef = useRef<number | null>(null);
+  const [burstKey, setBurstKey] = useState(0);
+  useEffect(() => {
+    if (prevTierRef.current !== null && sky.tier > prevTierRef.current && sky.tier >= 2) {
+      setBurstKey(k => k + 1);
+    }
+    prevTierRef.current = sky.tier;
+  }, [sky.tier]);
   return <section ref={pullArea} className="nx-today" aria-label="Today at a glance">
+    <LivingSkyCanvas phase={sky.phase} mood={sky.mood} skyPref={skyPref} burstKey={burstKey} />
     <PullRefresh target={pullArea} />
     <header className="nx-today-head"><div><span>{dateLine}</span><h2 className="nx-say">{nutrition.loading && !day ? <>&nbsp;</> : <>{say.before}<em>{say.accent}</em>{say.after}</>}</h2></div>
-      <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={() => setWeighOpen(true)} /></header>
+      <WelcomeBack assistantName={assistantName} sassy={sassy} portrait={portrait} mood={sky.mood} moodLabel={sky.label} moodCue={sky.orbCue} facts={recapFacts} onCamera={onCamera} onTalk={onTalk} onWeigh={() => setWeighOpen(true)} /></header>
+    <TodayCommitmentBar
+      sky={sky}
+      commitment={commitment}
+      suggestions={skySuggestions}
+      skyPref={skyPref}
+      onToggleSkyPref={() => setSkyPref(skyPref === 'living' ? 'static' : 'living')}
+      onCommit={commit}
+      onToggleDone={toggleDone}
+      onClear={clear}
+    />
     {missedCallsCount > 0 && (
       <button type="button" className="nx-missed-calls" onClick={onTalk}>
         <PhoneMissed size={14} aria-hidden="true" />
