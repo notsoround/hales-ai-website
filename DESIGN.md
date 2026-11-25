@@ -227,3 +227,18 @@ RICH=1 ASSESS_ROOT="$PWD" ASSESS_OUT=/tmp/x node tests/account-design/native-fee
 ```
 
 A release passes only when all gates exit `0`, zero `transition: all` rules exist in `src/components/cupcake/`, `scrollWidth <= innerWidth` holds down to `320px`, and `light-audit` reports zero unintended dark islands or AA contrast regressions.
+
+---
+
+## 8. Tier 6: Living Sky & Commitment Mood System
+
+- **Confined Hero Atmospheric Stage (`Today` only):**
+  - `.nx-sky-stage` sits strictly behind the upper `Today` hero (`height: min(470px, 68dvh);`, faded smoothly with `mask-image` into solid Obsidian `#030607` / Porcelain `#F4F7F8` below scroll).
+  - **Time-of-day phases (`resolveDayPhase`):** `dawn` (5–8), `morning` (8–12), `afternoon` (12–17), `golden` (17–20), `night` (20–5).
+  - **Behavioral mood tiers (`resolveLivingSky`):** `rain` (`tier 0`, unresolved missed calls + 0 logs today), `mist` (`tier 1`, calm morning/day horizon awaiting first action), `sunbreak` (`tier 2`, commitment set or first signal logged), `clear` (`tier 3`, commitment + signal or 2+ balanced pillars), `radiant` (`tier 4`, commitment completed or full multi-pillar momentum).
+- **Synchronized Mood Carrier & Commitment Lever:**
+  - `<WelcomeBack>` companion portrait carries matching mood halo glow (`data-mood`) and summarizes the live sky & mood inside its recap dialog.
+  - `<TodayCommitmentBar>` provides an inline, owner-scoped (`personalStorage('localStorage')`) 1-tap commitment bar (`36–44px` hit targets, `16px` mobile custom input) that triggers a one-shot 1.15s radial sunbreak bloom (`.nx-sky-burst`) on upward mood transitions.
+- **Compositor Motion, Reduced Motion & Pause Control:**
+  - All continuous mist/rain/ray/star animations opt in strictly under `@media (prefers-reduced-motion: no-preference)` and `[data-sky=living]`, animate only `transform` and `opacity`, stay below `0.3 Hz`, and obey both the **`Settings → Appearance → Sky atmosphere` (`Living` / `Static`)** preference and the inline tray **`Pause sky motion` / `Resume sky motion`** control.
+- **Light Porcelain Guardrail:** All `:root[data-cc-scheme=light]` sky washes use pastel high-green-channel translucent tints (`rgba(..., >=150, ...)` terminating in `rgba(255, 255, 255, 0)`) and `#ffffff` commitment surfaces so Light mode stays bright, airy, and `>= 4.5:1` AA compliant.

@@ -2,6 +2,7 @@
 .cc-app .cc-scheme { margin: 18px 0 6px; }
 .cc-app .cc-scheme-label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--cc-text-2); }
 .cc-app .cc-scheme-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 13px; background: color-mix(in srgb, var(--cc-text) 7%, transparent); }
+.cc-app .cc-scheme-options-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cc-app .cc-scheme-options button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 6px 8px; border: 0; border-radius: 10px; background: transparent; color: var(--cc-text-2); font: 500 13px/1.15 var(--nx-text, inherit); cursor: pointer; transition: background .2s, color .2s, box-shadow .2s; }
 .cc-app .cc-scheme-options button svg { flex: none; }
 .cc-app .cc-scheme-options button[aria-pressed=true] { background: color-mix(in srgb, var(--cc-text) 12%, var(--cc-surface, transparent)); color: var(--cc-text); }

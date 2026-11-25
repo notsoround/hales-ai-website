@@ -6,7 +6,15 @@
 .cc-app .nx-recap-chip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 14px 4px 4px; border-radius: 99px; cursor: pointer;
   font: 500 12.5px/1 var(--nx-text); color: var(--nx-ink); background: rgba(255,255,255,.04); border: 1px solid var(--nx-hair); }
 .cc-app .nx-recap-chip:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; }
-.nx-recap-portrait { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex: none; }
+.nx-recap-portrait { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex: none; transition: box-shadow .35s ease; }
+.nx-recap-portrait[data-mood=rain] { box-shadow: 0 0 0 1.5px rgba(132,168,216,.55), 0 0 12px -2px rgba(114,158,216,.38); }
+.nx-recap-portrait[data-mood=mist] { box-shadow: 0 0 0 1.5px rgba(182,206,216,.32); }
+.nx-recap-portrait[data-mood=sunbreak] { box-shadow: 0 0 0 1.5px rgba(255,204,116,.68), 0 0 14px -2px rgba(255,204,116,.44); }
+.nx-recap-portrait[data-mood=clear] { box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--nx-a) 72%, transparent), 0 0 14px -2px color-mix(in oklab, var(--nx-a) 42%, transparent); }
+.nx-recap-portrait[data-mood=radiant] { box-shadow: 0 0 0 2px color-mix(in oklab, var(--nx-a) 85%, #ffe09a), 0 0 18px -1px rgba(255,212,132,.55); }
+.nx-recap-chip[data-mood=rain] { border-color: rgba(132,168,216,.28); }
+.nx-recap-chip[data-mood=sunbreak] { border-color: rgba(255,204,116,.32); }
+.nx-recap-chip[data-mood=radiant] { border-color: color-mix(in oklab, var(--nx-a) 38%, transparent); }
 .nx-recap-portrait > * { width: 100% !important; height: 100% !important; }
 .nx-recap-portrait.is-large { width: 44px; height: 44px; }
 .nx-recap-chip.is-pulsing .nx-recap-portrait { overflow: visible; }

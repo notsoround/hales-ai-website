@@ -1,0 +1,578 @@
+/* Tier 6: Living Sky stage & Today One Commitment lever (account app only; GPU-only transform + opacity motion). */
+
+.cc-app[data-entry=account]:has(.nx-sky-stage)::before {
+  opacity: 0;
+}
+
+.cc-app[data-entry=account] .nx-sky-stage {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: min(470px, 68dvh);
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+  opacity: var(--nx-atmo-opacity, 1);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+  transition: opacity .22s linear;
+}
+
+.cc-app[data-entry=account] .nx-sky-wash {
+  position: absolute;
+  inset: 0;
+  transition: opacity .7s var(--nx-ease, cubic-bezier(.22, 1, .36, 1));
+  background:
+    radial-gradient(96% 380px at 50% -95px, color-mix(in oklab, var(--nx-a2) 18%, transparent), transparent 72%),
+    radial-gradient(60% 280px at 86% 10px, color-mix(in oklab, var(--nx-a) 10%, transparent), transparent 70%);
+}
+
+/* Time-of-day base nuance + behavioral mood weather wash */
+.cc-app[data-entry=account] .nx-sky-stage[data-mood=mist] .nx-sky-wash {
+  background:
+    radial-gradient(105% 360px at 42% -90px, rgba(132, 168, 192, .20), transparent 72%),
+    radial-gradient(65% 260px at 84% 20px, color-mix(in oklab, var(--nx-a) 8%, transparent), transparent 70%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-mood=rain] .nx-sky-wash {
+  background:
+    radial-gradient(105% 360px at 48% -85px, rgba(76, 114, 164, .24), transparent 74%),
+    radial-gradient(65% 240px at 18% 12px, rgba(96, 134, 178, .12), transparent 68%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-mood=sunbreak] .nx-sky-wash {
+  background:
+    radial-gradient(90% 340px at 82% -50px, rgba(255, 206, 124, .22), transparent 70%),
+    radial-gradient(75% 320px at 26% -70px, color-mix(in oklab, var(--nx-a) 16%, transparent), transparent 72%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-mood=clear] .nx-sky-wash {
+  background:
+    radial-gradient(95% 390px at 56% -100px, color-mix(in oklab, var(--nx-a) 22%, transparent), transparent 72%),
+    radial-gradient(65% 280px at 84% -20px, rgba(142, 224, 240, .16), transparent 68%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-mood=radiant] .nx-sky-wash {
+  background:
+    radial-gradient(92% 380px at 78% -75px, rgba(255, 212, 132, .24), transparent 68%),
+    radial-gradient(82% 360px at 32% -85px, color-mix(in oklab, var(--nx-a) 24%, transparent), transparent 72%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-phase=dawn] .nx-sky-wash {
+  background:
+    radial-gradient(95% 350px at 75% -60px, rgba(250, 178, 138, .20), transparent 68%),
+    radial-gradient(85% 340px at 30% -80px, rgba(114, 168, 204, .18), transparent 72%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-phase=golden][data-mood=clear] .nx-sky-wash,
+.cc-app[data-entry=account] .nx-sky-stage[data-phase=golden][data-mood=radiant] .nx-sky-wash,
+.cc-app[data-entry=account] .nx-sky-stage[data-phase=golden][data-mood=sunbreak] .nx-sky-wash {
+  background:
+    radial-gradient(96% 370px at 80% -70px, rgba(255, 176, 108, .26), transparent 68%),
+    radial-gradient(80% 340px at 26% -80px, rgba(146, 128, 232, .16), transparent 72%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-phase=night] .nx-sky-wash {
+  background:
+    radial-gradient(100% 380px at 50% -90px, rgba(84, 104, 184, .22), transparent 72%),
+    radial-gradient(65% 240px at 84% -20px, color-mix(in oklab, var(--nx-a) 11%, transparent), transparent 68%);
+}
+
+.cc-app[data-entry=account] .nx-sky-stage[data-phase=night][data-mood=radiant] .nx-sky-wash {
+  background:
+    radial-gradient(95% 370px at 78% -75px, rgba(138, 178, 255, .20), transparent 68%),
+    radial-gradient(85% 360px at 28% -85px, color-mix(in oklab, var(--nx-a) 22%, transparent), transparent 72%);
+}
+
+/* Mist veil */
+.cc-app[data-entry=account] .nx-sky-mist {
+  position: absolute;
+  inset: 0;
+}
+
+.cc-app[data-entry=account] .nx-sky-mist span {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(206, 224, 236, .12), transparent 74%);
+  will-change: transform, opacity;
+}
+
+.cc-app[data-entry=account] .nx-sky-mist .is-a {
+  width: 420px;
+  height: 160px;
+  left: -8%;
+  top: 24px;
+}
+
+.cc-app[data-entry=account] .nx-sky-mist .is-b {
+  width: 360px;
+  height: 140px;
+  right: -10%;
+  top: 76px;
+}
+
+/* Gentle diagonal rain glints */
+.cc-app[data-entry=account] .nx-sky-rain {
+  position: absolute;
+  inset: 0;
+}
+
+.cc-app[data-entry=account] .nx-sky-rain i {
+  position: absolute;
+  width: 1px;
+  height: 22px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, transparent, rgba(164, 204, 240, .38), transparent);
+  transform: rotate(-14deg) translate3d(0, 0, 0);
+  opacity: .55;
+  will-change: transform, opacity;
+}
+
+/* Volumetric sunbeam & solar halo */
+.cc-app[data-entry=account] .nx-sky-sunbeam {
+  position: absolute;
+  inset: 0;
+}
+
+.cc-app[data-entry=account] .nx-sky-sunbeam .is-halo {
+  position: absolute;
+  width: 340px;
+  height: 240px;
+  right: -40px;
+  top: -70px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 220, 152, .22), transparent 72%);
+  will-change: transform, opacity;
+}
+
+.cc-app[data-entry=account] .nx-sky-sunbeam .is-ray {
+  position: absolute;
+  width: 300px;
+  height: 460px;
+  right: 4%;
+  top: -100px;
+  background: linear-gradient(to bottom, rgba(255, 228, 176, .20), rgba(255, 228, 176, .05) 55%, transparent);
+  mask-image: linear-gradient(to right, transparent 0%, #000 34%, #000 64%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 34%, #000 64%, transparent 100%);
+  transform: rotate(24deg);
+  transform-origin: top center;
+  opacity: .76;
+  will-change: transform, opacity;
+}
+
+/* Pinpoint night stars */
+.cc-app[data-entry=account] .nx-sky-stars {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 160px;
+}
+
+.cc-app[data-entry=account] .nx-sky-stars i {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(226, 236, 255, .62);
+  will-change: opacity, transform;
+}
+
+/* One-shot celebratory sunbreak bloom on upward mood transition */
+.cc-app[data-entry=account] .nx-sky-burst {
+  position: absolute;
+  left: 50%;
+  top: -60px;
+  width: 440px;
+  height: 320px;
+  margin-left: -220px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 224, 154, .34), color-mix(in oklab, var(--nx-a) 16%, transparent) 48%, transparent 74%);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cc-app[data-entry=account] .nx-sky-stage[data-sky=living] .nx-sky-mist .is-a {
+    animation: nx-sky-mist-a 16s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)) infinite alternate;
+  }
+  .cc-app[data-entry=account] .nx-sky-stage[data-sky=living] .nx-sky-mist .is-b {
+    animation: nx-sky-mist-b 20s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)) infinite alternate;
+  }
+  .cc-app[data-entry=account] .nx-sky-stage[data-sky=living] .nx-sky-rain i {
+    animation-name: nx-sky-rain-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  .cc-app[data-entry=account] .nx-sky-stage[data-sky=living] .nx-sky-sunbeam .is-halo {
+    animation: nx-sky-beam 9s ease-in-out infinite alternate;
+  }
+  .cc-app[data-entry=account] .nx-sky-stage[data-sky=living] .nx-sky-sunbeam .is-ray {
+    animation: nx-sky-ray 11s ease-in-out infinite alternate;
+  }
+  .cc-app[data-entry=account] .nx-sky-stage[data-sky=living] .nx-sky-stars i {
+    animation: nx-sky-twinkle 4.8s ease-in-out infinite alternate;
+  }
+  .cc-app[data-entry=account] .nx-sky-stage[data-sky=living] .nx-sky-burst {
+    animation: nx-sky-bloom 1.15s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)) forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account] .nx-sky-stage {
+    transition: none;
+  }
+  .cc-app[data-entry=account] .nx-sky-rain i {
+    transform: rotate(-14deg) translate3d(-4px, 78px, 0);
+    opacity: .34;
+  }
+  .cc-app[data-entry=account] .nx-sky-burst {
+    display: none;
+  }
+}
+
+@keyframes nx-sky-mist-a {
+  0% { transform: translate3d(-16px, 0, 0) scale(1); opacity: .65; }
+  100% { transform: translate3d(28px, 8px, 0) scale(1.06); opacity: .95; }
+}
+
+@keyframes nx-sky-mist-b {
+  0% { transform: translate3d(18px, 0, 0) scale(1.02); opacity: .7; }
+  100% { transform: translate3d(-24px, -6px, 0) scale(.96); opacity: .9; }
+}
+
+@keyframes nx-sky-rain-fall {
+  0% { transform: rotate(-14deg) translate3d(0, -10px, 0); opacity: 0; }
+  20% { opacity: .65; }
+  85% { opacity: .5; }
+  100% { transform: rotate(-14deg) translate3d(-12px, 210px, 0); opacity: 0; }
+}
+
+@keyframes nx-sky-beam {
+  0% { transform: scale(.96); opacity: .68; }
+  100% { transform: scale(1.08); opacity: .96; }
+}
+
+@keyframes nx-sky-ray {
+  0% { transform: rotate(24deg) scaleY(.98); opacity: .55; }
+  100% { transform: rotate(22deg) scaleY(1.05); opacity: .82; }
+}
+
+@keyframes nx-sky-twinkle {
+  0% { opacity: .28; transform: scale(.85); }
+  100% { opacity: .85; transform: scale(1.1); }
+}
+
+@keyframes nx-sky-bloom {
+  0% { opacity: 0; transform: scale(.65); }
+  30% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.28); }
+}
+
+/* ---------- One Commitment Bar ---------- */
+.cc-app[data-entry=account] .nx-commit {
+  margin: 10px 0 4px;
+  border-radius: 16px;
+  border: 1px solid var(--nx-hair);
+  background: var(--nx-surface);
+  transition: border-color .2s ease, background .2s ease;
+}
+
+.cc-app[data-entry=account] .nx-commit[data-done=true] {
+  border-color: color-mix(in oklab, var(--nx-a) 36%, var(--nx-hair));
+}
+
+.cc-app[data-entry=account] .nx-commit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 10px 4px 12px;
+}
+
+.cc-app[data-entry=account] .nx-commit-main,
+.cc-app[data-entry=account] .nx-commit-check,
+.cc-app[data-entry=account] .nx-commit-edit {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  cursor: pointer;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform .12s var(--nx-ease-press, cubic-bezier(.3, .7, .4, 1)), opacity .16s ease;
+}
+
+.cc-app[data-entry=account] .nx-commit-main::after,
+.cc-app[data-entry=account] .nx-commit-check::after,
+.cc-app[data-entry=account] .nx-commit-edit::after {
+  content: "";
+  position: absolute;
+  inset: -4px -2px;
+}
+
+.cc-app[data-entry=account] .nx-commit-main {
+  flex: 1 1 auto;
+  justify-content: space-between;
+}
+
+.cc-app[data-entry=account] .nx-commit-check {
+  flex: 1 1 auto;
+}
+
+.cc-app[data-entry=account] .nx-commit-edit {
+  flex: none;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: 10px;
+  color: var(--nx-ink-3);
+}
+
+.cc-app[data-entry=account] .nx-commit-edit svg {
+  transition: transform .2s var(--nx-ease, cubic-bezier(.22, 1, .36, 1));
+}
+
+.cc-app[data-entry=account] .nx-commit-edit[aria-expanded=true] svg {
+  transform: rotate(180deg);
+}
+
+.cc-app[data-entry=account] .nx-commit-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cc-app[data-entry=account] .nx-commit-sky-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--nx-a);
+}
+
+.cc-app[data-entry=account] .nx-commit-label {
+  font: 500 13px/1.25 var(--nx-text);
+  color: var(--nx-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cc-app[data-entry=account] .nx-commit-label.is-muted {
+  color: var(--nx-ink-2);
+}
+
+.cc-app[data-entry=account] .nx-commit[data-done=true] .nx-commit-label {
+  color: var(--nx-ink-2);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklab, var(--nx-a) 55%, transparent);
+}
+
+.cc-app[data-entry=account] .nx-commit-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 99px;
+  font: 500 10.5px/1.1 var(--nx-text);
+  letter-spacing: .04em;
+  color: var(--nx-ink-2);
+  background: var(--nx-surface-2);
+  border: 1px solid var(--nx-hair);
+}
+
+.cc-app[data-entry=account] .nx-commit-box {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--nx-ink-3);
+  color: #021412;
+  transition: background .18s ease, border-color .18s ease, transform .14s var(--nx-ease, cubic-bezier(.22, 1, .36, 1));
+}
+
+.cc-app[data-entry=account][data-appearance=rose] .nx-commit-box {
+  color: #12081f;
+}
+
+.cc-app[data-entry=account] .nx-commit[data-done=true] .nx-commit-box {
+  background: var(--nx-a);
+  border-color: var(--nx-a);
+}
+
+.cc-app[data-entry=account] .nx-commit-chev {
+  flex: none;
+  color: var(--nx-ink-3);
+  transition: transform .2s var(--nx-ease, cubic-bezier(.22, 1, .36, 1));
+}
+
+.cc-app[data-entry=account] .nx-commit-main[aria-expanded=true] .nx-commit-chev {
+  transform: rotate(180deg);
+}
+
+.cc-app[data-entry=account] .nx-commit-main:focus-visible,
+.cc-app[data-entry=account] .nx-commit-check:focus-visible,
+.cc-app[data-entry=account] .nx-commit-edit:focus-visible,
+.cc-app[data-entry=account] .nx-commit-chip:focus-visible,
+.cc-app[data-entry=account] .nx-commit-form button:focus-visible,
+.cc-app[data-entry=account] .nx-commit-motion:focus-visible,
+.cc-app[data-entry=account] .nx-commit-clear:focus-visible {
+  outline: 2px solid var(--nx-ink);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.cc-app[data-entry=account] .nx-commit-tray {
+  display: grid;
+  gap: 10px;
+  padding: 6px 12px 12px;
+  border-top: 1px solid var(--nx-hair);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cc-app[data-entry=account] .nx-commit-tray {
+    animation: nx-commit-open .18s var(--nx-ease, cubic-bezier(.22, 1, .36, 1));
+  }
+}
+
+@keyframes nx-commit-open {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+.cc-app[data-entry=account] .nx-commit-prompt {
+  margin: 0;
+  font: 400 12.5px/1.35 var(--nx-text);
+  color: var(--nx-ink-2);
+}
+
+.cc-app[data-entry=account] .nx-commit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cc-app[data-entry=account] .nx-commit-chip {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  cursor: pointer;
+  font: 500 12.5px/1.2 var(--nx-text);
+  color: var(--nx-ink);
+  background: var(--nx-surface-2);
+  border: 1px solid var(--nx-hair);
+  transition: transform .12s var(--nx-ease-press, cubic-bezier(.3, .7, .4, 1)), opacity .16s ease;
+}
+
+.cc-app[data-entry=account] .nx-commit-chip::after {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+.cc-app[data-entry=account] .nx-commit-chip.is-active {
+  border-color: color-mix(in oklab, var(--nx-a) 48%, transparent);
+  color: var(--nx-a);
+}
+
+.cc-app[data-entry=account] .nx-commit-form {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.cc-app[data-entry=account] .nx-commit-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--nx-hair);
+  background: var(--nx-surface-2);
+  color: var(--nx-ink);
+  font: 400 16px/1.25 var(--nx-text);
+}
+
+.cc-app[data-entry=account] .nx-commit-form button {
+  all: unset;
+  box-sizing: border-box;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font: 600 13.5px/1 var(--nx-text);
+  color: #021412;
+  background: var(--nx-a);
+}
+
+.cc-app[data-entry=account][data-appearance=rose] .nx-commit-form button {
+  color: #12081f;
+}
+
+.cc-app[data-entry=account] .nx-commit-form button:disabled {
+  opacity: 1;
+  background: var(--nx-surface-2);
+  color: var(--nx-ink-3);
+  border: 1px solid var(--nx-hair);
+  cursor: default;
+}
+
+.cc-app[data-entry=account] .nx-commit-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cc-app[data-entry=account] .nx-commit-motion,
+.cc-app[data-entry=account] .nx-commit-clear {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 4px;
+  cursor: pointer;
+  font: 500 12px/1.2 var(--nx-text);
+  color: var(--nx-ink-3);
+}
+
+.cc-app[data-entry=account] .nx-commit-motion::after,
+.cc-app[data-entry=account] .nx-commit-clear::after {
+  content: "";
+  position: absolute;
+  inset: -4px -4px;
+}
+
+.cc-app[data-entry=account] .nx-commit-motion:hover,
+.cc-app[data-entry=account] .nx-commit-clear:hover {
+  color: var(--nx-ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-app[data-entry=account] .nx-commit-tray { animation: none; }
+  .cc-app[data-entry=account] .nx-commit,
+  .cc-app[data-entry=account] .nx-commit-edit svg,
+  .cc-app[data-entry=account] .nx-commit-chev,
+  .cc-app[data-entry=account] .nx-commit-box { transition: none; }
+}

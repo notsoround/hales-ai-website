@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { personalStorage } from '../personalStorage';
 import { useBackClose } from '../nativeFeel';
+import type { SkyMood } from './livingSky';
 import './welcome-back.css';
 
 const SEEN_KEY = 'cc-noir-last-seen';
@@ -27,8 +28,8 @@ function useAway() {
   return previous;
 }
 
-export function WelcomeBack({ assistantName, sassy, portrait, facts, onCamera, onTalk, onWeigh }: {
-  assistantName: string; sassy: boolean; portrait: ReactNode; facts: RecapFacts | null; onCamera: () => void; onTalk: () => void; onWeigh: () => void;
+export function WelcomeBack({ assistantName, sassy, portrait, mood, moodLabel, moodCue, facts, onCamera, onTalk, onWeigh }: {
+  assistantName: string; sassy: boolean; portrait: ReactNode; mood?: SkyMood; moodLabel?: string; moodCue?: string; facts: RecapFacts | null; onCamera: () => void; onTalk: () => void; onWeigh: () => void;
 }) {
   const previous = useAway();
   const [open, setOpen] = useState(false), [seen, setSeen] = useState(false);
@@ -69,18 +70,18 @@ export function WelcomeBack({ assistantName, sassy, portrait, facts, onCamera, o
   const pulse = !!away && !seen;
 
   return <div className="nx-recap">
-    <button ref={trigger} type="button" className={`nx-recap-chip${pulse ? ' is-pulsing' : ''}`} aria-expanded={open} aria-haspopup="dialog"
+    <button ref={trigger} type="button" className={`nx-recap-chip${pulse ? ' is-pulsing' : ''}`} data-mood={mood} aria-expanded={open} aria-haspopup="dialog"
       onClick={() => { setOpenedAt(Date.now()); setOpen(o => !o); setSeen(true); }}>
-      <span className="nx-recap-portrait" aria-hidden="true">{portrait}</span>
+      <span className="nx-recap-portrait" data-mood={mood} aria-hidden="true">{portrait}</span>
       <span>{away ? 'Catch up' : 'Recap'}</span>
     </button>
     <dialog ref={dialogRef} className="nx-recap-card" aria-label={`${assistantName} recap`}
       onCancel={event => { event.preventDefault(); close(); }}
       onClick={event => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } }}>
       {open && <>
-        <header><span className="nx-recap-portrait is-large" aria-hidden="true">{portrait}</span><div><small>{assistantName}</small><strong>{title}</strong></div>
+        <header><span className="nx-recap-portrait is-large" data-mood={mood} aria-hidden="true">{portrait}</span><div><small>{assistantName}</small><strong>{title}</strong></div>
           <button type="button" className="nx-recap-close" aria-label="Close recap" onClick={close}><X size={16} aria-hidden="true" /></button></header>
-        {facts ? <dl>{lines.map(l => <div key={l.k}><dt>{l.k}</dt><dd className={l.tone ? `nx-${l.tone}` : undefined}>{l.v}</dd></div>)}</dl> : <p className="nx-recap-loading">Pulling your numbers…</p>}
+        {facts ? <dl>{lines.map(l => <div key={l.k}><dt>{l.k}</dt><dd className={l.tone ? `nx-${l.tone}` : undefined}>{l.v}</dd></div>)}{moodLabel && <div><dt>Sky &amp; mood</dt><dd>{moodLabel}{moodCue ? ` · ${moodCue}` : ''}</dd></div>}</dl> : <p className="nx-recap-loading">Pulling your numbers…</p>}
         <div className="nx-recap-actions">{actions.map((a, i) => <button key={a.label} type="button" className={i === 0 ? 'is-primary' : undefined} onClick={() => { setOpen(false); a.run(); }}>{a.label}</button>)}</div>
       </>}
     </dialog>
