@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { libraryRequest, type Conversation } from './library';
-import { callDisposition, savedCallRecap } from './phoneCallHistory';
+import { HelpCircle, FileX, Hourglass, PhoneCall, PhoneMissed, Voicemail } from 'lucide-react';
+import { callDuration, callOutcome, callOutcomeDetail, callOutcomeLabels, callSummaryState, savedCallRecap, type CallOutcome } from './phoneCallHistory';
 import { ReadAloudButton } from './ReadAloudButton';
 
 type CallPage = { documents: Conversation[]; browseTotal: number; nextCursor?: string };
@@ -10,6 +11,13 @@ const central = new Intl.DateTimeFormat('en-US', {
 function when(call: Conversation) {
   const time = Date.parse(call.provenance?.occurredAt || call.createdAt);
   return Number.isFinite(time) ? central.format(time) : 'Date unavailable';
+}
+
+const outcomeIcons: Record<CallOutcome, typeof PhoneCall> = { answered: PhoneCall, voicemail: Voicemail, 'no-message': PhoneMissed, unclear: HelpCircle };
+/** The call whose transcript is open, kept in the address so it can be linked and restored with Back. */
+function linkedCall() {
+  const id = new URLSearchParams(location.search).get('call') || '';
+  return /^[\w.:-]{1,120}$/.test(id) ? id : undefined;
 }
 
 export default function PhoneCallArchive({ onOpenDocument }: { onOpenDocument: (id: string) => void }) {
@@ -73,7 +81,32 @@ export default function PhoneCallArchive({ onOpenDocument }: { onOpenDocument: (
     }
   }
 
-  return <section className="cc-card" aria-label="Saved phone calls">
+  const openDocument = useRef(onOpenDocument); openDocument.current = onOpenDocument;
+  const linked = useRef<string>();
+  function openTranscript(id: string) {
+    const url = new URL(location.href);
+    url.searchParams.set('call', id);
+    if (url.href !== location.href) {
+      const state = history.state && typeof history.state === 'object' ? history.state : {};
+      history.replaceState({ ...state, scroll: window.scrollY }, '');
+      history.pushState({ scroll: window.scrollY, callOpened: true }, '', url);
+    }
+    linked.current = id;
+    openDocument.current(id);
+  }
+  useEffect(() => {
+    // A link, a reload or Forward that names a call opens its transcript again, with its recap underneath.
+    const restoreCall = () => {
+      const id = linkedCall();
+      if (id && id !== linked.current) { void open(id); openDocument.current(id); }
+      linked.current = id;
+    };
+    restoreCall();
+    window.addEventListener('popstate', restoreCall);
+    return () => { linked.current = undefined; window.removeEventListener('popstate', restoreCall); };
+  }, []);
+
+  return <section className="cc-card cc-call-archive" aria-label="Saved phone calls">
     <div className="cc-heading-row"><h3>Phone calls</h3>
       <div role="group" className="cc-call-history-filter" aria-label="Call history filter">
         <button type="button" className="cc-text-button" aria-pressed={!missed} onClick={() => showMissed(false)}>All calls</button>
@@ -83,20 +116,31 @@ export default function PhoneCallArchive({ onOpenDocument }: { onOpenDocument: (
     {calls.length > 0 && <p className="cc-muted cc-small">{calls.length} of {total} {missed ? 'confirmed missed calls with records' : 'saved calls'} · Central time</p>}
     {calls.map(call => {
       const expanded = selected === call.id;
-      const disposition = callDisposition(call);
-      const party = call.provenance?.attribution?.participantIdentity === 'coach' ? 'Coach · ' : '';
+      const known = detail && expanded ? { ...call, ...detail } : call;
+      const outcome = callOutcome(call), OutcomeIcon = outcomeIcons[outcome], outcomeDetail = callOutcomeDetail(call);
+      const facts = [when(call), call.provenance?.attribution?.participantIdentity === 'coach' ? 'Coach' : '', callDuration(call)].filter(Boolean);
+      const line = savedCallRecap(known), summaryState = callSummaryState(known);
       const recap = detail && expanded ? savedCallRecap(detail) : '';
       return <div key={call.id}>
-        <button type="button" className="cc-library-item" style={{ width: '100%', textAlign: 'left' }} aria-expanded={expanded} onClick={() => void open(expanded ? undefined : call.id)}>
-          <span><strong>{when(call)}</strong><small>{party}{disposition}</small></span>
-          <span>{expanded ? 'Close' : 'Recap'}</span>
+        <button type="button" className="cc-library-item cc-call-row" style={{ width: '100%', textAlign: 'left' }} aria-expanded={expanded} onClick={() => void open(expanded ? undefined : call.id)}>
+          <span>
+            <strong>{call.title?.trim() || 'Phone call'}</strong>
+            <small>{facts.join(' · ')}</small>
+            {line && <span className="cc-call-row-summary">{line}</span>}
+            <span className="cc-call-chips">
+              <span className="cc-call-chip" data-outcome={outcome}><OutcomeIcon size={14} aria-hidden="true" />{callOutcomeLabels[outcome]}</span>
+              {(summaryState === 'pending' || summaryState === 'none') && <span className="cc-call-chip" data-outcome="summary">{summaryState === 'pending' ? <Hourglass size={14} aria-hidden="true" /> : <FileX size={14} aria-hidden="true" />}{summaryState === 'pending' ? 'Summary pending' : 'No summary saved'}</span>}
+              {outcomeDetail && <span className="cc-call-reason">{outcomeDetail}</span>}
+            </span>
+          </span>
+          <span className="cc-call-row-action">{expanded ? 'Close' : 'Recap'}</span>
         </button>
         {expanded && <section aria-label="Call recap" className="cc-card">
           {detail ? <>
             <h4>Saved recap</h4>
-            <p>{recap || 'This call has no saved summary.'}</p>
+            <p>{recap || (callSummaryState(detail) === 'pending' ? 'The summary for this call is not ready yet.' : 'This call has no saved summary.')}</p>
             {recap && <ReadAloudButton key={call.id} text={recap} label="Listen to recap" deviceOnly />}
-            <button type="button" className="cc-text-button" onClick={() => onOpenDocument(call.id)}>
+            <button type="button" className="cc-text-button" onClick={() => openTranscript(call.id)}>
               {call.sourceApp === 'Cupcake phone transcript' ? 'Open full transcript' : 'Open original record'}
             </button>
           </> : detailError ? <p role="alert">{detailError} <button type="button" onClick={() => void open(call.id)}>Retry recap</button></p>

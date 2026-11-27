@@ -35,7 +35,7 @@ try {
   assert.equal(await page.getByRole('radio').count(), 0);
   await reconcile.click();
   await page.getByRole('heading', { name: '1 exact amount match', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Close reconciliation' }).click();
+  await page.getByRole('button', { name: 'Back to receipt', exact: true }).click();
   assert.equal(await page.getByRole('radio').count(), 0);
   await reconcile.click();
   assert.ok(await page.evaluate(() => window.receiptFlowFixture.actions.includes('bank_sync')), 'connected bank refreshed before receipt matching');

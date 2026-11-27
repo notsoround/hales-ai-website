@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import LibraryWorkspace from '../src/components/cupcake/LibraryWorkspace';
 import { ACCOUNT_SESSIONS } from '../src/components/cupcake/accountMode';
@@ -67,13 +68,23 @@ window.fetch = async (input, init) => {
   if (action === 'decision_list' && fixture.failDecisions) throw Error('Synthetic saved-decision read failed.');
   if (action === 'decision_list') return ok({ decisions: ACCOUNT_SESSIONS ? [{id:'fixture_decision',text:'Synthetic retained decision.',type:'decision',status:'open'}] : [] });
   if (action === 'receipt_list') return ok({ receipts: [] });
+  if (action === 'bank_purchase_list') return ok({ purchases: [], hasMore: false, nextCursor: null });
   if (action === 'ask_jobs') return ok({ jobs: [] });
   fixture.blocked.push(action); throw Error('Mutation/provider action blocked: ' + action);
 };
 async function mount() {
   if (ACCOUNT_SESSIONS) await restoreSession();
   const params = new URLSearchParams(location.search), appearance = params.get('theme') === 'rose' ? 'rose' : 'caribbean';
-  const workspace = <LibraryWorkspace active onOpenRecording={id => fixture.recordings.push(id)} onWork={() => {}} />;
+  // ?archived passes two fictional archived Talk conversations, as CupcakeStudio does from device storage.
+  const archivedFixture = [
+    { id: 'talk-archived-one', title: 'Synthetic archived talk', startedAt: '2026-11-06T15:00:00Z', endedAt: '2026-11-06T15:02:00Z', archived: true, lines: [{ role: 'You' as const, text: 'Synthetic archived line.' }] },
+    { id: 'talk-archived-two', title: 'Synthetic archived library talk', startedAt: '2026-11-05T15:00:00Z', endedAt: '2026-11-05T15:02:00Z', archived: true, lines: [], documentId: 'fixture_1' },
+  ];
+  function WithArchive() {
+    const [talks, setTalks] = useState(archivedFixture);
+    return <LibraryWorkspace active onOpenRecording={id => fixture.recordings.push(id)} onWork={() => {}} archivedTalks={talks} onRestoreTalk={talk => setTalks(current => current.filter(row => row.id !== talk.id))} />;
+  }
+  const workspace = params.has('archived') ? <WithArchive /> : <LibraryWorkspace active onOpenRecording={id => fixture.recordings.push(id)} onWork={() => {}} />;
   createRoot(document.getElementById('root')!).render(<div className="cc-app" data-appearance={appearance}><main className="cc-shell"><section className="cc-studio">{workspace}{params.has('two') && <LibraryWorkspace active onOpenRecording={() => {}} onWork={() => {}} />}</section></main></div>);
 }
 void mount();

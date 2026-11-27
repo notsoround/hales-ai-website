@@ -4,7 +4,7 @@ const today = new Date().toISOString().slice(0, 10);
 const receiptId = 'receipt_' + 'c'.repeat(32);
 const matchedAtStart = 'receipt_' + 'd'.repeat(32);
 const transactions = ['synthetic-a-1041', 'synthetic-b-1042', 'synthetic-c-1043'];
-const original = { id: receiptId, merchant: 'Marina Market', date: today, createdAt: today + 'T11:00:00Z', total: 24, grandTotal: 24, currency: 'USD', tip: 2, tax: 1, lineItems: [{ description:'Lunch',quantity:1,amount:24 }], status: 'extracted' };
+const original = { id: receiptId, merchant: 'Marina Market', date: today, createdAt: today + 'T11:00:00Z', subtotal: 21, tax: 1, total: 22, tip: 2, totalIncludesTip: false, grandTotal: 24, currency: 'USD', lineItems: [{ description:'Lunch',quantity:1,amount:24 }], status: 'extracted' };
 const standard = { id: matchedAtStart, merchant: 'Harbor Bakery', date: today, createdAt: today + 'T08:00:00Z', total: 8, currency:'USD',tax:null,tip:null,lineItems:[],status:'matched',matchedTransactionId:transactions[2],matchMethod:'automatic' };
 const partial = new URLSearchParams(location.search).get('reconcile') === 'partial';
 const chosen = () => sessionStorage.getItem('synthetic-receipt-match');

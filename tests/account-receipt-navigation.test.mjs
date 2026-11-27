@@ -87,6 +87,7 @@ if(preview) { console.log('Synthetic receipt workspace: '+url('library')); } els
       await reconcileCharge.click();
       await workspace.getByText('No matching saved receipt found for this purchase.',{exact:true}).waitFor();
       assert.equal(await workspace.getByRole('link',{name:'Open matched receipt',exact:true}).count(),0);
+      await workspace.getByRole('button',{name:'Back to purchase',exact:true}).click();
       await workspace.getByRole('button',{name:'Back',exact:true}).click();
       await workspace.getByRole('heading',{name:'Saved bank purchases',exact:true}).waitFor();
       await workspace.getByRole('link',{name:/Harbor Bakery/}).click();

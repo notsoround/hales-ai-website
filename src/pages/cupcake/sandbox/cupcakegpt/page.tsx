@@ -46,7 +46,7 @@ import { exerciseTimelineItems, mergeTimelineItems } from '../../../../component
 import { SignalSheet } from '../../../../components/cupcake/SignalSheet';
 import { FeedDashboard, SignalDetail, type DashboardEntry, type DashboardRange, type DashboardStats, type FoodMeal } from '../../../../components/cupcake/DashboardView';
 import { TALK_SEED_KEY, talkSeedFromIntervention } from '../../../../components/cupcake/dashboardModel';
-import { libraryRequest } from '../../../../components/cupcake/library';
+import { libraryRequest, openLibraryReceipts } from '../../../../components/cupcake/library';
 import { LibraryApprovalCancelled } from '../../../../components/cupcake/libraryApproval';
 import { MealTimeInput } from '../../../../components/cupcake/MealTimeInput';
 import { SavedMealDialog } from '../../../../components/cupcake/SavedMealDialog';
@@ -332,8 +332,7 @@ const CupcakeGPT: React.FC<{accountIdentity?:AccountIdentity}> = ({accountIdenti
   const handleNotificationNavigate = useCallback((target: NotificationTarget) => {
     if (target === 'settings') { openSettings(); return; }
     if (target === 'receipts') {
-      try { personalStorage('sessionStorage').setItem('cupcake-food-section', 'receipts'); } catch { /* Food still shows Receipts tab. */ }
-      setTab('snap');
+      openLibraryReceipts();
       return;
     }
     setTab(target);
@@ -533,7 +532,7 @@ function TodayHome({setTab,onOpenWeight,setQuickAction,openTalkAbout,accountName
   const lastMeal=ACCOUNT_SESSIONS&&nutrition.history?lastLoggedMeal(nutrition.history.meals):null;
   const nextUp=ACCOUNT_SESSIONS&&nutrition.history&&mealWindow&&(!lastMeal||Date.now()-Date.parse(lastMeal.consumedAt||'')>3*36e5)?mealWindow:null;
   return <>
-    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} spend={todaySpend(items,spendFeed,err,load,()=>setTab('week'))} nutrition={nutrition} mealHint={nextUp||null} missedCallsCount={missedCallsCount}
+    {ACCOUNT_SESSIONS&&<SectionBoundary label="Today at a glance"><TodayDashboard name={accountName?.split(/[\s@]/)[0]||'there'} assistantName={assistantName} sassy={persona==='cupcake'} portrait={persona?<AssistantPortrait persona={persona} name={assistantName} small/>:null} spend={todaySpend(items,spendFeed,err,load,()=>openLibraryReceipts({bank:true}))} nutrition={nutrition} mealHint={nextUp||null} missedCallsCount={missedCallsCount}
       onCamera={()=>setMealCameraOpen(true)} onTalk={()=>setTab('talk')} onRecord={()=>setTab('record')} onExercise={()=>{setFoldOpen(true);setLogExerciseRequest(n=>n+1);}}
       onTip={()=>setQuickAction('tip')} onOpenFood={()=>setTab('snap')} onOpenHistory={()=>setTab('week')} onOpenWeight={onOpenWeight} onOpenFitness={()=>setTab('fitness')}/></SectionBoundary>}
     {ACCOUNT_SESSIONS&&<MealCamera open={mealCameraOpen} context={todayFoodContext(nutrition.history,nutrition.settings)} onOpenFoodLog={()=>setTab('snap')} onClose={()=>setMealCameraOpen(false)} onPhoto={file=>{queueAccountMealPhoto(file);setTab('snap');}}/>}
