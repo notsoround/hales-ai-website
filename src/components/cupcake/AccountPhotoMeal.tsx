@@ -5,7 +5,9 @@ import { photoDraftStore, type PhotoIntent } from './accountFoodPhotoDraft';
 import { prepareFoodImage } from './prepareFoodImage';
 import { MealTimeInput } from './MealTimeInput';
 import { MealCamera } from './MealCamera';
-import { FOOD_CAMERA_REQUESTED, MEAL_PHOTO_QUEUED, takeFoodCameraRequest, takeQueuedAccountMealPhoto } from './accountMealPhotoHandoff';
+import { captureLabel, FOOD_CAMERA_REQUESTED, MEAL_PHOTO_QUEUED, queueAccountMealPhoto, takeFoodCameraRequest, takeQueuedAccountMealPhoto, type CaptureIntent } from './accountMealPhotoHandoff';
+import { captureStorageScope } from './personalStorage';
+import { removeReviewPhoto } from './camera/localCaptureReview';
 import { notifyDataChanged } from './dataChanges';
 import type { FoodMeal } from './DashboardView';
 import './account-photo-meal.css';
@@ -24,6 +26,7 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal, compact = false }: { com
   const [backgroundTick, setBackgroundTick] = useState(0);
   const [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [missing, setMissing] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraIntent, setCameraIntent] = useState<CaptureIntent>('meal');
   const picker = useRef<HTMLInputElement>(null), sending = useRef(false), alive = useRef(true);
   const completed = useRef(new Set<string>()), terminal = useRef(new Set<string>());
   const current = useRef<PhotoIntent | null>(null), timer = useRef<ReturnType<typeof setTimeout>>(), onSavedRef = useRef(onSaved);
@@ -45,6 +48,7 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal, compact = false }: { com
     if (foreground && current.current?.request_id !== original.request_id) return;
     if (saved.meal?.id !== row.meal_id || saved.meal.source !== 'account-photo-estimate' || saved.meal.logDestination !== 'account-local' || !saved.meal.accountLoggedAt || saved.meal.logState !== 'logged' || saved.meal.countedInTotals !== true || Date.parse(saved.meal.consumedAt || '') !== Date.parse(original.consumed_at)) throw Error('The meal is not yet confirmed in your food log. Check the same request again.');
     await store.remove(original.request_id); active();
+    void removeReviewPhoto(original.request_id, captureStorageScope()).catch(() => undefined);
     if (foreground && current.current?.request_id !== original.request_id || completed.current.has(original.request_id)) return;
     completed.current.add(original.request_id); if (current.current?.request_id === original.request_id) setReceipt(saved.meal); await reloadDrafts(); notifyDataChanged('food'); onSavedRef.current();
   }, [active, store, reloadDrafts]);
@@ -100,18 +104,17 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal, compact = false }: { com
     sending.current = true; setBusy(true);
     try {
       const image = await prepareFoodImage(file); active();
-      const original: PhotoIntent = { request_id: crypto.randomUUID(), image, consumed_at: eatenAt, photo_taken_at: photoAt, photo_time_basis: photoAt ? 'file_last_modified' : 'unknown', confirm_consumed: true, estimate_visible_portion: true, ...(note.trim() ? { note: note.trim() } : {}) };
+      const original: PhotoIntent = { request_id: captureLabel(file)?.reviewId || crypto.randomUUID(), image, consumed_at: eatenAt, photo_taken_at: photoAt, photo_time_basis: photoAt ? 'file_last_modified' : 'unknown', confirm_consumed: true, estimate_visible_portion: true, ...(note.trim() ? { note: note.trim() } : {}) };
       sending.current = false; await upload(original);
     } catch (cause) { if (alive.current) setError(errorText(cause)); }
     finally { sending.current = false; if (alive.current) setBusy(false); }
   };
   // A photo taken from Today's one-tap camera continues here with the default file time.
   const chooseRef = useRef(chooseFile); chooseRef.current = chooseFile;
-  useEffect(() => { if (loading) return; const file = takeQueuedAccountMealPhoto(); if (file) void chooseRef.current(file); }, [loading]);
   // Food opened from the tab bar starts in the live camera.
-  useEffect(() => { if (loading) return; const open = () => { if (takeFoodCameraRequest()) setCameraOpen(true); }; open(); window.addEventListener(FOOD_CAMERA_REQUESTED, open); return () => window.removeEventListener(FOOD_CAMERA_REQUESTED, open); }, [loading]);
+  useEffect(() => { if (loading || busy) return; const open = () => { const intent = takeFoodCameraRequest(); if (intent) { setCameraIntent(intent); setCameraOpen(true); } }; open(); window.addEventListener(FOOD_CAMERA_REQUESTED, open); return () => window.removeEventListener(FOOD_CAMERA_REQUESTED, open); }, [loading, busy]);
   // The live camera can also hand over a photo while Food is already open.
-  useEffect(() => { if (loading) return; const take = () => { const file = takeQueuedAccountMealPhoto(); if (file) void chooseRef.current(file); }; window.addEventListener(MEAL_PHOTO_QUEUED, take); return () => window.removeEventListener(MEAL_PHOTO_QUEUED, take); }, [loading]);
+  useEffect(() => { if (loading || busy) return; const take = () => { if (sending.current) return; const file = takeQueuedAccountMealPhoto(); if (file) void chooseRef.current(file); }; take(); window.addEventListener(MEAL_PHOTO_QUEUED, take); return () => window.removeEventListener(MEAL_PHOTO_QUEUED, take); }, [loading, busy]);
   const resume = (original: PhotoIntent) => { terminal.current.delete(original.request_id); current.current = original; setIntent(original); setRequest(null); setReceipt(null); setMissing(false); void check(original); };
   const another = () => { current.current = null; setIntent(null); setRequest(null); setReceipt(null); setError(''); setMissing(false); setNote(''); setFileTime(true); setConsumedAt(''); };
   const retry = async () => {
@@ -136,7 +139,10 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal, compact = false }: { com
         <label>Portion or meal note (optional)<textarea maxLength={1000} value={note} disabled={busy} rows={2} onChange={event => setNote(event.target.value)} placeholder="For example: half the rice, unsweetened drink…"/></label>
       </div></details>
     </>}
-    {input(picker)}<MealCamera open={cameraOpen} onOpenFoodLog={() => undefined} onClose={() => setCameraOpen(false)} onPhoto={file => void chooseFile(file)}/>
+    {input(picker)}<MealCamera open={cameraOpen} intent={cameraIntent} onOpenFoodLog={() => undefined} onClose={() => { setCameraOpen(false); setCameraIntent('meal'); }} onPhoto={file => {
+      if (captureLabel(file)?.kind && captureLabel(file)?.kind !== 'meal') queueAccountMealPhoto(file);
+      else void chooseFile(file);
+    }}/>
     {loading && <p role="status">Checking this device’s saved photo requests…</p>}
     {busy && <p role="status">Preserving your photo and checking its saved meal…</p>}
     {intent && <div className="cc-account-photo-progress">

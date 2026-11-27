@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { accountData, accountReceiptPhoto, assertGeneration, sessionSnapshot } from './accountSession';
 import { receiptDraftStore, type ReceiptPhotoIntent } from './accountReceiptDraft';
 import { prepareFoodImage } from './prepareFoodImage';
+import { MealCamera } from './MealCamera';
+import { captureLabel, queueAccountMealPhoto, RECEIPT_PHOTO_QUEUED, takeQueuedReceiptPhoto } from './accountMealPhotoHandoff';
+import { removeReviewPhoto } from './camera/localCaptureReview';
+import { captureStorageScope } from './personalStorage';
 
 type SavedReceipt = { id: string; status: string };
 type PhotoResponse = { ok: boolean; receipt: SavedReceipt; duplicate: boolean };
@@ -15,6 +19,7 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const sending = useRef(false);
   const alive = useRef(true);
   const savedCallback = useRef(onSaved);
@@ -52,6 +57,7 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
       const fetched = await accountData<{ receipt: SavedReceipt }>({ action: 'receipt_get', receiptId }); active();
       if (fetched.receipt?.id !== receiptId) throw Error('The saved receipt could not be confirmed. Retry this same photo.');
       await store.remove(original.request_id); active();
+      void removeReviewPhoto(original.request_id, captureStorageScope()).catch(() => undefined);
       await reloadDrafts(); setIntent(null); setSaved(true); savedCallback.current(receiptId);
     } catch (cause) {
       if (alive.current && sessionSnapshot().generation === generation) {
@@ -64,7 +70,7 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
     sending.current = true; setBusy(true); setError(''); setSaved(false);
     try {
       const image = await prepareFoodImage(file); active();
-      const original = { request_id: crypto.randomUUID(), image };
+      const original = { request_id: captureLabel(file)?.reviewId || crypto.randomUUID(), image };
       sending.current = false;
       await upload(original);
     } catch (cause) {
@@ -72,13 +78,24 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
     } finally { sending.current = false; if (alive.current) setBusy(false); }
   }
 
+  const chooseRef = useRef(choose); chooseRef.current = choose;
+  useEffect(() => {
+    if (busy || loading) return;
+    const take = () => { if (sending.current) return; const file = takeQueuedReceiptPhoto(); if (file) void chooseRef.current(file); };
+    take(); window.addEventListener(RECEIPT_PHOTO_QUEUED, take);
+    return () => window.removeEventListener(RECEIPT_PHOTO_QUEUED, take);
+  }, [busy, loading]);
   return <section aria-label="Add a receipt">
     <strong>Add a receipt photo</strong>
     <p className="cc-muted">Your photo will be saved to your account and sent to an AI provider to read the receipt. Compare it with your saved transactions afterward.</p>
     <div className="cc-action-row">
-      <label className="cc-primary cc-file">Take photo<input aria-label="Take receipt photo" disabled={busy || loading} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; void choose(file); }}/></label>
+      <button type="button" className="cc-primary" aria-label="Take receipt photo" disabled={busy || loading} onClick={() => setCameraOpen(true)}>Take photo</button>
       <label className="cc-secondary cc-file">Choose image<input aria-label="Choose receipt image" disabled={busy || loading} type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; void choose(file); }}/></label>
     </div>
+    <MealCamera open={cameraOpen} intent="receipt" onClose={() => setCameraOpen(false)} onPhoto={file => {
+      if (captureLabel(file)?.kind === 'receipt') void choose(file);
+      else queueAccountMealPhoto(file);
+    }}/>
     {loading && <p role="status">Checking saved photo requests…</p>}
     {busy && <p role="status">Saving your receipt photo…</p>}
     {saved && <p role="status">Receipt photo saved. Reading is starting.</p>}

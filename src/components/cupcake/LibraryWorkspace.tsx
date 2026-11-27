@@ -166,11 +166,22 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
     list.addEventListener('scroll', measure, { passive: true });
     return () => { observer.disconnect(); list.removeEventListener('scroll', measure); };
   }, [active]);
+  useEffect(() => {
+    if (!active) return;
+    const restore = () => { const next = initialView(); setView(next); setFocusedView(next); };
+    if (new URLSearchParams(location.search).get('tab') === 'library') restore();
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, [active]);
   function selectView(next: View) {
     setView(next); setFocusedView(next); setError('');
     const url = new URL(location.href); url.searchParams.set('tab', 'library'); url.searchParams.set('view', viewKeys[next]);
     const state = history.state && typeof history.state === 'object' ? history.state : {};
-    history.replaceState(state, '', url);
+    if (next !== 'Receipts') for (const key of ['receipt','transaction','receiptTab']) url.searchParams.delete(key);
+    if (url.href !== location.href) {
+      history.replaceState({ ...state, scroll: window.scrollY }, '');
+      history.pushState({ scroll: 0 }, '', url);
+    }
   }
   function moveTabFocus(event: React.KeyboardEvent<HTMLButtonElement>, current: View) {
     const index = tabs.indexOf(current);

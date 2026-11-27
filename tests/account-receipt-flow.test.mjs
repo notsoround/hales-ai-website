@@ -28,7 +28,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base + 'cupcake/account');
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0ioAAAAASUVORK5CYII=', 'base64');
-  await page.getByLabel('Take receipt photo').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: png });
+  await page.getByLabel('Choose receipt image').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('heading', { name: '1 exact amount match', exact: true }).waitFor();
   assert.ok(await page.evaluate(() => window.receiptFlowFixture.actions.includes('bank_sync')), 'connected bank refreshed before receipt matching');
   assert.deepEqual(await page.evaluate(() => ({ starts: window.receiptFlowFixture.startCount, matches: window.receiptFlowFixture.matchCount, confirmations: window.receiptFlowFixture.confirmCount })), { starts: 1, matches: 1, confirmations: 0 });
@@ -38,15 +38,15 @@ try {
   assert.equal(await page.evaluate(() => window.receiptFlowFixture.confirmCount), 1);
   assert.deepEqual(outside, []); assert.deepEqual(errors, []);
   await page.goto(base + 'cupcake/account');
-  await page.getByLabel('Take receipt photo').waitFor({ state: 'attached' });
+  await page.getByLabel('Choose receipt image').waitFor({ state: 'attached' });
   await page.evaluate(() => { window.receiptFlowFixture.noBank = true; });
-  await page.getByLabel('Take receipt photo').setInputFiles({ name: 'synthetic2.png', mimeType: 'image/png', buffer: png });
+  await page.getByLabel('Choose receipt image').setInputFiles({ name: 'synthetic2.png', mimeType: 'image/png', buffer: png });
   await page.getByText('No bank coverage has been saved for this account.', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Confirm selected match', exact: true }).count(), 0);
   await page.goto(base + 'cupcake/account');
-  await page.getByLabel('Take receipt photo').waitFor({ state: 'attached' });
+  await page.getByLabel('Choose receipt image').waitFor({ state: 'attached' });
   await page.evaluate(() => { window.receiptFlowFixture.needsBankAttention = true; });
-  await page.getByLabel('Take receipt photo').setInputFiles({ name: 'synthetic3.png', mimeType: 'image/png', buffer: png });
+  await page.getByLabel('Choose receipt image').setInputFiles({ name: 'synthetic3.png', mimeType: 'image/png', buffer: png });
   await page.getByText('A bank connection needs attention. Matching uses its previously saved transactions.', { exact: true }).waitFor();
   await page.getByRole('radio', { name: /Synthetic Market/ }).check();
   assert.equal(await page.getByRole('button', { name: 'Confirm selected match', exact: true }).isDisabled(), true, 'stale bank requires explicit acknowledgment');

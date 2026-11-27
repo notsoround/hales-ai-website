@@ -8,6 +8,10 @@ import { useCameraStream } from './camera/useCameraStream';
 import { useStillness } from './camera/useStillness';
 import { clockTime, mealForTime, wholeNumber } from './camera/mealContext';
 import { useScreenAwake } from './nativeFeel';
+import { labelCapture, type CaptureIntent } from './accountMealPhotoHandoff';
+import { CapturePreview } from './camera/CapturePreview';
+import { ACCOUNT_SESSIONS } from './accountMode';
+import { assertGeneration, sessionSnapshot } from './accountSession';
 import './account-camera.css';
 
 /**
@@ -29,6 +33,7 @@ export type MealCameraContext = {
 };
 
 type Props = {
+  intent?: CaptureIntent;
   open: boolean;
   onClose: () => void;
   onPhoto: (file: File) => void;
@@ -46,17 +51,20 @@ const STATUS = {
 } as const;
 const statusVoice = () => typeof document !== 'undefined' && document.querySelector('.cc-app')?.getAttribute('data-appearance') === 'caribbean' ? STATUS.cupcake : STATUS.calm;
 
-export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: Props) {
+export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog, intent = 'meal' }: Props) {
   const dialog = useRef<HTMLDialogElement>(null), video = useRef<HTMLVideoElement>(null);
   const native = useRef<HTMLInputElement>(null), library = useRef<HTMLInputElement>(null);
   const swipe = useRef<{ id: number; y: number; dy: number } | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [preview, setPreview] = useState<File | null>(null);
+  const captureCycle = useRef<number>(0);
+  const ownerGeneration = useRef<number>(0);
   // Between the tap and the photo: the phone is still focusing and exposing, so the view stays live and asks you to hold still.
   const [taking, setTaking] = useState(false);
   const [focus, setFocus] = useState<{ x: number; y: number; key: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
   useScreenAwake(open);
-  const camera = useCameraStream(open, video);
+  const camera = useCameraStream(open && !preview, video);
   const { state } = camera;
   const quips = useLab('camera-quips');
   // With comments on, fetch the on-device models while the phone is idle, so the first comment does not wait for a download.
@@ -70,19 +78,28 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
   useEffect(() => {
     const node = dialog.current;
     if (!open || !node) return;
+    const cycle = captureCycle.current + 1;
+    captureCycle.current = cycle;
+    ownerGeneration.current = sessionSnapshot().generation;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     if (!node.open) node.showModal();
     setCapturing(false); setTaking(false); setNow(new Date());
     const clock = window.setInterval(() => setNow(new Date()), 20_000);
-    return () => { window.clearInterval(clock); if (node.open) node.close(); document.body.style.overflow = overflow; previous?.focus({ preventScroll: true }); };
+    return () => { captureCycle.current = cycle + 1; window.clearInterval(clock); if (node.open) node.close(); document.body.style.overflow = overflow; previous?.focus({ preventScroll: true }); };
   }, [open]);
 
-  const deliver = (file: File) => { onPhoto(file); onClose(); };
+  useEffect(() => { if (!open) setPreview(null); }, [open]);
+  const deliver = (file: File) => {
+    try { if (ACCOUNT_SESSIONS) assertGeneration(ownerGeneration.current); } catch { return; }
+    if (intent !== 'meal') { setPreview(file); return; }
+    onPhoto(file); onClose();
+  };
 
   const shoot = () => {
     const el = video.current;
+    const cycle = captureCycle.current;
     if (capturing || taking) return;
     if (state !== 'live' || !el || !el.videoWidth) { if (state === 'blocked') native.current?.click(); return; }
     navigator.vibrate?.(10);
@@ -94,6 +111,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
     // A real still (full sensor, focused for the shot) where the phone offers one. The preview keeps running until it returns.
     const photo = camera.frameOnly ? Promise.resolve(null) : camera.takeStill();
     void photo.then(async still => { const image = still || await frame(); el.pause(); setTaking(false); setCapturing(true); await settle(); return image; }).then(image => {
+      if (cycle !== captureCycle.current) return;
       if (!image) { setCapturing(false); void el.play().catch(() => undefined); return; }
       const stamp = Date.now();
       deliver(new File([image], `meal-${stamp}.jpg`, { type: image.type === 'image/png' ? 'image/png' : 'image/jpeg', lastModified: stamp }));
@@ -137,13 +155,18 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
   };
 
   if (!open) return null;
-  const meal = context?.mealLabel?.trim() || mealForTime(now);
+  const meal = intent === 'auto' ? 'Camera' : intent === 'receipt' ? 'Receipt' : context?.mealLabel?.trim() || mealForTime(now);
   const kcal = wholeNumber(context?.caloriesLeft), protein = wholeNumber(context?.proteinLeftG);
   const live = state === 'live';
-  const status = state === 'blocked' ? 'Camera off · tap the shutter' : state === 'starting' ? '' : taking ? 'Hold still…' : statusVoice()[track];
+  const status = state === 'blocked' ? 'Camera off · tap the shutter' : state === 'starting' ? '' : taking ? 'Hold still…' :
+    intent === 'meal' ? statusVoice()[track] : track === 'locked' ? 'Ready' : 'Hold steady';
   const announce = state === 'blocked' ? 'Camera access is off. The shutter opens your phone camera.' : live ? 'Camera ready.' : '';
 
-  return <dialog ref={dialog} className="cc-cam" aria-label="Meal camera" onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+  return <dialog ref={dialog} className="cc-cam" aria-label={preview ? 'Review capture' : intent === 'meal' ? 'Meal camera' : intent === 'receipt' ? 'Receipt camera' : 'Camera'} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    {preview ? <CapturePreview file={preview} intent={intent} onRetake={() => { setPreview(null); setTaking(false); setCapturing(false); }} onChoose={kind => {
+      if (ACCOUNT_SESSIONS) assertGeneration(ownerGeneration.current);
+      labelCapture(preview, kind); onPhoto(preview); setPreview(null); onClose();
+    }}/> :
     <div className="cc-cam-panel" data-state={state} data-track={track} data-capturing={capturing} data-taking={taking} data-facing={camera.facing}
       onPointerDown={swipeStart} onPointerMove={swipeMove} onPointerUp={swipeEnd} onPointerCancel={swipeEnd}>
       <div className="cc-cam-stage">
@@ -173,7 +196,7 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
         </ul>}
         <div className="cc-cam-controls">
           <button type="button" className="cc-cam-library" aria-label="Choose from library" onClick={() => library.current?.click()}><Images size={22} strokeWidth={1.6}/></button>
-          <button type="button" className="cc-cam-shutter" aria-label={state === 'blocked' ? 'Open phone camera' : 'Take meal photo'} disabled={state === 'starting' || capturing || taking} onClick={shoot}><span/></button>
+          <button type="button" className="cc-cam-shutter" aria-label={state === 'blocked' ? 'Open phone camera' : intent === 'meal' ? 'Take meal photo' : 'Take photo'} disabled={state === 'starting' || capturing || taking} onClick={shoot}><span/></button>
           {onOpenFoodLog
             ? <button type="button" className="cc-cam-text" onClick={() => { onClose(); onOpenFoodLog(); }}>Food log</button>
             : <span className="cc-cam-spacer" aria-hidden="true"/>}
@@ -181,8 +204,8 @@ export function MealCamera({ open, onClose, onPhoto, context, onOpenFoodLog }: P
       </div>
 
       <span className="cc-cam-sr" role="status">{announce}</span>
-      <input ref={native} type="file" accept={ACCEPT} capture="environment" hidden aria-label="Take meal photo file" onChange={fromInput}/>
-      <input ref={library} type="file" accept={ACCEPT} hidden aria-label="Choose meal photo from library" onChange={fromInput}/>
-    </div>
+      <input ref={native} type="file" accept={ACCEPT} capture="environment" hidden aria-label={intent === 'meal' ? 'Take meal photo file' : 'Take photo file'} onChange={fromInput}/>
+      <input ref={library} type="file" accept={ACCEPT} hidden aria-label={intent === 'meal' ? 'Choose meal photo from library' : 'Choose photo from library'} onChange={fromInput}/>
+    </div>}
   </dialog>;
 }

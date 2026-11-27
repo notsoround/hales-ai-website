@@ -214,3 +214,14 @@
 @media (prefers-reduced-motion: reduce) { .cc-cam .cc-cam-focus { animation-duration: .01s; } }
 /* Taking the photo: the shutter fills while the phone focuses and exposes. */
 .cc-cam [data-taking=true] .cc-cam-shutter span { transform: scale(.86); background: var(--cc-cam-accent); }
+
+.cc-capture-preview{width:min(96vw,32rem);max-height:92dvh;overflow:auto;box-sizing:border-box;margin:auto;background:var(--cc-surface,#181b22);color:var(--cc-text,#f9f9fb);border-radius:1.2rem;padding:1rem;display:grid;gap:.9rem}
+.cc-capture-preview>img{width:100%;height:min(42dvh,19rem);object-fit:contain;border-radius:.7rem;background:#101115}
+.cc-capture-preview fieldset{border:0;padding:0;margin:0;display:flex;gap:.45rem;flex-wrap:wrap}
+.cc-capture-preview legend{font-weight:650;padding:0;margin-bottom:.6rem}
+.cc-capture-preview label,.cc-capture-preview>div{display:flex;align-items:center;gap:.4rem}
+.cc-capture-preview label{min-height:44px;border:1px solid currentColor;padding:0 .7rem;border-radius:1rem}
+.cc-capture-preview input{accent-color:var(--cc-accent,#36dacc)}
+.cc-capture-preview>p{margin:0;line-height:1.45}
+.cc-capture-preview>div{justify-content:space-between}
+dialog.cc-cam:has(.cc-capture-preview){display:grid;place-items:center}

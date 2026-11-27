@@ -18,6 +18,7 @@
     "@react-spring/web": "^9.7.3",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "@tesseract.js-data/eng": "1.0.0",
     "@vapi-ai/web": "2.7.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -27,6 +28,8 @@
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
+    "tesseract.js": "7.0.0",
+    "tesseract.js-core": "7.0.0",
     "three": "^0.162.0"
   },
   "devDependencies": {

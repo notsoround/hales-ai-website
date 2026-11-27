@@ -25,7 +25,7 @@ const FACE_SCORE = 0.75;
 type Looker = { look(frame: HTMLCanvasElement, wide: HTMLCanvasElement): { guess: SceneGuess | null } };
 let loading: Promise<Looker> | null = null;
 
-function loadLooker(): Promise<Looker> {
+export function loadLooker(): Promise<Looker> {
   loading ??= (async () => {
     const vision = await import('@mediapipe/tasks-vision');
     const files = { wasmLoaderPath: BASE + 'vision_wasm_internal.js', wasmBinaryPath: BASE + 'vision_wasm_internal.wasm' };

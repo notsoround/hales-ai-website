@@ -172,7 +172,7 @@ function NoirFoodHero({ daySummary, isToday, active, history, loading, now, onOp
     </div>
 
     <div className="nx-food-hero-actions" role="group" aria-label="Quick log">
-      <button type="button" className="nx-food-snap-btn" onClick={() => requestFoodCamera()}><Camera size={17} aria-hidden="true" />Snap photo</button>
+      <button type="button" className="nx-food-snap-btn" onClick={() => requestFoodCamera('meal')}><Camera size={17} aria-hidden="true" />Snap photo</button>
       <button type="button" className="nx-food-manual-btn" onClick={() => window.dispatchEvent(new Event(OPEN_MANUAL_MEAL_EVENT))}><PenLine size={16} aria-hidden="true" />Manual entry</button>
     </div>
 

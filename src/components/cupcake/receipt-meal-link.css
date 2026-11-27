@@ -1,0 +1,22 @@
+.cc-receipt-meal-link {
+  border-top: 1px solid var(--nx-hair);
+  margin-top: 1rem;
+  padding-top: .75rem;
+}
+.cc-receipt-meal-link > summary {
+  color: var(--nx-ink-2);
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+}
+.cc-receipt-meal-link label { display: grid; gap: .35rem; margin: .4rem 0 .6rem; }
+.cc-receipt-meal-link select {
+  width: 100%;
+  min-height: 44px;
+  padding: .4rem;
+  color: var(--nx-ink);
+  background: var(--nx-bg);
+  border: 1px solid var(--nx-hair);
+  border-radius: .5rem;
+  font-size: 1rem;
+}
