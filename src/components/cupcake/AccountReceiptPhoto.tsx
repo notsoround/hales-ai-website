@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { accountData, accountReceiptPhoto, assertGeneration, sessionSnapshot } from './accountSession';
 import { receiptDraftStore, type ReceiptPhotoIntent } from './accountReceiptDraft';
 import { prepareFoodImage } from './prepareFoodImage';
 import { MealCamera } from './MealCamera';
 import { captureLabel, queueAccountMealPhoto, RECEIPT_PHOTO_QUEUED, takeQueuedReceiptPhoto } from './accountMealPhotoHandoff';
 import { removeReviewPhoto } from './camera/localCaptureReview';
+import { flushSync } from 'react-dom';
 import { captureStorageScope } from './personalStorage';
 import { purchaseLinkClick, receiptWorkspaceUrl } from './receiptNavigation';
 
@@ -21,7 +22,8 @@ function showReceipt(receiptId: string) {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) => void }) {
+/** compact: once the account has saved receipts, start as one "Add receipt" button so the list stays above the fold. */
+export function AccountReceiptPhoto({ onSaved, compact = false }: { onSaved: (receiptId: string) => void; compact?: boolean }) {
   const [store] = useState(receiptDraftStore);
   const [generation] = useState(() => sessionSnapshot().generation);
   const [drafts, setDrafts] = useState<ReceiptPhotoIntent[]>([]);
@@ -32,6 +34,9 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
   const [saved, setSaved] = useState<{ id: string; image: string } | null>(null);
   const [checking, setChecking] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const optionsId = useId();
+  const takePhoto = useRef<HTMLButtonElement>(null);
   const sending = useRef(false);
   const alive = useRef(true);
   const savedCallback = useRef(onSaved);
@@ -113,13 +118,20 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
     take(); window.addEventListener(RECEIPT_PHOTO_QUEUED, take);
     return () => window.removeEventListener(RECEIPT_PHOTO_QUEUED, take);
   }, [busy, loading]);
+  // Anything in progress or waiting (a pending photo, an error, a fresh save) always shows in full.
+  const collapsed = compact && !expanded && !intent && !busy && !error && !saved && drafts.length === 0;
   return <section aria-label="Add a receipt">
+    {collapsed ? <div className="cc-action-row">
+      <button type="button" className="cc-primary" aria-expanded="false" aria-controls={optionsId} disabled={loading}
+        onClick={() => { flushSync(() => setExpanded(true)); takePhoto.current?.focus(); }}>Add receipt</button>
+    </div> : <>
     <strong>Add a receipt photo</strong>
     <p className="cc-muted">Your photo will be saved to your account and sent to an AI provider to read the receipt. Compare it with your saved transactions afterward.</p>
-    <div className="cc-action-row">
-      <button type="button" className="cc-primary" aria-label="Take receipt photo" disabled={busy || loading} onClick={() => setCameraOpen(true)}>Take photo</button>
+    <div className="cc-action-row" id={optionsId}>
+      <button type="button" className="cc-primary" aria-label="Take receipt photo" ref={takePhoto} disabled={busy || loading} onClick={() => setCameraOpen(true)}>Take photo</button>
       <label className="cc-secondary cc-file">Choose image<input aria-label="Choose receipt image" disabled={busy || loading} type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; void choose(file); }}/></label>
     </div>
+    </>}
     <MealCamera open={cameraOpen} intent="receipt" onClose={() => setCameraOpen(false)} onPhoto={file => {
       if (captureLabel(file)?.kind === 'receipt') void choose(file);
       else queueAccountMealPhoto(file);

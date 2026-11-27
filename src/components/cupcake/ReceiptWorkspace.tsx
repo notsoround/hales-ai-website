@@ -474,7 +474,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     {error && <div className="cc-error" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
     <div hidden={receiptDetail}>
     <div className="cc-card cc-import-card cc-receipt-import">
-      {ACCOUNT_SESSIONS ? <AccountReceiptPhoto onSaved={receiptId => void photoSaved(receiptId)}/> : <>
+      {ACCOUNT_SESSIONS ? <AccountReceiptPhoto onSaved={receiptId => void photoSaved(receiptId)} compact={receipts.length > 0}/> : <>
       <div><strong>Add a receipt</strong><p className="cc-muted">Include the entered tip and final total in the photo.</p></div>
       <div className="cc-action-row"><label className="cc-primary cc-file">Choose image<input disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label><label className="cc-secondary cc-file">Take photo<input disabled={busy} type="file" accept="image/*" capture="environment" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label></div>
       {preview && !selected && <img className="cc-receipt-photo" src={preview} alt="Receipt being read" />}
