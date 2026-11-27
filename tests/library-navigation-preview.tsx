@@ -13,6 +13,7 @@ const identity = { account_id: 'acc_navigation_fixture', name: 'Navigation fixtu
 const fixture = { requests: [] as { route: string; action: string; context: string | null }[], recordings: [] as string[], blocked: [] as string[], failDecisions: false, failAnalyses: false };
 (window as unknown as { libraryNavigationFixture: typeof fixture }).libraryNavigationFixture = fixture;
 const nativeFetch = window.fetch;
+let failNextArtifactPage = new URLSearchParams(location.search).has('failOlderOnce');
 const documents = Array.from({ length: 34 }, (_, n) => ({ id: 'fixture_' + n, title: 'Synthetic source ' + (n + 1), status: 'ready', createdAt: '2026-11-08T06:00:00Z', kind: 'note', sourceApp: 'Local fixture', text: 'Synthetic source text.' }));
 const project = { id: 'fixture_project', name: 'Synthetic project', description: 'Existing project context', status: 'active' };
 window.fetch = async (input, init) => {
@@ -26,6 +27,21 @@ window.fetch = async (input, init) => {
   const ok = (value: object) => Response.json({ ok: true, ...value, ...(ACCOUNT_SESSIONS ? { identity } : {}) });
   if (route === '/api/account/session') return ok({ identity });
   if (ACCOUNT_SESSIONS ? route !== '/api/account/data' || context !== identity.account_id : route !== '/cupcake-library') throw Error('Incorrect transport or account context.');
+  if (action === 'list' && body.sourceFilter === 'artifacts' && new URLSearchParams(location.search).has('artifactPages')) {
+    const items = Array.from({ length: 502 }, (_, i) => ({
+      ...documents[0], id: 'paged_' + i, title: 'Synthetic paged item ' + i,
+      createdAt: new Date(Date.UTC(2026, 10, 27) - i * 60000).toISOString(),
+      project: i >= 500 ? project.name : '',
+    }));
+    if (body.cursor && failNextArtifactPage) {
+      failNextArtifactPage = false;
+      return Response.json({ok: false, error: 'temporarily_unavailable'}, {status: 503});
+    }
+    if (body.cursor && body.cursor !== 'synthetic-older-artifacts') throw Error('Wrong source cursor');
+    return ok({ documents: body.cursor ? items.slice(500) : items.slice(0, 500), projects: [project],
+      browseTotal: items.length, libraryTotal: items.length + 1, hasMore: !body.cursor,
+      nextCursor: body.cursor ? null : 'synthetic-older-artifacts' });
+  }
   if (action === 'list') return ok(body.sourceFilter === 'channel-messages'
     ? { documents: [{ ...documents[0], id: 'fixture_message', speakerRole: 'assistant', sourceApp: 'Telegram', excerpt: 'Synthetic captured message.' }], browseTotal: 1, nextCursor: null }
     : { documents, projects: [project], browseTotal: 34, libraryTotal: 35, hasMore: false });
