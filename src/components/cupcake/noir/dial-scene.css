@@ -53,6 +53,17 @@
 .nx-dial-scene[data-count="3"] img:nth-child(3) { width: 40%; opacity: .77; }
 :root[data-cc-scheme=light] .nx-dial-scene { opacity: .57; }
 :root[data-cc-scheme=light] .nx-scene-images img { filter: saturate(.76) brightness(1.20); }
+/* A contact shadow along the pillow's lower seam on the 3:1 daybed artwork. */
+:root[data-cc-scheme=light] .nx-dial-scene[data-scene="sleep"] .nx-scene-images::after {
+  content: "";
+  position: absolute;
+  left: 64.4%;
+  top: 60.8%;
+  width: 20%;
+  height: 8%;
+  transform: rotate(5deg);
+  background: radial-gradient(ellipse closest-side, rgb(88 61 128 / .85), rgb(113 84 155 / .55) 48%, transparent);
+}
 @media (prefers-reduced-motion: no-preference) {
   .nx-scene-images { animation: nx-scene-appear .24s ease-out both; }
 }
