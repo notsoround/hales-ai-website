@@ -101,7 +101,12 @@ function groupSearchHits(items: SearchResult[]) {
 export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { active: boolean; onOpenRecording: (id: string) => void; onWork: (busy: boolean) => void }) {
   const initialDocument=useRef(new URLSearchParams(location.search).get('document'));const initialAnalysis=useRef(new URLSearchParams(location.search).get('analysis'));const [openedAnalysis,setOpenedAnalysis]=useState<Analysis|null>(null);
   const [featureBusy,setFeatureBusy]=useState(false);
-  const [counts,setCounts]=useState({browseTotal:0,libraryTotal:0,hasMore:false});
+  const [counts, setCounts] = useState({browseTotal: 0, libraryTotal: 0});
+  const [artifactCursor, setArtifactCursor] = useState<string | null>(null);
+  const [readingOlder, setReadingOlder] = useState(false);
+  const artifactRead = useRef<symbol | null>(null);
+  const olderRequest = useRef(false);
+  const appendedArtifacts = useRef(false);
   const [channelMessages,setChannelMessages]=useState<Conversation[]>([]);
   const [channelTotal,setChannelTotal]=useState(0);const [channelLoading,setChannelLoading]=useState(false);
   const [channelCursor,setChannelCursor]=useState<string|null>(null);const channelGeneration=useRef(0);const channelFlight=useRef(false);const channelNext=useRef<string|null>(null);
@@ -130,12 +135,53 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
   const [projectForm, setProjectForm] = useState(false); const [projectId,setProjectId]=useState<string|undefined>(); const [projectName, setProjectName] = useState(''); const [projectDescription, setProjectDescription] = useState(''); const [projectStatus, setProjectStatus] = useState('idea'); const [projectUrl, setProjectUrl] = useState(''); const [projectTags, setProjectTags] = useState<string[]>([]);
   const [connectors, setConnectors] = useState<Connector[]>([]); const [connectorName, setConnectorName] = useState(''); const [connectorScope, setConnectorScope] = useState<'all' | 'selected'>('all'); const [connectorProjects, setConnectorProjects] = useState<string[]>([]); const [oneTimeToken, setOneTimeToken] = useState(''); const [copied, setCopied] = useState(false);
   useEffect(() => { onWork(asking || detailAsking || mutating || featureBusy); }, [asking, detailAsking, mutating, featureBusy, onWork]);
-  const refresh = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    try { const d = await libraryRequest<{ documents: Conversation[]; projects: Project[];browseTotal:number;libraryTotal:number;hasMore:boolean }>({ action: 'list',sourceFilter:'artifacts' }); setCounts({browseTotal:d.browseTotal??d.documents.length,libraryTotal:d.libraryTotal??d.documents.length,hasMore:!!d.hasMore}); setDocuments(d.documents || []); setProjects(d.projects || []); setLibraryFailed(false); if (!quiet) setError(''); }
-    catch (e) { if (!quiet) { setError((e as Error).message); setLibraryFailed(true); } } finally { if (!quiet) setLoading(false); }
+  const readArtifacts = useCallback(async (kind: 'refresh' | 'quiet' | 'older', cursor?: string) => {
+    if (kind !== 'refresh' && olderRequest.current) return;
+    const request = Symbol();
+    artifactRead.current = request;
+    olderRequest.current = kind === 'older';
+    setReadingOlder(olderRequest.current);
+    if (kind === 'refresh') setLoading(true);
+    try {
+      const page = await libraryRequest<{
+        documents: Conversation[]; projects: Project[]; browseTotal: number; libraryTotal: number; nextCursor?: string | null;
+      }>({ action: 'list', sourceFilter: 'artifacts', ...(cursor ? {cursor} : {}) });
+      if (request !== artifactRead.current) return;
+      const rows = page.documents;
+      const keepOlder = kind === 'quiet' && appendedArtifacts.current && !!page.nextCursor && rows.length > 0;
+      setDocuments(current => {
+        if (kind === 'older') return Array.from(new Map([...(current || []), ...rows].map(row => [row.id, row])).values());
+        if (!keepOlder) return rows;
+        // A new first page may have pushed its oldest entries onto page two.
+        const boundary = rows[rows.length - 1];
+        return [...rows, ...(current || []).filter(row => row.createdAt < boundary.createdAt || (row.createdAt === boundary.createdAt && row.id < boundary.id))];
+      });
+      if (!keepOlder) {
+        setArtifactCursor(page.nextCursor || null);
+        appendedArtifacts.current = kind === 'older';
+      }
+      setCounts({browseTotal: page.browseTotal ?? rows.length, libraryTotal: page.libraryTotal ?? rows.length});
+      setProjects(page.projects || []);
+      setLibraryFailed(false);
+      if (kind !== 'quiet') setError('');
+    } catch (error) {
+      if (request === artifactRead.current && kind !== 'quiet') {
+        setError((error as Error).message);
+        if (kind === 'refresh') setLibraryFailed(true);
+      }
+    } finally {
+      if (request === artifactRead.current) {
+        olderRequest.current = false;
+        setReadingOlder(false);
+        setLoading(false);
+      }
+    }
   }, []);
-  useEffect(() => { if (active) void refresh(); }, [active, refresh]);
+  const refresh = useCallback((quiet = false) => readArtifacts(quiet ? 'quiet' : 'refresh'), [readArtifacts]);
+  useEffect(() => {
+    if (active) void refresh();
+    return () => { artifactRead.current = null; olderRequest.current = false; };
+  }, [active, refresh]);
   useEffect(()=>{if(!active||!initialAnalysis.current)return;const id=initialAnalysis.current;initialAnalysis.current=null;void libraryRequest<{analysis:Analysis}>({action:'analysis_get',id}).then(d=>setOpenedAnalysis(d.analysis)).catch(e=>setError(e.message));},[active]);
   useEffect(()=>{if(!active||!initialDocument.current)return;const id=initialDocument.current;initialDocument.current=null;if(id.startsWith('rec_')&&!ACCOUNT_SESSIONS){onOpenRecording(id.slice(4));return;}void libraryRequest<{document:Conversation}>({action:'fetch',id}).then(d=>setSelected(d.document)).catch(e=>setError(e.message));},[active,onOpenRecording]);
   useEffect(() => { if (!active || !documents?.some(d => !['ready', 'failed', 'stored', 'transcribed'].includes(d.status))) return; const timer = setInterval(() => void refresh(true), 8000); return () => clearInterval(timer); }, [active, documents, refresh]);
@@ -260,6 +306,12 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
   const visible = (documents || []).filter(d => !filter || d.project === filter);
   const orderedRecords = [...visible].sort((a, b) => (a.status === 'failed' ? 0 : 1) - (b.status === 'failed' ? 0 : 1));
   const shownRecords = orderedRecords.slice(0, recordLimit);
+  const hasCachedRows = shownRecords.length < orderedRecords.length;
+  const displayedTotal = filter ? orderedRecords.length : counts.browseTotal;
+  function showMoreArtifacts() {
+    if (!hasCachedRows && artifactCursor) void readArtifacts('older', artifactCursor);
+    setRecordLimit(count => count + 30);
+  }
   const searchGroups = results ? groupSearchHits(results) : [];
   const askDetails = <details className="cc-library-ask"><summary>{view === 'Projects' ? 'Compare an idea' : 'Ask across my Library'}</summary>{ACCOUNT_SESSIONS ? <p className="cc-muted cc-small">Library questions and idea comparisons are not available for account sign-in yet. You can search saved sources, open their downloads, or use Assistant → Text for a conversation.</p> : <section className="cc-strategy-box"><span className="cc-eyebrow"><Sparkles size={14} />{view === 'Projects' ? 'TRIAGE THE NEXT IDEA' : 'ASK ACROSS YOUR LIBRARY'}</span><h3>{view === 'Projects' ? 'Before you build it again.' : 'Connect the dots.'}</h3><p className="cc-muted">{view === 'Projects' ? 'Compare an idea with what already exists. Find overlap, blockers, and the smallest useful next step.' : 'Ask about patterns, decisions, promises, or conflicting advice across your selected context.'}</p><form className="cc-ask" onSubmit={e => { e.preventDefault(); void askLibrary(); }}><textarea aria-label={view === 'Projects' ? 'Idea to compare with projects' : 'Question across your library'} value={question} onChange={e => setQuestion(e.target.value)} rows={3} maxLength={4000} disabled={asking} placeholder={view === 'Projects' ? 'I want to build… What do I already have, and should I extend, combine, or start fresh?' : 'What have I committed to, where am I duplicating effort, and what deserves my attention?'} /><button className="cc-primary" aria-label={view === 'Projects' ? 'Triage idea' : 'Ask across library'} disabled={asking || !question.trim()}>{asking ? <Loader2 className="cc-spin" size={18} /> : <Send size={18} />}</button></form>{asking && <p role="status" className="cc-thinking"><Loader2 className="cc-spin" size={17} />Searching your context and weighing the options…</p>}<StrategyRequests active={active} onAnswer={answer=>{setAnswers(current=>[answer,...current.filter(a=>a.id!==answer.id)]);setNotice('Saved answer opened below.');}}/>{answers.map((a, i) => <AnalysisCard analysis={a} key={a.id || i} />)}</section>}</details>;
   const selectedTranscript = selected
@@ -287,11 +339,11 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork }: { 
         {searchGroups.map(group => <button className="cc-search-result" key={group.documentId} onClick={() => void openDocument(group.documentId)}><span className="cc-kind">{group.sourceApp || group.kind || 'Conversation'}{group.project ? ` · ${group.project}` : ''}</span><strong>{group.title}</strong><p>{clipText(group.excerpts[0] || '', 180)}</p><span className="cc-muted cc-small">{group.excerpts.length} {group.excerpts.length === 1 ? 'match' : 'matches'} found</span><span className="cc-text-button">Open source <ArrowUpRight size={15} /></span></button>)}
         {!results.length && <p className="cc-muted">Try a distinctive phrase or a broader project name.</p>}
       </> : <>
-        <div className="cc-heading-row"><h3>{documents !== null && orderedRecords.length ? (shownRecords.length < orderedRecords.length ? `${shownRecords.length} of ${orderedRecords.length} items` : `${orderedRecords.length} ${orderedRecords.length === 1 ? 'item' : 'items'}`) : 'Your source library'}</h3>{documents !== null && <span className="cc-muted cc-small">{counts.browseTotal} {counts.browseTotal === 1 ? 'artifact' : 'artifacts'} · {counts.libraryTotal} {counts.libraryTotal === 1 ? 'source' : 'sources'}{counts.hasMore ? ' · Latest 500 shown' : ''}</span>}</div>
+        <div className="cc-heading-row"><h3>{documents !== null && orderedRecords.length ? (shownRecords.length < displayedTotal ? `${shownRecords.length} of ${displayedTotal} items` : `${shownRecords.length} ${shownRecords.length === 1 ? 'item' : 'items'}`) : 'Your source library'}</h3>{documents !== null && <span className="cc-muted cc-small">{counts.browseTotal} {counts.browseTotal === 1 ? 'artifact' : 'artifacts'} · {counts.libraryTotal} {counts.libraryTotal === 1 ? 'source' : 'sources'}</span>}</div>
         {documents === null ? (loading ? <p className="cc-muted">Loading your private library…</p> : libraryFailed ? <div className="cc-card"><p>Library couldn't load</p><button className="cc-secondary" onClick={() => void refresh()}>Retry</button></div> : <p className="cc-muted">Refresh to connect your library.</p>) : orderedRecords.length ? <>
           {shownRecords.map(r => <button className="cc-library-item" key={r.id} onClick={() => void openDocument(r.id)}><span><span className="cc-kind">{r.sourceApp || r.kind || 'Recording'}{r.project ? ` · ${r.project}` : ''}</span><strong>{r.title}</strong><small>{new Date(r.createdAt).toLocaleString()}{r.tags?.length ? ` · ${r.tags.join(' · ')}` : ''}</small>{r.status === 'uploading' && (r.totalBytes||r.expectedBytes) && <small>{uploadLabel(r.receivedBytes || 0, r.totalBytes||r.expectedBytes||0)}</small>}</span><span className={`cc-status cc-status-${r.status}`}>{statusName(r.status)}<ArrowUpRight size={14} /></span></button>)}
-          {shownRecords.length < orderedRecords.length && <button className="cc-secondary" onClick={() => setRecordLimit(count => count + 30)}>Load more</button>}
-        </> : <div className="cc-card"><Layers size={26} /><h3>Start with a conversation that matters.</h3><p className="cc-muted">{ACCOUNT_SESSIONS ? 'Your chats, transcripts, and saved sources appear here automatically.' : 'Record or import audio, or bring a selected conversation from another assistant.'}</p></div>}
+        </> : filter ? <p className="cc-muted">{artifactCursor ? 'No items for this project in the loaded history.' : 'No items for this project.'}</p> : <div className="cc-card"><Layers size={26} /><h3>Start with a conversation that matters.</h3><p className="cc-muted">{ACCOUNT_SESSIONS ? 'Your chats, transcripts, and saved sources appear here automatically.' : 'Record or import audio, or bring a selected conversation from another assistant.'}</p></div>}
+        {(hasCachedRows || artifactCursor) && <button className="cc-secondary" disabled={readingOlder} onClick={showMoreArtifacts}>{readingOlder ? 'Loading older items…' : hasCachedRows ? 'Load more' : 'Load older items'}</button>}
       </>}
       {!ACCOUNT_SESSIONS && askDetails}
     </>}
