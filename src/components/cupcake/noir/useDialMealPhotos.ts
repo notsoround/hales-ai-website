@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { accountData, sessionSnapshot, subscribeSession } from '../accountSession';
-import { mealDay, mealIsCounted, type NutritionHistory } from '../nutritionModel';
+import { useDataChanged } from '../dataChanges';
+import { mealDay, mealIsCounted, validDay, type NutritionHistory } from '../nutritionModel';
 
 type PhotoRead = { photo?: { dataUrl?: unknown } | null };
 const MAX_PHOTOS = 3;
@@ -16,23 +17,27 @@ function thumbnailUrl(value: unknown): string | null {
 }
 
 /** The authenticated account's last confirmed, photographed meals for this nutrition day. */
-export function useDialMealPhotos(history: NutritionHistory | null, today: string, enabled: boolean): string[] {
+export function useDialMealPhotos(history: NutritionHistory | null, day: string, enabled: boolean): string[] {
   const { generation, identity } = useSyncExternalStore(subscribeSession, sessionSnapshot);
+  const [revision, setRevision] = useState(0);
+  // Attaching a different photo changes the image even if the meal ID stays the same.
+  useDataChanged(['food'], () => setRevision(value => value + 1));
   const candidates = useMemo(() => (history?.meals ?? [])
     .filter(meal => meal.id && meal.imageStored === true && /(?:Z|[+-]\d\d:\d\d)$/.test(meal.consumedAt ?? '')
-      && mealIsCounted(meal) && mealDay(meal) === today)
+      && mealIsCounted(meal) && mealDay(meal) === day)
     .map(meal => ({ id: meal.id, eaten: Date.parse(meal.consumedAt!) }))
-    .sort((a, b) => b.eaten - a.eaten || a.id.localeCompare(b.id)), [history, today]);
+    .sort((a, b) => b.eaten - a.eaten || a.id.localeCompare(b.id)), [history, day]);
   const selected = new Set<string>();
   const now = Date.now();
-  if (enabled && identity) {
+  if (enabled && identity && validDay(day)) {
     for (const meal of candidates) {
       if (meal.eaten <= now) selected.add(meal.id);
       if (selected.size === MAX_PHOTOS) break;
     }
   }
   const selection = JSON.stringify([...selected]);
-  const scope = JSON.stringify([generation, identity?.account_id, today]);
+  const confirmedEmpty = enabled && !!identity && !!history && selected.size === 0;
+  const scope = JSON.stringify([generation, identity?.account_id, day, revision]);
   const cache = useRef({ scope, urls: new Map<string, string>() });
   const [result, setResult] = useState<{ scope: string; selection: string; photos: string[] } | null>(null);
 
@@ -42,7 +47,13 @@ export function useDialMealPhotos(history: NutritionHistory | null, today: strin
       setResult(null);
     }
     const ids: string[] = JSON.parse(selection);
-    if (!ids.length) return;
+    if (!ids.length) {
+      if (confirmedEmpty) {
+        cache.current.urls.clear();
+        setResult(null);
+      }
+      return;
+    }
     const urls = cache.current.urls;
     for (const id of urls.keys()) if (!ids.includes(id)) urls.delete(id);
     const controller = new AbortController();
@@ -64,7 +75,7 @@ export function useDialMealPhotos(history: NutritionHistory | null, today: strin
       }
     });
     return () => controller.abort();
-  }, [generation, scope, selection]);
+  }, [generation, scope, selection, confirmedEmpty]);
 
   return enabled && result?.scope === scope && result.selection === selection ? result.photos : NO_PHOTOS;
 }

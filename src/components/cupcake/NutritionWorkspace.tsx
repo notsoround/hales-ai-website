@@ -4,6 +4,8 @@ import { dayLabel, elapsedLabel, lastLoggedMeal, loggedMeals, mealTimeLabel, mov
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { requestFoodCamera } from './accountMealPhotoHandoff';
 import { AccountFoodReview } from './AccountFoodReview';
+import { DialScene } from './noir/DialScene';
+import { useDialMealPhotos } from './noir/useDialMealPhotos';
 import { OPEN_MANUAL_MEAL_EVENT } from './AccountManualMeal';
 import { useDataChanged } from './dataChanges';
 import { libraryRequest } from './library';
@@ -32,7 +34,7 @@ function countUnmatchedReceipts(receipts: ReceiptSummary[] | undefined): number 
 }
 
 type CommonProps = { history?: NutritionHistory | null; settings?: NutritionSettings; loading?: boolean; error?: string; onRetry?: () => void; onOpenMeal: (mealId: string) => void; now?: Date };
-export type NutritionWorkspaceProps = CommonProps & { logControls?: ReactNode; reviewQueue?: ReactNode; reviewFirst?: boolean; onBack?: () => void; onOpenCapture?: () => void; onSaveSettings?: (settings: NutritionSettingVersion) => Promise<void>; unmatchedReceiptsCount?: number; onOpenReceipts?: () => void };
+export type NutritionWorkspaceProps = CommonProps & { foodLogActive?: boolean; logControls?: ReactNode; reviewQueue?: ReactNode; reviewFirst?: boolean; onBack?: () => void; onOpenCapture?: () => void; onSaveSettings?: (settings: NutritionSettingVersion) => Promise<void>; unmatchedReceiptsCount?: number; onOpenReceipts?: () => void };
 
 function useNutritionClock(fixed?: Date) {
   const [clock, setClock] = useState(() => new Date());
@@ -66,15 +68,17 @@ function LastMeal({ meals, now, onOpenMeal }: { meals: FoodHistoryMeal[]; now: D
 const DIAL_START = 225, DIAL_SWEEP = 270;
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
-function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal, onOpenDay }: {
+function NoirFoodHero({ daySummary, isToday, active, history, loading, now, onOpenMeal, onOpenDay }: {
   daySummary: NutritionDay | null;
   isToday: boolean;
+  active: boolean;
   history: NutritionHistory | null | undefined;
   loading?: boolean;
   now: Date;
   onOpenMeal: CommonProps['onOpenMeal'];
   onOpenDay: () => void;
 }) {
+  const photos = useDialMealPhotos(history ?? null, daySummary?.day ?? '', active && !!daySummary);
   const id = 'nxfd';
   const size = 244, R = size * 0.39, cx = size / 2, cy = size / 2, strokeW = size * 0.036;
   const pt = (deg: number, r = R) => { const rad = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)] as const; };
@@ -128,6 +132,7 @@ function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal, 
 
   return <section className="nx-food-hero" aria-label="Food summary">
     <div className="nx-food-hero-ring">
+      <DialScene tone="cal" photos={photos} />
       <div className="nx-food-dial" role="img" aria-label={`${eyebrow}: ${heroNumber} kilocalories. ${heroSub}`}>
         <svg viewBox={`0 0 ${size} ${size * 0.84}`} aria-hidden="true">
           <defs>
@@ -237,7 +242,7 @@ function NutritionSettingsForm({ settings, onSave }: { settings: NutritionSettin
   return <details className="cc-nutrition-settings"><summary><Settings2 size={17}/> Targets & estimates</summary><p>Both are optional. Your intake target is a food goal. Energy balance needs a separate estimate of calories your body uses per day.</p><form onSubmit={e => { e.preventDefault(); void save(); }}><label>Daily intake target · kcal<input inputMode="decimal" type="number" min="1" max="100000" step="any" value={target} onChange={e => setTarget(e.target.value)} placeholder="Not set"/></label><label>Estimated daily expenditure · kcal<input inputMode="decimal" type="number" min="1" max="100000" step="any" value={expenditure} onChange={e => setExpenditure(e.target.value)} placeholder="Not set"/></label><label>Apply from<input type="date" required min="2000-01-01" max={nutritionDay()} value={effective} onChange={e => setEffective(e.target.value)}/></label><button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save settings'}</button></form><p role="status">{message}</p><small>Leave a value blank to clear it from the chosen date. Earlier calendar dates keep their saved settings.</small></details>;
 }
 
-export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onBack, onOpenCapture, onSaveSettings, now: fixedNow, unmatchedReceiptsCount, onOpenReceipts, logControls, reviewQueue, reviewFirst }: NutritionWorkspaceProps) {
+export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onBack, onOpenCapture, onSaveSettings, now: fixedNow, unmatchedReceiptsCount, onOpenReceipts, logControls, reviewQueue, reviewFirst, foodLogActive = true }: NutritionWorkspaceProps) {
   const now = useNutritionClock(fixedNow), today = nutritionDay(now);
   const [anchor, setAnchor] = useState(today), [scale, setScale] = useState<NutritionScale>('day');
   const [rangeView, setRangeView] = useState<'list' | 'calendar'>(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches ? 'list' : 'calendar');
@@ -277,7 +282,7 @@ export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTING
   return <section className="cc-nutrition-workspace" aria-label="Food calendar">
     {onBack && <button type="button" className="cc-nutrition-link cc-nutrition-back" onClick={onBack}><ChevronLeft size={17}/> Back to Today</button>}
     {ACCOUNT_SESSIONS ? (
-      <NoirFoodHero daySummary={history ? heroDay : null} isToday={heroIsToday} history={history} loading={loading} now={now} onOpenMeal={onOpenMeal} onOpenDay={openHeroDay} />
+      <NoirFoodHero daySummary={history ? heroDay : null} isToday={heroIsToday} active={foodLogActive} history={history} loading={loading} now={now} onOpenMeal={onOpenMeal} onOpenDay={openHeroDay} />
     ) : (
       <div className="cc-nutrition-heading"><div><span className="cc-nutrition-eyebrow">Your food log</span><h2>Food calendar</h2><p>Meals, timing, and the bigger picture.</p></div>{onOpenCapture && <button type="button" className="cc-nutrition-primary" onClick={onOpenCapture}>Add food photo</button>}</div>
     )}

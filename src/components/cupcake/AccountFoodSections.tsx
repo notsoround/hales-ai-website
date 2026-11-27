@@ -34,7 +34,7 @@ function useDesktop() {
   return wide;
 }
 /** Compose the pinned page's existing controls into the account Food workspace. */
-function arrangeFoodLog(children: ReactNode) {
+function arrangeFoodLog(children: ReactNode, active: boolean) {
   const parts = Children.toArray(children);
   const calendar = parts.find(part => isValidElement<NutritionWorkspaceProps>(part) && part.type === NutritionWorkspace);
   if (!isValidElement<NutritionWorkspaceProps>(calendar)) return children;
@@ -42,6 +42,7 @@ function arrangeFoodLog(children: ReactNode) {
   const review = parts.find(part => isValidElement<{ 'aria-label'?: string }>(part) && part.type === 'section' && part.props['aria-label'] === 'Photos to check');
   return <>
     {cloneElement(calendar, {
+      foodLogActive: active,
       logControls: capture.map(part => isValidElement<{ compact?: boolean }>(part) ? cloneElement(part, { compact: true }) : part),
       reviewQueue: review,
       reviewFirst: !!review && review === parts[0],
@@ -78,7 +79,7 @@ function FoodSections({ children, onOpenReceipts }: { children: ReactNode; onOpe
   }, [choose, focusTab, onOpenReceipts]);
   return <>
     <div className="cc-food-sections" role="tablist" aria-label="Food sections">{sections.map((item, index) => <button key={item.key} ref={node => { buttons.current[index] = node; }} id={`${id}-${item.key}`} aria-controls={`${id}-panel-${item.key}`} type="button" role="tab" aria-selected={section === item.key} tabIndex={section === item.key ? 0 : -1} onClick={() => choose(item.key)} onKeyDown={event => { const next = event.key === 'ArrowRight' ? (index + 1) % count : event.key === 'ArrowLeft' ? (index + count - 1) % count : event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : -1; if (next >= 0) { event.preventDefault(); choose(sections[next].key); buttons.current[next]?.focus(); } }}>{item.label}</button>)}</div>
-    <div className="space-y-4 nx-food-log-stack" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{arrangeFoodLog(children)}</div>
+    <div className="space-y-4 nx-food-log-stack" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{arrangeFoodLog(children, section === 'log')}</div>
     {planOpened && <div id={`${id}-panel-${section === 'groceries' ? 'groceries' : 'plan'}`} role="tabpanel" aria-labelledby={`${id}-${section === 'groceries' ? 'groceries' : 'plan'}`} hidden={section !== 'plan' && section !== 'groceries'}><AccountFoodPlan section={wide ? 'both' : section === 'groceries' ? 'groceries' : 'plan'} onPlan={() => choose('plan')} onGroceries={() => { choose('groceries'); focusTab('groceries'); }} onReceipts={() => { choose('receipts'); focusTab('receipts'); }}/></div>}
     {receiptsOpened && <div id={`${id}-panel-receipts`} role="tabpanel" aria-labelledby={`${id}-receipts`} hidden={section !== 'receipts'}><ReceiptWorkspace active={section === 'receipts'} /></div>}
   </>;

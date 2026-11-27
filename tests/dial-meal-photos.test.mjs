@@ -47,6 +47,7 @@ try {
   let owner = 'a', release, markReadStarted, markReadFinished;
   const readStarted = new Promise(resolve => { markReadStarted = resolve; });
   const readFinished = new Promise(resolve => { markReadFinished = resolve; });
+  const replacements = new Map();
   const reads = [], external = [], src = (id, who = owner) => 'data:image/jpeg;base64,' + Buffer.from(who + '.' + id).toString('base64');
   await page.route('**/*', async r => {
     const url = new URL(r.request().url());
@@ -59,7 +60,7 @@ try {
     const { action, mealId } = r.request().postDataJSON();
     reads.push({ action, mealId, owner: r.request().headers()['x-cupcake-account-context'] });
     if (mealId === 'delayed') await new Promise(resolve => { release = resolve; markReadStarted(); });
-    const dataUrl = mealId === 'unsafe' ? 'https://example.invalid/private-original' : src(mealId === 'duplicate' ? 'dinner' : mealId, who);
+    const dataUrl = mealId === 'unsafe' ? 'https://example.invalid/private-original' : src(replacements.get(mealId) ?? (mealId === 'duplicate' ? 'dinner' : mealId), who);
     await r.fulfill({ json: { ok: true, identity, photo: { dataUrl } } });
     if (mealId === 'delayed') markReadFinished();
   });
@@ -103,9 +104,38 @@ try {
   await expectPhotos(['dinner', 'afternoon', 'breakfast'].map(id => src(id)));
   await render({ day: '2026-11-27' });
   await expectPhotos([]);
+  // The calendar can revisit a meal whose first attachment was undone and replaced.
+  const oneMeal = { ...history, meals: [photos[0]] };
+  const oneMealWithoutPhoto = { ...history, meals: [{ ...photos[0], imageStored: false }] };
+  replacements.set('dinner', 'attachment-a');
+  await render({ history: oneMeal });
+  await expectPhotos([src('attachment-a')]);
+  const readsBeforeUndo = reads.length;
+  await render({ history: oneMealWithoutPhoto });
+  await expectPhotos([]);
+  replacements.set('dinner', 'attachment-b');
+  await render({ history: oneMeal });
+  await expectPhotos([src('attachment-b')]);
+  assert.equal(reads.length, readsBeforeUndo + 1);
+
+  // Some refreshes keep the same selected meal IDs, including a change on another device.
+  replacements.set('dinner', 'replacement');
+  await page.evaluate(() => window.fixture.changed('food'));
+  await expectPhotos([src('replacement')]);
+  assert.equal(reads.length, readsBeforeUndo + 2);
+  await render({ history: oneMeal, enabled: false });
+  await expectPhotos([]);
+  replacements.set('dinner', 'changed-while-hidden');
+  await page.evaluate(() => window.fixture.changed('food'));
+  await render({ history: oneMeal, day: '' });
+  await expectPhotos([]);
+  assert.equal(reads.length, readsBeforeUndo + 2);
+  await render({ history: oneMeal });
+  await expectPhotos([src('changed-while-hidden')]);
+  assert.equal(reads.length, readsBeforeUndo + 3);
   assert.deepEqual(external, []);
   assert.ok(reads.every(r => r.action === 'food_photo_thumbnail' && ['a','b'].includes(r.owner)));
-  console.log('PASS: confirmed local-day meals, fresh save, ordering, duplicate IDs/images, bounded reads, dial reuse, unsafe response, midnight and account change.');
+  console.log('PASS: confirmed local-day meals, fresh save, ordering, duplicate IDs/images, bounded reads, dial reuse, unsafe response, midnight, account changes, replacing an attachment after Undo, and refresh with stable meal IDs.');
 } finally {
   await browser?.close();
   await server.close();

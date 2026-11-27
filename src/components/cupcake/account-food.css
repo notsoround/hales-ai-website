@@ -38,7 +38,15 @@
   background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.014));
   border: 1px solid var(--nx-hair); font-family: var(--nx-text); color: var(--nx-ink);
 }
-.cc-app[data-entry=account] .nx-food-hero-ring { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; justify-items: center; min-width: 0; max-width: 100%; }
+.cc-app[data-entry=account] .nx-food-hero-ring { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; justify-items: center; min-width: 0; max-width: 100%; }
+/* Food has a smaller dial than Today. Fade the photograph before the value and the meal list link. */
+.cc-app[data-entry=account] .nx-food-hero-ring > .nx-dial-scene {
+  z-index: -1;
+  inset: -5px 0 auto;
+  max-width: 360px;
+  height: 152px;
+  mask-image: linear-gradient(to bottom, transparent, black 16%, black 40%, transparent 95%);
+}
 .cc-app[data-entry=account] .nx-food-dial { position: relative; width: 100%; max-width: 248px; margin: 0 auto; }
 .cc-app[data-entry=account] .nx-food-dial svg { display: block; width: 100%; height: auto; overflow: visible; }
 .cc-app[data-entry=account] .nx-food-tick { stroke: var(--nx-hair); stroke-width: 1; stroke-linecap: round; opacity: .7; }

@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { invalidateSession, restoreSession } from '../src/components/cupcake/accountSession';
+import { notifyDataChanged } from '../src/components/cupcake/dataChanges';
 import { useDialMealPhotos } from '../src/components/cupcake/noir/useDialMealPhotos';
 import type { NutritionHistory } from '../src/components/cupcake/nutritionModel';
 
@@ -13,6 +14,7 @@ const root = createRoot(document.querySelector('main')!);
 const fixture = {
   render: (props: Props) => root.render(<Probe {...props} />),
   login: restoreSession,
+  changed: notifyDataChanged,
   logout: () => invalidateSession('Synthetic sign-out', false),
 };
 Object.assign(window, { fixture });

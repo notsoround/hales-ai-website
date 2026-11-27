@@ -28,6 +28,15 @@
   object-position: 50% 47%;
   filter: saturate(.82) brightness(.82);
 }
+/* Keep both ends of the daybed and the floating Zs inside the narrow dial. */
+.nx-dial-scene[data-scene="sleep"] {
+  width: min(100%, 550px);
+  height: auto;
+  aspect-ratio: 3 / 1;
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 53%, transparent),
+    linear-gradient(to right, transparent, black 17%, black 84%, transparent);
+  mask-composite: intersect;
+}
 .nx-dial-scene[data-count="2"] img:first-child,
 .nx-dial-scene[data-count="3"] img:first-child {
   left: auto;

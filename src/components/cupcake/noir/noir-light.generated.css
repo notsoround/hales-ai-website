@@ -4989,6 +4989,10 @@ html[data-cc-scheme=light] .cc-app[data-entry=account] .cc-chat select.cc-chat-s
     background-color: transparent;
     color: var(--nx-a)
 }
+/*  noir/dial-scene.css  */
+:root[data-cc-scheme=light] .nx-scene-images img {
+    filter: saturate(.82) brightness(.82)
+}
 /*  nutrition.css  */
 :root[data-cc-scheme=light] .cc-nutrition-workspace, :root[data-cc-scheme=light] .cc-nutrition-today {
     color: #0c181c
@@ -7428,10 +7432,6 @@ html[data-cc-scheme=light] .cc-app[data-entry=account] .cc-chat select.cc-chat-s
 }
 :root[data-cc-scheme=light] .cc-app .nx-md-open:focus-visible {
     outline-color: var(--nx-ink)
-}
-/*  noir/dial-scene.css  */
-:root[data-cc-scheme=light] .nx-scene-images img {
-    filter: saturate(.82) brightness(.82)
 }
 /*  noir/noir-elevate.css  */
 :root[data-cc-scheme=light] .cc-app[data-entry=account] {
