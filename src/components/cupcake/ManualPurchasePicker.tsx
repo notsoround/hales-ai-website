@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { accountData } from './accountSession';
 import { dateText, purchaseMoney, type Purchase } from './bankPurchaseModel';
+import { lookAlikes, LOOK_ALIKE_NOTE, receiptAmountFact, receiptDateFact } from './receiptFacts';
+import { FactText } from './ReceiptFact';
 import './manual-purchase-picker.css';
 
 type ReceiptSummary = {
@@ -96,15 +98,16 @@ export function ManualPurchasePicker({ receipt, initialTransaction, onMatched }:
     {!!rows?.length && !selected && <div aria-label="Matching bank purchases">
       {rows.map(p => <button type="button" key={p.transactionId} className="cc-bank-purchase-row"
         disabled={!!unavailable(p) || loading || saving || input.trim() !== query} onClick={() => setSelected(p)}>
-        <span><strong>{p.merchant || 'Merchant unavailable'}</strong><small>{dateText(p.date)} · {unavailable(p) || 'Posted'} · Ref {p.transactionId.slice(-8)}</small></span>
+        <span><strong>{p.merchant || 'Merchant unavailable'}</strong><small>{dateText(p.date)} · {unavailable(p) || 'Posted'} · <span className="cc-receipt-nowrap">Ref {p.transactionId.slice(-8)}</span></small></span>
         <strong>{purchaseMoney(p.amount, p.currency)}</strong>
       </button>)}
+      {lookAlikes(rows).size > 0 && <p className="cc-receipt-hint cc-receipt-twins">{LOOK_ALIKE_NOTE}</p>}
       {cursor && <button type="button" className="cc-text-button" disabled={loading || saving || input.trim() !== query} onClick={() => void search(query, cursor)}>Show more results</button>}
     </div>}
     {selected && <section aria-label="Confirm a manual match">
       <dl>
-        <div><dt>Receipt</dt><dd>{receipt.merchant || 'Merchant unavailable'} · {dateText(receipt.date)} · {purchaseMoney(receipt.expectedTotal ?? receipt.grandTotal ?? receipt.total, receipt.currency)}</dd></div>
-        <div><dt>Bank purchase</dt><dd>{selected.merchant || 'Merchant unavailable'} · {dateText(selected.date)} · {purchaseMoney(selected.amount, selected.currency)} · Ref {selected.transactionId.slice(-8)}</dd></div>
+        <div><dt>Receipt</dt><dd>{receipt.merchant || 'Merchant not read'} · {receiptDateFact(receipt.date).text} · <FactText fact={receiptAmountFact(receipt.expectedTotal ?? receipt.grandTotal ?? receipt.total, receipt.currency)} /></dd></div>
+        <div><dt>Bank purchase</dt><dd>{selected.merchant || 'Merchant unavailable'} · {selected.authorizedDate && selected.authorizedDate !== selected.date && <>Bought {dateText(selected.authorizedDate)} · </>}Posted {dateText(selected.date)} · <span className="cc-receipt-nowrap">{purchaseMoney(selected.amount, selected.currency)}</span> · <span className="cc-receipt-nowrap">Ref {selected.transactionId.slice(-8)}</span></dd></div>
       </dl>
       <p>Link these only if they’re the same purchase, including any tip.</p>
       <div className="cc-action-row">
