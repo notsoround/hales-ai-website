@@ -54,7 +54,7 @@ try {
   assert.deepEqual(store, [], 'draft removed after receipt_get confirms save');
 
   await page.evaluate(() => { window.receiptFixture.failAfterCommit = true; });
-  await page.getByLabel('Take receipt photo').setInputFiles({ name: 'synthetic2.png', mimeType: 'image/png', buffer: png });
+  await page.getByLabel('Choose receipt image').setInputFiles({ name: 'synthetic2.png', mimeType: 'image/png', buffer: png });
   await page.getByText('Synthetic response lost').waitFor();
   await page.evaluate(() => window.switchOwner('B'));
   const otherDrafts = await page.evaluate(async () => (await import('/src/components/cupcake/accountReceiptDraft.ts')).receiptDraftStore().list());
