@@ -47,7 +47,9 @@ try {
   assert.equal(await add.getAttribute('aria-expanded'), 'false');
   assert.equal(await page.getByRole('button', { name: 'Take receipt photo' }).count(), 0);
   const navTop = await page.locator('nav.cc-nav').evaluate(nav => nav.getBoundingClientRect().top);
-  const box = await first.boundingBox();
+  // With the match deck, the first unmatched receipt is the deck's own card at the top of the view.
+  const deckReceipt = page.locator('.cc-deck .cc-deck-side').first();
+  const box = await (await deckReceipt.count() ? deckReceipt : first).boundingBox();
   assert.ok(box && box.y + box.height <= navTop, `first saved receipt is visible without scrolling (bottom ${box?.y + box?.height}, nav ${navTop})`);
   await add.click();
   const take = page.getByRole('button', { name: 'Take receipt photo' });
