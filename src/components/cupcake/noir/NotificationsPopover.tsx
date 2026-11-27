@@ -6,6 +6,7 @@ import { useDataChanged } from '../dataChanges';
 import { useBackClose } from '../nativeFeel';
 import { loadWeightPage, normalizeWeightMeasurements } from '../weightApi';
 import { lastLoggedMeal, nutritionDay, type FoodHistoryMeal } from '../nutritionModel';
+import { openMissedCalls } from '../phoneCallHistory';
 import { personalStorage } from '../personalStorage';
 
 export type NotificationTarget = 'talk' | 'snap' | 'fitness' | 'library' | 'week' | 'settings' | 'receipts';
@@ -161,8 +162,8 @@ function parseServerSummary(data: ServerSummaryResponse): NotificationsSummarySn
         id: asString(raw.id) || `srv-${kind}-${i}`,
         kind,
         count: count || 1,
-        title,
-        detail: detail || (kind === 'missed_calls' ? 'Catch up by voice →' : kind === 'unmatched_receipts' ? 'Review →' : 'Open →'),
+        title: kind === 'missed_calls' ? 'Missed call recaps' : title,
+        detail: kind === 'missed_calls' ? 'Read or listen to saved recaps' : detail || (kind === 'unmatched_receipts' ? 'Review →' : 'Open →'),
         target: mapTarget(asString(raw.targetTab) || asString(raw.action), rawKind),
       });
     }
@@ -174,9 +175,9 @@ function parseServerSummary(data: ServerSummaryResponse): NotificationsSummarySn
         id: 'missed-calls',
         kind: 'missed_calls',
         count: missedCalls7d,
-        title: `Missed ${missedCalls7d} ${missedCalls7d === 1 ? 'call' : 'calls'}`,
-        detail: 'Catch up by voice →',
-        target: 'talk',
+        title: 'Missed call recaps',
+        detail: 'Read or listen to saved recaps',
+        target: 'library',
       });
     }
     if (unmatchedReceipts > 0) {
@@ -437,7 +438,8 @@ export function NotificationsPopover({
 
   const handlePick = (item: NotificationActionItem) => {
     setOpen(false);
-    onNavigate(item.target);
+    if (item.kind === 'missed_calls') openMissedCalls();
+    else onNavigate(item.target);
   };
 
   return (

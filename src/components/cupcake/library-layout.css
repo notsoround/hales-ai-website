@@ -16,3 +16,7 @@
 .cc-library-view-panel .cc-file input{overflow:hidden}
 .cc-library-key-help{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:600px){.cc-library-view-navigation{margin-top:20px}}
+
+.cc-call-history-filter { display: inline-flex; gap: .25rem; }
+.cc-call-history-filter .cc-text-button { padding: .55rem .65rem; }
+.cc-call-history-filter [aria-pressed="true"] { font-weight: 700; text-decoration: underline; text-underline-offset: .3em; }

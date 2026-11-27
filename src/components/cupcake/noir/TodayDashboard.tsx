@@ -17,6 +17,7 @@ import { PullRefresh } from '../PullRefresh';
 import { Sparkline } from '../design/Visuals';
 import { todayLine } from './voice';
 import './noir-today.css';
+import { callHistoryUrl, openMissedCalls } from '../phoneCallHistory';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
 import type { CSSProperties, ReactNode } from 'react';
 import { calorieState, stepInk } from './metricProgress';
@@ -408,10 +409,13 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
       onClear={clear}
     />
     {missedCallsCount > 0 && (
-      <button type="button" className="nx-missed-calls" onClick={onTalk}>
+      <a className="nx-missed-calls" href={callHistoryUrl} onClick={event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        event.preventDefault(); openMissedCalls();
+      }}>
         <PhoneMissed size={14} aria-hidden="true" />
-        <span>Missed {missedCallsCount} {missedCallsCount === 1 ? 'call' : 'calls'} · Catch up by voice →</span>
-      </button>
+        <span>Missed calls · Read or listen →</span>
+      </a>
     )}
     <QuickWeighSheet open={weighOpen} latestLb={headlineW?.valueLb ?? latestScaleW?.weightLb ?? null} deltaLb={wDelta} subtitle={weightSub} trend={w30} onClose={() => setWeighOpen(false)} onOpenHistory={openWeightHistory} />
     <div className="nx-today-top">

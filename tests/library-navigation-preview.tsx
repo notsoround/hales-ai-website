@@ -15,6 +15,11 @@ const fixture = { requests: [] as { route: string; action: string; context: stri
 const nativeFetch = window.fetch;
 let failNextArtifactPage = new URLSearchParams(location.search).has('failOlderOnce');
 const documents = Array.from({ length: 34 }, (_, n) => ({ id: 'fixture_' + n, title: 'Synthetic source ' + (n + 1), status: 'ready', createdAt: '2026-11-08T06:00:00Z', kind: 'note', sourceApp: 'Local fixture', text: 'Synthetic source text.' }));
+const demoCall = {
+  ...documents[0], id: 'fixture_phone', title: 'Synthetic phone call', kind:'conversation',
+  sourceApp: 'Cupcake phone transcript', providerEndedReason: 'voicemail',
+  text: 'Original synthetic text.\nAI/provider summary (interpretation, separate from original):\nSynthetic voicemail recap.',
+};
 const project = { id: 'fixture_project', name: 'Synthetic project', description: 'Existing project context', status: 'active' };
 window.fetch = async (input, init) => {
   const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href);
@@ -25,6 +30,10 @@ window.fetch = async (input, init) => {
   const context = new Headers(init?.headers).get('X-Cupcake-Account-Context');
   fixture.requests.push({ route, action, context });
   const ok = (value: object) => Response.json({ ok: true, ...value, ...(ACCOUNT_SESSIONS ? { identity } : {}) });
+  if (action === 'list' && body.sourceFilter === 'phone-calls' && route === '/api/account/data' && context === identity.account_id) {
+    const older = { ...demoCall, id:'fixture_older_phone', createdAt:'2026-10-01T12:00:00Z', providerEndedReason:'silence-timed-out' };
+    return ok({ documents:[body.cursor ? older : demoCall], browseTotal:2, nextCursor:body.cursor ? null : 'synthetic-next' });
+  }
   if (route === '/api/account/session') return ok({ identity });
   if (ACCOUNT_SESSIONS ? route !== '/api/account/data' || context !== identity.account_id : route !== '/cupcake-library') throw Error('Incorrect transport or account context.');
   if (action === 'list' && body.sourceFilter === 'artifacts' && new URLSearchParams(location.search).has('artifactPages')) {
@@ -45,6 +54,7 @@ window.fetch = async (input, init) => {
   if (action === 'list') return ok(body.sourceFilter === 'channel-messages'
     ? { documents: [{ ...documents[0], id: 'fixture_message', speakerRole: 'assistant', sourceApp: 'Telegram', excerpt: 'Synthetic captured message.' }], browseTotal: 1, nextCursor: null }
     : { documents, projects: [project], browseTotal: 34, libraryTotal: 35, hasMore: false });
+  if (action === 'fetch' && body.id === demoCall.id) return ok({ document:demoCall });
   if (action === 'fetch') return ok({ document: documents.find(d => d.id === body.id) || documents[0] });
   if (action === 'search') return ok({ results: [{ ...documents[0], documentId: documents[0].id, text: 'Synthetic search result.' }] });
   if (action === 'analysis_list' && fixture.failAnalyses) throw Error('Synthetic saved-analysis read failed.');
