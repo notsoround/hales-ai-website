@@ -44,6 +44,21 @@ try {
     assert.equal(await spend.getByRole('button', { name: /Open history$/ }).locator('svg.nx-spend-chevron').count(), 1);
     assert.equal(await spend.getByRole('button', { name: /^Refresh spending/ }).count(), 1);
     assert.equal(await spend.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+    // Card 14: in light mode the dial's minor rings reach 3:1 against the page and legend values are not faint.
+    const light = await page.evaluate(async () => {
+      document.documentElement.setAttribute('data-cc-scheme', 'light');
+      await new Promise(resolve => setTimeout(resolve, 1200)); // let the rings' opacity transition settle
+      const lum = color => { const [r, g, b] = color.match(/[\d.]+/g).slice(0, 3).map(n => +n / 255).map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const ground = lum('rgb(245, 249, 250)');
+      const rings = [...document.querySelectorAll('.nx-today-dial .nx-md-ring:not(.is-primary) .nx-md-fill')].map(el => {
+        const s = getComputedStyle(el), l = lum(s.stroke); return { ratio: (Math.max(l, ground) + 0.05) / (Math.min(l, ground) + 0.05), opacity: +s.opacity };
+      });
+      const keys = [...document.querySelectorAll('.nx-md-key')].map(el => +getComputedStyle(el).opacity);
+      document.documentElement.removeAttribute('data-cc-scheme');
+      return { rings, keys };
+    });
+    assert.ok(light.rings.length >= 3 && light.rings.every(ring => ring.ratio >= 3 && ring.opacity === 1), JSON.stringify(light.rings));
+    assert.ok(light.keys.every(opacity => opacity >= 0.8), JSON.stringify(light.keys));
     await page.locator('summary[aria-label="Settings"]').click();
     const group = page.locator('.cc-settings-group').filter({ hasText: 'App & updates' });
     await group.locator('summary').click();
@@ -52,7 +67,7 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log('PASS: at 320 and 390 px the header reads "MyCupcake" uncut (owner kept in the accessible name), the version sits in Settings → App & updates, and Spent today carries a chevron beside refresh.');
+  console.log('PASS: at 320 and 390 px the header reads "MyCupcake" uncut (owner kept in the accessible name), the version sits in Settings → App & updates, Spent today carries a chevron beside refresh, and light-mode dial rings reach 3:1.');
 } finally {
   await browser?.close();
   await server.close();
