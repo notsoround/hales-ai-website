@@ -1,3 +1,4 @@
+import { checkManualReceiptMatch } from './assert-manual-receipt-match.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { homedir, tmpdir } from 'node:os';
@@ -10,7 +11,7 @@ const server = await createServer({ cacheDir, define: { 'import.meta.env.VITE_CU
   plugins: [{name:'synthetic-bank-workspace', configureServer(s){s.middlewares.use((req,_res,next)=>{
     if(req.url?.split('?')[0]==='/cupcake/account')req.url='/tests/account-receipt-navigation-preview.html';
     next();
-  });}}], server: {host:'127.0.0.1',port:preview?5302:0,hmr:false,fs:{allow:[process.cwd(),realpathSync('node_modules')]}} });
+  });}}], server: {host:'127.0.0.1',port:preview?Number(process.env.RECEIPT_PREVIEW_PORT || 5302):0,hmr:false,fs:{allow:[process.cwd(),realpathSync('node_modules')]}} });
 await server.listen();
 const base='http://127.0.0.1:'+server.httpServer.address().port;
 const url=tab=>base+'/cupcake/account?tab='+tab+'&view=receipts';
@@ -29,6 +30,9 @@ if(preview) { console.log('Synthetic receipt workspace: '+url('library')); } els
       const rows=workspace.locator('.cc-bank-purchase-row').filter({hasText:'Marina Market'}); await rows.first().waitFor(); assert.equal(await rows.count(),2);
       await rows.nth(1).click(); await workspace.getByRole('heading',{name:'Bank purchase',exact:true}).waitFor();
       assert.equal(query().get('transaction'),'synthetic-b-1042');assert.equal(query().get('tab'),tab);
+      const reconcileCharge=workspace.getByRole('button',{name:'Reconcile',exact:true});
+      assert.equal(await workspace.getByRole('link',{name:/Marina Market/}).count(),0);
+      await reconcileCharge.click();
       await workspace.getByRole('link',{name:/Marina Market/}).click();
       await workspace.getByText('Compare this receipt with the selected bank purchase before confirming.',{exact:true}).waitFor();
       assert.equal(await workspace.getByRole('radio').count(),1);
@@ -80,6 +84,7 @@ if(preview) { console.log('Synthetic receipt workspace: '+url('library')); } els
       assert.equal(query().get('transaction'),'synthetic-b-1042'); assert.equal(query().get('tab'),tab);
       await page.goBack(); await workspace.getByRole('link',{name:'Open matched receipt',exact:true}).waitFor();
       await page.goto(url(tab)+'&transaction=synthetic-a-1041');
+      await reconcileCharge.click();
       await workspace.getByText('No matching saved receipt found for this purchase.',{exact:true}).waitFor();
       assert.equal(await workspace.getByRole('link',{name:'Open matched receipt',exact:true}).count(),0);
       await workspace.getByRole('button',{name:'Back',exact:true}).click();
@@ -95,23 +100,61 @@ if(preview) { console.log('Synthetic receipt workspace: '+url('library')); } els
       await workspace.getByRole('button',{name:'Unlink purchase',exact:true}).click();
       await workspace.getByText('Bank link removed. You can choose another purchase.').waitFor();
       assert.equal(query().get('transaction'),null);
-      await workspace.getByRole('button',{name:'Find transaction matches'}).click();
+      await workspace.getByRole('button',{name:'Reconcile',exact:true}).click();
       await workspace.getByRole('radio').first().waitFor();
       assert.equal(await workspace.getByRole('radio').count(),2);
       await page.goto(url(tab)+'&transaction=synthetic-b-1042');
-      await workspace.getByRole('heading',{name:'Find an existing receipt'}).waitFor();
+      await reconcileCharge.waitFor();
       const purchaseUrl=page.url();
       await openCenterCamera();
       await camera.getByRole('button',{name:'Close camera'}).click();
       await page.goBack();
-      await workspace.getByRole('heading',{name:'Find an existing receipt'}).waitFor();
+      await reconcileCharge.waitFor();
       assert.equal(page.url(),purchaseUrl,'Back restores a bank purchase opened without a receipt');
       assert.equal(await workspace.getByRole('link',{name:'Open matched receipt'}).count(),0);
+      await reconcileCharge.click();
       await workspace.getByRole('link',{name:/Marina Market/}).click();
       await workspace.getByRole('button',{name:'Confirm selected match'}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+      const emptyUrl=url(tab)+'&reconcile=empty';
+      await page.goto(emptyUrl+'&transaction=synthetic-b-1042');
+      await reconcileCharge.click();
+      await workspace.getByText('No matching saved receipt found for this purchase.',{exact:true}).waitFor();
+      assert.equal(await workspace.getByRole('searchbox').count(),0);
+      await workspace.getByRole('button',{name:'Find a saved receipt',exact:true}).click();
+      const search=workspace.getByRole('search',{name:'Find a saved receipt'}).getByRole('searchbox');
+      assert.equal(await workspace.getByRole('link',{name:/Cash only fixture|Unread fixture|Harbor Bakery/}).count(),0);
+      await search.fill('no-such-receipt');
+      await workspace.getByText('No available saved receipts match your search.').waitFor();
+      const picked=workspace.getByRole('link',{name:/Marina Market/});
+      await search.fill('24.00');await picked.waitFor();
+      const receiptDate=await page.evaluate(()=>new Date().toISOString().slice(0,10));
+      await search.fill(receiptDate);await picked.waitFor();
+      await search.fill('marina');await picked.click();
+      const bankManualReview=workspace.getByRole('region',{name:'Confirm a manual match'});
+      await bankManualReview.waitFor();
+      assert.equal(query().get('transaction'),'synthetic-b-1042');
+      assert.equal(await page.evaluate(()=>window.receiptNavFixture.confirms.length),0);
+      await bankManualReview.getByRole('button',{name:'Confirm this match'}).click();
+      await workspace.getByRole('link',{name:'Open matched bank purchase'}).click();
+      await workspace.getByRole('link',{name:'Open matched receipt'}).waitFor();
+      assert.equal(query().get('transaction'),'synthetic-b-1042');
+      await checkManualReceiptMatch(page, emptyUrl);
+      await page.evaluate(()=>sessionStorage.removeItem('synthetic-receipt-match'));
+      const partialUrl = new URL(emptyUrl);
+      partialUrl.searchParams.set('reconcile', 'partial');
+      partialUrl.searchParams.set('receipt', 'receipt_'+'c'.repeat(32));
+      await page.goto(partialUrl.href);
+      await workspace.getByRole('button',{name:'Reconcile',exact:true}).click();
+      await workspace.getByRole('heading',{name:'Suggested purchases'}).waitFor();
+      await workspace.getByRole('button',{name:/Similar merchant and same printed amount/i}).click();
+      const partialReview=workspace.getByRole('region',{name:'Confirm a manual match'});
+      await partialReview.waitFor();
+      assert.equal(await page.evaluate(()=>window.receiptNavFixture.confirms.length),0);
+      await partialReview.getByRole('button',{name:'Confirm this match'}).click();
+      await workspace.getByRole('link',{name:'Open matched bank purchase'}).waitFor();
       assert.deepEqual(failures,[]);assert.deepEqual(external,[]);await page.close();
     }
-    console.log('PASS: mobile Library and desktop Food support linked receipt/bank navigation, visible center camera, close and Back to the exact record, and new receipt capture handoff. Synthetic only.');
+    console.log('PASS: mobile Library and desktop Food support linked receipt/bank navigation, manual receipt choice from bank, single-action reconciliation, exact return and camera capture handoff. Synthetic only.');
   } finally {await browser.close();await server.close();rmSync(cacheDir,{recursive:true,force:true});}
 }

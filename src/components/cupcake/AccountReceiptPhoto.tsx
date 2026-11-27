@@ -50,15 +50,17 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
       active();
       await store.save(original); active(); setIntent(original); await reloadDrafts();
       const response = await accountReceiptPhoto<PhotoResponse>({ ...original }); active();
-      const receiptId = 'receipt_' + original.request_id.replace(/-/g, '').toLowerCase();
-      if (response.ok !== true || response.receipt?.id !== receiptId || response.receipt.status !== 'saved_unread') {
+      const requestedId = 'receipt_' + original.request_id.replace(/-/g, '').toLowerCase();
+      const receiptId = response.receipt?.id;
+      if (response.ok !== true || !/^receipt_[a-f0-9]{32}$/.test(receiptId || '') ||
+          (response.duplicate !== true && (receiptId !== requestedId || response.receipt.status !== 'saved_unread'))) {
         throw Error('The saved receipt could not be confirmed. Retry this same photo.');
       }
       const fetched = await accountData<{ receipt: SavedReceipt }>({ action: 'receipt_get', receiptId }); active();
-      if (fetched.receipt?.id !== receiptId) throw Error('The saved receipt could not be confirmed. Retry this same photo.');
+      if (fetched.receipt?.id !== receiptId || !['saved_unread', 'extracting', 'extraction_failed', 'extracted', 'matched'].includes(fetched.receipt.status)) throw Error('The saved receipt could not be confirmed. Retry this same photo.');
       await store.remove(original.request_id); active();
       void removeReviewPhoto(original.request_id, captureStorageScope()).catch(() => undefined);
-      await reloadDrafts(); setIntent(null); setSaved(true); savedCallback.current(receiptId);
+      const remaining = await reloadDrafts(); setIntent(remaining[remaining.length - 1] || null); setSaved(true); savedCallback.current(receiptId);
     } catch (cause) {
       if (alive.current && sessionSnapshot().generation === generation) {
         setError(cause instanceof Error ? cause.message : 'The photo save could not be confirmed. Retry this same photo.');
@@ -98,11 +100,11 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
     }}/>
     {loading && <p role="status">Checking saved photo requests…</p>}
     {busy && <p role="status">Saving your receipt photo…</p>}
-    {saved && <p role="status">Receipt photo saved. Reading is starting.</p>}
+    {saved && <p role="status">Receipt photo saved to your account.</p>}
     {error && <p role="alert" className="cc-error">{error}</p>}
     {intent && <div>
       <img className="cc-receipt-photo" src={intent.image} alt="Receipt photo waiting to save" />
-      <p className="cc-muted">This photo is kept on this device until its save is confirmed.</p>
+      <p className="cc-muted">Pending upload on this device. Retry to save it or open the receipt if the first upload already went through.</p>
       <button className="cc-secondary" type="button" disabled={busy} onClick={() => void upload(intent)}>Retry this photo</button>
     </div>}
     {drafts.filter(row => row.request_id !== intent?.request_id).length > 0 && <details>

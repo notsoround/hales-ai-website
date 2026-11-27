@@ -193,3 +193,15 @@
 .cc-bank-purchases code { overflow-wrap: anywhere; }
 .cc-bank-purchases h4 { margin: 0; color: var(--cc-text); }
 .cc-receipt-confirmed { display: grid; justify-items: start; gap: 8px; }
+
+.cc-receipt-reconcile { margin-top: 12px; }
+.cc-receipt-results .cc-receipt-result-heading { font-size: 1rem; margin: 16px 0 8px; }
+.cc-receipt-reconcile .cc-receipt-options { margin: 12px 0; }
+.cc-receipt-reconcile .cc-receipt-options legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.cc-receipt-more-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; }
+.cc-receipt-more-actions button, .cc-receipt-extra > summary, .cc-receipt-search-info > summary { min-height: 44px; }
+.cc-receipt-extra { margin-top: 16px; border-top: 1px solid var(--receipt-line); }
+.cc-receipt-extra > summary { cursor: pointer; align-content: center; color: var(--cc-text-2, inherit); }
+.cc-receipt-extra .cc-receipt-breakdown { margin-top: 0; border-top: none; }
+.cc-receipt-reconcile .cc-receipt-search-info { margin: 4px 0; }
+.cc-receipt-more-actions .cc-text-button { text-align: start; }
