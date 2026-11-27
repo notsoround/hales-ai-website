@@ -41,6 +41,12 @@ function respond(owner: string, body: Record<string, unknown>): object | undefin
     return {purchase,receiptCandidates: noSuggestedMatch || purchase.matchedReceiptId || chosen() ? [] : [{receiptId,merchant:original.merchant,date:today,total:24,currency:'USD',exactAmount:true,exactCurrency:true,dateDifferenceDays:0}]};
   }
   if(body.action==='receipt_get') return {receipt:receipts().find(r=>r.id===body.receiptId)};
+  // The match deck asks about each unmatched receipt in turn; only the Marina receipt has purchases to offer.
+  if(body.action==='receipt_match_candidates' && body.receiptId!==receiptId) {
+    const other={...original, id:String(body.receiptId), merchant:'Cash only fixture', printedPaymentMethod:'cash'};
+    if(!noSuggestedMatch || body.receiptId!=='receipt_'+'e'.repeat(32)) throw Error('Unknown synthetic receipt');
+    return {receipt:other,candidates:[],coverage:{complete:true}};
+  }
   if(body.action==='receipt_match_candidates' && partial) return {receipt:receipts()[0], candidates:[], suggestedPurchases:[purchases()[0]],coverage:{complete:false}};
   if(body.action==='receipt_match_candidates') return {receipt:receipts()[0], candidates:noSuggestedMatch ? [] : purchases().slice(0,2).map(p=>({...p,exactAmount:true,exactCurrency:true})),coverage:{complete:true,startDate:today,endDate:today}};
   if(body.action==='receipt_confirm_match') {
