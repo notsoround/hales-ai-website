@@ -32,3 +32,43 @@ export function savedCallRecap(call: Conversation): string {
   if (call.sourceApp === 'Cupcake phone call memory') return text.trim();
   return '';
 }
+
+/** Saved phone records: the transcript itself, or the older recap-only memory. */
+export function isPhoneCall(record: Conversation) {
+  return /^Cupcake phone /.test(record.sourceApp || '') || !!record.providerEndedReason;
+}
+
+export type CallOutcome = 'answered' | 'voicemail' | 'no-message' | 'unclear';
+const outcomes: Record<string, CallOutcome> = {
+  voicemail: 'voicemail', 'customer-voicemail': 'voicemail',
+  'customer-did-not-answer': 'no-message', 'customer-busy': 'no-message',
+  'customer-ended-call': 'answered', 'assistant-ended-call': 'answered',
+};
+export const callOutcomeLabels: Record<CallOutcome, string> = {
+  answered: 'Answered', voicemail: 'Missed · voicemail', 'no-message': 'Missed · no message', unclear: 'Unclear outcome',
+};
+/** Only the provider's own end reason decides the outcome. Silence, an unknown reason or no reason stay unclear. */
+export function callOutcome(call: Conversation): CallOutcome {
+  const reason = call.providerEndedReason;
+  return reason && Object.prototype.hasOwnProperty.call(outcomes, reason) ? outcomes[reason] : 'unclear';
+}
+/** The recorded end reason, when it adds to the outcome label. */
+export function callOutcomeDetail(call: Conversation) {
+  return ['voicemail', 'customer-voicemail', 'customer-did-not-answer'].includes(call.providerEndedReason || '') ? '' : callDisposition(call);
+}
+
+/** Length only when the record carries one. */
+export function callDuration(call: Conversation) {
+  const total = Math.round(Number(call.durationSeconds));
+  if (!Number.isFinite(total) || total <= 0) return '';
+  const minutes = Math.floor(total / 60), seconds = total % 60;
+  return minutes ? `${minutes} min${seconds ? ` ${seconds} sec` : ''}` : `${seconds} sec`;
+}
+
+/** 'saved' with a recap; 'pending' while the record is still being prepared; 'none' when a finished record has no
+ *  summary; 'unknown' when this row does not carry summary or text fields at all (nothing is claimed then). */
+export function callSummaryState(call: Conversation): 'saved' | 'pending' | 'none' | 'unknown' {
+  if (savedCallRecap(call)) return 'saved';
+  if (call.status && call.status !== 'ready') return 'pending';
+  return 'summary' in call || 'text' in call ? 'none' : 'unknown';
+}
