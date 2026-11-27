@@ -94,3 +94,8 @@
 .cc-app[data-entry=account] button.nx-steps-col::after { content: ""; position: absolute; inset: 0 -2px; }
 .cc-app[data-entry=account] .cc-audio-archive-head > .cc-secondary::after { inset: -5px -1px; }
 .cc-app[data-entry=account] :is(.cc-library-workspace > .cc-heading-row > .cc-secondary, .cc-chat-about > summary)::after { inset: -3px; }
+/* Friendly failure: one line, Retry, and the raw text kept behind a toggle. */
+.cc-app[data-entry=account] .cc-friendly-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 6px 0 10px; }
+.cc-app[data-entry=account] .cc-friendly-error details { min-width: 0; flex: 1 1 12rem; color: var(--nx-ink-3); font: 400 12px/1.4 var(--nx-text); }
+.cc-app[data-entry=account] .cc-friendly-error summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.cc-app[data-entry=account] .cc-friendly-error code { display: block; overflow-wrap: anywhere; white-space: pre-wrap; }
