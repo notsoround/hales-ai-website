@@ -16,10 +16,11 @@ const sampleCall = {
 host.syntheticReceiptNavigation = (owner, body) => {
   if (owner !== 'acc_synthetic_a') return;
   if (body.action === 'steps_list') {
-    const entries = Array.from({ length: 31 }, (_, i) => {
+    const entries = Array.from({ length: 95 }, (_, i) => {
       const date = addDays(today, -i);
+      const source = i === 13 || i === 40 ? 'ringconn' : 'galaxy_a55';
       return { date, count: i === 0 ? 4350 : i === 8 ? 0 : 3200 + (i * 1463) % 7200,
-        source: 'galaxy_a55', winningSource: 'galaxy_a55', sourcesCount: 1, windowBasis: 'calendar_day',
+        source, winningSource: source, sourcesCount: 1, windowBasis: 'calendar_day',
         windowStart: new Date(nutritionDayStart(date)).toISOString(),
         windowEnd: i ? new Date(nutritionDayStart(addDays(date,1))).toISOString() : new Date().toISOString() };
     }).filter((e,i) => i !== 3 && i !== 19 && e.date >= String(body.start) && e.date <= String(body.end));
