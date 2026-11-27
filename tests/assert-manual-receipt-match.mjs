@@ -10,7 +10,9 @@ export async function checkManualReceiptMatch(page, listUrl) {
   const writes = () => page.evaluate(() => window.accountFixture.requests.filter(r => r.body?.action === 'receipt_manual_match').length);
   assert.equal(await receipt.getByRole('search').count(), 0);
   await reconcile.click();
-  await receipt.getByText('No matching purchase found', { exact: true }).waitFor();
+  // The automatic search suggests nothing here, yet two saved purchases carry the receipt's merchant: say so.
+  await receipt.getByRole('heading', { name: '2 saved purchases from Marina Market', exact: true }).waitFor();
+  assert.equal(await receipt.getByText('No matching purchase found', { exact: true }).count(), 0);
   await receipt.getByRole('button', { name: 'Find a purchase manually' }).click();
   const form = receipt.getByRole('search', { name: 'Find a bank purchase' });
   await form.getByRole('searchbox').fill('nothing-like-this');
