@@ -34,17 +34,21 @@ try {
   await page.getByLabel('Password', { exact: true }).fill('Synthetic password 123!');
   await page.evaluate(() => {
     const fallback = window.fetch;
+    let empty = false;
+    window.clearSyntheticStepReadings = () => { empty = true; };
     window.fetch = (input, init) => {
       const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}');
       if (body.action !== 'steps_list') return fallback(input, init);
       return Promise.resolve(Response.json({ ok: true, identity: {
         account_id: 'acc_synthetic_a', email: 'a@example.invalid', name: 'Synthetic A',
-      }, entries: [
+      }, entries: empty ? [] : [
         { date: '2026-03-18', count: 8000, source: 'galaxy_a55', windowBasis: 'calendar_day' },
         { date: '2026-03-17', count: 7999, source: 'health_connect', windowBasis: 'trailing_24h_previous_day',
           windowStart: '2026-03-17T12:00:00Z', windowEnd: '2026-03-18T12:00:00Z' },
         { date: '2026-03-15', count: 0, source: 'health_connect' },
-      ] }));
+        { date: '2026-02-16', count: 2201, source: 'apple_health', windowBasis: 'calendar_day' },
+        { date: '2026-02-15', count: 4800, source: 'health_connect', windowBasis: 'calendar_day' },
+      ].filter(day => day.date >= body.start && day.date <= body.end) }));
     };
   });
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -52,13 +56,13 @@ try {
   await tile.click();
   const card = page.getByRole('article', { name: 'Steps', exact: true });
   await card.getByText('8,000 goal reached', { exact: true }).waitFor();
-  assert.equal(await card.getByRole('button', { pressed: true }).textContent(), 'Today');
+  assert.match(await card.getByRole('group', { name: /last seven days/ }).getByRole('button', { pressed: true }).textContent(), /^Today18$/);
   const days = card.getByRole('group', { name: /last seven days/ }).getByRole('button');
   assert.equal(await days.count(), 7);
   const yesterday = card.getByRole('button', { name: /Tue, Mar 17, 7,999 steps/ });
   await yesterday.focus();
   await yesterday.press('Enter');
-  await card.getByText('7,999', { exact: true }).waitFor();
+  assert.equal(await card.locator('.nx-steps-big').innerText(), '7,999');
   assert.match(await card.textContent(), /8,000 goal \(99%\)/);
   assert.match(await card.textContent(), /Rolling 24 hours.*7:00 AM.*7:00 AM CT/);
   assert.equal(await card.getAttribute('data-goal-met'), 'false');
@@ -66,12 +70,37 @@ try {
   await card.getByText('No step reading for Mon, Mar 16.').waitFor();
   assert.equal(await card.getByRole('progressbar').count(), 0);
   await card.getByRole('button', { name: /Sun, Mar 15, 0 steps/ }).click();
-  await card.getByText('0', { exact: true }).waitFor();
+  assert.equal(await card.locator('.nx-steps-big').innerText(), '0');
   assert.equal(await card.getByRole('progressbar').getAttribute('aria-valuenow'), '0');
   await card.getByRole('button', { name: /Today, 8,000 steps, goal reached/ }).click();
   assert.match(await card.textContent(), /Galaxy A55/);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  console.log('Passed: mobile Today to Fitness, goal boundary, historical source/window, keyboard selection, missing day and genuine zero.');
+  const history = card.locator('details.nx-step-history');
+  const toggle = history.locator('summary');
+  assert.match(await toggle.innerText(), /4,000 avg · 2 of 7 days/);
+  await toggle.click();
+  await history.getByText('2 of 7 days logged · Through yesterday').waitFor();
+  assert.equal(await history.getByRole('listitem').count(), 2);
+  assert.match(await history.innerText(), /Includes rolling 24-hour readings/);
+  // Midnight Chicago boundaries, including the oldest completed day. Today's live 8,000 is excluded.
+  await history.getByRole('button', { name: '30 days', exact: true }).click();
+  await history.getByText('3 of 30 days logged · Through yesterday').waitFor();
+  assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '3,400 steps');
+  assert.equal(await history.getByRole('listitem').count(), 3);
+  await history.getByRole('button', { name: /View Mon, Feb 16/ }).click();
+  const heading = card.getByRole('heading', { name: 'Steps · Mon, Feb 16' });
+  await heading.waitFor();
+  assert.equal(await heading.evaluate(el => el === document.activeElement), true);
+  await card.getByText('Apple Health', { exact: true }).waitFor();
+  await days.getByText('Today', { exact: true }).click();
+  await card.getByRole('heading', { name: 'Steps today' }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.evaluate(() => window.clearSyntheticStepReadings());
+  await card.getByRole('button', { name: 'Refresh steps' }).click();
+  await history.getByText('0 of 30 days logged · Through yesterday').waitFor();
+  assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '—');
+  assert.equal(await history.getByRole('listitem').count(), 0);
+  console.log('Passed: mobile step goals, dated drill-down, 7/30-day logged averages, sparse/zero/absent data, rolling sources and 30-day boundary.');
 } finally {
   await browser?.close();
   await server.close();
