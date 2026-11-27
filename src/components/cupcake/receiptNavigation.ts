@@ -1,9 +1,12 @@
 import type { MouseEvent } from 'react';
-export type ReceiptRoute = { receipt?: string; transaction?: string; bank?: boolean };
+export type ReceiptRoute = { receipt?: string; transaction?: string; bank?: boolean; manual?: boolean };
 
 export function currentReceiptRoute(): ReceiptRoute {
   const params = new URLSearchParams(location.search);
-  return { receipt: params.get('receipt') || undefined, transaction: params.get('transaction') || undefined, bank: params.get('receiptTab') === 'bank' };
+  const receipt = params.get('receipt') || undefined;
+  const transaction = params.get('transaction') || undefined;
+  return { receipt, transaction, bank: params.get('receiptTab') === 'bank',
+    manual: !!receipt && !!transaction && params.get('receiptTab') === 'manual' };
 }
 
 export function receiptWorkspaceUrl(route: ReceiptRoute, from = location.href) {
@@ -13,6 +16,7 @@ export function receiptWorkspaceUrl(route: ReceiptRoute, from = location.href) {
   for (const key of ['receipt', 'transaction', 'receiptTab']) url.searchParams.delete(key);
   if (route.receipt) url.searchParams.set('receipt', route.receipt);
   if (route.transaction) url.searchParams.set('transaction', route.transaction);
+  if (route.manual && route.receipt && route.transaction) url.searchParams.set('receiptTab', 'manual');
   if (route.bank && !route.transaction && !route.receipt) url.searchParams.set('receiptTab', 'bank');
   return url.pathname + url.search;
 }

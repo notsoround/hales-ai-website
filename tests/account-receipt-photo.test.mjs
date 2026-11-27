@@ -44,7 +44,7 @@ try {
   assert.equal(await page.getByAltText('Receipt photo waiting to save').count(), 1);
   assert.equal(first.owner, 'acc_receipt_a');
   await page.getByRole('button', { name: 'Retry this photo' }).click();
-  await page.getByText('Receipt photo saved. Reading is starting.').waitFor();
+  await page.getByText('Receipt photo saved to your account.').waitFor();
   const outcome = await page.evaluate(() => window.receiptFixture);
   assert.equal(outcome.requests.length, 2);
   assert.deepEqual(outcome.requests[0], first, 'retry after reload uses the same account, request ID and image');

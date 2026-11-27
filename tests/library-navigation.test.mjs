@@ -76,7 +76,7 @@ try {
             const panel = page.getByRole('tabpanel', { name, exact: true });
             if (name === 'Review your day') await panel.getByRole('heading', { name: 'Review your day.', exact: true }).waitFor();
             if (name === 'Receipts') {
-              await panel.getByRole('heading', { name: 'Receipts', exact: true }).waitFor();
+              await panel.getByRole('heading', { name: entry === '/cupcake' ? 'Receipts' : 'Receipts & bank purchases', exact: true }).waitFor();
               if (entry === '/cupcake') { const chosen = page.waitForEvent('filechooser'); await panel.getByText('Choose image', { exact: true }).click(); const chooser = await chosen; assert.equal(chooser.isMultiple(), false); await chooser.setFiles([]); }
               else await panel.getByText('Your photo will be saved to your account and sent to an AI provider to read the receipt. Compare it with your saved transactions afterward.', { exact: true }).waitFor();
             }

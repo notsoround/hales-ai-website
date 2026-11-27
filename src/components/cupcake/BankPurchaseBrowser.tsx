@@ -3,30 +3,18 @@ import { ChevronRight } from 'lucide-react';
 import { accountData } from './accountSession';
 import { useDataChanged } from './dataChanges';
 import { purchaseLinkClick, receiptWorkspaceUrl, type ReceiptRoute } from './receiptNavigation';
+import { purchaseMoney, dateText, type Purchase } from './bankPurchaseModel';
+import { SavedReceiptPicker } from './SavedReceiptPicker';
 
-type Purchase = {
-  transactionId: string; merchant: string | null; date: string; authorizedDate?: string | null;
-  amount: number | null; currency: string | null; pending: boolean; removed?: boolean; matchedReceiptId: string | null; matchConflict?: boolean;
-};
-type PossibleReceipt = { receiptId: string; merchant: string | null; date: string | null; total: number | null; currency: string | null; exactAmount: boolean; exactCurrency: boolean };
+type PossibleReceipt = { receiptId: string; manualOnly?: boolean; merchant: string | null; date: string | null; total: number | null; currency: string | null; exactAmount: boolean; exactCurrency: boolean };
 type PurchaseDetail = { purchase: Purchase; receiptCandidates: PossibleReceipt[]; candidatesComplete?: boolean };
 type PurchasePage = { purchases: Purchase[]; hasMore: boolean; nextCursor?: string | null };
 
-const purchaseMoney = (amount: number | null, currency: string | null) => {
-  if (typeof amount !== 'number' || !Number.isFinite(amount)) return 'Amount unavailable';
-  if (!currency || !/^[A-Z]{3}$/.test(currency)) return amount.toFixed(2) + ' · currency unknown';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
-};
-function dateText(raw: string | null | undefined) {
-  if (!raw) return 'Date unavailable';
-  const date = new Date(raw.slice(0, 10) + 'T12:00:00Z');
-  return Number.isFinite(date.getTime()) ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : raw;
-}
-
-export function BankPurchaseBrowser({ transaction, onNavigate, onBack }: { transaction?: string; onNavigate: (route: ReceiptRoute) => void; onBack: () => void }) {
+export function BankPurchaseBrowser({ transaction, cashReceiptIds, onNavigate, onBack }: { transaction?: string; cashReceiptIds?: ReadonlySet<string>; onNavigate: (route: ReceiptRoute) => void; onBack: () => void }) {
   const [detail, setDetail] = useState<PurchaseDetail | null>(null), [list, setList] = useState<Purchase[] | null>(null);
   const [cursor, setCursor] = useState<string | null>(null), [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState(''), [retry, setRetry] = useState(0), [loading, setLoading] = useState(true);
+  const [reconciling, setReconciling] = useState(false), [finding, setFinding] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   useDataChanged(['purchase'], () => { setCursor(null); setRetry(value => value + 1); });
   useEffect(() => {
@@ -72,13 +60,19 @@ export function BankPurchaseBrowser({ transaction, onNavigate, onBack }: { trans
       {purchase.authorizedDate && purchase.authorizedDate !== purchase.date && <p>Authorized {dateText(purchase.authorizedDate)}</p>}
       <details className="cc-receipt-evidence"><summary>Bank reference</summary><code>{purchase.transactionId}</code></details>
       {purchase.matchConflict ? <p role="status">The saved receipt links disagree. Review the original receipts before changing a match.</p> : purchase.matchedReceiptId ? linked({ receipt: purchase.matchedReceiptId, transaction }, 'Open matched receipt') : purchase.removed ? <p>The bank removed this purchase. It is unavailable for new matches.</p> : purchase.pending ? <p>Match a receipt once this purchase posts.</p> : <>
-        <h4>Find an existing receipt</h4>
-        {detail.receiptCandidates.length === 0 ? <p>{detail.candidatesComplete === false ? 'No match found among the receipts checked.' : 'No matching saved receipt found for this purchase.'}</p> : <p>Choose a receipt to compare with this purchase.</p>}
-        {detail.candidatesComplete === false && <p>The search covered part of your receipt history. You can also open a receipt from the saved list.</p>}
-        {detail.receiptCandidates.map(r => <a key={r.receiptId} className="cc-bank-purchase-row" href={receiptWorkspaceUrl({receipt:r.receiptId,transaction})} onClick={e => purchaseLinkClick(e, () => onNavigate({receipt:r.receiptId,transaction}))}>
-          <span><strong>{r.merchant || 'Merchant unavailable'}</strong><small>{dateText(r.date)} · {r.exactCurrency && r.exactAmount ? 'Exact amount' : 'Check amount and currency'}</small></span>
+        <button type="button" className={reconciling ? 'cc-text-button' : 'cc-primary'} aria-expanded={reconciling}
+          onClick={() => { setReconciling(value => !value); setFinding(false); }}>{reconciling ? 'Close reconciliation' : 'Reconcile'}</button>
+        {reconciling && <>
+        {detail.receiptCandidates.length === 0 ? <p role="status">{detail.candidatesComplete === false ? 'No match found among the receipts checked.' : 'No matching saved receipt found for this purchase.'}</p> : <h4>Suggested receipts</h4>}
+        {detail.candidatesComplete === false && !!detail.receiptCandidates.length && <p className="cc-muted">Suggestions cover part of your receipt history.</p>}
+        {detail.receiptCandidates.map(r => <a key={r.receiptId} className="cc-bank-purchase-row" href={receiptWorkspaceUrl({receipt:r.receiptId,transaction,manual:r.manualOnly})} onClick={e => purchaseLinkClick(e, () => onNavigate({receipt:r.receiptId,transaction,manual:r.manualOnly}))}>
+          <span><strong>{r.merchant || 'Merchant unavailable'}</strong><small>{dateText(r.date)} · {r.manualOnly ? 'Check receipt details' : r.exactCurrency && r.exactAmount ? 'Exact amount' : 'Check amount and currency'}</small></span>
           <span>{purchaseMoney(r.total,r.currency)} <ChevronRight size={15} aria-hidden="true" /></span>
         </a>)}
+        <button type="button" className="cc-secondary" aria-expanded={finding} onClick={() => setFinding(value => !value)}>Find a saved receipt</button>
+        {finding && <SavedReceiptPicker transaction={transaction} cashReceiptIds={cashReceiptIds} onNavigate={onNavigate}/>}
+        {linked({}, 'Add a receipt in Receipts', 'cc-text-button')}
+        </>}
       </>}
     </>}
   </section>;
