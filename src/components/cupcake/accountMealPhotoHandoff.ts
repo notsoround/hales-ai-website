@@ -46,6 +46,16 @@ export const FOOD_CAMERA_REQUESTED = 'cc-account-food-camera-requested';
 let requested: CaptureIntent | null = null;
 export function requestFoodCamera(intent: CaptureIntent = 'auto') {
   requested = intent;
+  const url = new URL(location.href);
+  if (url.searchParams.get('view') === 'receipts') {
+    // The camera lives in Food log. Preserve the receipt or bank detail in
+    // browser history and enter Food without its sibling panel's deep link.
+    url.searchParams.set('tab', 'snap');
+    for (const key of ['view', 'receipt', 'transaction', 'receiptTab']) url.searchParams.delete(key);
+    const state = { scroll: 0 };
+    history.pushState(state, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate', { state }));
+  }
   window.dispatchEvent(new Event(FOOD_CAMERA_REQUESTED));
 }
 export function takeFoodCameraRequest() {
