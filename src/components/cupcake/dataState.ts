@@ -1,14 +1,20 @@
 // Pure helpers that keep three states apart on Today and the dashboard: still loading, could not load
 // (error / unavailable), and genuinely zero or empty. A failed or missing read is never shown as 0 or "none".
 export type LoadStatus = 'loading' | 'ready' | 'unavailable' | 'error';
-export type StatState = { kind: 'loading' | 'error' | 'unavailable' | 'none' | 'value'; text: string };
+export type StatState = { kind: 'loading' | 'error' | 'unavailable' | 'none' | 'logged' | 'value'; text: string };
 
-/** The Energy card's Exercise figure. Only a successful read with no workouts is "None logged". */
-export function exerciseStat(status: LoadStatus, burnedKcal: number): StatState {
+/**
+ * The Energy card's Exercise figure. Only a successful read with no workouts anywhere is "None logged".
+ * `timelineWorkouts` counts workouts the Timeline shows from the feed that the exercise log did not return:
+ * with a burn figure they are already inside `burnedKcal`; without one the card says a workout is logged
+ * and that its burn is not recorded, never "None logged".
+ */
+export function exerciseStat(status: LoadStatus, burnedKcal: number, timelineWorkouts = 0): StatState {
   if (status === 'error') return { kind: 'error', text: 'Couldn’t load' };
   if (status === 'unavailable') return { kind: 'unavailable', text: 'Not available' };
   if (burnedKcal > 0) return { kind: 'value', text: Math.round(burnedKcal).toLocaleString('en-US') };
   if (status === 'loading') return { kind: 'loading', text: '…' };
+  if (timelineWorkouts > 0) return { kind: 'logged', text: `${timelineWorkouts} logged · burn not recorded` };
   return { kind: 'none', text: 'None logged' };
 }
 

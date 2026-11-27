@@ -16,7 +16,9 @@ export type DialMetric = {
   over?: number;
   /** 0..1 position of a pace notch outside the arc. */
   notch?: number | null;
-  scale: string[]; eyebrow: string; value: string; unit?: string; detail: ReactNode; chip: string;
+  scale: string[]; eyebrow: string; value: ReactNode; unit?: string; detail: ReactNode; chip: string;
+  /** Small words under the chip's number: its unit, and its age or source where the reading has one. */
+  chipNote?: string;
   spoken: string; drill: { label: string; run: () => void };
   /** A few plain facts shown in the tray when the arc is touched. */
   facts: { k: string; v: string }[];
@@ -97,7 +99,7 @@ export function MultiDial({ metrics, selected, onSelect, size = 300 }: { metrics
     </div>
     <div className="nx-md-keys" role="tablist" aria-label="Reading on the dial">
       {metrics.map(m => <button key={m.key} type="button" role="tab" data-state={m.state} aria-selected={m.key === active.key} className={`nx-md-key is-${m.tone}${m.fraction === null ? ' is-empty' : ''}`} onClick={() => onSelect(m.key)}>
-        <i aria-hidden="true" /><span>{m.label}</span><b>{m.chip}</b>
+        <i aria-hidden="true" /><span>{m.label}</span><b>{m.chip}</b>{m.chipNote ? <small>{m.chipNote}</small> : null}
       </button>)}
     </div>
     <div id={`${id}t`} className="nx-md-tray" data-open={open || undefined} role="region" aria-label={`${active.label} details`} hidden={!open}>
