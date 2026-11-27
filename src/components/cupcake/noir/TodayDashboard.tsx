@@ -22,6 +22,7 @@ import { WelcomeBack, type RecapFacts } from './WelcomeBack';
 import type { CSSProperties, ReactNode } from 'react';
 import { calorieState, stepInk } from './metricProgress';
 import { MultiDial, type DialMetric } from './MultiDial';
+import { FAST_GOAL_MIN, GLUCOSE_FRESH_MS, SLEEP_TARGET_MIN, ageLabel, durationLabel, durationParts, glucoseSourceLabel, sleepVerdict } from './dialReadings';
 import { DialScene } from './DialScene';
 import { useDialMealPhotos } from './useDialMealPhotos';
 import { LivingSkyCanvas } from './LivingSkyCanvas';
@@ -38,7 +39,8 @@ const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
 const shortDay = (day: string) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }).format(new Date(`${day}T12:00:00Z`));
 const shortDate = (ms: number) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric' }).format(new Date(ms));
 const clock = (ms: number) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).format(new Date(ms)).replace(' AM', 'a').replace(' PM', 'p');
-const hm = (minutes: number) => `${Math.floor(minutes / 60)}:${String(Math.round(minutes % 60)).padStart(2, '0')}`;
+/** The dial's big figure for a duration: "1 h 34 m" with the units set small, like every other unit on the dial. */
+const bigDuration = (minutes: number) => { const { h, m } = durationParts(minutes); return <>{h}<sub>h</sub>{m}<sub>m</sub></>; };
 
 /** Money spent today, as the account feed reports it. `amount` null means nothing has been reported. */
 export type TodaySpend = { amount: number | null; count: number; lastTime: string | null; lastTitle: string | null; source: string; checkedAt: number | null; loading: boolean; failed: boolean; onRefresh: () => void; onOpen: () => void };
@@ -280,34 +282,41 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
   const [intakeScrub, setIntakeScrub] = useState<ChartScrub | null>(null);
   const [glucoseScrub, setGlucoseScrub] = useState<ChartScrub | null>(null);
   const [weightScrub, setWeightScrub] = useState<ChartScrub | null>(null);
-  const fastMin = lastMealAt !== null ? Math.max(0, (nowMs - lastMealAt) / 60000) : null, FAST_GOAL = 16 * 60;
+  const fastMin = lastMealAt !== null ? Math.max(0, (nowMs - lastMealAt) / 60000) : null, FAST_GOAL = FAST_GOAL_MIN;
   const fastStale = fastMin !== null && fastMin > 24 * 60;
   const activeFastMin = fastStale ? null : fastMin;
-  const freshG = latestG && latestG.at <= nowMs && nowMs - latestG.at < 864e5 ? latestG : null;
-  const sleepNight = lastNight && lastNight.nightId >= addDays(today, -1) ? lastNight : null, SLEEP_GOAL = 8 * 60;
+  const freshG = latestG && latestG.at <= nowMs && nowMs - latestG.at < GLUCOSE_FRESH_MS ? latestG : null;
+  const sleepNight = lastNight && lastNight.nightId >= addDays(today, -1) ? lastNight : null, SLEEP_GOAL = SLEEP_TARGET_MIN;
   const calorieUnavailable = nutritionError || !day || (day.meals.length > 0 && !day.knownCalorieCount);
   const sleepMinutes = sleepNight?.asleepMinutes ?? null;
-  const sleepInBand = sleepMinutes !== null && sleepMinutes >= 7 * 60 && sleepMinutes <= 9 * 60;
+  // One sleep target for the arc, the sentence in the middle and the tray: SLEEP_TARGET_MIN.
+  const sleep = sleepMinutes !== null ? sleepVerdict(sleepMinutes) : null;
+  const gSource = glucoseSourceLabel(latestG?.method);
+  const gAge = latestG ? ageLabel(latestG.at, nowMs) : null;
   const metrics: DialMetric[] = [
     { key: 'cal', label: 'Calories', tone: 'cal', fraction: !calorieUnavailable && target ? Math.min(1, eaten / target) : null, state: calorieUnavailable ? 'empty' : calorieState(eaten, target), over: !calorieUnavailable && target ? Math.max(0, eaten / target - 1) : 0, notch: calorieUnavailable ? null : expected, scale,
       eyebrow: target === null ? 'Eaten today' : left! >= 0 ? 'Left today' : 'Over today', value: calorieUnavailable ? '—' : fmtInt(target === null ? eaten : Math.abs(left!)),
-      detail: nutritionError ? <em>{status}</em> : calorieUnavailable ? 'No calorie total yet' : target !== null ? <>{fmtInt(eaten)} of {fmtInt(target)} kcal · <em>{left === 0 ? 'Target reached' : status}</em></> : <em>{status}</em>, chip: calorieUnavailable ? '—' : target === null ? fmtInt(eaten) : fmtInt(Math.abs(left!)), spoken: calorieUnavailable && !nutritionError ? 'Calories, no total yet' : dialLabel, drill: { label: 'Food log', run: onOpenFood },
-      facts: [{ k: 'Eaten', v: calorieUnavailable ? 'Unknown' : `${fmtInt(eaten)} kcal${day?.partial ? ' logged · partial' : ''}` }, ...(target !== null ? [{ k: 'Target', v: `${fmtInt(target)} kcal` }] : []), ...(target && expected !== null ? [{ k: 'An even day would be at', v: `${fmtInt(target * expected)} kcal` }] : []), { k: 'Meals logged', v: String(day?.meals.length ?? 0) }] },
+      detail: nutritionError ? <em>{status}</em> : calorieUnavailable ? 'No calorie total yet' : target !== null ? <>{fmtInt(eaten)} of {fmtInt(target)} kcal · <em>{left === 0 ? 'Target reached' : status}</em></> : <em>{status}</em>, chip: calorieUnavailable ? '—' : target === null ? fmtInt(eaten) : fmtInt(Math.abs(left!)),
+      chipNote: calorieUnavailable ? undefined : target === null ? 'kcal eaten' : left! >= 0 ? 'kcal left' : 'kcal over', spoken: calorieUnavailable && !nutritionError ? 'Calories, no total yet' : dialLabel, drill: { label: 'Food log', run: onOpenFood },
+      facts: [{ k: 'Eaten', v: calorieUnavailable ? 'Unknown' : `${fmtInt(eaten)} kcal${day?.partial ? ' logged · partial' : ''}` }, ...(target !== null ? [{ k: 'Target', v: `${fmtInt(target)} kcal` }] : []), ...(!calorieUnavailable && target !== null ? [{ k: left! >= 0 ? 'Left today' : 'Over today', v: `${fmtInt(Math.abs(left!))} kcal` }] : []), ...(target && expected !== null ? [{ k: 'An even day would be at', v: `${fmtInt(target * expected)} kcal` }] : []), { k: 'Meals logged', v: String(day?.meals.length ?? 0) }] },
     { key: 'fast', label: 'Fasting', tone: 'fast', state: activeFastMin === null ? 'empty' : activeFastMin >= FAST_GOAL ? 'milestone' : 'normal', fraction: activeFastMin === null ? null : Math.min(1, activeFastMin / FAST_GOAL), scale: ['0', '4h', '8h', '12h', '16h'],
-      eyebrow: 'Fasting', value: activeFastMin === null ? '—' : hm(activeFastMin), unit: activeFastMin === null ? undefined : 'h',
-      detail: fastStale ? <>Last logged meal {shortDate(lastMealAt!)} · {clock(lastMealAt!)}</> : activeFastMin === null ? 'No meal logged yet' : <>Since your last logged meal · <em>{activeFastMin >= FAST_GOAL ? '16 h window reached' : `${Math.floor((FAST_GOAL - activeFastMin) / 60)} h ${Math.round((FAST_GOAL - activeFastMin) % 60)} m to go`}</em></>,
-      chip: activeFastMin === null ? '—' : hm(activeFastMin), spoken: fastStale ? `Fasting paused, last logged meal ${shortDate(lastMealAt!)} at ${clock(lastMealAt!)}` : activeFastMin === null ? 'Fasting, no meal logged yet' : `Fasting ${Math.floor(activeFastMin / 60)} hours ${Math.round(activeFastMin % 60)} minutes since your last logged meal`, drill: { label: 'Meals', run: onOpenFood },
-      facts: lastMealAt !== null ? [{ k: 'Last logged meal', v: `${latestMeal?.meal.description ? `${latestMeal.meal.description.slice(0, 32)} · ` : ''}${shortDate(lastMealAt)} · ${clock(lastMealAt)}` }, ...(fastStale ? [{ k: 'Fasting timer', v: 'Paused after 24 h without a logged meal' }] : [{ k: activeFastMin! >= FAST_GOAL ? '16 hours reached' : '16 hours lands at', v: `${shortDate(lastMealAt + FAST_GOAL * 60000)} · ${clock(lastMealAt + FAST_GOAL * 60000)}` }]), { k: 'Measured from', v: 'Your food log' }] : [{ k: 'Last logged meal', v: 'None yet' }] },
+      eyebrow: activeFastMin === null ? 'Fasting' : 'Fasted so far', value: activeFastMin === null ? '—' : bigDuration(activeFastMin),
+      detail: fastStale ? <>Last logged meal {shortDate(lastMealAt!)} · {clock(lastMealAt!)}</> : activeFastMin === null ? 'No meal logged yet' : <>Since your last logged meal · <em>{activeFastMin >= FAST_GOAL ? '16 h elapsed' : `${durationLabel(FAST_GOAL - activeFastMin)} to 16 h`}</em></>,
+      chip: activeFastMin === null ? '—' : durationLabel(activeFastMin), chipNote: fastStale ? `last meal ${shortDate(lastMealAt!)}` : activeFastMin === null ? undefined : 'fasted',
+      spoken: fastStale ? `Fasting paused, last logged meal ${shortDate(lastMealAt!)} at ${clock(lastMealAt!)}` : activeFastMin === null ? 'Fasting, no meal logged yet' : `Fasted ${durationParts(activeFastMin).h} hours ${durationParts(activeFastMin).m} minutes since your last logged meal`, drill: { label: 'Meals', run: onOpenFood },
+      facts: lastMealAt !== null ? [...(activeFastMin !== null ? [{ k: 'Time since last logged meal', v: durationLabel(activeFastMin) }] : []), { k: 'Last logged meal', v: `${latestMeal?.meal.description ? `${latestMeal.meal.description.slice(0, 32)} · ` : ''}${shortDate(lastMealAt)} · ${clock(lastMealAt)}` }, ...(fastStale ? [{ k: 'Fasting timer', v: 'Paused after 24 h without a logged meal' }] : [{ k: activeFastMin! >= FAST_GOAL ? '16 hours reached' : '16 hours lands at', v: `${shortDate(lastMealAt + FAST_GOAL * 60000)} · ${clock(lastMealAt + FAST_GOAL * 60000)}` }]), { k: 'Measured from', v: 'Your food log (elapsed time only)' }] : [{ k: 'Last logged meal', v: 'None yet' }] },
     { key: 'glucose', label: 'Glucose', tone: 'glucose', state: freshG ? 'normal' : 'empty', fraction: freshG && inRange !== null ? inRange / 100 : null, scale: ['0', '25%', '50%', '75%', '100%'],
-      eyebrow: 'Glucose', value: freshG ? String(freshG.valueMgDl) : '—', unit: freshG ? 'mg/dL' : undefined,
-      detail: freshG ? <><em>{inRange}% in range</em> over 14 days · read {clock(freshG.at)}</> : latestG ? `No reading since ${shortDate(latestG.at)}` : signals.errors.glucose ? 'Couldn’t load readings' : 'No readings yet',
-      chip: freshG ? String(freshG.valueMgDl) : '—', spoken: freshG ? `Glucose ${freshG.valueMgDl} milligrams per deciliter, ${inRange} percent of readings in range over 14 days` : 'Glucose, no recent reading', drill: { label: 'Readings', run: onOpenHistory },
-      facts: glucose.length ? [{ k: 'Latest', v: `${latestG!.valueMgDl} mg/dL · ${shortDate(latestG!.at)} ${clock(latestG!.at)}` }, { k: 'In range, 14 days', v: `${inRange}%` }, { k: 'Lowest to highest', v: `${Math.min(...glucose.map(g => g.valueMgDl))} to ${Math.max(...glucose.map(g => g.valueMgDl))} mg/dL` }, { k: 'Readings', v: String(glucose.length) }] : [{ k: 'Readings', v: 'None in 14 days' }] },
-    { key: 'sleep', label: 'Sleep', tone: 'sleep', state: sleepMinutes === null ? 'empty' : sleepInBand ? 'milestone' : 'normal', fraction: sleepNight ? Math.min(1, sleepNight.asleepMinutes! / SLEEP_GOAL) : null, scale: ['0', '2h', '4h', '6h', '8h'],
-      eyebrow: 'Slept last night', value: sleepNight ? hm(sleepNight.asleepMinutes!) : '—', unit: sleepNight ? 'h' : undefined,
-      detail: sleepNight ? <>Ring estimate · <em>{sleepInBand ? 'In 7–9 h band' : sleepNight.asleepMinutes! < 7 * 60 ? 'Under 7 h' : 'Above 9 h'}</em></> : signals.errors.nights ? 'Couldn’t load sleep' : 'No night uploaded',
-      chip: sleepNight ? hm(sleepNight.asleepMinutes!) : '—', spoken: sleepNight ? `Slept ${Math.floor(sleepNight.asleepMinutes! / 60)} hours ${Math.round(sleepNight.asleepMinutes! % 60)} minutes last night, an estimate from your ring` : 'Sleep, no night uploaded', drill: { label: 'History', run: onOpenHistory },
-      facts: sleepNight ? [{ k: 'Asleep', v: `${hm(sleepNight.asleepMinutes!)} h` }, ...(avgSleep !== null ? [{ k: 'Your average', v: `${hm(avgSleep)} h` }] : []), { k: 'Against 8 hours', v: sleepNight.asleepMinutes! >= SLEEP_GOAL ? 'Reached' : `${hm(SLEEP_GOAL - sleepNight.asleepMinutes!)} short` }, { k: 'Source', v: 'Ring estimate' }] : [{ k: 'Last night', v: 'Not uploaded' }] },
+      eyebrow: freshG ? 'Latest glucose' : 'Glucose', value: freshG ? String(freshG.valueMgDl) : '—', unit: freshG ? 'mg/dL' : undefined,
+      detail: freshG ? <>Manual · {clock(freshG.at)} · {gAge}<br /><em>Arc: {inRange}% in range, 14 days</em></> : latestG ? `No reading in the last 24 h · last was ${shortDate(latestG.at)}, ${clock(latestG.at)} (manual)` : signals.errors.glucose ? 'Couldn’t load readings' : 'No readings yet',
+      chip: freshG ? String(freshG.valueMgDl) : '—', chipNote: freshG ? `mg/dL · ${gAge}` : latestG ? `last ${shortDate(latestG.at)}` : undefined,
+      spoken: freshG ? `Latest glucose ${freshG.valueMgDl} milligrams per deciliter, a manual reading from ${clock(freshG.at)}, ${gAge}. The arc shows ${inRange} percent of readings in range over 14 days` : latestG ? `Glucose, no reading in the last 24 hours, last manual reading ${shortDate(latestG.at)}` : 'Glucose, no recent reading', drill: { label: 'Readings', run: onOpenHistory },
+      facts: glucose.length ? [{ k: 'Latest', v: `${latestG!.valueMgDl} mg/dL · ${shortDate(latestG!.at)} ${clock(latestG!.at)}` }, { k: 'Age', v: freshG ? gAge! : `${gAge} · older than 24 h` }, { k: 'Source', v: gSource }, { k: 'Arc: readings in 70–140, 14 days', v: `${inRange}%` }, { k: 'Lowest to highest', v: `${Math.min(...glucose.map(g => g.valueMgDl))} to ${Math.max(...glucose.map(g => g.valueMgDl))} mg/dL` }, { k: 'Readings', v: String(glucose.length) }] : [{ k: 'Readings', v: 'None in 14 days' }] },
+    { key: 'sleep', label: 'Sleep', tone: 'sleep', state: !sleep ? 'empty' : sleep.reached ? 'milestone' : 'normal', fraction: sleepNight ? Math.min(1, sleepNight.asleepMinutes! / SLEEP_GOAL) : null, scale: ['0', '2h', '4h', '6h', '8h'],
+      eyebrow: 'Slept last night', value: sleepNight ? bigDuration(sleepNight.asleepMinutes!) : '—',
+      detail: sleepNight ? <>Ring estimate · <em>{sleep!.text}</em></> : signals.errors.nights ? 'Couldn’t load sleep' : 'No night uploaded',
+      chip: sleepNight ? durationLabel(sleepNight.asleepMinutes!) : '—', chipNote: sleepNight ? 'slept · estimate' : undefined,
+      spoken: sleepNight ? `Slept ${durationParts(sleepNight.asleepMinutes!).h} hours ${durationParts(sleepNight.asleepMinutes!).m} minutes last night, an estimate from your ring, ${sleep!.reached ? '8 hour target reached' : `${sleep!.short} under the 8 hour target`}` : 'Sleep, no night uploaded', drill: { label: 'History', run: onOpenHistory },
+      facts: sleepNight ? [{ k: 'Asleep', v: durationLabel(sleepNight.asleepMinutes!) }, ...(avgSleep !== null ? [{ k: 'Your average', v: durationLabel(avgSleep) }] : []), { k: 'Against 8 h target', v: sleep!.reached ? 'Reached' : `${sleep!.short} short` }, { k: 'Source', v: 'Ring estimate' }] : [{ k: 'Last night', v: 'Not uploaded' }] },
   ];
   const weightError = signals.errors.weight && !headlineW;
   const weightSub = weightError

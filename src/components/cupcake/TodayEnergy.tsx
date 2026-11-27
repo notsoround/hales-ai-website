@@ -16,6 +16,7 @@ import './energy.css';
 import AccountCGMCard from './AccountCGMCard';
 import { ToneIcon } from './design/ToneIcon';
 import { exerciseCoverageNote, exerciseStat } from './dataState';
+import { feedOnlyWorkouts } from './exerciseTimeline';
 
 type FeedLike = Parameters<typeof preparedPurchases>[0];
 type NutritionState = { history: NutritionHistory | null; settings: NutritionSettings; loading: boolean };
@@ -34,7 +35,11 @@ export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: 
   const now = useMinuteClock(), day = nutritionDay(now), dayStart = nutritionDayStart(day), dayEnd = nutritionDayStart(addDays(day, 1));
   const steps = useLatestSteps(day);
   const bought = useMemo<BoughtEvent[]>(() => preparedPurchases(items, dayStart, now.getTime(), ACCOUNT_SESSIONS).map(p => ({ id: p.id, at: p.at, label: p.merchant, amount: p.amount, currency: p.currency })), [items, dayStart, now]);
-  const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), bought, steps: steps.day?.count ?? null, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, bought, steps.day, now]);
+  // The Timeline also shows workouts that arrive in the feed. Count those here too, once: a feed row that is one of the
+  // logged entries is skipped. If the log could not be read there is nothing to check against, so the card says so instead.
+  const timelineOnly = useMemo(() => exercise.status === 'error' || exercise.status === 'unavailable' ? [] : feedOnlyWorkouts(items, exercise.entries, dayStart, Math.min(dayEnd, now.getTime() + 300000)), [items, exercise.entries, exercise.status, dayStart, dayEnd, now]);
+  const unmeasured = timelineOnly.filter(w => w.kcal === null).length;
+  const series = useMemo(() => nutrition.history ? buildMetabolicSeries({ meals: nutrition.history.meals, settings: nutrition.settings, exercise: [...exercise.entries.map(e => ({ id: e.id, at: e.at, kcal: e.kcal, description: e.description })), ...timelineOnly.flatMap(w => w.kcal === null ? [] : [{ id: w.id, at: w.at, kcal: w.kcal, description: w.description }])].sort((a, b) => a.at - b.at), bought, steps: steps.day?.count ?? null, now }) : null, [nutrition.history, nutrition.settings, exercise.entries, timelineOnly, bought, steps.day, now]);
   const comparisonReady = !!nutrition.history?.complete && !nutrition.history.pendingCount && !nutrition.history.undatedLoggedCount;
   return <section className="cc-energy" aria-label={ACCOUNT_SESSIONS ? undefined : 'Energy today'}>
     <SugarCard day={day} dayStart={dayStart} dayEnd={dayEnd} now={now.getTime()}/>
@@ -44,7 +49,7 @@ export function TodayEnergy({ items, nutrition, exercise, openLogRequest = 0 }: 
       <div className="cc-heading-row"><h3 className="cc-card-title"><ToneIcon tone="energy"/>Energy balance today</h3></div>
       {!nutrition.history ? <p className="cc-muted">{nutrition.loading ? 'Loading food log…' : 'The curve needs your food log, which is not loaded.'}</p>
         : !series ? <p className="cc-muted">Add a daily expenditure estimate in Food settings to draw today’s curve.</p>
-          : <EnergyCurve series={series} day={day} comparisonReady={comparisonReady} steps={steps} exerciseStatus={exercise.status}/>}
+          : <EnergyCurve series={series} day={day} comparisonReady={comparisonReady} steps={steps} exerciseStatus={exercise.status} unmeasuredWorkouts={unmeasured}/>}
       <ExerciseQuickLog state={exercise} openRequest={openLogRequest}/>
     </div>
   </section>;
@@ -123,8 +128,8 @@ function useWidth(fallback: number) {
   }, []);
   return [ref, width] as const;
 }
-function EnergyCurve({ series, day, comparisonReady, steps, exerciseStatus }: { series: MetabolicSeries; day: string; comparisonReady: boolean; steps: StepsState; exerciseStatus: ExerciseState['status'] }) {
-  const exerciseFigure = exerciseStat(exerciseStatus, series.exercise);
+function EnergyCurve({ series, day, comparisonReady, steps, exerciseStatus, unmeasuredWorkouts = 0 }: { series: MetabolicSeries; day: string; comparisonReady: boolean; steps: StepsState; exerciseStatus: ExerciseState['status']; unmeasuredWorkouts?: number }) {
+  const exerciseFigure = exerciseStat(exerciseStatus, series.exercise, unmeasuredWorkouts);
   const [svgRef, W] = useWidth(640);
   const span = series.dayEnd - series.dayStart;
   const values = [0, ...series.samples.map(s => s.net), series.projectedEndOfDay];
@@ -169,6 +174,7 @@ function EnergyCurve({ series, day, comparisonReady, steps, exerciseStatus }: { 
       {untimed ? `${untimed === 1 ? '1 meal has' : `${untimed} meals have`} no time and ${untimed === 1 ? 'is' : 'are'} counted from midnight. ` : ''}
       {unknown ? `${unknown === 1 ? '1 meal has' : `${unknown} meals have`} unknown calories. ` : ''}
       {series.exercise ? `Workouts burned ${kcal(series.exercise)} kcal; the line drops by that much at each ▼. ` : ''}
+      {unmeasuredWorkouts ? `${unmeasuredWorkouts === 1 ? '1 workout on your timeline has' : `${unmeasuredWorkouts} workouts on your timeline have`} no burn figure, so ${unmeasuredWorkouts === 1 ? 'it is' : 'they are'} not counted in net. ` : ''}
       {exerciseCoverageNote(exerciseStatus)}
       {stepsNote(steps)}
     </p>
