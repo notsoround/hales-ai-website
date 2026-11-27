@@ -3,6 +3,8 @@ import { ChevronRight } from 'lucide-react';
 import { accountData } from './accountSession';
 import { dateText, purchaseMoney } from './bankPurchaseModel';
 import { purchaseLinkClick, receiptWorkspaceUrl, type ReceiptRoute } from './receiptNavigation';
+import { receiptAmountFact, receiptDateFact } from './receiptFacts';
+import { FactText } from './ReceiptFact';
 import './manual-purchase-picker.css';
 
 type SavedReceipt = {
@@ -55,8 +57,8 @@ export function SavedReceiptPicker({ transaction, cashReceiptIds, onNavigate }: 
           const route = {receipt:receipt.id, transaction, manual:true};
           return <a key={receipt.id} className="cc-bank-purchase-row" href={receiptWorkspaceUrl(route)}
             onClick={event => purchaseLinkClick(event, () => onNavigate(route))}>
-            <span><strong>{receipt.merchant || 'Merchant unavailable'}</strong><small>{dateText(receipt.date)}</small></span>
-            <span>{purchaseMoney(receiptAmount(receipt),receipt.currency)} <ChevronRight size={15} aria-hidden="true"/></span>
+            <span><strong>{receipt.merchant || 'Merchant not read'}</strong><small>{receiptDateFact(receipt.date).text}</small></span>
+            <span><FactText fact={receiptAmountFact(receiptAmount(receipt), receipt.currency)} /> <ChevronRight size={15} aria-hidden="true"/></span>
           </a>;
         })}
         {matches.length > limit && <button type="button" className="cc-secondary" onClick={() => setLimit(value=>value+pageSize)}>Show more receipts</button>}
