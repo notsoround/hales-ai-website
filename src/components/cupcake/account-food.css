@@ -215,7 +215,7 @@
 .cc-app[data-entry=account] .cc-nutrition-month-dots i.has-log { background: var(--nx-a); }
 .cc-app[data-entry=account] .cc-nutrition-view-options button { border-color: var(--nx-hair); color: var(--nx-ink-3); }
 .cc-app[data-entry=account] .cc-nutrition-view-options button[aria-pressed=true] { border-color: var(--nx-a); background: color-mix(in oklab, var(--nx-a) 10%, transparent); color: var(--nx-ink); }
-.cc-app[data-entry=account] .cc-nutrition-settings input { border-color: var(--nx-hair); background: var(--nx-surface); color: var(--nx-ink); }
+.cc-app[data-entry=account] .cc-nutrition-settings input { border-color: var(--nx-hair); background: var(--nx-surface); color: var(--nx-ink); font-size: 16px; /* under 16 px, iOS zooms on focus */ }
 .cc-app[data-entry=account] .cc-nutrition-settings form button { border-color: color-mix(in oklab, var(--nx-a) 45%, transparent); background: color-mix(in oklab, var(--nx-a) 14%, transparent); color: var(--nx-ink); font-weight: 500; }
 .cc-app[data-entry=account] .cc-nutrition-workspace :is(button, summary):focus-visible { outline: 2px solid var(--nx-a); outline-offset: 2px; }
 
