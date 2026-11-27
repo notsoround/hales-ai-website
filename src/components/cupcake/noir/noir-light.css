@@ -424,3 +424,10 @@
 :root[data-cc-scheme=light] .cc-app[data-entry=account][class][class] :is(.nx-weightline.is-error, .nx-steps-mini.is-error) span {
   color: var(--nx-warm);
 }
+/* Today dial on white: the pastel fasting, glucose and sleep rings measured 1.5–2.7:1 against the page. These deeper
+   hues of the same colours reach at least 3.7:1 (non-text 3:1), drawn at full strength, and the unselected legend
+   values move from 62% to 80% ink. */
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-md { --md-fast: #b86e00; --md-glucose: #17895a; --md-sleep: #5b55e0; }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][data-appearance=rose] .nx-md { --md-sleep: #2f78c8; }
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-md-ring:not(.is-primary) .nx-md-fill { opacity: 1; }
+:root[data-cc-scheme=light] .cc-app[data-entry=account] .nx-md-key:not([aria-selected=true]) { opacity: .8; }

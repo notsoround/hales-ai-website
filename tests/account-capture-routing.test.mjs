@@ -90,7 +90,8 @@ try {
       assert.equal(await receipt.isChecked(),true,'receipt shortcut starts preselected');
       await preview.getByRole('radio',{name:'Meal',exact:true}).check();
       await preview.getByRole('button',{name:'Log meal',exact:true}).click();
-      await page.waitForFunction(()=>window.accountFixture?.requests?.some?.(r=>r.route==='food/photo/analyze') || document.body.innerText.includes('Check saved photo'));
+      // "Check saved photo" shows as soon as the photo is kept, before its upload starts; wait for the request itself.
+      await page.waitForFunction(()=>window.accountFixture?.requests?.some?.(r=>r.route==='food/photo/analyze'));
       const reported=await page.evaluate(()=>window.accountFixture?.requests?.map(r=>r.route)||[]);
       assert.ok(reported.some(x=>x==='receipts/photo')); assert.ok(reported.some(x=>x==='food/photo/analyze'));
       const guesses = await page.evaluate(async()=>{

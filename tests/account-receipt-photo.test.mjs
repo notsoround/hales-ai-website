@@ -37,14 +37,31 @@ try {
   const first = await page.evaluate(() => window.receiptFixture.requests[0]);
   await page.reload();
   await page.getByAltText('Receipt photo waiting to save').waitFor();
+  // A pending photo that never reached the account: Open receipt checks first and says so instead of opening nothing.
+  await page.getByRole('button', { name: 'Open receipt' }).click();
+  await page.getByText('This photo hasn’t reached your account yet. Retry this photo to save it.').waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('receipt'), null);
   await page.evaluate(() => { window.receiptFixture.off = false; window.receiptFixture.failAfterCommit = true; });
   await page.getByRole('button', { name: 'Retry this photo' }).click();
   await page.getByRole('alert').waitFor();
   assert.match(await page.getByRole('alert').innerText(), /Synthetic response lost/);
   assert.equal(await page.getByAltText('Receipt photo waiting to save').count(), 1);
   assert.equal(first.owner, 'acc_receipt_a');
+  // The first upload went through although its response was lost: one tap on the pending state opens the saved receipt.
+  const startUrl = page.url();
+  await page.getByRole('button', { name: 'Open receipt' }).click();
+  await page.waitForURL(url => new URL(url).searchParams.get('receipt') === first.id);
+  assert.equal(new URL(page.url()).searchParams.get('view'), 'receipts');
+  assert.equal(await page.evaluate(() => history.state?.ccReceiptPage === location.pathname + location.search), true);
+  await page.goBack(); assert.equal(page.url(), startUrl);
   await page.getByRole('button', { name: 'Retry this photo' }).click();
   await page.getByText('Receipt photo saved to your account.').waitFor();
+  // The success state keeps the photo and offers the next step.
+  await page.getByAltText('Saved receipt photo').waitFor();
+  const openSaved = page.getByRole('link', { name: 'Open receipt' });
+  assert.equal(new URL(await openSaved.getAttribute('href'), base).searchParams.get('receipt'), first.id);
+  await openSaved.click();
+  await page.waitForURL(url => new URL(url).searchParams.get('receipt') === first.id);
   const outcome = await page.evaluate(() => window.receiptFixture);
   assert.equal(outcome.requests.length, 2);
   assert.deepEqual(outcome.requests[0], first, 'retry after reload uses the same account, request ID and image');
@@ -62,6 +79,6 @@ try {
   await page.getByRole('button', { name: 'Retry this photo' }).click();
   assert.equal(await page.evaluate(() => window.receiptFixture.requests.length), 3, 'stale component cannot upload under another account');
   assert.deepEqual(outside, []); assert.deepEqual(errors, []);
-  console.log('PASS: receipt camera and picker save an owned photo, exact retry survives a lost response, and account switching fences drafts');
+  console.log('PASS: Open receipt from the pending (checked first) and saved states, receipt camera and picker save an owned photo, exact retry survives a lost response, and account switching fences drafts');
   await context.close();
 } finally { await browser.close(); await server.close(); rmSync(cacheDir, { recursive: true, force: true }); }

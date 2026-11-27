@@ -497,7 +497,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     <div hidden={receiptDetail}>
     {ACCOUNT_SESSIONS && !listFailed && <ReceiptMatchDeck active={active && !receiptDetail} receipts={deckReceipts} matchedCount={counts.matched} busy={busy} prepare={refreshBank} onOpen={openFromDeck} onCash={toggleCash} onChanged={refresh} />}
     <div className="cc-card cc-import-card cc-receipt-import">
-      {ACCOUNT_SESSIONS ? <AccountReceiptPhoto onSaved={receiptId => void photoSaved(receiptId)}/> : <>
+      {ACCOUNT_SESSIONS ? <AccountReceiptPhoto onSaved={receiptId => void photoSaved(receiptId)} compact={receipts.length > 0}/> : <>
       <div><strong>Add a receipt</strong><p className="cc-muted">Include the entered tip and final total in the photo.</p></div>
       <div className="cc-action-row"><label className="cc-primary cc-file">Choose image<input disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label><label className="cc-secondary cc-file">Take photo<input disabled={busy} type="file" accept="image/*" capture="environment" onChange={e => { void choose(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label></div>
       {preview && !selected && <img className="cc-receipt-photo" src={preview} alt="Receipt being read" />}
@@ -614,11 +614,11 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
           <div className="cc-receipt-pantry-box">
             <div>
               <strong><Package size={14} aria-hidden="true" />{selectedIsGrocery ? 'Grocery receipt → Household pantry' : 'Stock Household pantry'}</strong>
-              <small>{selectedInPantry ? 'Items from this receipt were added to your estimated local pantry.' : `Route ${selected.lineItems.length} line items into your estimated local pantry.`}</small>
+              <small>{selectedInPantry ? 'Items from this receipt were added to your estimated local pantry.' : `Route ${selected.lineItems.length} line ${selected.lineItems.length === 1 ? 'item' : 'items'} into your estimated local pantry.`}</small>
             </div>
             <div className="cc-receipt-pantry-actions">
               <button type="button" className="cc-secondary" disabled={busy} onClick={() => sendToPantry(selected)}>
-                {selectedInPantry ? 'Restock pantry again' : `Send ${selected.lineItems.length} items to pantry`}
+                {selectedInPantry ? 'Restock pantry again' : `Send ${selected.lineItems.length} ${selected.lineItems.length === 1 ? 'item' : 'items'} to pantry`}
               </button>
               <a className="cc-text-button" href={groceriesHref()}>Open groceries →</a>
             </div>
