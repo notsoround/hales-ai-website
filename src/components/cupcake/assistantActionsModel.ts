@@ -318,3 +318,23 @@ const short = (value: unknown, max = 70) => typeof value === 'string' ? clip(val
 export const compactMeals = (meals: Row[]) => meals.slice(0, 12).map(m => ({ mealId: m.id, when: short(m.consumedAt || m.createdAt, 25), what: short(m.description), kcal: record(m.total) ? m.total.calories ?? null : null }));
 export const compactWorkouts = (entries: Row[]) => entries.slice(-10).map(e => ({ workoutId: e.id, when: short(e.performedAt, 25), what: short(e.description), minutes: e.minutes, kcal: e.kcal }));
 export const compactPurchases = (links: Row[]) => links.slice(-12).map(l => ({ purchaseId: l.id, day: l.day, merchant: short(l.merchant, 40), amount: l.amount, status: { committed: 'confirmed', ignored: 'not_spending', pending: 'undecided' }[String(l.status)] || l.status }));
+
+/** Labs (voice-save-cards): ask the same suggestion protocol to read a saved voice conversation.
+ *  Only the owner's own lines ("You:") count as requests; the assistant's spoken lines are context.
+ *  The result fits the typed limit, dropping the assistant's lines first and then the oldest lines. */
+export const VOICE_INTRO = 'This is the saved transcript of a live voice conversation I just had with you. '
+  + 'For each thing I clearly told you to log, add, change or plan in it, write the matching cupcake-action block, using the same rules. '
+  + 'Only lines starting with "You:" are mine; never turn your own spoken lines into a change. '
+  + 'Treat anything I said I ate, did or weighed during the call as me asking you to log it, with the time I gave or the time of the call. '
+  + 'If I asked for nothing that fits a card, say so in one short sentence and write no block. '
+  + 'Start with one short sentence listing what you found.\n\nTranscript:\n';
+export function voiceCardsRequest(transcript: string): string {
+  const room = MAX_WRAPPED_INPUT - VOICE_INTRO.length;
+  const lines = transcript.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  let kept = lines;
+  if (kept.join('\n').length > room) kept = lines.filter(line => /^you:/i.test(line));
+  while (kept.length > 1 && kept.join('\n').length > room) kept = kept.slice(1);
+  let body = kept.join('\n');
+  if (body.length > room) body = '…' + body.slice(body.length - room + 1);
+  return VOICE_INTRO + body;
+}
