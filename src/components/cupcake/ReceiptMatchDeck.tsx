@@ -135,6 +135,7 @@ export function ReceiptMatchDeck({ active, receipts, matchedCount, busy, prepare
   const progress = total ? Math.round(matchedCount / total * 100) : 0;
   const status = lastMatched ? `${lastMatched} matched. ${receipts.length ? `${receipts.length} to go.` : 'All caught up.'}` : '';
 
+  if (!active) return null; // off screen: keep the session's progress, draw nothing
   if (!receipts.length) return done > 0 ? <section className="cc-deck cc-deck-clear" aria-label="Match receipts">
     <p className="cc-deck-done" role="status"><PartyPopper size={22} aria-hidden="true" /><strong>All caught up.</strong><span>{done === 1 ? 'That receipt is matched.' : `${done} receipts matched just now.`} Every saved receipt has its bank purchase or is marked cash.</span></p>
   </section> : null;
