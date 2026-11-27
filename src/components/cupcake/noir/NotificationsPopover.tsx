@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, ChevronRight, PhoneMissed, Receipt, RefreshCw, Scale, Sparkles, Utensils, X } from 'lucide-react';
 import { AccountRequestError } from '../accountSession';
-import { libraryRequest } from '../library';
+import { libraryRequest, openLibraryReceipts } from '../library';
 import { useDataChanged } from '../dataChanges';
 import { useBackClose } from '../nativeFeel';
 import { loadWeightPage, normalizeWeightMeasurements } from '../weightApi';
@@ -70,6 +70,32 @@ function readCashReceiptIds(): Set<string> {
     return Array.isArray(parsed) ? new Set(parsed.filter((id): id is string => typeof id === 'string')) : new Set();
   } catch {
     return new Set();
+  }
+}
+
+/** A saved receipt that still needs a bank match: not matched and not marked cash (same rule as the Receipts "Unmatched" filter). */
+function receiptNeedsMatch(r: FallbackReceipt, cashIds: Set<string>): boolean {
+  const matched = r.status === 'matched' || !!r.matchedTransactionId;
+  const cash = r.paymentMethod === 'cash' || r.paidWithCash === true || (r.id ? cashIds.has(r.id) : false);
+  return !matched && !cash;
+}
+
+/** The summary reports a count, not which receipt. Name the receipt only when the saved list holds exactly one unmatched receipt. */
+async function singleUnmatchedReceiptId(): Promise<string | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const data = await Promise.race([
+      libraryRequest<{ receipts?: FallbackReceipt[] }>({ action: 'receipt_list' }),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('receipt list is slow')), 2500); }),
+    ]);
+    if (!Array.isArray(data.receipts)) return undefined;
+    const cashIds = readCashReceiptIds();
+    const open = data.receipts.filter(r => receiptNeedsMatch(r, cashIds));
+    return open.length === 1 ? open[0].id || undefined : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
@@ -246,9 +272,7 @@ async function deriveClientFallback(): Promise<NotificationsSummarySnapshot> {
   if (receiptsRes.status === 'fulfilled' && Array.isArray(receiptsRes.value.receipts)) {
     const cashIds = readCashReceiptIds();
     for (const r of receiptsRes.value.receipts) {
-      const matched = r.status === 'matched' || !!r.matchedTransactionId;
-      const cash = r.paymentMethod === 'cash' || r.paidWithCash === true || (r.id ? cashIds.has(r.id) : false);
-      if (!matched && !cash) unmatchedReceipts += 1;
+      if (receiptNeedsMatch(r, cashIds)) unmatchedReceipts += 1;
     }
     if (unmatchedReceipts > 0) {
       items.push({
@@ -439,6 +463,11 @@ export function NotificationsPopover({
   const handlePick = (item: NotificationActionItem) => {
     setOpen(false);
     if (item.kind === 'missed_calls') openMissedCalls();
+    else if (item.target === 'receipts') {
+      // Library → Receipts opens on its Unmatched filter whenever a receipt still needs a match.
+      if (item.count === 1) void singleUnmatchedReceiptId().then(id => openLibraryReceipts(id ? { receipt: id } : {}));
+      else openLibraryReceipts();
+    }
     else onNavigate(item.target);
   };
 
