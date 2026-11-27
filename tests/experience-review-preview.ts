@@ -27,7 +27,7 @@ host.syntheticReceiptNavigation = (owner, body) => {
     return {entries,averageSource:'galaxy_a55'};
   }
   if (body.action === 'notifications_summary') return {missedCalls7d: 1, unmatchedReceipts: 1, items: []};
-  if (body.action === 'list' && body.sourceFilter === 'phone-calls') return {documents:[sampleCall], browseTotal:1, nextCursor:null};
+  if (body.action === 'list' && (body.sourceFilter === 'phone-calls' || body.sourceFilter === 'missed-phone-calls')) return {documents:[sampleCall], browseTotal:1, nextCursor:null};
   if (body.action === 'fetch' && body.id === sampleCall.id) return {document:sampleCall};
   return receipts(owner,body);
 };
