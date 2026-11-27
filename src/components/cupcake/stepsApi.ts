@@ -4,12 +4,16 @@
 import type { LibraryRequest } from './glucoseApi';
 import { isUnknownAction } from './exerciseApi.ts';
 
+export const DAILY_STEP_GOAL = 8000;
+
 export type StepsSourceSample = { source: string; count: number };
 
 export type StepsDay = {
   date: string;
   count: number;
   windowBasis: string;
+  windowStart?: string;
+  windowEnd?: string;
   source: string;
   winningSource?: string;
   sourcesCount?: number;
@@ -51,11 +55,15 @@ export function parseStepsDay(value: unknown): StepsDay | null {
     : undefined;
   const updatedAt = nonEmptyString(value.updatedAt) ?? nonEmptyString(value.capturedAt) ?? nonEmptyString(value.receivedAt);
   const sources = parseSources(value.sources);
+  const windowStart = nonEmptyString(value.windowStart);
+  const windowEnd = nonEmptyString(value.windowEnd);
   return {
     date: value.date,
     count,
-    windowBasis: typeof value.windowBasis === 'string' ? value.windowBasis : 'calendar_day',
+    windowBasis: typeof value.windowBasis === 'string' ? value.windowBasis : 'unknown',
     source,
+    ...(windowStart ? { windowStart } : {}),
+    ...(windowEnd ? { windowEnd } : {}),
     ...(winningSource ? { winningSource } : {}),
     ...(sourcesCount !== undefined ? { sourcesCount } : {}),
     ...(updatedAt ? { updatedAt } : {}),
@@ -131,4 +139,17 @@ export function stepsSourceSummary(day: StepsDay): string {
   const winner = stepsSourceLabel(day.winningSource || day.source);
   if (day.sourcesCount && day.sourcesCount > 1) return `${winner} · max of ${day.sourcesCount} devices`;
   return winner;
+}
+
+/** Explain what the selected daily reading actually covers, including older rolling reports. */
+export function stepsWindowLabel(day: StepsDay): string | null {
+  if (day.windowBasis === 'calendar_day') return 'Calendar day · Chicago time';
+  if (day.windowBasis === 'reported_past_day_snapshot') return 'Reported past-day snapshot';
+  if (day.windowBasis !== 'trailing_24h_previous_day') return null;
+  const start = Date.parse(day.windowStart ?? ''), end = Date.parse(day.windowEnd ?? '');
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 'Rolling 24-hour count';
+  const format = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+  return `Rolling 24 hours · ${format.format(start)} – ${format.format(end)} CT`;
 }

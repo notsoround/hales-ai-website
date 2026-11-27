@@ -385,3 +385,23 @@
 @media (prefers-reduced-motion: reduce) {
   .cc-app[data-entry=account] :is(.nx-cam, .nx-mic, .nx-minor button, .cc-notyet-toggle, .cc-coverage-details > summary::after, .nx-steps-mini-arc) { transition: none; }
 }
+
+/* The weekly chart doubles as the day selector. The full column is a touch target. */
+.cc-app[data-entry=account] .nx-steps-week { gap: 2px; }
+.cc-app[data-entry=account] button.nx-steps-col {
+  appearance: none; min-width: 0; min-height: 66px; margin: 0; padding: 5px 0;
+  border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-steps-col[aria-pressed=true] {
+  background: color-mix(in oklab, var(--nx-a) 8%, transparent);
+  border-color: color-mix(in oklab, var(--nx-a) 52%, transparent);
+}
+.cc-app[data-entry=account] .nx-steps-col:focus-visible { outline: 2px solid var(--nx-a); outline-offset: -2px; }
+.cc-app[data-entry=account] .nx-steps-col[aria-pressed=true] small { color: var(--nx-ink); font-weight: 650; }
+.cc-app[data-entry=account] .nx-steps-card[data-goal-met=true] .nx-steps-bar i,
+.cc-app[data-entry=account] .nx-steps-col[data-goal-met=true] .nx-steps-col-track i { background: var(--nx-warm); }
+.cc-app[data-entry=account] .nx-steps-card[data-goal-met=true] .nx-steps-goal {
+  display: inline-flex; align-items: center; gap: 3px; font-weight: 600; color: var(--nx-warm);
+}
+.cc-app[data-entry=account] .nx-steps-mini[data-goal-met=true] .nx-steps-mini-gauge { color: var(--nx-warm); }
+.cc-app[data-entry=account] .nx-steps-mini[data-goal-met=true] .nx-steps-mini-arc { stroke: var(--nx-warm); }
