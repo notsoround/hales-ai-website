@@ -1,3 +1,4 @@
+import { addDays, nutritionDayStart } from './nutritionModel.ts';
 // Daily Health Connect / Apple Health / multi-device steps from the private library (owner-only steps_list).
 // Multi-device uploads report the daily maximum across sources (never summed across phones).
 // Until the library supports steps_list every call reports `unavailable`.
@@ -72,12 +73,24 @@ export function parseStepsDay(value: unknown): StepsDay | null {
 }
 
 /** All uploaded days in [start, end] (YYYY-MM-DD, Chicago days), sorted newest first. */
-export async function listStepsDays(request: LibraryRequest, start: string, end: string): Promise<StepsDay[]> {
-  let data: { entries?: unknown };
-  try { data = await request<{ entries?: unknown }>({ action: 'steps_list', start, end }); }
+export async function stepsHistory(request: LibraryRequest, start: string, end: string) {
+  let data: { entries?: unknown; averageSource?: string };
+  try { data = await request<typeof data>({ action: 'steps_list', start, end }); }
   catch (error) { if (isUnknownAction(error)) throw new StepsUnavailableError(); throw error; }
   const days = (Array.isArray(data.entries) ? data.entries : []).map(parseStepsDay).filter((d): d is StepsDay => d !== null);
-  return days.sort((a, b) => b.date.localeCompare(a.date));
+  days.sort((a, b) => b.date.localeCompare(a.date));
+  return { days, phoneAverage: data.averageSource === 'galaxy_a55' || days.some(day => day.source === 'galaxy_a55') };
+}
+
+export async function listStepsDays(request: LibraryRequest, start: string, end: string): Promise<StepsDay[]> {
+  return (await stepsHistory(request, start, end)).days;
+}
+
+/** Require both Chicago midnights, including the 23- or 25-hour day across DST. */
+export function isCompleteA55Day(day: StepsDay): boolean {
+  return day.source === 'galaxy_a55' && day.windowBasis === 'calendar_day'
+    && Date.parse(day.windowStart ?? '') === nutritionDayStart(day.date)
+    && Date.parse(day.windowEnd ?? '') === nutritionDayStart(addDays(day.date, 1));
 }
 
 /** Newest uploaded day in [start, end] (YYYY-MM-DD, Chicago days), or null. */

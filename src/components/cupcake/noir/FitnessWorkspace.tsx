@@ -19,6 +19,7 @@ import {
 } from '../ringconnApi';
 import {
   DAILY_STEP_GOAL,
+  type StepsDay,
   stepsWindowLabel,
   stepsDayLabel,
   stepsSourceLabel,
@@ -115,6 +116,7 @@ export function FitnessWorkspace({
 
   const stepsState = useStepsHistory(today, 30);
   const stepsHeading = useRef<HTMLHeadingElement>(null);
+  const [archivedStep, setArchivedStep] = useState<StepsDay | null>(null);
   const [selectedStepDate, setSelectedStepDate] = useState<string | null>(null);
 
   const [weightState, setWeightState] = useState<{
@@ -189,7 +191,7 @@ export function FitnessWorkspace({
 
   const latestSteps = stepsState.days[0];
   const activeDate = selectedStepDate ?? latestSteps?.date ?? today;
-  const activeSteps = stepsState.days.find(day => day.date === activeDate);
+  const activeSteps = stepsState.days.find(day => day.date === activeDate) ?? (archivedStep?.date === activeDate ? archivedStep : null);
   const windowLabel = activeSteps && stepsWindowLabel(activeSteps);
   const recent7 = useMemo(() => {
     const byDate = new Map(stepsState.days.map(d => [d.date, d]));
@@ -198,8 +200,11 @@ export function FitnessWorkspace({
       return { date, day: byDate.get(date) || null };
     });
   }, [stepsState.days, today]);
-  function openHistoryDay(date: string) {
-    flushSync(() => setSelectedStepDate(date));
+  function openHistoryDay(day: StepsDay) {
+    flushSync(() => {
+      setArchivedStep(day.date < addDays(today, -30) ? day : null);
+      setSelectedStepDate(day.date);
+    });
     stepsHeading.current?.focus({ preventScroll: true });
     stepsHeading.current?.scrollIntoView({ block: 'start' });
   }
@@ -365,7 +370,7 @@ export function FitnessWorkspace({
                 );
               })}
             </div>
-            <StepHistoryDisclosure today={today} days={stepsState.days} selectedDate={activeDate} onSelect={openHistoryDay} />
+            <StepHistoryDisclosure phoneAverage={stepsState.phoneAverage} today={today} days={stepsState.days} selectedDate={activeDate} onSelect={openHistoryDay} />
           </>
         )}
       </article>

@@ -5,6 +5,7 @@ import { ACCOUNT_SESSIONS } from './accountMode';
 import { requestFoodCamera } from './accountMealPhotoHandoff';
 import { AccountFoodReview } from './AccountFoodReview';
 import { DialScene } from './noir/DialScene';
+import { calorieState } from './noir/metricProgress';
 import { useDialMealPhotos } from './noir/useDialMealPhotos';
 import { OPEN_MANUAL_MEAL_EVENT } from './AccountManualMeal';
 import { useDataChanged } from './dataChanges';
@@ -96,7 +97,7 @@ function NoirFoodHero({ daySummary, isToday, active, history, loading, now, onOp
   const target = daySummary?.target ?? null;
   const hasKnown = !!daySummary?.knownCalorieCount;
   const left = target !== null ? target - eaten : null;
-  const fraction = target && target > 0 ? clamp01(eaten / target) : hasKnown ? Math.min(1, eaten / 2000) : null;
+  const fraction = target && target > 0 && (hasKnown || !daySummary?.meals.length) ? clamp01(eaten / target) : null;
   const over = target && target > 0 && eaten > target ? clamp01((eaten - target) / target) : 0;
   const [hx, hy] = pt(DIAL_START + DIAL_SWEEP * (fraction ?? 0));
 
@@ -133,7 +134,7 @@ function NoirFoodHero({ daySummary, isToday, active, history, loading, now, onOp
   return <section className="nx-food-hero" aria-label="Food summary">
     <div className="nx-food-hero-ring">
       <DialScene tone="cal" photos={photos} />
-      <div className="nx-food-dial" role="img" aria-label={`${eyebrow}: ${heroNumber} kilocalories. ${heroSub}`}>
+      <div className="nx-food-dial" data-state={hasKnown ? calorieState(eaten, target) : undefined} role="img" aria-label={`${eyebrow}: ${heroNumber} kilocalories. ${heroSub}`}>
         <svg viewBox={`0 0 ${size} ${size * 0.84}`} aria-hidden="true">
           <defs>
             <linearGradient id={`${id}g`} gradientUnits="userSpaceOnUse" x1={size * 0.12} y1={size * 0.82} x2={size * 0.88} y2={size * 0.12}>

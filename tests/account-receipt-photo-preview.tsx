@@ -27,7 +27,7 @@ window.fetch = async (input, init) => {
     if (previous && previous.image !== body.image) return response({ ok: false }, 409);
     const receipt = previous || { id, status: 'saved_unread', image: body.image };
     data.set(key, receipt);
-    if (state.failAfterCommit) { state.failAfterCommit = false; throw Error('Synthetic response lost'); }
+    if (state.failAfterCommit) { state.failAfterCommit = false; receipt.status = 'extracted'; throw Error('Synthetic response lost'); }
     return response({ ok: true, receipt, duplicate: !!previous });
   }
   if (url.pathname.endsWith('/data') && body.action === 'receipt_get') {

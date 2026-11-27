@@ -117,9 +117,10 @@ try {
   assert.equal(await page.getByRole('button', { name: 'View saved receipt photo', exact: true }).count(), 0);
   assert.equal(new URL(page.url()).searchParams.has('receipt'), false);
   await page.getByRole('button').filter({ hasText: 'Synthetic unmatched receipt' }).click();
+  await page.getByText('Receipt details', { exact: true }).click();
   await page.getByRole('button', { name: 'View saved receipt photo', exact: true }).click();
   await page.getByAltText('Saved receipt from Synthetic unmatched receipt').waitFor();
-  const findMatches = page.getByRole('button', { name: 'Find transaction matches', exact: true });
+  const findMatches = page.getByRole('button', { name: 'Reconcile', exact: true });
   assert.equal(await findMatches.isEnabled(), true);
   await findMatches.click();
   await page.getByText('Synthetic bank charge', { exact: true }).waitFor();
