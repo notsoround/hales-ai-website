@@ -80,3 +80,17 @@
 @keyframes nx-confirm-fade { from { opacity: 0; } }
 @media (min-width: 720px) { .cc-app[data-entry=account] dialog.nx-confirm { inset: 0; margin: auto; height: fit-content; border-bottom: 1px solid var(--nx-hair); border-radius: 24px; padding-bottom: 20px; } }
 @media (prefers-reduced-motion: reduce) { .cc-app[data-entry=account] dialog.nx-confirm, .cc-app[data-entry=account] dialog.nx-confirm::backdrop { animation: none; } }
+/* Touch targets: grow the hit area to 44 px with an invisible ::after, never the visible size. Each target here had no
+   ::before/::after of its own and sits in a parent that does not clip (overflow: visible). */
+.cc-app[data-entry=account] :is(button.nx-steps-col, .cc-nutrition-scale > button, .cc-nutrition-arrows > button,
+  .cc-library-workspace > .cc-heading-row > .cc-secondary, .cc-library-search > .cc-secondary, .cc-audio-archive-head > .cc-secondary,
+  .cc-chat-threads > .cc-chat-new, .cc-chat-about > summary) { position: relative; }
+.cc-app[data-entry=account] :is(.cc-nutrition-scale > button, .cc-nutrition-arrows > button, .cc-audio-archive-head > .cc-secondary)::after,
+.cc-app[data-entry=account] :is(.cc-library-workspace > .cc-heading-row > .cc-secondary, .cc-library-search > .cc-secondary, .cc-chat-threads > .cc-chat-new, .cc-chat-about > summary)::after {
+  content: ""; position: absolute; inset: -4px 0;
+}
+/* The seven-day strip: 43 px columns at 390 px with a 2 px gap; reach 1 px past the border into the gap on each side.
+   (Insets count from inside a 1 px border.) */
+.cc-app[data-entry=account] button.nx-steps-col::after { content: ""; position: absolute; inset: 0 -2px; }
+.cc-app[data-entry=account] .cc-audio-archive-head > .cc-secondary::after { inset: -5px -1px; }
+.cc-app[data-entry=account] :is(.cc-library-workspace > .cc-heading-row > .cc-secondary, .cc-chat-about > summary)::after { inset: -3px; }

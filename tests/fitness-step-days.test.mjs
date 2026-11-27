@@ -62,6 +62,16 @@ try {
   assert.match(await card.getByRole('group', { name: /last seven days/ }).getByRole('button', { pressed: true }).textContent(), /^Today18$/);
   const days = card.getByRole('group', { name: /last seven days/ }).getByRole('button');
   assert.equal(await days.count(), 7);
+  // The strip has no dead gaps: every point from the first column to the last lands on a day (the 2 px gaps belong to
+  // the neighbours' invisible hit areas). At 390 px that makes each day's tap area about 45 px wide.
+  assert.equal(await days.first().evaluate(first => {
+    const cols = [...first.parentElement.querySelectorAll('.nx-steps-col')];
+    const y = first.getBoundingClientRect().top + 20, end = cols.at(-1).getBoundingClientRect().right;
+    for (let x = Math.ceil(first.getBoundingClientRect().left); x < end; x += 0.5) {
+      if (!document.elementFromPoint(x, y)?.closest('.nx-steps-col')) return x;
+    }
+    return 'covered';
+  }), 'covered');
   const yesterday = card.getByRole('button', { name: /Tue, Mar 17, 7,999 steps/ });
   await yesterday.focus();
   await yesterday.press('Enter');
