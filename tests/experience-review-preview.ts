@@ -7,6 +7,12 @@ type MockRead = (owner: string, body: Record<string, unknown>) => object | undef
 const host = window as unknown as { syntheticReceiptNavigation: MockRead };
 const receipts = host.syntheticReceiptNavigation;
 const today = nutritionDay();
+const sampleCall = {
+  id: 'review-call-one', title: 'Grocery check-in', kind: 'transcript',
+  status: 'ready', sourceApp: 'Cupcake phone transcript', createdAt: new Date().toISOString(),
+  providerEndedReason: 'voicemail', summary: 'Taylor planned to check the grocery list before shopping.',
+  text: 'Assistant: Check the grocery list before shopping. This is a fictional voicemail.',
+};
 host.syntheticReceiptNavigation = (owner, body) => {
   if (owner !== 'acc_synthetic_a') return;
   if (body.action === 'steps_list') {
@@ -19,5 +25,8 @@ host.syntheticReceiptNavigation = (owner, body) => {
     }).filter((e,i) => i !== 3 && i !== 19 && e.date >= String(body.start) && e.date <= String(body.end));
     return {entries,averageSource:'galaxy_a55'};
   }
+  if (body.action === 'notifications_summary') return {missedCalls7d: 1, unmatchedReceipts: 1, items: []};
+  if (body.action === 'list' && body.sourceFilter === 'phone-calls') return {documents:[sampleCall], browseTotal:1, nextCursor:null};
+  if (body.action === 'fetch' && body.id === sampleCall.id) return {document:sampleCall};
   return receipts(owner,body);
 };
