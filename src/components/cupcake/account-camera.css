@@ -224,4 +224,8 @@
 .cc-capture-preview input{accent-color:var(--cc-accent,#36dacc)}
 .cc-capture-preview>p{margin:0;line-height:1.45}
 .cc-capture-preview>div{justify-content:space-between}
+.cc-capture-preview .cc-capture-guess{font-size:1.02rem}
+.cc-capture-preview .cc-capture-guess b{display:block;font-size:1.12rem;margin-bottom:.15rem}
+.cc-capture-preview>.cc-capture-fix{justify-content:flex-start;flex-wrap:wrap;gap:.5rem}
+.cc-capture-preview>.cc-capture-fix button{min-height:44px}
 dialog.cc-cam:has(.cc-capture-preview){display:grid;place-items:center}
