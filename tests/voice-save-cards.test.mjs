@@ -39,6 +39,8 @@ assert.ok(LABS.some(l => l.key === 'voice-save-cards'));
 // Phone transcripts map to the same form; no caller line means no card.
 assert.equal(phoneTranscriptForCards('AI: Hi, synthetic.\nUser: I walked 20 minutes.\nCustomer: And weighed 180 pounds.'),
   'Cupcake: Hi, synthetic.\nYou: I walked 20 minutes.\nYou: And weighed 180 pounds.');
+const saved = 'Provider-verified call transcript. Synthetic.\nOriginal provider transcript (exact text):\nAI: Hey.\nUser: I had synthetic eggs.\n\nOrdered provider speech turns:\n\nOwner:\nI had synthetic eggs.\n';
+assert.equal(phoneTranscriptForCards(saved), 'Cupcake: Hey.\nYou: I had synthetic eggs.');
 assert.equal(phoneTranscriptForCards('AI: Voicemail greeting only.'), '');
 assert.equal(phoneTranscriptForCards(''), '');
 console.log('voice-save-cards: ok');
