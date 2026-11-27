@@ -161,6 +161,8 @@ window.fetch=async(input,init)=>{
     if(body.action==='quick_chat_list')return ok({threads:[]});
     return response(503,{ok:false,error:'account_action_not_ready',identity});
   }
+  const receiptNavigation = (window as unknown as {syntheticReceiptNavigation?: (owner:string,body:Record<string,unknown>)=>object|undefined}).syntheticReceiptNavigation;
+  if (receiptNavigation) { const result=receiptNavigation(owner.account_id,body); if(result)return ok(result); }
   if(RICH){const rich=richData(String(body.action));if(rich)return ok(rich);}
   if(['feed_get','outcome_list','exercise_list','exercise_log','exercise_delete'].includes(body.action)) {
     const remote=(window as unknown as {syntheticFeedServer?:(owner:string,body:Record<string,unknown>)=>Promise<{status:number;value:Record<string,unknown>}>}).syntheticFeedServer;

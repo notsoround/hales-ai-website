@@ -1,0 +1,85 @@
+import { useEffect, useRef, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { accountData } from './accountSession';
+import { useDataChanged } from './dataChanges';
+import { purchaseLinkClick, receiptWorkspaceUrl, type ReceiptRoute } from './receiptNavigation';
+
+type Purchase = {
+  transactionId: string; merchant: string | null; date: string; authorizedDate?: string | null;
+  amount: number | null; currency: string | null; pending: boolean; removed?: boolean; matchedReceiptId: string | null; matchConflict?: boolean;
+};
+type PossibleReceipt = { receiptId: string; merchant: string | null; date: string | null; total: number | null; currency: string | null; exactAmount: boolean; exactCurrency: boolean };
+type PurchaseDetail = { purchase: Purchase; receiptCandidates: PossibleReceipt[]; candidatesComplete?: boolean };
+type PurchasePage = { purchases: Purchase[]; hasMore: boolean; nextCursor?: string | null };
+
+const purchaseMoney = (amount: number | null, currency: string | null) => {
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) return 'Amount unavailable';
+  if (!currency || !/^[A-Z]{3}$/.test(currency)) return amount.toFixed(2) + ' · currency unknown';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+};
+function dateText(raw: string | null | undefined) {
+  if (!raw) return 'Date unavailable';
+  const date = new Date(raw.slice(0, 10) + 'T12:00:00Z');
+  return Number.isFinite(date.getTime()) ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : raw;
+}
+
+export function BankPurchaseBrowser({ transaction, onNavigate, onBack }: { transaction?: string; onNavigate: (route: ReceiptRoute) => void; onBack: () => void }) {
+  const [detail, setDetail] = useState<PurchaseDetail | null>(null), [list, setList] = useState<Purchase[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null), [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [error, setError] = useState(''), [retry, setRetry] = useState(0), [loading, setLoading] = useState(true);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useDataChanged(['purchase'], () => { setCursor(null); setRetry(value => value + 1); });
+  useEffect(() => {
+    const abort = new AbortController(); setError(''); setLoading(true); setDetail(null);
+    const load = async () => {
+      if (transaction) {
+        const data = await accountData<PurchaseDetail>({ action: 'bank_purchase_get', transactionId: transaction }, abort.signal);
+        if (data.purchase?.transactionId !== transaction || !Array.isArray(data.receiptCandidates)) throw Error('This saved purchase could not be verified.');
+        if (!abort.signal.aborted) setDetail(data);
+      } else {
+        const data = await accountData<PurchasePage>({ action: 'bank_purchase_list', limit: 30, ...(cursor ? { cursor } : {}) }, abort.signal);
+        if (!Array.isArray(data.purchases)) throw Error('The saved purchases could not be loaded.');
+        if (data.hasMore && (!data.nextCursor || data.nextCursor === cursor)) throw Error('The purchase list could not load its next page.');
+        if (!abort.signal.aborted) {
+          setList(previous => cursor ? [...new Map([...(previous || []), ...data.purchases].map(p => [p.transactionId, p])).values()] : data.purchases);
+          setNextCursor(data.hasMore ? data.nextCursor! : null);
+        }
+      }
+    };
+    void load().catch(cause => { if (!abort.signal.aborted) setError(cause instanceof Error ? cause.message : 'Saved purchases are unavailable.'); })
+      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
+    return () => abort.abort();
+  }, [transaction, cursor, retry]);
+  useEffect(() => { if (transaction) heading.current?.focus(); }, [transaction]);
+  const linked = (route: ReceiptRoute, text: string, cls = 'cc-secondary') =>
+    <a className={cls} href={receiptWorkspaceUrl(route)} onClick={event => purchaseLinkClick(event, () => onNavigate(route))}>{text}</a>;
+  const purchase = detail?.purchase;
+  return <section className="cc-card cc-bank-purchases" aria-label={transaction ? 'Bank purchase' : 'Bank purchases'}>
+    {transaction && <button type="button" className="cc-text-button" onClick={onBack}>Back</button>}
+    <h3 ref={heading} tabIndex={-1}>{transaction ? 'Bank purchase' : 'Saved bank purchases'}</h3>
+    {loading && <p role="status">Loading saved {transaction ? 'purchase' : 'purchases'}…</p>}
+    {error && <p role="alert">{error} <button type="button" className="cc-text-button" onClick={() => setRetry(value => value + 1)}>Try again</button></p>}
+    {!transaction && !error && list && <>
+      {list.length === 0 && !loading && <p>No saved bank purchases yet.</p>}
+      {list.map(p => <a key={p.transactionId} className="cc-bank-purchase-row" href={receiptWorkspaceUrl({ transaction: p.transactionId })} onClick={e => purchaseLinkClick(e, () => onNavigate({ transaction: p.transactionId }))}>
+        <span><strong>{p.merchant || 'Merchant unavailable'}</strong><small>{dateText(p.date)} · {p.matchConflict ? 'Receipt link needs review' : p.pending ? 'Pending' : p.matchedReceiptId ? 'Receipt matched' : 'No receipt matched'} · Ref {p.transactionId.slice(-8)}</small></span>
+        <span>{purchaseMoney(p.amount,p.currency)} <ChevronRight size={15} aria-hidden="true" /></span>
+      </a>)}
+      {nextCursor && <button className="cc-secondary" type="button" disabled={loading} onClick={() => setCursor(nextCursor)}>Show more purchases</button>}
+    </>}
+    {transaction && purchase && <>
+      <div className="cc-receipt-heading"><div><h4>{purchase.merchant || 'Merchant unavailable'}</h4><p>{purchase.removed ? 'Removed by bank' : purchase.pending ? 'Pending' : 'Posted'} · {dateText(purchase.date)}</p></div><strong>{purchaseMoney(purchase.amount,purchase.currency)}</strong></div>
+      {purchase.authorizedDate && purchase.authorizedDate !== purchase.date && <p>Authorized {dateText(purchase.authorizedDate)}</p>}
+      <details className="cc-receipt-evidence"><summary>Bank reference</summary><code>{purchase.transactionId}</code></details>
+      {purchase.matchConflict ? <p role="status">The saved receipt links disagree. Review the original receipts before changing a match.</p> : purchase.matchedReceiptId ? linked({ receipt: purchase.matchedReceiptId, transaction }, 'Open matched receipt') : purchase.removed ? <p>The bank removed this purchase. It is unavailable for new matches.</p> : purchase.pending ? <p>Match a receipt once this purchase posts.</p> : <>
+        <h4>Find an existing receipt</h4>
+        {detail.receiptCandidates.length === 0 ? <p>{detail.candidatesComplete === false ? 'No match found among the receipts checked.' : 'No matching saved receipt found for this purchase.'}</p> : <p>Choose a receipt to compare with this purchase.</p>}
+        {detail.candidatesComplete === false && <p>The search covered part of your receipt history. You can also open a receipt from the saved list.</p>}
+        {detail.receiptCandidates.map(r => <a key={r.receiptId} className="cc-bank-purchase-row" href={receiptWorkspaceUrl({receipt:r.receiptId,transaction})} onClick={e => purchaseLinkClick(e, () => onNavigate({receipt:r.receiptId,transaction}))}>
+          <span><strong>{r.merchant || 'Merchant unavailable'}</strong><small>{dateText(r.date)} · {r.exactCurrency && r.exactAmount ? 'Exact amount' : 'Check amount and currency'}</small></span>
+          <span>{purchaseMoney(r.total,r.currency)} <ChevronRight size={15} aria-hidden="true" /></span>
+        </a>)}
+      </>}
+    </>}
+  </section>;
+}

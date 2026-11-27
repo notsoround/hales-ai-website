@@ -126,11 +126,13 @@ try {
   await page.getByRole('radio', { name: /Synthetic bank charge/ }).check();
   await page.getByRole('button', { name: 'Confirm selected match', exact: true }).click();
   await page.getByText('Matched to the transaction you confirmed.', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Close receipt', exact: true }).click();
   await page.getByRole('button').filter({ hasText: 'Synthetic failed receipt' }).click();
   assert.equal(await page.getByRole('button', { name: 'Retry saved receipt', exact: true }).count(), 0);
+  await page.getByRole('button', { name: 'Close receipt', exact: true }).click();
   await page.getByRole('group', { name: 'Filter saved receipts' }).getByRole('button', { name: /^Matched/ }).click();
   await page.getByRole('button').filter({ hasText: 'Synthetic matched receipt' }).click();
-  await page.getByText('Matched to the transaction you confirmed.', { exact: true }).waitFor();
+  await page.getByText('Matched to a bank purchase.', { exact: true }).waitFor();
   // Preserve the existing supported confirmation transport; no live bank search or record write.
   await page.evaluate(async () => window.mediaFixture.request({ action: 'receipt_confirm_match', receiptId: 'receipt_' + 'a'.repeat(32), transactionId: 'synthetic-saved-candidate', acknowledgeDifferences: true }));
   const account = await snapshot(page);
