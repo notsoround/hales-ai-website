@@ -3,6 +3,9 @@ import { libraryRequest, type Conversation } from './library';
 import { HelpCircle, FileX, Hourglass, PhoneCall, PhoneMissed, Voicemail } from 'lucide-react';
 import { callDuration, callOutcome, callOutcomeDetail, callOutcomeLabels, callSummaryState, savedCallRecap, type CallOutcome } from './phoneCallHistory';
 import { ReadAloudButton } from './ReadAloudButton';
+import { useLab } from './labsFlags';
+import VoiceSaveCards from './VoiceSaveCards';
+import { phoneTranscriptForCards } from './assistantActionsModel';
 
 type CallPage = { documents: Conversation[]; browseTotal: number; nextCursor?: string };
 const central = new Intl.DateTimeFormat('en-US', {
@@ -32,6 +35,7 @@ export default function PhoneCallArchive({ onOpenDocument }: { onOpenDocument: (
   const [detail, setDetail] = useState<Conversation>();
   const [detailError, setDetailError] = useState('');
   const pageRequest = useRef(0), detailRequest = useRef(0);
+  const voiceCards = useLab('voice-save-cards');
 
   const loadPage = useCallback(async (next?: string) => {
     const seq = ++pageRequest.current;
@@ -140,6 +144,10 @@ export default function PhoneCallArchive({ onOpenDocument }: { onOpenDocument: (
             <h4>Saved recap</h4>
             <p>{recap || (callSummaryState(detail) === 'pending' ? 'The summary for this call is not ready yet.' : 'This call has no saved summary.')}</p>
             {recap && <ReadAloudButton key={call.id} text={recap} label="Listen to recap" deviceOnly />}
+            {voiceCards && call.provenance?.attribution?.participantIdentity !== 'coach' && (() => {
+              const spoken = phoneTranscriptForCards(detail.transcript || detail.text || '');
+              return spoken ? <VoiceSaveCards key={call.id} sessionId={`phone-${call.id}`} transcriptText={spoken} /> : null;
+            })()}
             <button type="button" className="cc-text-button" onClick={() => openTranscript(call.id)}>
               {call.sourceApp === 'Cupcake phone transcript' ? 'Open full transcript' : 'Open original record'}
             </button>

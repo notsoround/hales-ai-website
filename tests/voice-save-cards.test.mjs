@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { importCupcakeSource } from './cupcake-source-fixture.mjs';
-const { voiceCardsRequest, VOICE_INTRO, wrapMessage, shownMessage, MAX_WRAPPED_INPUT, ACTIONS_MARK, suggestionsFrom } = await importCupcakeSource('assistantActionsModel.ts');
+const { phoneTranscriptForCards, voiceCardsRequest, VOICE_INTRO, wrapMessage, shownMessage, MAX_WRAPPED_INPUT, ACTIONS_MARK, suggestionsFrom } = await importCupcakeSource('assistantActionsModel.ts');
 const { LABS } = await importCupcakeSource('labsFlags.ts');
 
 // Synthetic transcript only.
@@ -36,4 +36,11 @@ assert.equal(found.length, 1); assert.equal(found[0].proposal?.type, 'log_meal')
 
 // Behind Labs, off by default.
 assert.ok(LABS.some(l => l.key === 'voice-save-cards'));
+// Phone transcripts map to the same form; no caller line means no card.
+assert.equal(phoneTranscriptForCards('AI: Hi, synthetic.\nUser: I walked 20 minutes.\nCustomer: And weighed 180 pounds.'),
+  'Cupcake: Hi, synthetic.\nYou: I walked 20 minutes.\nYou: And weighed 180 pounds.');
+const saved = 'Provider-verified call transcript. Synthetic.\nOriginal provider transcript (exact text):\nAI: Hey.\nUser: I had synthetic eggs.\n\nOrdered provider speech turns:\n\nOwner:\nI had synthetic eggs.\n';
+assert.equal(phoneTranscriptForCards(saved), 'Cupcake: Hey.\nYou: I had synthetic eggs.');
+assert.equal(phoneTranscriptForCards('AI: Voicemail greeting only.'), '');
+assert.equal(phoneTranscriptForCards(''), '');
 console.log('voice-save-cards: ok');
