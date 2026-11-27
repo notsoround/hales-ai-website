@@ -41,11 +41,14 @@ try {
       if (body.action !== 'steps_list') return fallback(input, init);
       return Promise.resolve(Response.json({ ok: true, identity: {
         account_id: 'acc_synthetic_a', email: 'a@example.invalid', name: 'Synthetic A',
-      }, entries: empty ? [] : [
+      }, averageSource: 'galaxy_a55', entries: empty ? [] : [
         { date: '2026-03-18', count: 8000, source: 'galaxy_a55', windowBasis: 'calendar_day' },
         { date: '2026-03-17', count: 7999, source: 'health_connect', windowBasis: 'trailing_24h_previous_day',
           windowStart: '2026-03-17T12:00:00Z', windowEnd: '2026-03-18T12:00:00Z' },
-        { date: '2026-03-15', count: 0, source: 'health_connect' },
+        { date: '2026-03-15', count: 0, source: 'galaxy_a55', windowBasis: 'calendar_day', windowStart: '2026-03-15T05:00:00Z', windowEnd: '2026-03-16T05:00:00Z' },
+        { date: '2026-03-14', count: 1900, source: 'galaxy_a55', windowBasis: 'calendar_day', windowStart: '2026-03-14T05:00:00Z', windowEnd: '2026-03-15T04:45:00Z' },
+        { date: '2026-03-12', count: 8000, source: 'native_health:com.ringconn' },
+        { date: '2026-03-08', count: 3200, source: 'galaxy_a55', windowBasis: 'calendar_day', windowStart: '2026-03-08T06:00:00Z', windowEnd: '2026-03-09T05:00:00Z' },
         { date: '2026-02-16', count: 2201, source: 'apple_health', windowBasis: 'calendar_day' },
         { date: '2026-02-15', count: 4800, source: 'health_connect', windowBasis: 'calendar_day' },
       ].filter(day => day.date >= body.start && day.date <= body.end) }));
@@ -77,16 +80,16 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   const history = card.locator('details.nx-step-history');
   const toggle = history.locator('summary');
-  assert.match(await toggle.innerText(), /4,000 avg · 2 of 7 days/);
+  assert.match(await toggle.innerText(), /0 avg · 1 of 7 days/);
   await toggle.click();
-  await history.getByText('2 of 7 days logged · Through yesterday').waitFor();
-  assert.equal(await history.getByRole('listitem').count(), 2);
-  assert.match(await history.innerText(), /Includes rolling 24-hour readings/);
+  await history.getByText('1 of 7 complete phone days · Through yesterday').waitFor();
+  assert.equal(await history.getByRole('listitem').count(), 4);
+  assert.match(await history.innerText(), /Only midnight-to-midnight A55 readings/);
   // Midnight Chicago boundaries, including the oldest completed day. Today's live 8,000 is excluded.
   await history.getByRole('button', { name: '30 days', exact: true }).click();
-  await history.getByText('3 of 30 days logged · Through yesterday').waitFor();
-  assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '3,400 steps');
-  assert.equal(await history.getByRole('listitem').count(), 3);
+  await history.getByText('2 of 30 complete phone days · Through yesterday').waitFor();
+  assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '1,600 steps');
+  assert.equal(await history.getByRole('listitem').count(), 6);
   await history.getByRole('button', { name: /View Mon, Feb 16/ }).click();
   const heading = card.getByRole('heading', { name: 'Steps · Mon, Feb 16' });
   await heading.waitFor();
@@ -95,9 +98,19 @@ try {
   await days.getByText('Today', { exact: true }).click();
   await card.getByRole('heading', { name: 'Steps today' }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await history.getByRole('button', { name: 'Earlier days' }).click();
+  await history.getByRole('button', { name: /View Sun, Feb 15/ }).click();
+  await card.getByRole('heading', { name: 'Steps · Sun, Feb 15' }).waitFor();
+  assert.equal(await card.locator('.nx-steps-big').innerText(), '4,800');
+  assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '1,600 steps');
+  await history.getByRole('button', { name: 'Earlier days' }).click();
+  await history.getByText('No step readings in this period.').waitFor();
+  await history.getByRole('button', { name: 'Newer days' }).click();
+  await history.getByRole('button', { name: /View Sun, Feb 15/ }).waitFor();
+  await history.getByRole('button', { name: 'Newer days' }).click();
   await page.evaluate(() => window.clearSyntheticStepReadings());
   await card.getByRole('button', { name: 'Refresh steps' }).click();
-  await history.getByText('0 of 30 days logged · Through yesterday').waitFor();
+  await history.getByText('0 of 30 complete phone days · Through yesterday').waitFor();
   assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '—');
   assert.equal(await history.getByRole('listitem').count(), 0);
   console.log('Passed: mobile step goals, dated drill-down, 7/30-day logged averages, sparse/zero/absent data, rolling sources and 30-day boundary.');
