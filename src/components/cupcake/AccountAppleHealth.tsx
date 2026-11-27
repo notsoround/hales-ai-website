@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { accountHealth } from './accountSession';
+import { friendlyError } from './friendlyError';
 
 type Device = {
   id: string; label: string; timezone: string; preferred_source: string;
@@ -23,21 +24,25 @@ export function AccountAppleHealth() {
   const [pending, setPending] = useState<Setup | null>(null);
   const [credential, setCredential] = useState<{ value: string; device: string } | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('');
+  const [errorDetail, setErrorDetail] = useState('');
 
   const refresh = async () => {
     if (busy) return;
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setErrorDetail('');
     try {
       const [list, status] = await Promise.all([
         accountHealth<{ devices: Device[] }>('devices/list', {}), accountHealth<Sync>('sync', {}),
       ]);
       setDevices(list.devices); setSync(status);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Apple Health connection status is unavailable.'); }
+    } catch (reason) {
+      const shown = friendlyError(reason, 'Apple Health connection status couldn’t load right now.');
+      setError(shown.text); setErrorDetail(shown.raw);
+    }
     finally { setBusy(false); }
   };
   const create = async (event: FormEvent) => {
     event.preventDefault(); if (busy) return;
-    setBusy(true); setError(''); setMessage(''); setCredential(null);
+    setBusy(true); setError(''); setErrorDetail(''); setMessage(''); setCredential(null);
     try {
       let request = pending;
       if (!request) {
@@ -62,7 +67,7 @@ export function AccountAppleHealth() {
   };
   const revoke = async (device: Device) => {
     if (busy) return;
-    setBusy(true); setError(''); setMessage('');
+    setBusy(true); setError(''); setErrorDetail(''); setMessage('');
     try {
       const result = await accountHealth<{ revoked: boolean }>('devices/revoke', { device_id: device.id });
       if (result.revoked !== true) throw Error('Revocation was not confirmed. Check connection status.');
@@ -80,6 +85,10 @@ export function AccountAppleHealth() {
     {!sync && <p className="cc-muted cc-small">No successful connection check yet. No sync is confirmed by this screen.</p>}
     {sync && <div role="status"><p><strong>Last upload received:</strong> {received(sync.last_received_at)}<br/><strong>Latest observation:</strong> {observed(sync.last_observed_at)}</p><p className="cc-muted cc-small">{sync.coverage_note} {sync.metrics.length ? `Received metrics: ${sync.metrics.join(', ')}.` : 'No supported metrics received yet.'}</p></div>}
     {error && <p role="alert">{error}</p>}
+    {error && errorDetail && <div className="cc-friendly-error">
+      <button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Retry</button>
+      <details><summary>Technical details</summary><code>{errorDetail}</code></details>
+    </div>}
     {message && <p role="status">{message}</p>}
     <form onSubmit={event => void create(event)}>
       <label className="cc-label">Device label<input required maxLength={80} value={label} disabled={busy || !!pending} onChange={event => setLabel(event.target.value)}/></label>

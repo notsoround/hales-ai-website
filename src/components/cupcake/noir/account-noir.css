@@ -90,6 +90,10 @@
 .cc-app[data-entry=account][data-appearance=rose] { --ds-food: #b48cff; --ds-food-ink: #d6b8ff; --ds-food-prev: #3a2a55; --ds-food-tint: rgba(180,140,255,.12); }
 /* One-line identity in the header. */
 .cc-app[data-entry=account] .cc-account-identity { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* On phones the header shows the assistant's name only; the owner stays in the accessible name and in Settings. */
+@media (max-width: 600px) {
+  .cc-app[data-entry=account] .cc-account-owner { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 
 /* ---------- Food ---------- */
 /* Sections as one segmented track. */

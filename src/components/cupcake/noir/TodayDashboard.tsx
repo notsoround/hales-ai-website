@@ -476,6 +476,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
             <small>Spent today</small>
             <b>{spend.loading && spend.amount === null ? '—' : spend.amount !== null ? money(spend.amount) : '—'}</b>
             <span>{spend.failed ? 'Could not check. Try refresh.' : spend.loading ? 'Checking…' : spend.lastTime ? <>{spend.lastTitle ? `${spend.lastTitle} · ` : 'Last '}{feedClock(spend.lastTime)}{spend.count > 1 ? ` · ${spend.count} purchases` : ''}</> : spend.amount !== null ? 'Day total so far' : 'Nothing reported today'}</span>
+            <ChevronRight size={16} aria-hidden="true" className="nx-spend-chevron" />
           </button>
           <button type="button" className="nx-spend-refresh" onClick={spend.onRefresh} disabled={spend.loading} aria-label={`Refresh spending${spend.checkedAt ? `, checked ${clock(spend.checkedAt)}` : ''}`}>
             {spend.checkedAt && !spend.loading ? <span>Checked {clock(spend.checkedAt)}</span> : null}<RotateCw size={15} aria-hidden="true" className={spend.loading ? 'is-spinning' : undefined} />

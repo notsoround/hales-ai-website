@@ -4,6 +4,7 @@ import { subscribeSession } from './accountSession';
 import { transcriptionRecovery } from './accountTranscription';
 import AccountRecordingTranscription from './AccountRecordingTranscription';
 import AccountRecordingSummary from './AccountRecordingSummary';
+import { friendlyError } from './friendlyError';
 import './noir/noir-plan.css';
 
 function initialTranscriptBadge(row: ArchivedRecording): { label: string; tone: string } {
@@ -17,6 +18,7 @@ function initialTranscriptBadge(row: ArchivedRecording): { label: string; tone: 
 
 export default function AccountRecordingArchive({active, version, requested, showAllowance = false}: {active: boolean; version: number; requested: {id:string} | null; showAllowance?: boolean}) {
   const [rows, setRows] = useState<ArchivedRecording[]>([]), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
+  const [listFailure, setListFailure] = useState<string | null>(null);
   const [opened, setOpened] = useState<ArchivedRecording | null>(null), [url, setUrl] = useState('');
   const [statuses, setStatuses] = useState<Record<string, { label: string; tone: string }>>({});
   const [transcriptsReady, setTranscriptsReady] = useState<Record<string, boolean>>({});
@@ -31,9 +33,13 @@ export default function AccountRecordingArchive({active, version, requested, sho
   }, [stopAudio]);
   const refresh = useCallback(async () => {
     if (!client.current) return;
-    setBusy(true); setMessage('Loading saved audio…');
+    setBusy(true); setMessage('Loading saved audio…'); setListFailure(null);
     try { const data = await client.current.request<{recordings: ArchivedRecording[]}>('list', {}); setRows(data.recordings); setMessage(data.recordings.length ? `${data.recordings.length} saved ${data.recordings.length === 1 ? 'recording' : 'recordings'}.` : 'No audio saved to this account yet.'); }
-    catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) setMessage((error as Error).message); }
+    catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      const shown = friendlyError(error, 'Saved audio couldn’t load right now.');
+      setMessage(shown.text); setListFailure(shown.raw);
+    }
     finally { setBusy(false); }
   }, []);
   useEffect(() => { if (active) void refresh(); }, [active, version, refresh]); // Provider-free owned archive read only.
@@ -63,6 +69,10 @@ export default function AccountRecordingArchive({active, version, requested, sho
       <button className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Refresh saved audio</button>
     </div>
     <p role="status" className="cc-muted cc-audio-archive-status">{message}</p>
+    {listFailure !== null && <div className="cc-friendly-error">
+      <button type="button" className="cc-secondary" disabled={busy} onClick={() => void refresh()}>Retry</button>
+      {listFailure && <details><summary>Technical details</summary><code>{listFailure}</code></details>}
+    </div>}
     <div className="cc-audio-list">
       {rows.map(row => {
         const badge = statuses[row.id] || initialTranscriptBadge(row);

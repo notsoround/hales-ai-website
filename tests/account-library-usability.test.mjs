@@ -37,7 +37,7 @@ try {
         await page.goto(`${base}cupcake/account?theme=${width === 390 ? 'caribbean' : 'rose'}`);
         const tab = name => page.getByRole('tab', { name, exact: true });
         await page.locator('.cc-library-item').first().waitFor();
-        assert.deepEqual(await page.getByRole('tab').allTextContents(), ['All Content','Review My Day','Receipts','Messages','Phone calls']);
+        assert.deepEqual(await page.getByRole('tab').allTextContents(), ['All Content','Review My Day','Receipts','Messages','Phone calls','Saved audio']);
         assert.equal(await page.getByRole('button', { name:'Bring a conversation' }).count(), 0);
         await page.getByLabel('Search library', { exact: true }).fill('Synthetic');
         await page.getByRole('button', { name: 'Search', exact: true }).click();
