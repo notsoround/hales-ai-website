@@ -37,6 +37,13 @@ try {
   await saved.getByAltText('Saved photo: Synthetic saved lunch').waitFor();
   await page.waitForFunction(() => { const image = document.querySelector('img[alt="Saved photo: Synthetic saved lunch"]'); return image?.complete && image.naturalWidth > 0; });
   await page.keyboard.press('Escape');
+  const hero = page.getByRole('region', { name: 'Food summary' });
+  const foodCapture = page.getByRole('region', { name: 'Photo meal logging' });
+  assert.ok((await hero.boundingBox()).y < (await foodCapture.boundingBox()).y, 'Food opens with the daily summary above capture');
+  await page.getByRole('button', { name: 'View meals', exact: true }).click();
+  await page.waitForFunction(() => document.activeElement?.classList.contains('cc-nutrition-timeline'));
+  const review = page.getByText('Photos to check', { exact: true });
+  await review.click();
   for (const description of ['Synthetic pending lunch', 'Synthetic failed photo']) {
     await page.locator('.cc-snap-recent-item').filter({ hasText: description }).first().click();
     await page.getByText('This saved photo is not in your calorie totals.', { exact: false }).waitFor();

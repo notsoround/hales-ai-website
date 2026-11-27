@@ -56,9 +56,9 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
 
   useEffect(() => {
     alive.current = true;
-    void reloadDrafts().then(saved => { if (saved.length) { const original = saved[saved.length - 1]; current.current = original; setIntent(original); void check(original); } }).catch(cause => { if (alive.current) setError(errorText(cause)); }).finally(() => { if (alive.current) setLoading(false); });
+    void reloadDrafts().catch(cause => { if (alive.current) setError(errorText(cause)); }).finally(() => { if (alive.current) setLoading(false); });
     return () => { alive.current = false; clearTimeout(timer.current); };
-  }, [reloadDrafts, check]);
+  }, [reloadDrafts]);
   useEffect(() => {
     if (intent && ['queued', 'running'].includes(request?.status || '') && !busy && !error) timer.current = setTimeout(() => { void check(intent); }, 2500);
     return () => clearTimeout(timer.current);
@@ -70,8 +70,11 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
     if (!pending.length) return;
     let cancelled = false;
     const scheduled = setTimeout(() => { void (async () => {
-      for (const original of pending.slice(0, 2)) {
+      // A long-running request must not keep later saved photos from being checked.
+      const start = (backgroundTick * 2) % pending.length;
+      for (let offset = 0; offset < Math.min(2, pending.length); offset++) {
         if (cancelled) return;
+        const original = pending[(start + offset) % pending.length];
         try { await accept(await accountData<PhotoResult>({ action: 'food_photo_status', request_id: original.request_id }), original, false); }
         catch (cause) { if (cause instanceof AccountRequestError && cause.code === 'photo_request_not_found') terminal.current.add(original.request_id); }
       }
@@ -120,6 +123,7 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
   };
   const input = (ref: typeof picker) => <input ref={ref} aria-label="Choose meal photo file" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void chooseFile(file); }}/>;
   const isActive = !!(intent || receipt || busy || error);
+  const resumable = drafts.filter(row => row.request_id !== intent?.request_id);
   return <section className="cc-card cc-account-photo" data-active={isActive ? 'true' : undefined} aria-label="Photo meal logging">
     <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>
     {!intent && !receipt && <>
@@ -146,6 +150,9 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
       <button type="button" className="cc-secondary" disabled={busy} onClick={another}>{receipt ? 'Log another photo' : 'Keep this request and log another photo'}</button>
     </div>}
     {error && <p role="alert" className="cc-error">{error}</p>}
-    {drafts.filter(row => row.request_id !== intent?.request_id).length > 0 && <details><summary>Other saved photo requests ({drafts.filter(row => row.request_id !== intent?.request_id).length})</summary>{drafts.filter(row => row.request_id !== intent?.request_id).map(row => <button key={row.request_id} className="cc-text-button" disabled={busy} onClick={() => resume(row)}>Check meal photo · {new Date(row.consumed_at).toLocaleString()}</button>)}</details>}
+    {resumable.length > 0 && <details className="cc-account-photo-adjustments">
+      <summary>Resume saved photo requests ({resumable.length})</summary>
+      {resumable.map(row => <button key={row.request_id} className="cc-text-button" disabled={busy} onClick={() => resume(row)}>Check meal photo · {new Date(row.consumed_at).toLocaleString()}</button>)}
+    </details>}
   </section>;
 }

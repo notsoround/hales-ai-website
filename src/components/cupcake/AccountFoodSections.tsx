@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ACCOUNT_SESSIONS } from './accountMode';
+import { NutritionWorkspace, type NutritionWorkspaceProps } from './NutritionWorkspace';
+import { AccountPhotoMeal } from './AccountPhotoMeal';
+import { AccountManualMeal } from './AccountManualMeal';
 import { AccountFoodPlan } from './AccountFoodPlan';
 import ReceiptWorkspace from './ReceiptWorkspace';
 import './account-food-plan.css';
@@ -30,6 +33,23 @@ function useDesktop() {
   }, []);
   return wide;
 }
+/** Compose the pinned page's existing controls into the account Food workspace. */
+function arrangeFoodLog(children: ReactNode) {
+  const parts = Children.toArray(children);
+  const calendar = parts.find(part => isValidElement<NutritionWorkspaceProps>(part) && part.type === NutritionWorkspace);
+  if (!isValidElement<NutritionWorkspaceProps>(calendar)) return children;
+  const capture = parts.filter(part => isValidElement(part) && (part.type === AccountPhotoMeal || part.type === AccountManualMeal));
+  const review = parts.find(part => isValidElement<{ 'aria-label'?: string }>(part) && part.type === 'section' && part.props['aria-label'] === 'Photos to check');
+  return <>
+    {cloneElement(calendar, {
+      logControls: capture,
+      reviewQueue: review,
+      reviewFirst: !!review && review === parts[0],
+    })}
+    {parts.filter(part => part !== calendar && part !== review && !capture.includes(part))}
+  </>;
+}
+
 function FoodSections({ children, onOpenReceipts }: { children: ReactNode; onOpenReceipts?: () => void }) {
   const id = useId(), buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const wide = useDesktop(), sections = wide ? desktopSections : phoneSections, count = sections.length;
@@ -58,7 +78,7 @@ function FoodSections({ children, onOpenReceipts }: { children: ReactNode; onOpe
   }, [choose, focusTab, onOpenReceipts]);
   return <>
     <div className="cc-food-sections" role="tablist" aria-label="Food sections">{sections.map((item, index) => <button key={item.key} ref={node => { buttons.current[index] = node; }} id={`${id}-${item.key}`} aria-controls={`${id}-panel-${item.key}`} type="button" role="tab" aria-selected={section === item.key} tabIndex={section === item.key ? 0 : -1} onClick={() => choose(item.key)} onKeyDown={event => { const next = event.key === 'ArrowRight' ? (index + 1) % count : event.key === 'ArrowLeft' ? (index + count - 1) % count : event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : -1; if (next >= 0) { event.preventDefault(); choose(sections[next].key); buttons.current[next]?.focus(); } }}>{item.label}</button>)}</div>
-    <div className="space-y-4 nx-food-log-stack" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{children}</div>
+    <div className="space-y-4 nx-food-log-stack" id={`${id}-panel-log`} role="tabpanel" aria-labelledby={`${id}-log`} hidden={section !== 'log'}>{arrangeFoodLog(children)}</div>
     {planOpened && <div id={`${id}-panel-${section === 'groceries' ? 'groceries' : 'plan'}`} role="tabpanel" aria-labelledby={`${id}-${section === 'groceries' ? 'groceries' : 'plan'}`} hidden={section !== 'plan' && section !== 'groceries'}><AccountFoodPlan section={wide ? 'both' : section === 'groceries' ? 'groceries' : 'plan'} onPlan={() => choose('plan')} onGroceries={() => { choose('groceries'); focusTab('groceries'); }} onReceipts={() => { choose('receipts'); focusTab('receipts'); }}/></div>}
     {receiptsOpened && <div id={`${id}-panel-receipts`} role="tabpanel" aria-labelledby={`${id}-receipts`} hidden={section !== 'receipts'}><ReceiptWorkspace active={section === 'receipts'} /></div>}
   </>;
