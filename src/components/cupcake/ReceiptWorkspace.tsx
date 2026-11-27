@@ -3,6 +3,7 @@ import { Banknote, CheckCircle2, Package, ShoppingBasket } from 'lucide-react';
 import { libraryRequest } from './library';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { AccountReceiptPhoto } from './AccountReceiptPhoto';
+import { purchaseMoney, type Purchase } from './bankPurchaseModel';
 import { ManualPurchasePicker } from './ManualPurchasePicker';
 import { ReceiptMealLink } from './ReceiptMealLink';
 import { BankPurchaseBrowser } from './BankPurchaseBrowser';
@@ -57,8 +58,9 @@ type Candidate = {
   reasons?: string[]; requiresAcknowledgment?: boolean;
 };
 type Coverage = { startDate?: string; endDate?: string; checkedAt?: string; complete: boolean; fetchedTransactions?: number | null; reportedTransactions?: number | null; pages?: number | null; warnings?: string[] };
+type BankRefresh = { notice: string; incomplete: boolean };
 type MatchSummary = { exactCount?: number; exactPostedCount?: number; pendingCount?: number; candidateCount?: number };
-type MatchResponse = { receipt: Receipt; candidates: Candidate[]; coverage?: Coverage; matchSummary?: MatchSummary };
+type MatchResponse = { receipt: Receipt; candidates: Candidate[]; suggestedPurchases?: Purchase[]; coverage?: Coverage; matchSummary?: MatchSummary };
 type Props = { active?: boolean; onWork?: (busy: boolean) => void };
 
 const money = (amount: number | null | undefined, currency: string | null) => {
@@ -109,6 +111,9 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   const panelId = useId();
   const [reconciling, setReconciling] = useState(false);
   const [manual, setManual] = useState(false);
+  const [leads, setLeads] = useState<Purchase[]>([]);
+  const [leadId, setLeadId] = useState<string>();
+  const [bankNotice, setBankNotice] = useState('');
   const [choice, setChoice] = useState(''), [acknowledged, setAcknowledged] = useState(false), [searchedAt, setSearchedAt] = useState(0);
   const [preview, setPreview] = useState(''), [original, setOriginal] = useState(''), [status, setStatus] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [cashIds, setCashIds] = useState<Set<string>>(() => readIdSet(CASH_RECEIPTS_KEY));
@@ -124,7 +129,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   const [unlinkPrompt, setUnlinkPrompt] = useState(false);
   const selectionVersion = useRef(0);
   const selectedCard = useRef<HTMLDivElement>(null);
-  const bankRefresh = useRef<Promise<string> | null>(null);
+  const bankRefresh = useRef<Promise<BankRefresh> | null>(null);
   const work = useCallback((value: boolean) => { setBusy(value); onWork?.(value); }, [onWork]);
 
   const isMatched = useCallback((r: Receipt) => r.status === 'matched' || !!r.matchedTransactionId, []);
@@ -190,32 +195,33 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     finally { setListLoading(false); }
   }, []);
   const clearResults = useCallback(() => {
-    setCandidates([]); setCoverage(null); setSummary(null); setChoice(''); setAcknowledged(false); setSearchedAt(0);
+    setCandidates([]); setLeads([]); setLeadId(undefined); setBankNotice(''); setCoverage(null); setSummary(null); setChoice(''); setAcknowledged(false); setSearchedAt(0);
   }, []);
   const resetMatches = useCallback(() => {
     clearResults(); setUnlinkPrompt(false); setReconciling(false); setManual(false);
   }, [clearResults]);
   const refreshBank = useCallback(() => {
-    if (!ACCOUNT_SESSIONS) return Promise.resolve('');
+    if (!ACCOUNT_SESSIONS) return Promise.resolve({ notice: '', incomplete: false });
     if (bankRefresh.current) return bankRefresh.current;
     const pending = (async () => {
       try {
         const status = await accountData<{ configured: boolean; connections: {connectionId: string; status: string}[] }>({ action: 'bank_connection_status' });
-        if (!status.configured || !Array.isArray(status.connections)) return '';
+        if (!status.configured || !Array.isArray(status.connections)) return { notice: 'Searching saved purchases. Bank refresh is unavailable for this account.', incomplete: false };
         const connected = status.connections.filter(connection => connection.status === 'connected');
         const needsAttention = status.connections.some(connection => ['reconnect_required', 'disconnecting', 'disconnect_uncertain'].includes(connection.status));
         const results = await Promise.allSettled(connected.map(connection => accountData({ action: 'bank_sync', connectionId: connection.connectionId })));
-        if (results.some(result => result.status === 'rejected')) return 'Some bank transactions could not be refreshed. Matching uses previously saved transactions.';
+        if (results.some(result => result.status === 'rejected')) return { notice: 'Some bank transactions could not be refreshed. Matching uses previously saved transactions.', incomplete: true };
         if (connected.length) notifyDataChanged('purchase');
-        if (needsAttention) return 'A bank connection needs attention. Matching uses its previously saved transactions.';
-        return '';
-      } catch { return 'Bank transactions could not be refreshed. Matching uses previously saved transactions.'; }
+        if (needsAttention) return { notice: 'A bank connection needs attention. Check Settings → Connections. Saved purchases are still available.', incomplete: true };
+        if (!connected.length) return { notice: 'Searched your saved purchases. To refresh directly from a bank, open Settings → Connections and connect it.', incomplete: false };
+        return { notice: '', incomplete: false };
+      } catch { return { notice: 'Bank transactions could not be refreshed. Matching uses previously saved transactions.', incomplete: true }; }
     })();
     bankRefresh.current = pending;
     void pending.finally(() => { if (bankRefresh.current === pending) bankRefresh.current = null; });
     return pending;
   }, []);
-  useEffect(() => { if (active && ACCOUNT_SESSIONS) void refreshBank(); }, [active, refreshBank]);
+  useEffect(() => { if (active && ACCOUNT_SESSIONS && route.bank && !route.transaction) void refreshBank(); }, [active, route.bank, route.transaction, refreshBank]);
   useEffect(() => {
     if (!active) return;
     void refresh().catch(e => setError((e as Error).message));
@@ -282,7 +288,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
       if (selectionVersion.current !== version) return;
       setSelected(data.receipt); setAutoReadId('');
       const receipt = data.receipt;
-      const ready = !receipt.matchedTransactionId && !isCash(receipt) && expectedTotal(receipt) != null && receipt.date && receipt.currency;
+      const ready = receipt.status === 'extracted' && !receipt.matchedTransactionId && !isCash(receipt) && expectedTotal(receipt) != null;
       await Promise.all([refresh(), ready ? findMatches(receipt) : undefined]);
     } catch (cause) {
       if (selectionVersion.current === version) setError((cause as Error).message);
@@ -329,15 +335,15 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     };
     work(true); setError(''); clearResults(); setStatus('');
     try {
-      const warning = await refreshBank();
+      const { notice, incomplete } = await refreshBank();
       const data = await libraryRequest<MatchResponse>({ action: 'receipt_match_candidates', receiptId: receipt.id });
       if (!stillHere()) return;
       if (data.receipt?.id !== receipt.id) throw Error('The receipt comparison could not be verified.');
       if (data.receipt.matchedTransactionId) { setSelected(data.receipt); resetMatches(); setStatus(''); return; }
       const target = ACCOUNT_SESSIONS && !route.manual && route.receipt === receipt.id ? route.transaction : undefined;
       const options = target ? data.candidates.filter(item => item.transactionId === target) : data.candidates;
-      setSelected(data.receipt); setCandidates(options);
-      setCoverage(warning ? { ...data.coverage, complete: false, warnings: [...(data.coverage?.warnings || []), warning] } : data.coverage || { complete: false, warnings: ['Search coverage was not provided. Refresh before choosing a different amount.'] });
+      setSelected(data.receipt); setCandidates(options); setLeads(data.suggestedPurchases || []); setBankNotice(notice);
+      setCoverage(incomplete ? { ...data.coverage, complete: false } : data.coverage || { complete: false, warnings: ['Search coverage was not provided. Refresh before choosing a different amount.'] });
       setSummary(target ? null : data.matchSummary || null); setSearchedAt(Date.now());
       if (target) {
         setChoice(options.length === 1 && !options[0].pending ? target : '');
@@ -444,7 +450,8 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   const selectedInPantry = selected ? pantryRoutedIds.has(selected.id) : false;
 
   const searched = searchedAt > 0;
-  const canSearch = !!selected?.currency && !!selected.date && expectedTotal(selected) != null;
+  const completeDetails = !!selected?.currency && !!selected.date && expectedTotal(selected) != null;
+  const canSearch = completeDetails || !!(ACCOUNT_SESSIONS && selected?.merchant && expectedTotal(selected) != null);
   const bankView = ACCOUNT_SESSIONS && !route.receipt && (!!route.transaction || !!route.bank);
   const receiptDetail = !!route.receipt && ACCOUNT_SESSIONS;
   const bankListVisible = active && bankView && !route.transaction;
@@ -452,7 +459,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
   return <section className="cc-studio cc-library-workspace cc-receipts" aria-busy={busy}>
     <div className="cc-receipt-top-row">
       <div>
-        <h2>Receipts</h2>
+        <h2>{ACCOUNT_SESSIONS ? 'Receipts & bank purchases' : 'Receipts'}</h2>
         {!ACCOUNT_SESSIONS && <p className="cc-muted">Save a receipt photo and match it to a bank purchase.</p>}
       </div>
       {ACCOUNT_SESSIONS && !route.receipt && !route.transaction && <a className="cc-receipt-pantry-jump" href={groceriesHref()}><ShoppingBasket size={14} aria-hidden="true" />Groceries &amp; pantry</a>}
@@ -519,7 +526,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
       </div> : selectedIsCash ? <div className="cc-receipt-cash-confirmed"><div><strong><CheckCircle2 size={16} aria-hidden="true" />Paid with Cash</strong><p className="cc-muted">Excluded from the bank-match queue. {selected.paymentMethod === 'cash' || selected.paidWithCash ? 'Saved to your account.' : 'Saved on this device.'}</p></div><button type="button" className="cc-secondary" disabled={busy} onClick={() => toggleCash(selected)}>Undo — needs bank match</button></div> : <>
         {ACCOUNT_SESSIONS && <button type="button" className={reconciling ? 'cc-text-button' : 'cc-primary'} aria-expanded={reconciling} aria-controls={panelId}
           onClick={() => {
-            setManual(false); setReconciling(!reconciling);
+            setManual(false); setLeadId(undefined); setReconciling(!reconciling);
             // Saved candidate sets expire on the server after 15 minutes.
             if (!reconciling && !busy && canSearch && Date.now() - searchedAt >= 15 * 60_000) void findMatches(selected);
           }}>
@@ -528,10 +535,15 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
         {(!ACCOUNT_SESSIONS || reconciling) && <section id={panelId} className="cc-receipt-reconcile" aria-label="Reconcile receipt">
           {!manual && <>
             {busy && !searched && <p className="cc-muted" role="status">Looking for the bank purchase…</p>}
-            {!canSearch && <p className="cc-muted">The receipt is missing a date, total, or currency for an automatic search.</p>}
+            {!completeDetails && <p className="cc-muted">{canSearch ? 'Checking the merchant and printed amount. Review the bank date and currency before linking.' : 'Choose a saved purchase manually. This receipt needs more detail for a suggested match.'}</p>}
             {selected.amountWarning && <p className="cc-receipt-caution">{selected.amountWarning}</p>}
             {searched && <div className="cc-receipt-results">
-              <h4 className="cc-receipt-result-heading" aria-live="polite">{exactCount ? `${exactCount} exact amount ${exactCount === 1 ? 'match' : 'matches'}` : candidates.length ? 'Possible purchases' : 'No matching purchase found'}</h4>
+              <h4 className="cc-receipt-result-heading" aria-live="polite">{leads.length ? 'Suggested purchases' : exactCount ? `${exactCount} exact amount ${exactCount === 1 ? 'match' : 'matches'}` : candidates.length ? 'Possible purchases' : 'No matching purchase found'}</h4>
+              {leads.map(p => <button key={p.transactionId} type="button" className="cc-bank-purchase-row" onClick={() => { setLeadId(p.transactionId); setManual(true); }}>
+                <span><strong>{p.merchant}</strong><small>{dateLabel(p.date)} · Posted · Similar merchant and same printed amount</small></span>
+                <strong>{purchaseMoney(p.amount, p.currency)}</strong>
+              </button>)}
+              {bankNotice && <p className="cc-muted">{bankNotice}</p>}
               {!!exactCandidates.length && <fieldset className="cc-receipt-options"><legend>Exact amount transactions</legend>{candidateList(exactCandidates)}</fieldset>}
               {!!otherCandidates.length && <details className="cc-receipt-alternatives" open={!exactCandidates.length}><summary>Other transactions to review ({otherCandidates.length})</summary><p className="cc-muted">These amounts or currencies differ. Review the receipt’s final total and the bank’s settled charge before linking.</p><fieldset className="cc-receipt-options"><legend className="cc-receipt-sr-only">Other transactions to review</legend>{candidateList(otherCandidates)}</fieldset></details>}
 
@@ -540,11 +552,11 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
                 <summary>{coverage?.complete ? 'Search details' : 'Search details · partial bank history'}</summary>
                 {coverage?.startDate && coverage.endDate && <p>{dateLabel(coverage.startDate)} – {dateLabel(coverage.endDate)}{coverage.fetchedTransactions != null && ` · ${coverage.fetchedTransactions} transactions checked`}</p>}
                 {coverage?.checkedAt && <p>Checked {new Date(coverage.checkedAt).toLocaleString()}</p>}
-                {coverage?.warnings?.map((warning, i) => <p key={i}>{warning}</p>)}
+                {coverage?.warnings?.filter(warning => warning !== bankNotice).map((warning, i) => <p key={i}>{warning}</p>)}
               </details>
             </div>}
             <div className="cc-receipt-more-actions">
-              {ACCOUNT_SESSIONS && <button type="button" className="cc-secondary" disabled={busy} onClick={() => { setManual(true); setChoice(''); setAcknowledged(false); setStatus(''); }}>Find a purchase manually</button>}
+              {ACCOUNT_SESSIONS && <button type="button" className="cc-secondary" disabled={busy} onClick={() => { setLeadId(undefined); setManual(true); setChoice(''); setAcknowledged(false); setStatus(''); }}>Find a purchase manually</button>}
               {canSearch && <button type="button" className={ACCOUNT_SESSIONS ? 'cc-text-button' : 'cc-primary'} disabled={busy} onClick={() => void findMatches(selected)}>{searched ? 'Refresh matches' : ACCOUNT_SESSIONS ? 'Retry bank search' : 'Find transaction matches'}</button>}
               <button type="button" className="cc-text-button cc-receipt-cash-btn" disabled={busy} onClick={() => toggleCash(selected)}><Banknote size={16} aria-hidden="true" />Paid with Cash</button>
             </div>
@@ -554,7 +566,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
               setManual(false);
               if (!searched && !busy && canSearch) void findMatches(selected);
             }}>Back to suggestions</button>
-            <ManualPurchasePicker receipt={selected} initialTransaction={route.manual ? route.transaction : undefined} onMatched={() => void manualMatchSaved(selected.id)} />
+            <ManualPurchasePicker receipt={selected} initialTransaction={leadId || (route.manual ? route.transaction : undefined)} onMatched={() => void manualMatchSaved(selected.id)} />
           </>}
         </section>}
       </>}

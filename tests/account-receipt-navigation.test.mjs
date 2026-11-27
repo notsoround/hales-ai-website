@@ -140,6 +140,19 @@ if(preview) { console.log('Synthetic receipt workspace: '+url('library')); } els
       await workspace.getByRole('link',{name:'Open matched receipt'}).waitFor();
       assert.equal(query().get('transaction'),'synthetic-b-1042');
       await checkManualReceiptMatch(page, emptyUrl);
+      await page.evaluate(()=>sessionStorage.removeItem('synthetic-receipt-match'));
+      const partialUrl = new URL(emptyUrl);
+      partialUrl.searchParams.set('reconcile', 'partial');
+      partialUrl.searchParams.set('receipt', 'receipt_'+'c'.repeat(32));
+      await page.goto(partialUrl.href);
+      await workspace.getByRole('button',{name:'Reconcile',exact:true}).click();
+      await workspace.getByRole('heading',{name:'Suggested purchases'}).waitFor();
+      await workspace.getByRole('button',{name:/Similar merchant and same printed amount/i}).click();
+      const partialReview=workspace.getByRole('region',{name:'Confirm a manual match'});
+      await partialReview.waitFor();
+      assert.equal(await page.evaluate(()=>window.receiptNavFixture.confirms.length),0);
+      await partialReview.getByRole('button',{name:'Confirm this match'}).click();
+      await workspace.getByRole('link',{name:'Open matched bank purchase'}).waitFor();
       assert.deepEqual(failures,[]);assert.deepEqual(external,[]);await page.close();
     }
     console.log('PASS: mobile Library and desktop Food support linked receipt/bank navigation, manual receipt choice from bank, single-action reconciliation, exact return and camera capture handoff. Synthetic only.');

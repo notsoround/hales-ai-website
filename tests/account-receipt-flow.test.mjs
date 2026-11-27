@@ -59,7 +59,7 @@ try {
   await page.getByLabel('Choose receipt image').setInputFiles({ name: 'synthetic3.png', mimeType: 'image/png', buffer: png });
   await reconcile.click();
   await page.getByText('Search details · partial bank history', { exact: true }).click();
-  await page.getByText('A bank connection needs attention. Matching uses its previously saved transactions.', { exact: true }).waitFor();
+  await page.getByText('A bank connection needs attention. Check Settings → Connections. Saved purchases are still available.', { exact: true }).waitFor();
   await page.getByRole('radio', { name: /Synthetic Market/ }).check();
   assert.equal(await page.getByRole('button', { name: 'Confirm selected match', exact: true }).isDisabled(), true, 'stale bank requires explicit acknowledgment');
   console.log('PASS: synthetic photo saves, reads once, finds account transaction and requires explicit confirmation');

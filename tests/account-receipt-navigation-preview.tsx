@@ -6,8 +6,9 @@ const matchedAtStart = 'receipt_' + 'd'.repeat(32);
 const transactions = ['synthetic-a-1041', 'synthetic-b-1042', 'synthetic-c-1043'];
 const original = { id: receiptId, merchant: 'Marina Market', date: today, createdAt: today + 'T11:00:00Z', total: 24, grandTotal: 24, currency: 'USD', tip: 2, tax: 1, lineItems: [{ description:'Lunch',quantity:1,amount:24 }], status: 'extracted' };
 const standard = { id: matchedAtStart, merchant: 'Harbor Bakery', date: today, createdAt: today + 'T08:00:00Z', total: 8, currency:'USD',tax:null,tip:null,lineItems:[],status:'matched',matchedTransactionId:transactions[2],matchMethod:'automatic' };
+const partial = new URLSearchParams(location.search).get('reconcile') === 'partial';
 const chosen = () => sessionStorage.getItem('synthetic-receipt-match');
-const receipts = () => [{ ...original, status: chosen() ? 'matched' : 'extracted', matchedTransactionId: chosen(), matchMethod: chosen() ? 'confirmed' : null },standard];
+const receipts = () => [{ ...original, ...(partial && {date:null, currency:null}), status: chosen() ? 'matched' : 'extracted', matchedTransactionId: chosen(), matchMethod: chosen() ? 'confirmed' : null },standard];
 const purchases = () => transactions.map((transactionId, index) => ({ transactionId, merchant: index < 2 ? 'Marina Market' : 'Harbor Bakery', date: today, amount:index < 2 ? 24 : 8,currency:'USD',pending:false,matchedReceiptId:index === 2 ? matchedAtStart : chosen() === transactionId ? receiptId : null }));
 const confirms: string[] = [];
 const noSuggestedMatch = new URLSearchParams(location.search).get('reconcile') === 'empty';
@@ -40,6 +41,7 @@ function respond(owner: string, body: Record<string, unknown>): object | undefin
     return {purchase,receiptCandidates: noSuggestedMatch || purchase.matchedReceiptId || chosen() ? [] : [{receiptId,merchant:original.merchant,date:today,total:24,currency:'USD',exactAmount:true,exactCurrency:true,dateDifferenceDays:0}]};
   }
   if(body.action==='receipt_get') return {receipt:receipts().find(r=>r.id===body.receiptId)};
+  if(body.action==='receipt_match_candidates' && partial) return {receipt:receipts()[0], candidates:[], suggestedPurchases:[purchases()[0]],coverage:{complete:false}};
   if(body.action==='receipt_match_candidates') return {receipt:receipts()[0], candidates:noSuggestedMatch ? [] : purchases().slice(0,2).map(p=>({...p,exactAmount:true,exactCurrency:true})),coverage:{complete:true,startDate:today,endDate:today}};
   if(body.action==='receipt_confirm_match') {
     if(body.receiptId!==receiptId||!transactions.slice(0,2).includes(String(body.transactionId))) throw Error('Unexpected synthetic match');

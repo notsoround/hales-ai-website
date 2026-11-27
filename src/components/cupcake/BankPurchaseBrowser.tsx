@@ -6,7 +6,7 @@ import { purchaseLinkClick, receiptWorkspaceUrl, type ReceiptRoute } from './rec
 import { purchaseMoney, dateText, type Purchase } from './bankPurchaseModel';
 import { SavedReceiptPicker } from './SavedReceiptPicker';
 
-type PossibleReceipt = { receiptId: string; merchant: string | null; date: string | null; total: number | null; currency: string | null; exactAmount: boolean; exactCurrency: boolean };
+type PossibleReceipt = { receiptId: string; manualOnly?: boolean; merchant: string | null; date: string | null; total: number | null; currency: string | null; exactAmount: boolean; exactCurrency: boolean };
 type PurchaseDetail = { purchase: Purchase; receiptCandidates: PossibleReceipt[]; candidatesComplete?: boolean };
 type PurchasePage = { purchases: Purchase[]; hasMore: boolean; nextCursor?: string | null };
 
@@ -65,8 +65,8 @@ export function BankPurchaseBrowser({ transaction, cashReceiptIds, onNavigate, o
         {reconciling && <>
         {detail.receiptCandidates.length === 0 ? <p role="status">{detail.candidatesComplete === false ? 'No match found among the receipts checked.' : 'No matching saved receipt found for this purchase.'}</p> : <h4>Suggested receipts</h4>}
         {detail.candidatesComplete === false && !!detail.receiptCandidates.length && <p className="cc-muted">Suggestions cover part of your receipt history.</p>}
-        {detail.receiptCandidates.map(r => <a key={r.receiptId} className="cc-bank-purchase-row" href={receiptWorkspaceUrl({receipt:r.receiptId,transaction})} onClick={e => purchaseLinkClick(e, () => onNavigate({receipt:r.receiptId,transaction}))}>
-          <span><strong>{r.merchant || 'Merchant unavailable'}</strong><small>{dateText(r.date)} · {r.exactCurrency && r.exactAmount ? 'Exact amount' : 'Check amount and currency'}</small></span>
+        {detail.receiptCandidates.map(r => <a key={r.receiptId} className="cc-bank-purchase-row" href={receiptWorkspaceUrl({receipt:r.receiptId,transaction,manual:r.manualOnly})} onClick={e => purchaseLinkClick(e, () => onNavigate({receipt:r.receiptId,transaction,manual:r.manualOnly}))}>
+          <span><strong>{r.merchant || 'Merchant unavailable'}</strong><small>{dateText(r.date)} · {r.manualOnly ? 'Check receipt details' : r.exactCurrency && r.exactAmount ? 'Exact amount' : 'Check amount and currency'}</small></span>
           <span>{purchaseMoney(r.total,r.currency)} <ChevronRight size={15} aria-hidden="true" /></span>
         </a>)}
         <button type="button" className="cc-secondary" aria-expanded={finding} onClick={() => setFinding(value => !value)}>Find a saved receipt</button>
