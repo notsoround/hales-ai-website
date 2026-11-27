@@ -43,6 +43,38 @@ if(preview) { console.log('Synthetic receipt workspace: '+url('library')); } els
       await workspace.getByRole('button',{name:'Confirm selected match',exact:true}).click();
       await workspace.getByRole('link',{name:'Open matched bank purchase',exact:true}).waitFor();
       assert.deepEqual(await page.evaluate(()=>window.receiptNavFixture.confirms),['synthetic-b-1042']);
+      // The center camera is hosted in the Food log panel, including when the
+      // preceding URL identifies a receipt inside Library or Food's Receipts.
+      const camera = page.getByRole('dialog', {name:'Camera',exact:true});
+      async function openCenterCamera() {
+        await page.locator('nav button[data-nav="snap"]').click();
+        await camera.waitFor({state:'visible'});
+        assert.equal(await camera.evaluate(dialog=>dialog.closest('[hidden]')===null), true);
+        assert.equal(await page.getByRole('tab',{name:'Food log'}).getAttribute('aria-selected'),'true');
+        assert.equal(query().get('tab'),'snap');
+        for(const key of ['view','receipt','transaction','receiptTab']) assert.equal(query().has(key),false);
+      }
+      await openCenterCamera();
+      await camera.getByRole('button',{name:'Close camera'}).click();
+      await page.goBack();
+      await workspace.getByRole('link',{name:'Open matched bank purchase',exact:true}).waitFor();
+      assert.equal(page.url(),comparison,'Back restores the linked receipt and transaction');
+      await openCenterCamera();
+      const encoded=await page.evaluate(()=>{
+        const canvas=document.createElement('canvas');canvas.width=40;canvas.height=30;
+        const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,40,30);
+        return canvas.toDataURL('image/png').split(',')[1];
+      });
+      await camera.locator('input[type=file]:not([capture])').setInputFiles({name:'synthetic-paper.png',mimeType:'image/png',buffer:Buffer.from(encoded,'base64')});
+      const review=page.getByRole('dialog',{name:'Review capture'});
+      await review.getByRole('radio',{name:'Receipt',exact:true}).check();
+      await review.getByRole('button',{name:'Save and read receipt'}).click();
+      await page.waitForFunction(()=>window.accountFixture.requests.some(row=>row.route==='receipts/photo'));
+      assert.equal(await page.getByRole('tab',{name:'Receipts',exact:true}).getAttribute('aria-selected'),'true');
+      assert.equal(query().get('view'),'receipts');
+      assert.equal(query().has('receipt'),false,'new capture is routed to the receipt intake');
+      assert.equal(await page.evaluate(()=>window.accountFixture.requests.filter(row=>row.route==='food/photo/analyze').length),0);
+      await page.goto(comparison);
       await workspace.getByRole('link',{name:'Open matched bank purchase',exact:true}).click();
       await workspace.getByRole('link',{name:'Open matched receipt',exact:true}).click();
       assert.equal(query().get('transaction'),'synthetic-b-1042'); assert.equal(query().get('tab'),tab);
@@ -68,12 +100,18 @@ if(preview) { console.log('Synthetic receipt workspace: '+url('library')); } els
       assert.equal(await workspace.getByRole('radio').count(),2);
       await page.goto(url(tab)+'&transaction=synthetic-b-1042');
       await workspace.getByRole('heading',{name:'Find an existing receipt'}).waitFor();
+      const purchaseUrl=page.url();
+      await openCenterCamera();
+      await camera.getByRole('button',{name:'Close camera'}).click();
+      await page.goBack();
+      await workspace.getByRole('heading',{name:'Find an existing receipt'}).waitFor();
+      assert.equal(page.url(),purchaseUrl,'Back restores a bank purchase opened without a receipt');
       assert.equal(await workspace.getByRole('link',{name:'Open matched receipt'}).count(),0);
       await workspace.getByRole('link',{name:/Marina Market/}).click();
       await workspace.getByRole('button',{name:'Confirm selected match'}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
       assert.deepEqual(failures,[]);assert.deepEqual(external,[]);await page.close();
     }
-    console.log('PASS: mobile Library and desktop Food, similarly priced charges stay distinct across selection, confirmation, saving, refresh and Back; reciprocal links, automatic-match copy, reversible unlink with both records preserved. Synthetic only.');
+    console.log('PASS: mobile Library and desktop Food support linked receipt/bank navigation, visible center camera, close and Back to the exact record, and new receipt capture handoff. Synthetic only.');
   } finally {await browser.close();await server.close();rmSync(cacheDir,{recursive:true,force:true});}
 }
