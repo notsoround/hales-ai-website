@@ -14,7 +14,7 @@ export type SourceProvenance = {
 };
 export type Conversation = {
   id: string; title: string; createdAt: string; updatedAt?: string; status: string; kind?: string; sourceApp?: string;
-  excerpt?: string; speakerRole?: string; provenance?: SourceProvenance;
+  providerEndedReason?: string; excerpt?: string; speakerRole?: string; provenance?: SourceProvenance;
   evidenceType?: string; sourceKey?: string; sourceVersion?: string; sourceState?: string; isCurrentSourceVersion?: boolean;
   supersedesVersion?: string | null; supersedesDocumentId?: string | null; supersededByDocumentId?: string | null;
   error?: string; durationSeconds?: number; progress?: { completed: number; total: number }; phase?: string;

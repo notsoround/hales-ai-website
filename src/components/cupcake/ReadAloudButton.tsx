@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Square, Volume2 } from 'lucide-react';
 import { speakText, speechPieces } from './quickChatRecovery';
 
-export function ReadAloudButton({ text, label = 'Play' }: { text: string; label?: string }) {
+export function ReadAloudButton({ text, label = 'Play', deviceOnly = false }: { text: string; label?: string; deviceOnly?: boolean }) {
   const [playing, setPlaying] = useState(false);
   const [note, setNote] = useState('');
+  useEffect(() => { if (deviceOnly) window.speechSynthesis?.getVoices(); }, [deviceOnly]);
   useEffect(() => () => {
     try { window.speechSynthesis?.cancel(); } catch { /* The page is going away. */ }
   }, []);
@@ -15,7 +16,13 @@ export function ReadAloudButton({ text, label = 'Play' }: { text: string; label?
   };
   const play = () => {
     if (!speechPieces(text).length) return;
-    if (!speakText(text, () => setPlaying(false))) {
+    const voices = deviceOnly ? window.speechSynthesis?.getVoices().filter(voice => voice.localService) || [] : [];
+    const voice = voices.find(v => /^en(?:-|$)/i.test(v.lang)) || voices.find(v => v.default) || voices[0];
+    if (deviceOnly && !voice) {
+      setNote('No on-device reading voice is available in this browser. The recap is shown here.');
+      return;
+    }
+    if (!speakText(text, () => setPlaying(false), voice, () => { setPlaying(false); setNote('Playback stopped. You can try again or read the recap here.'); })) {
       setNote('This browser cannot read aloud. The text stays on screen.');
       return;
     }

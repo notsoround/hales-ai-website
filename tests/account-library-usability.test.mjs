@@ -37,11 +37,8 @@ try {
         await page.goto(`${base}cupcake/account?theme=${width === 390 ? 'caribbean' : 'rose'}`);
         const tab = name => page.getByRole('tab', { name, exact: true });
         await page.locator('.cc-library-item').first().waitFor();
-        assert.equal(await page.getByRole('tab').count(), 7);
-        assert.equal(await page.getByRole('button', { name: 'Bring a conversation', exact: true }).isDisabled(), true);
-        await page.getByText('Ask across my Library', { exact: true }).click();
-        await page.getByText(/Library questions and idea comparisons are not available/).waitFor();
-        assert.equal(await page.getByLabel('Question across your library', { exact: true }).count(), 0);
+        assert.deepEqual(await page.getByRole('tab').allTextContents(), ['All Content','Review My Day','Receipts','Messages','Phone calls']);
+        assert.equal(await page.getByRole('button', { name:'Bring a conversation' }).count(), 0);
         await page.getByLabel('Search library', { exact: true }).fill('Synthetic');
         await page.getByRole('button', { name: 'Search', exact: true }).click();
         await page.locator('.cc-search-result').first().click();
@@ -52,17 +49,38 @@ try {
         assert.match(await downloadText(page, details.getByRole('button', { name: 'Markdown', exact: true })), /Synthetic source text/);
         await details.getByRole('button', { name: 'PDF / Print', exact: true }).waitFor();
         await details.getByRole('button', { name: 'Back to library', exact: true }).click();
-        await tab('Projects').click();
-        assert.equal(await page.getByRole('button', { name: 'Add project', exact: true }).isDisabled(), true);
-        assert.equal(await page.getByRole('button', { name: 'Edit project', exact: true }).isDisabled(), true);
-        await page.getByRole('button', { name: 'Explore context', exact: false }).click();
-        assert.equal(await tab('All context').getAttribute('aria-selected'), 'true');
-        await tab('Saved thinking').click();
-        const analysis = page.locator('.cc-analysis').filter({ hasText: 'Synthetic saved analysis.' });
-        assert.equal(await analysis.getByRole('button', { name: 'Save a decision', exact: true }).isDisabled(), true);
-        await analysis.getByRole('button', { name: 'Play answer', exact: true }).waitFor();
-        assert.match(await downloadText(page, analysis.getByRole('button', { name: 'Download answer', exact: true })), /Synthetic saved analysis/);
-        await tab('Review your day').click();
+        await tab('Messages').click();
+        const projects = page.locator('.cc-library-projects-fold');
+        await projects.locator('summary').click();
+        await projects.getByRole('button', {name:'Explore context'}).click();
+        assert.equal(await tab('All Content').getAttribute('aria-selected'), 'true');
+        await tab('Messages').click();
+        await page.getByText('Synthetic captured message.').waitFor();
+        await tab('Phone calls').click();
+        assert.equal(new URL(page.url()).searchParams.get('view'), 'calls');
+        const history = page.getByRole('region', { name:'Saved phone calls' });
+        await history.getByRole('button', {name:/Voicemail.*Recap/}).click();
+        await history.getByText('Synthetic voicemail recap.', {exact:true}).waitFor();
+        await page.evaluate(() => {
+          const local = {lang:'en-US', localService:true};
+          window.fixturePlayback = [];
+          Object.defineProperty(window, 'speechSynthesis', { configurable: true, value:{
+            getVoices:()=>[{lang:'en-US',localService:false},local], cancel:()=>window.fixturePlayback.push('stop'),
+            resume:()=>{}, speak:u=>window.fixturePlayback.push([u.text,u.voice === local]),
+          }});
+          Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable:true, value:class { constructor(text){this.text=text;} }});
+        });
+        await history.getByRole('button', {name:'Listen to recap'}).click();
+        await history.getByRole('button', {name:'Stop',exact:true}).click();
+        assert.deepEqual(await page.evaluate(()=>window.fixturePlayback.filter(Array.isArray)), [['Synthetic voicemail recap.',true]]);
+        await history.getByRole('button', {name:'Open full transcript'}).click();
+        await details.getByRole('heading', {name:'Synthetic phone call'}).waitFor();
+        await details.getByRole('button', {name:'Back to library'}).click();
+        await history.getByRole('button', {name:'Earlier calls'}).click();
+        await history.getByText('Ended after silence').waitFor();
+        await page.goBack();
+        assert.equal(await tab('Messages').getAttribute('aria-selected'), 'true');
+        await tab('Review My Day').click();
         await page.getByText('Synthetic retained decision.', { exact: true }).waitFor();
         assert.equal(await page.getByRole('button', { name: 'Save decision', exact: true }).isDisabled(), true);
         assert.equal(await page.getByRole('button', { name: 'Done', exact: true }).isDisabled(), true);
@@ -82,10 +100,6 @@ try {
         await page.getByRole('button', { name: 'Refresh today review', exact: true }).click();
         await page.getByRole('alert').filter({ hasText: 'Saved closeouts could not be loaded.' }).waitFor();
         await page.getByText('Synthetic retained decision.', { exact: true }).waitFor();
-        await tab('Connections').click();
-        await page.getByRole('heading', { name: 'Private AI connections', exact: true }).waitFor();
-        assert.equal(await page.getByText('https://automate.hales.ai/cupcake-mcp', { exact: true }).count(), 0);
-        assert.equal(await page.getByRole('button', { name: 'Create 90-day access', exact: true }).count(), 0);
         const requests = await page.evaluate(() => window.libraryNavigationFixture.requests);
         assert.deepEqual(requests.filter(row => forbidden.has(row.action)), []);
         assert.ok(requests.some(row => row.action === 'analysis_get'));

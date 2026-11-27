@@ -88,7 +88,7 @@ export function speechPieces(text: string): string[] {
   return out;
 }
 
-export function speakText(text: string, onDone?: () => void): boolean {
+export function speakText(text: string, onDone?: () => void, voice?: SpeechSynthesisVoice, onError?: () => void): boolean {
   const synth = typeof window === 'undefined' ? undefined : window.speechSynthesis;
   if (!synth) return false;
   const chunks = speechPieces(text);
@@ -97,10 +97,14 @@ export function speakText(text: string, onDone?: () => void): boolean {
   try { synth.resume(); } catch { /* Some browsers reject resume until speech starts. */ }
   chunks.forEach((chunk, index) => {
     const utterance = new SpeechSynthesisUtterance(chunk);
-    utterance.lang = 'en-US';
+    if (voice) utterance.voice = voice;
+    utterance.lang = voice?.lang || 'en-US';
     utterance.rate = 1;
     if (index === chunks.length - 1) utterance.onend = () => onDone?.();
-    utterance.onerror = () => onDone?.();
+    utterance.onerror = event => {
+      if (event.error === 'canceled' || event.error === 'interrupted') { onDone?.(); return; }
+      (onError ?? onDone)?.();
+    };
     synth.speak(utterance);
   });
   return true;
