@@ -83,3 +83,18 @@
 }
 @keyframes nx-md-tray { from { opacity: 0; transform: translateY(-8px); } }
 @keyframes nx-md-flare { 0% { opacity: 1; } 100% { opacity: .42; } }
+
+/* Keep most of the instrument neutral. The changed arc and its legend share the same ink. */
+.cc-app[data-entry=account] { --nx-milestone: #62dba3; }
+:root[data-cc-scheme=light] .cc-app[data-entry=account][class] { --nx-milestone: #08734c; }
+.cc-app .nx-md [data-state=milestone], .cc-app .nx-md[data-state=milestone] { --metric-ink: var(--nx-milestone); }
+.cc-app .nx-md [data-state=empty], .cc-app .nx-md[data-state=empty] { --metric-ink: var(--nx-ink-3); }
+.cc-app .nx-md [data-state=near-target], .cc-app .nx-md[data-state=near-target], .cc-app .nx-food-dial[data-state=near-target] { --metric-ink: color-mix(in oklab, var(--nx-a), var(--nx-warm) 65%); }
+.cc-app .nx-md [data-state=at-target], .cc-app .nx-md[data-state=at-target], .cc-app .nx-food-dial[data-state=at-target] { --metric-ink: var(--nx-warm); }
+.cc-app .nx-md [data-state=over-target], .cc-app .nx-md[data-state=over-target], .cc-app .nx-food-dial[data-state=over-target] { --metric-ink: var(--nx-bad); }
+.cc-app .nx-md .nx-md-ring[data-state=normal], .cc-app .nx-md .nx-md-key[data-state=normal] { --metric-ink: initial; }
+.cc-app .nx-md .nx-md-ring:not([data-state=normal]) :is(.nx-md-fill, .nx-md-glow) { stroke: var(--metric-ink); }
+.cc-app .nx-md .nx-md-key:not([data-state=normal]):not(.is-empty) i { background: var(--metric-ink); }
+.cc-app .nx-md:not([data-state=normal]) .nx-md-detail em { color: var(--metric-ink); }
+.cc-app .nx-md .nx-md-over, .cc-app[data-entry=account] .nx-food-over { stroke: var(--nx-bad); }
+.cc-app .nx-food-dial:is([data-state=near-target], [data-state=at-target], [data-state=over-target]) :is(.nx-food-fill, .nx-food-glow) { stroke: var(--metric-ink); }
