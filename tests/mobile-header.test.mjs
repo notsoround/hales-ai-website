@@ -39,6 +39,11 @@ try {
     assert.equal((await identity.textContent()).trim(), 'MyCupcake — Synthetic A', 'the full label stays in the accessible name');
     assert.deepEqual(await identity.evaluate(el => [el.scrollWidth <= el.clientWidth, el.firstElementChild.getBoundingClientRect().right <= el.getBoundingClientRect().right]), [true, true], `no ellipsis at ${width} px`);
     assert.equal(await page.locator('.cc-top .cc-version').count(), 0, 'no build string in the header');
+    // Card 15: Spent today reads as tappable like Steps and Weight (chevron inside its open button), refresh kept.
+    const spend = page.getByRole('group', { name: 'Spent today', exact: true });
+    assert.equal(await spend.getByRole('button', { name: /Open history$/ }).locator('svg.nx-spend-chevron').count(), 1);
+    assert.equal(await spend.getByRole('button', { name: /^Refresh spending/ }).count(), 1);
+    assert.equal(await spend.evaluate(el => el.scrollWidth <= el.clientWidth), true);
     await page.locator('summary[aria-label="Settings"]').click();
     const group = page.locator('.cc-settings-group').filter({ hasText: 'App & updates' });
     await group.locator('summary').click();
@@ -47,7 +52,7 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log('PASS: at 320 and 390 px the header reads "MyCupcake" uncut (owner kept in the accessible name) and the version sits in Settings → App & updates.');
+  console.log('PASS: at 320 and 390 px the header reads "MyCupcake" uncut (owner kept in the accessible name), the version sits in Settings → App & updates, and Spent today carries a chevron beside refresh.');
 } finally {
   await browser?.close();
   await server.close();

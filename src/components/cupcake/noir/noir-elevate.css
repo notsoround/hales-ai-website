@@ -187,6 +187,9 @@
 .cc-app .nx-weightline { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; cursor: pointer; border-bottom: 1px solid var(--nx-hair); color: var(--nx-ink-3); -webkit-tap-highlight-color: transparent; }
 .cc-app .nx-weightline .nx-spend-main { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 10px; min-height: 48px; padding: 14px 0 12px; box-sizing: border-box; min-width: 0; }
 .nx-weightline b i { font: 400 11px/1 var(--nx-text); font-style: normal; color: var(--nx-ink-3); letter-spacing: 0; }
+/* Spent today opens history like Steps and Weight, so it carries the same chevron (refresh stays beside it). */
+.cc-app div.nx-spend > button.nx-spend-main { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+.cc-app .nx-spend-chevron { align-self: center; color: var(--nx-ink-3); }
 .cc-app .nx-weightline:focus-visible { outline: 2px solid var(--nx-ink); outline-offset: 2px; border-radius: 6px; }
 .cc-app[data-entry=account] .nx-weightline + .nx-macros { margin-top: 18px; }
 /* Card headers: plain titles, no coloured icon chips. */
