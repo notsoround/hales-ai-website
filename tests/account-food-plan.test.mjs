@@ -138,7 +138,7 @@ try {
   console.log('PASS: grocery checkboxes preserve full CRLF/unknown text and extras; unsaved/reload/confirmed CAS save; stale conflict and late owner isolation; mobile/desktop');
 
   reset(); const first = await open(), p = first.page;
-  assert.equal(await p.getByRole('button', { name: 'Add meal', exact: true }).isVisible(), true); assert.equal(calls.length, 0);
+  assert.equal(await p.getByRole('button', { name: 'Manual entry', exact: true }).isVisible(), true); assert.equal(calls.length, 0);
   await tab(p, 'Groceries'); await (await notes(p)).fill('Synthetic oats — 1 bag\nSynthetic fruit — 3');
   assert.equal(await save(p).isDisabled(), true); assert.equal(calls.filter(call => call.body.action === 'coach_plan_set').length, 0);
   await p.getByRole('button', { name: 'Create your meal plan first', exact: true }).click(); await meal(p, 'Synthetic planned breakfast', 'Oats\nFruit');
@@ -152,7 +152,7 @@ try {
   assert.equal(plans.A.meals[0].kcal, undefined);
   await p.reload(); await tab(p, 'Meal plan'); await p.getByRole('button', { name: 'Edit plan', exact: true }).click(); await p.getByLabel('Meal 1 name', { exact: true }).waitFor(); assert.equal(await p.getByLabel('Meal 1 name', { exact: true }).inputValue(), 'Synthetic planned breakfast');
   await tab(p, 'Groceries'); assert.equal(await (await notes(p)).inputValue(), plans.A.groceries);
-  await tab(p, 'Food log'); assert.equal(await p.getByRole('button', { name: 'Add meal', exact: true }).isVisible(), true); assert.equal(await p.locator('.cc-nutrition-timeline-item').count(), 0);
+  await tab(p, 'Food log'); assert.equal(await p.getByRole('button', { name: 'Manual entry', exact: true }).isVisible(), true); assert.equal(await p.locator('.cc-nutrition-timeline-item').count(), 0);
   await p.getByRole('tab', { name: 'Food log', exact: true }).focus(); await p.keyboard.press('ArrowRight'); assert.equal(await p.getByRole('tab', { name: 'Meal plan', exact: true }).getAttribute('aria-selected'), 'true');
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await p.getByRole('button', { name: 'Toggle reference viewer', exact: true }).click(); await p.getByText('200 known kcal · partial', { exact: true }).waitFor(); await p.getByText('Calories unknown', { exact: true }).waitFor(); assert.equal(await p.getByText('NaN', { exact: false }).count(), 0);

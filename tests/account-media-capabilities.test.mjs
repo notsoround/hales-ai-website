@@ -24,9 +24,9 @@ async function open(entry) {
 async function snapshot(page) { return page.evaluate(() => ({ requests: window.mediaFixture.requests, blocked: window.mediaFixture.blocked, mediaRequests: window.mediaFixture.mediaRequests, inputClicks: window.mediaFixture.inputClicks, photoUploads: window.mediaFixture.photoUploads })); }
 try {
   const { context, page } = await open('/cupcake/account');
-  await page.getByRole('heading', { name: 'Log a food photo', exact: true }).waitFor();
+  await page.getByRole('region', { name: 'Food summary', exact: true }).waitFor();
   assert.equal(await page.getByLabel('Choose meal photo file', { exact: true }).count(), 1);
-  await page.getByRole('button', { name: 'Take meal photo', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Snap photo', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Choose meal photo', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: /^(Take photo|Choose existing photo|Add food photo)$/ }).count(), 0);
   const initial = await snapshot(page);
@@ -109,7 +109,7 @@ try {
   await page.getByLabel('Take receipt photo', { exact: true }).waitFor({state:'attached'});
   await page.getByLabel('Choose receipt image', { exact: true }).waitFor({state:'attached'});
   const unmatched = page.getByRole('button').filter({ hasText: 'Synthetic unmatched receipt' });
-  assert.match(await unmatched.innerText(), /Saved/);
+  assert.equal(await unmatched.locator('.cc-receipt-pill').innerText(), 'Unmatched');
   assert.doesNotMatch(await unmatched.innerText(), /Ready to match/);
   assert.equal(await page.getByRole('heading', { name: 'Saved receipts', exact: true }).count(), 1);
   await unmatched.click();
@@ -128,6 +128,7 @@ try {
   await page.getByText('Matched to the transaction you confirmed.', { exact: true }).waitFor();
   await page.getByRole('button').filter({ hasText: 'Synthetic failed receipt' }).click();
   assert.equal(await page.getByRole('button', { name: 'Retry saved receipt', exact: true }).count(), 0);
+  await page.getByRole('group', { name: 'Filter saved receipts' }).getByRole('button', { name: /^Matched/ }).click();
   await page.getByRole('button').filter({ hasText: 'Synthetic matched receipt' }).click();
   await page.getByText('Matched to the transaction you confirmed.', { exact: true }).waitFor();
   // Preserve the existing supported confirmation transport; no live bank search or record write.

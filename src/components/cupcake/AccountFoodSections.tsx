@@ -42,7 +42,7 @@ function arrangeFoodLog(children: ReactNode) {
   const review = parts.find(part => isValidElement<{ 'aria-label'?: string }>(part) && part.type === 'section' && part.props['aria-label'] === 'Photos to check');
   return <>
     {cloneElement(calendar, {
-      logControls: capture,
+      logControls: capture.map(part => isValidElement<{ compact?: boolean }>(part) ? cloneElement(part, { compact: true }) : part),
       reviewQueue: review,
       reviewFirst: !!review && review === parts[0],
     })}

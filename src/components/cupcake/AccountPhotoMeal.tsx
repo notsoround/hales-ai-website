@@ -16,7 +16,7 @@ const states = new Set(['queued', 'running', 'completed', 'failed', 'uncertain']
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'The photo save could not be confirmed. Check the same request again.';
 function validTime(value: string) { const now = Date.now(), time = Date.parse(value); return Number.isFinite(time) && time >= now - 400 * 86400000 && time <= now + 300000; }
 
-export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void; onOpenMeal?: (mealId: string) => void }) {
+export function AccountPhotoMeal({ onSaved, onOpenMeal, compact = false }: { compact?: boolean; onSaved: () => void; onOpenMeal?: (mealId: string) => void }) {
   const [store] = useState(photoDraftStore), [generation] = useState(() => sessionSnapshot().generation);
   const [drafts, setDrafts] = useState<PhotoIntent[]>([]), [intent, setIntent] = useState<PhotoIntent | null>(null);
   const [request, setRequest] = useState<PhotoRequest | null>(null), [receipt, setReceipt] = useState<FoodMeal | null>(null);
@@ -124,11 +124,11 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
   const input = (ref: typeof picker) => <input ref={ref} aria-label="Choose meal photo file" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void chooseFile(file); }}/>;
   const isActive = !!(intent || receipt || busy || error);
   const resumable = drafts.filter(row => row.request_id !== intent?.request_id);
-  return <section className="cc-card cc-account-photo" data-active={isActive ? 'true' : undefined} aria-label="Photo meal logging">
-    <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>
+  return <section className="cc-card cc-account-photo" data-compact={compact || undefined} data-active={isActive ? 'true' : undefined} aria-label="Photo meal logging">
+    {(!compact || intent) && <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>}
     {!intent && !receipt && <>
-      <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => setCameraOpen(true)}><Camera size={17}/>Take meal photo</button><button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
-      <details className="cc-account-photo-adjustments"><summary>Portions, meal time &amp; how it works</summary><div>
+      <div className="cc-snap-actions">{!compact && <button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => setCameraOpen(true)}><Camera size={17}/>Take meal photo</button>}<button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
+      <details className="cc-account-photo-adjustments"><summary>{compact ? 'Portion & meal time' : 'Portions, meal time & how it works'}</summary><div>
         <p className="cc-muted cc-small">Full photo = full meal. Uses the photo’s file time by default. Nutrition is estimated; unknown values stay unknown.</p>
         <label className="cc-account-photo-option"><input type="checkbox" checked={fileTime} disabled={busy} onChange={event => setFileTime(event.target.checked)}/>Use photo file time for when I ate</label>
         <p className="cc-muted cc-small">File metadata is a time suggestion, not verified capture time.</p>

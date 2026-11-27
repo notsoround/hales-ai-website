@@ -16,12 +16,12 @@ async function open() {
   const page = await context.newPage(); page.setDefaultTimeout(10000);
   await page.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
   const errors = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto(base + '/cupcake/account'); await page.getByRole('button', { name: 'Add meal', exact: true }).waitFor();
+  await page.goto(base + '/cupcake/account'); await page.getByRole('button', { name: 'Manual entry', exact: true }).waitFor();
   return { page, context, errors };
 }
 const dialog = page => page.getByRole('dialog', { name: 'Log a meal manually', exact: true });
 async function draft(page, description, nutrients = {}) {
-  await page.getByRole('button', { name: 'Add meal', exact: true }).click();
+  await page.getByRole('button', { name: 'Manual entry', exact: true }).click();
   const form = dialog(page);
   await form.getByLabel('What did you eat?').fill(description);
   assert.equal(await form.getByRole('button', { name: 'Save meal', exact: true }).isDisabled(), true);
@@ -48,7 +48,7 @@ try {
   assert.match(first.dedupeKey, /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/);
   assert.match(first.consumedAt, /Z$/);
   await page.keyboard.press('Escape');
-  assert.equal(await page.getByRole('button', { name: 'Add meal', exact: true }).evaluate(button => document.activeElement === button), true);
+  assert.equal(await page.getByRole('button', { name: 'Manual entry', exact: true }).evaluate(button => document.activeElement === button), true);
   await page.locator('.cc-nutrition-timeline-item button').filter({ hasText: 'Synthetic partial meal' }).click();
   const details = page.getByRole('dialog', { name: 'Meal details', exact: true });
   await details.getByText('Manually entered meal · no photo.', { exact: false }).waitFor();
@@ -58,7 +58,7 @@ try {
   assert.equal(await page.locator('.cc-nutrition-overview').getByText(/deficit/i).count(), 0);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Add meal', exact: true }).click();
+  await page.getByRole('button', { name: 'Manual entry', exact: true }).click();
   await dialog(page).getByRole('button', { name: 'Add another meal', exact: true }).click();
   // A new meal requires a new time and fresh explicit confirmation, including zero.
   form = dialog(page); await form.getByLabel('What did you eat?').fill('Synthetic full meal');
@@ -74,19 +74,34 @@ try {
   assert.deepEqual(partial.errors, []); await partial.context.close();
   console.log('PASS: partial/full/explicit-zero payloads, confirmed readback before receipt/history, unknown nutrition, no photo request, mobile/desktop dialog and keyboard close');
 
+  const transient = await open();
+  const transientForm = await draft(transient.page, 'Synthetic transient readback');
+  await mode(transient.page, 'readbackTransient');
+  await transientForm.getByRole('button', { name: 'Save meal', exact: true }).click();
+  await saved(transient.page);
+  assert.equal((await requests(transient.page)).length, 1);
+  assert.equal(await transient.page.evaluate(() => window.manualFixture.requests.filter(row => row.body.action === 'food_get').length), 2);
+  assert.deepEqual(transient.errors, []); await transient.context.close();
+  console.log('PASS: a transient readback recovers automatically with one write and two reads');
+
   for (const failure of ['lost', 'readbackFail', 'conflict']) {
     const test = await open(), p = test.page;
     const f = await draft(p, 'Synthetic ' + failure, {}); await mode(p, failure);
     await f.getByRole('button', { name: 'Save meal', exact: true }).click(); await f.getByRole('alert').waitFor();
     assert.equal(await f.getByRole('heading', { name: 'Meal saved to your food log' }).count(), 0);
     assert.equal(await f.getByLabel('What did you eat?').isDisabled(), true);
+    assert.equal((await requests(p)).length, 1, 'failed confirmation must not replay the write');
+    if (failure === 'readbackFail') {
+      assert.equal(await p.evaluate(() => window.manualFixture.requests.filter(row => row.body.action === 'food_get').length), 2, 'both read attempts must fail before the alert');
+      await mode(p, 'normal');
+    }
     const original = (await requests(p))[0];
     // Closing and leaving Food retains the immutable account-scoped retry.
     await p.keyboard.press('Escape'); await p.getByRole('button', { name: 'Leave Food preview', exact: true }).click(); await p.getByRole('button', { name: 'Return to Food preview', exact: true }).click();
     await p.getByRole('button', { name: 'Resume meal save', exact: true }).click();
     await dialog(p).getByRole('button', { name: 'Retry same meal', exact: true }).click(); await saved(p);
     assert.deepEqual((await requests(p))[1], original);
-    assert.equal(await p.evaluate(() => window.manualFixture.requests.filter(row => row.body.action === 'food_get').length), failure === 'readbackFail' ? 2 : 1);
+    assert.equal(await p.evaluate(() => window.manualFixture.requests.filter(row => row.body.action === 'food_get').length), failure === 'readbackFail' ? 3 : 1);
     assert.deepEqual(test.errors, []); await test.context.close();
   }
   console.log('PASS: lost write response, failed readback and matchesRequest conflict never show optimistic success; exact retry survives closing/navigation');
@@ -111,7 +126,7 @@ try {
   await form.getByRole('button', { name: 'Save meal', exact: true }).click(); await form.getByRole('alert').waitFor();
   const originalA = (await requests(p))[0].body;
   await p.evaluate(() => window.manualFixture.switchOwner('B'));
-  await p.getByRole('button', { name: 'Add meal', exact: true }).waitFor();
+  await p.getByRole('button', { name: 'Manual entry', exact: true }).waitFor();
   assert.equal(await p.getByText('Synthetic owner A uncertain meal', { exact: true }).count(), 0);
   assert.equal(await p.getByRole('button', { name: 'Resume meal save', exact: true }).count(), 0);
   form = await draft(p, 'Synthetic owner B meal');
