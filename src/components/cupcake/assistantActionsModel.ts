@@ -338,3 +338,12 @@ export function voiceCardsRequest(transcript: string): string {
   if (body.length > room) body = '…' + body.slice(body.length - room + 1);
   return VOICE_INTRO + body;
 }
+
+/** Phone transcripts label the caller "User:" or "Customer:" and the bot "AI:", "Bot:" or "Assistant:".
+ *  Returns the transcript in the voice-card form ("You:" / "Cupcake:"), or '' when no caller line is found. */
+export function phoneTranscriptForCards(text: string): string {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => line
+    .replace(/^(?:user|customer|caller|you)\s*:\s*/i, 'You: ')
+    .replace(/^(?:ai|bot|assistant|cupcake)\s*:\s*/i, 'Cupcake: '));
+  return lines.some(line => line.startsWith('You: ')) ? lines.join('\n') : '';
+}
