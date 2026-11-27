@@ -19,7 +19,11 @@ const server = await createServer({
     name: 'synthetic-cupcake-entrance',
     configureServer(s) {
       s.middlewares.use((req, _res, next) => {
-        if (req.url?.split('?')[0] === '/cupcake/account') req.url = '/tests/account-browser-preview.html';
+        const entry = new URL(req.url || '/', 'http://127.0.0.1:5376');
+        if (entry.pathname === '/cupcake/account') {
+          req.url = entry.searchParams.get('demo') === 'photo-retry'
+            ? '/tests/account-receipt-photo-preview.html' : '/tests/account-browser-preview.html';
+        }
         next();
       });
     },

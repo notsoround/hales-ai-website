@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { receiptDraftStore } from '../src/components/cupcake/accountReceiptDraft';
 import { AccountReceiptPhoto } from '../src/components/cupcake/AccountReceiptPhoto';
 import { invalidateSession, restoreSession } from '../src/components/cupcake/accountSession';
 
@@ -37,5 +38,18 @@ window.fetch = async (input, init) => {
   throw Error('Unexpected synthetic request: ' + url.pathname);
 };
 await restoreSession();
+if (new URLSearchParams(location.search).get('demo') === 'photo-retry') {
+  const paper = document.createElement('canvas');
+  paper.width = 280; paper.height = 100;
+  const ink = paper.getContext('2d')!;
+  ink.fillStyle = '#fbf6e7'; ink.fillRect(0, 0, paper.width, paper.height);
+  ink.fillStyle = '#201f21'; ink.font = '18px monospace';
+  ink.fillText('MARINA MARKET', 18, 30); ink.fillText('Total     $24.00', 18, 62);
+  const image = paper.toDataURL('image/png');
+  const request_id = '11111111-2222-4333-8444-555555555555';
+  const id = 'receipt_' + request_id.replaceAll('-', '');
+  data.set(owner.account_id + ':' + id, { id, status: 'extracted', image });
+  await receiptDraftStore().save({request_id, image});
+}
 function render() { createRoot(document.getElementById('root')!).render(<AccountReceiptPhoto onSaved={id => state.saved.push(id)} />); }
 render();
