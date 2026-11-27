@@ -82,14 +82,24 @@ try {
   const toggle = history.locator('summary');
   assert.match(await toggle.innerText(), /0 avg · 1 of 7 days/);
   await toggle.click();
-  await history.getByText('1 of 7 complete phone days · Through yesterday').waitFor();
-  assert.equal(await history.getByRole('listitem').count(), 4);
-  assert.match(await history.innerText(), /Only midnight-to-midnight A55 readings/);
+  // The average names its own window, and every day of that window is a row (plus today's partial count).
+  await history.getByText('1 of 7 complete phone days · Wed, Mar 11 – Tue, Mar 17').waitFor();
+  assert.equal(await history.locator('[data-date]').count(), 8);
+  assert.equal(await history.locator('[data-date]:not([data-date="2026-03-18"])').count(), 7);
+  assert.match(await history.innerText(), /Only midnight-to-midnight Galaxy A55 days count/);
+  assert.match(await history.innerText(), /Today’s count is still partial, so it isn’t included/);
+  const rowText = date => history.locator(`[data-date="${date}"]`).innerText();
+  assert.match(await rowText('2026-03-18'), /Today\s+Galaxy A55 · so far, not counted\s+8,000/);
+  assert.match(await rowText('2026-03-16'), /Mon, Mar 16\s+No reading · not counted/);
+  assert.match(await rowText('2026-03-15'), /Galaxy A55 · reported zero, counted\s+0/);
+  assert.match(await rowText('2026-03-14'), /Galaxy A55 · partial day, not counted/);
+  assert.match(await rowText('2026-03-12'), /RingConn · not in A55 average/);
+  assert.match(await rowText('2026-03-17'), /Health Connect · not in A55 average/);
   // Midnight Chicago boundaries, including the oldest completed day. Today's live 8,000 is excluded.
   await history.getByRole('button', { name: '30 days', exact: true }).click();
-  await history.getByText('2 of 30 complete phone days · Through yesterday').waitFor();
+  await history.getByText('2 of 30 complete phone days · Mon, Feb 16 – Tue, Mar 17').waitFor();
   assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '1,600 steps');
-  assert.equal(await history.getByRole('listitem').count(), 6);
+  assert.equal(await history.getByRole('listitem').count(), 31);
   await history.getByRole('button', { name: /View Mon, Feb 16/ }).click();
   const heading = card.getByRole('heading', { name: 'Steps · Mon, Feb 16' });
   await heading.waitFor();
@@ -99,6 +109,13 @@ try {
   await card.getByRole('heading', { name: 'Steps today' }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await history.getByRole('button', { name: 'Earlier days' }).click();
+  // Paging brings the new page's date range into view and focus, and the list starts at its top.
+  const caption = history.locator('.nx-step-history-caption');
+  await history.getByText('Earlier days · Sat, Jan 17 – Sun, Feb 15, 2026').waitFor();
+  assert.equal(await caption.evaluate(el => el === document.activeElement), true);
+  assert.equal(await history.locator('.nx-step-history-list').evaluate(el => el.scrollTop), 0);
+  assert.equal(await history.getByRole('listitem').count(), 30);
+  assert.match(await history.locator('[data-date="2026-02-15"]').innerText(), /Health Connect\s+4,800/);
   await history.getByRole('button', { name: /View Sun, Feb 15/ }).click();
   await card.getByRole('heading', { name: 'Steps · Sun, Feb 15' }).waitFor();
   assert.equal(await card.locator('.nx-steps-big').innerText(), '4,800');
@@ -108,12 +125,21 @@ try {
   await history.getByRole('button', { name: 'Newer days' }).click();
   await history.getByRole('button', { name: /View Sun, Feb 15/ }).waitFor();
   await history.getByRole('button', { name: 'Newer days' }).click();
+  // Jump straight to an older date: its page loads and that row takes focus.
+  await history.getByLabel('Go to a date').fill('2026-01-20');
+  await history.getByText('Earlier days · Sat, Jan 17 – Sun, Feb 15, 2026').waitFor();
+  await page.waitForFunction(() => document.activeElement?.getAttribute('data-date') === '2026-01-20');
+  assert.match(await history.locator('[data-date="2026-01-20"]').innerText(), /Tue, Jan 20\s+No reading/);
+  await history.getByLabel('Go to a date').fill('2026-03-15');
+  await history.getByText('Today, then the days in this average').waitFor();
+  await page.waitForFunction(() => document.activeElement?.getAttribute('data-date') === '2026-03-15');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.evaluate(() => window.clearSyntheticStepReadings());
   await card.getByRole('button', { name: 'Refresh steps' }).click();
-  await history.getByText('0 of 30 complete phone days · Through yesterday').waitFor();
+  await history.getByText('0 of 30 complete phone days · Mon, Feb 16 – Tue, Mar 17').waitFor();
   assert.equal(await history.locator('.nx-step-history-stat strong').innerText(), '—');
   assert.equal(await history.getByRole('listitem').count(), 0);
-  console.log('Passed: mobile step goals, dated drill-down, 7/30-day logged averages, sparse/zero/absent data, rolling sources and 30-day boundary.');
+  console.log('Passed: every day of the averaged window as a row (missing, other source, partial, zero, today), paging focus, date jump, mobile step goals, dated drill-down, 7/30-day logged averages, sparse/zero/absent data, rolling sources and 30-day boundary.');
 } finally {
   await browser?.close();
   await server.close();
