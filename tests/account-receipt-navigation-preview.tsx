@@ -15,7 +15,13 @@ const scope = 'acc_synthetic_a';
 function respond(owner: string, body: Record<string, unknown>): object | undefined {
   if (owner !== scope) return;
   if (body.action === 'bank_connection_status') return { configured:true,connections:[] };
-  if (body.action === 'receipt_list') return {receipts:receipts()};
+  if (body.action === 'receipt_list') {
+    const list = receipts();
+    if (!noSuggestedMatch) return {receipts:list};
+    const cash = {...original, id:'receipt_'+'e'.repeat(32), merchant:'Cash only fixture', printedPaymentMethod:'cash'};
+    const unread = {...original, id:'receipt_'+'f'.repeat(32), merchant:'Unread fixture', status:'saved_unread'};
+    return {receipts:[...list,cash,unread]};
+  }
   if (body.action === 'bank_purchase_list') {
     const term = String(body.query || '').trim().toLowerCase();
     return {purchases:purchases().filter(p=>[p.merchant,p.amount,p.transactionId,p.date].some(value=>String(value).toLowerCase().includes(term))),hasMore:false,nextCursor:null};
@@ -31,7 +37,7 @@ function respond(owner: string, body: Record<string, unknown>): object | undefin
   if (body.action === 'bank_purchase_get') {
     const purchase=purchases().find(p=>p.transactionId===body.transactionId);
     if (!purchase) throw Error('Unknown synthetic purchase');
-    return {purchase,receiptCandidates: purchase.matchedReceiptId || chosen() ? [] : [{receiptId,merchant:original.merchant,date:today,total:24,currency:'USD',exactAmount:true,exactCurrency:true,dateDifferenceDays:0}]};
+    return {purchase,receiptCandidates: noSuggestedMatch || purchase.matchedReceiptId || chosen() ? [] : [{receiptId,merchant:original.merchant,date:today,total:24,currency:'USD',exactAmount:true,exactCurrency:true,dateDifferenceDays:0}]};
   }
   if(body.action==='receipt_get') return {receipt:receipts().find(r=>r.id===body.receiptId)};
   if(body.action==='receipt_match_candidates') return {receipt:receipts()[0], candidates:noSuggestedMatch ? [] : purchases().slice(0,2).map(p=>({...p,exactAmount:true,exactCurrency:true})),coverage:{complete:true,startDate:today,endDate:today}};
