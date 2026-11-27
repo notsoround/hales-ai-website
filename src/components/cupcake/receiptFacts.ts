@@ -76,3 +76,24 @@ export function receiptBreakdown(receipt: { subtotal?: number | null; tax: numbe
   if (receipt.grandTotal != null) rows.push({ label: 'Final total', amount: receipt.grandTotal });
   return rows;
 }
+
+export type BankSide = { transactionId: string; merchant: string | null; date: string; authorizedDate?: string | null; amount: number | null; currency: string | null; pending: boolean };
+export type Check = { state: 'yes' | 'no' | 'gap'; text: string };
+const day = (value: string | null | undefined) => value && /^\d{4}-\d{2}-\d{2}/.test(value) ? Date.parse(value.slice(0, 10) + 'T12:00:00Z') : NaN;
+
+/** What the two sides agree on, in words. Nothing here is inferred beyond the saved fields. */
+export function agreement(receipt: { merchant: string | null; date: string | null; currency: string | null; total: number | null; grandTotal?: number | null; expectedTotal?: number | null }, purchase: BankSide): Check[] {
+  const amount = receipt.expectedTotal ?? receipt.grandTotal ?? receipt.total, name = receipt.merchant?.trim().toLowerCase() || '', bankName = purchase.merchant?.trim().toLowerCase() || '';
+  const gap = Math.round(Math.abs(day(purchase.authorizedDate || purchase.date) - day(receipt.date)) / 86_400_000);
+  return [
+    amount == null || purchase.amount == null ? { state: 'gap', text: 'Amount not read' }
+      : amount !== purchase.amount ? { state: 'no', text: 'Amount differs' }
+      : receipt.currency && receipt.currency !== purchase.currency ? { state: 'no', text: 'Currency differs' }
+      : { state: 'yes', text: 'Same amount' },
+    !name || !bankName ? { state: 'gap', text: 'Merchant not read' }
+      : name.includes(bankName) || bankName.includes(name) ? { state: 'yes', text: 'Same merchant' } : { state: 'no', text: 'Merchant name differs' },
+    !Number.isFinite(gap) ? { state: 'gap', text: 'Receipt date not read' }
+      : gap === 0 ? { state: 'yes', text: 'Same day' } : { state: gap <= 3 ? 'yes' : 'no', text: `${gap} ${gap === 1 ? 'day' : 'days'} apart` },
+  ];
+}
+

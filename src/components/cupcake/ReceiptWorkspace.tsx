@@ -8,6 +8,7 @@ import { amountText, dayText, linkedTo, lookAlikes, LOOK_ALIKE_NOTE, receiptAmou
 import { ManualPurchasePicker } from './ManualPurchasePicker';
 import { ReceiptMealLink } from './ReceiptMealLink';
 import { FactText } from './ReceiptFact';
+import { ReceiptMatchDeck, type DeckOpen } from './ReceiptMatchDeck';
 import { BankPurchaseBrowser } from './BankPurchaseBrowser';
 import { currentReceiptRoute, purchaseLinkClick, receiptWorkspaceUrl, type ReceiptRoute } from './receiptNavigation';
 import { AccountReceiptReader } from './AccountReceiptReader';
@@ -15,19 +16,11 @@ import { accountData } from './accountSession';
 import { notifyDataChanged } from './dataChanges';
 import { personalStorage } from './personalStorage';
 import { isGroceryReceipt, registerPantryStorage, routeReceiptToPantry } from './groceryChecklist';
+import { exact, expectedTotal, nearbyPurchases, needsReview, type Candidate, type Coverage, type MatchResponse, type MatchSummary, type Nearby, type Receipt } from './receiptMatching';
 import './receipts.css';
 
 registerPantryStorage(personalStorage);
 
-type LineItem = { description: string; quantity: number | null; amount: number | null };
-type Receipt = {
-  id: string; status: 'saved_unread' | 'extracting' | 'extraction_failed' | 'extracted' | 'matched'; createdAt: string;
-  merchant: string | null; date: string | null; currency: string | null; total: number | null;
-  grandTotal?: number | null; subtotal?: number | null; totalIncludesTip?: boolean | null;
-  tax: number | null; tip: number | null; lineItems: LineItem[]; matchedTransactionId: string | null;
-  matchRevision?: number; expectedTotal?: number | null; amountBasis?: string; amountWarning?: string | null; alternativeTotalWithTip?: number | null;
-  printedPaymentMethod?: 'card' | 'cash' | 'mixed' | 'other' | null; matchMethod?: 'automatic' | 'confirmed' | null; paymentMethod?: string | null; paidWithCash?: boolean | null;
-};
 type ReceiptFilter = 'unmatched' | 'matched' | 'cash' | 'all';
 const CASH_RECEIPTS_KEY = 'cupcake-receipt-cash-v1';
 const PANTRY_ROUTED_KEY = 'cupcake-receipt-pantry-routed-v1';
@@ -53,20 +46,8 @@ function groceriesHref() {
   url.hash = '';
   return url.pathname + url.search;
 }
-type Candidate = {
-  transactionId: string; merchant: string | null; date: string; authorizedDate?: string | null;
-  amount: number; currency: string | null; pending: boolean; exactAmount?: boolean; exactCurrency?: boolean;
-  amountDifference?: number | null; dateDifferenceDays?: number; merchantMatch?: string;
-  reasons?: string[]; requiresAcknowledgment?: boolean;
-};
-type Coverage = { startDate?: string; endDate?: string; checkedAt?: string; complete: boolean; fetchedTransactions?: number | null; reportedTransactions?: number | null; pages?: number | null; warnings?: string[] };
 type BankRefresh = { notice: string; incomplete: boolean };
-type MatchSummary = { exactCount?: number; exactPostedCount?: number; pendingCount?: number; candidateCount?: number };
-type MatchResponse = { receipt: Receipt; candidates: Candidate[]; suggestedPurchases?: Purchase[]; coverage?: Coverage; matchSummary?: MatchSummary };
 type Props = { active?: boolean; onWork?: (busy: boolean) => void };
-/** A saved purchase the automatic search did not suggest but that shares the receipt's merchant name or amount. */
-type Nearby = { purchase: Purchase; sameMerchant: boolean; sameAmount: boolean };
-
 // A value the photo did not show reads "not read"; the gap or the source of a fact is a small tag beside it.
 const money = (amount: number | null | undefined, currency: string | null) => amountText(amount, currency) || 'Not read';
 const dateLabel = (value: string | null | undefined) => dayText(value) || 'Date not read';
@@ -78,27 +59,7 @@ function receiptState(receipt: Receipt, matched: boolean, cash: boolean) {
   if (receipt.status === 'extracting') return 'Reading';
   return 'Unmatched';
 }
-const expectedTotal = (receipt: Receipt) => receipt.expectedTotal ?? receipt.grandTotal ?? receipt.total;
-const exact = (item: Candidate, receipt: Receipt) => item.exactAmount === true && item.exactCurrency === true || item.exactAmount == null && item.amount === expectedTotal(receipt) && item.currency === receipt.currency;
-const needsReview = (item: Candidate, receipt: Receipt, coverage?: Coverage | null) => item.requiresAcknowledgment === true || !exact(item, receipt) || coverage?.complete !== true;
 const receiptLink = (id: string) => receiptWorkspaceUrl({ receipt: id });
-
-// When the automatic search suggests nothing, look in the saved purchases for the receipt's own merchant name and amount,
-// so the screen never says "nothing found" while a plain search would find the purchase.
-async function nearbyPurchases(receipt: Receipt): Promise<Nearby[]> {
-  const amount = expectedTotal(receipt), merchant = receipt.merchant?.trim().toLowerCase() || '';
-  const terms = [merchant.slice(0, 160), amount != null ? amount.toFixed(2) : ''].filter(Boolean);
-  const pages = await Promise.all(terms.map(query => accountData<{ purchases: Purchase[] }>({ action: 'bank_purchase_list', query, limit: 12 })
-    .then(page => Array.isArray(page.purchases) ? page.purchases : []).catch(() => [] as Purchase[])));
-  const rows = new Map<string, Nearby>();
-  for (const purchase of pages.flat()) {
-    if (purchase.pending || purchase.removed || purchase.matchedReceiptId || purchase.matchConflict) continue;
-    const sameMerchant = !!merchant && !!purchase.merchant?.toLowerCase().includes(merchant);
-    const sameAmount = amount != null && purchase.amount === amount && (!receipt.currency || receipt.currency === purchase.currency);
-    if (sameMerchant || sameAmount) rows.set(purchase.transactionId, { purchase, sameMerchant, sameAmount });
-  }
-  return [...rows.values()].sort((a, b) => Number(b.sameMerchant && b.sameAmount) - Number(a.sameMerchant && a.sameAmount)).slice(0, 12);
-}
 
 async function imageData(file: File): Promise<{ url: string; preview: string }> {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPEG, PNG, or WebP image.');
@@ -165,6 +126,9 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     if (activeFilter === 'cash') return isCash(r);
     return !isMatched(r) && !isCash(r);
   }), [receipts, activeFilter, isMatched, isCash]);
+
+  // Receipts the deck can match right now: read, not yet linked, not cash, and with an amount to compare.
+  const deckReceipts = useMemo(() => receipts.filter(r => r.status === 'extracted' && !isMatched(r) && !isCash(r) && expectedTotal(r) != null), [receipts, isMatched, isCash]);
 
   const toggleCash = (receipt: Receipt) => {
     if (isMatched(receipt)) return;
@@ -282,6 +246,13 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     setSelected(receipt); setPreview(''); setOriginal(''); resetMatches(); setStatus(''); setError(''); setPantryNotice('');
     navigate({ receipt: receipt.id });
     requestAnimationFrame(() => selectedCard.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+  // From the match deck: open the full receipt, optionally straight into its reconcile or manual-search step.
+  const openFromDeck = (receipt: Receipt, where: DeckOpen) => {
+    openReceipt(receipt);
+    if (where === 'receipt') return;
+    setReconciling(true);
+    if (where === 'manual') setManual(true); else void findMatches(receipt);
   };
   const photoSaved = async (receiptId: string) => {
     const version = ++selectionVersion.current;
@@ -524,6 +495,7 @@ export default function ReceiptWorkspace({ active = true, onWork }: Props) {
     {!bankView && <>
     {error && <div className="cc-error" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
     <div hidden={receiptDetail}>
+    {ACCOUNT_SESSIONS && !listFailed && <ReceiptMatchDeck active={active && !receiptDetail} receipts={deckReceipts} matchedCount={counts.matched} busy={busy} prepare={refreshBank} onOpen={openFromDeck} onCash={toggleCash} onChanged={refresh} />}
     <div className="cc-card cc-import-card cc-receipt-import">
       {ACCOUNT_SESSIONS ? <AccountReceiptPhoto onSaved={receiptId => void photoSaved(receiptId)} compact={receipts.length > 0}/> : <>
       <div><strong>Add a receipt</strong><p className="cc-muted">Include the entered tip and final total in the photo.</p></div>
