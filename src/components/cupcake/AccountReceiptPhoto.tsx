@@ -6,9 +6,20 @@ import { MealCamera } from './MealCamera';
 import { captureLabel, queueAccountMealPhoto, RECEIPT_PHOTO_QUEUED, takeQueuedReceiptPhoto } from './accountMealPhotoHandoff';
 import { removeReviewPhoto } from './camera/localCaptureReview';
 import { captureStorageScope } from './personalStorage';
+import { purchaseLinkClick, receiptWorkspaceUrl } from './receiptNavigation';
 
 type SavedReceipt = { id: string; status: string };
 type PhotoResponse = { ok: boolean; receipt: SavedReceipt; duplicate: boolean };
+
+const receiptIdFor = (requestId: string) => 'receipt_' + requestId.replace(/-/g, '').toLowerCase();
+/** Same history shape as the receipt workspace's own navigation, so its Back returns here. */
+function showReceipt(receiptId: string) {
+  const href = receiptWorkspaceUrl({ receipt: receiptId });
+  if (location.pathname + location.search === href) return;
+  history.replaceState({ ...history.state, scroll: window.scrollY }, '');
+  history.pushState({ scroll: 0, ccReceiptParent: location.pathname + location.search, ccReceiptPage: href }, '', href);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
 
 export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) => void }) {
   const [store] = useState(receiptDraftStore);
@@ -18,7 +29,8 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<{ id: string; image: string } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const sending = useRef(false);
   const alive = useRef(true);
@@ -50,7 +62,7 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
       active();
       await store.save(original); active(); setIntent(original); await reloadDrafts();
       const response = await accountReceiptPhoto<PhotoResponse>({ ...original }); active();
-      const requestedId = 'receipt_' + original.request_id.replace(/-/g, '').toLowerCase();
+      const requestedId = receiptIdFor(original.request_id);
       const receiptId = response.receipt?.id;
       if (response.ok !== true || !/^receipt_[a-f0-9]{32}$/.test(receiptId || '') ||
           (response.duplicate !== true && (receiptId !== requestedId || response.receipt.status !== 'saved_unread'))) {
@@ -60,7 +72,7 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
       if (fetched.receipt?.id !== receiptId || !['saved_unread', 'extracting', 'extraction_failed', 'extracted', 'matched'].includes(fetched.receipt.status)) throw Error('The saved receipt could not be confirmed. Retry this same photo.');
       await store.remove(original.request_id); active();
       void removeReviewPhoto(original.request_id, captureStorageScope()).catch(() => undefined);
-      const remaining = await reloadDrafts(); setIntent(remaining[remaining.length - 1] || null); setSaved(true); savedCallback.current(receiptId);
+      const remaining = await reloadDrafts(); setIntent(remaining[remaining.length - 1] || null); setSaved({ id: receiptId, image: original.image }); savedCallback.current(receiptId);
     } catch (cause) {
       if (alive.current && sessionSnapshot().generation === generation) {
         setError(cause instanceof Error ? cause.message : 'The photo save could not be confirmed. Retry this same photo.');
@@ -69,7 +81,7 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
   }
   async function choose(file?: File) {
     if (!file || busy || sending.current) return;
-    sending.current = true; setBusy(true); setError(''); setSaved(false);
+    sending.current = true; setBusy(true); setError(''); setSaved(null);
     try {
       const image = await prepareFoodImage(file); active();
       const original = { request_id: captureLabel(file)?.reviewId || crypto.randomUUID(), image };
@@ -78,6 +90,20 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
     } catch (cause) {
       if (alive.current && sessionSnapshot().generation === generation) setError(cause instanceof Error ? cause.message : 'The receipt photo could not be prepared.');
     } finally { sending.current = false; if (alive.current) setBusy(false); }
+  }
+
+  // The pending photo may already be saved if only the response was lost; check before opening it.
+  async function openPending(original: ReceiptPhotoIntent) {
+    if (checking || busy) return;
+    const receiptId = receiptIdFor(original.request_id);
+    setChecking(true); setError('');
+    try {
+      const fetched = await accountData<{ receipt: SavedReceipt }>({ action: 'receipt_get', receiptId }); active();
+      if (fetched.receipt?.id !== receiptId) throw Error('missing');
+      showReceipt(receiptId);
+    } catch {
+      if (alive.current && sessionSnapshot().generation === generation) setError('This photo hasn’t reached your account yet. Retry this photo to save it.');
+    } finally { if (alive.current) setChecking(false); }
   }
 
   const chooseRef = useRef(choose); chooseRef.current = choose;
@@ -100,16 +126,25 @@ export function AccountReceiptPhoto({ onSaved }: { onSaved: (receiptId: string) 
     }}/>
     {loading && <p role="status">Checking saved photo requests…</p>}
     {busy && <p role="status">Saving your receipt photo…</p>}
-    {saved && <p role="status">Receipt photo saved to your account.</p>}
+    {saved && <div className="cc-receipt-photo-saved">
+      <p role="status">Receipt photo saved to your account.</p>
+      <img className="cc-receipt-photo" src={saved.image} alt="Saved receipt photo" />
+      <div className="cc-action-row">
+        <a className="cc-primary" href={receiptWorkspaceUrl({ receipt: saved.id })} onClick={event => purchaseLinkClick(event, () => showReceipt(saved.id))}>Open receipt</a>
+      </div>
+    </div>}
     {error && <p role="alert" className="cc-error">{error}</p>}
     {intent && <div>
       <img className="cc-receipt-photo" src={intent.image} alt="Receipt photo waiting to save" />
       <p className="cc-muted">Pending upload on this device. Retry to save it or open the receipt if the first upload already went through.</p>
-      <button className="cc-secondary" type="button" disabled={busy} onClick={() => void upload(intent)}>Retry this photo</button>
+      <div className="cc-action-row">
+        <button className="cc-secondary" type="button" disabled={busy || checking} onClick={() => void upload(intent)}>Retry this photo</button>
+        <button className="cc-secondary" type="button" disabled={busy || checking} onClick={() => void openPending(intent)}>{checking ? 'Checking…' : 'Open receipt'}</button>
+      </div>
     </div>}
     {drafts.filter(row => row.request_id !== intent?.request_id).length > 0 && <details>
       <summary>Other pending receipt photos ({drafts.filter(row => row.request_id !== intent?.request_id).length})</summary>
-      {drafts.filter(row => row.request_id !== intent?.request_id).map((row, index) => <button key={row.request_id} type="button" className="cc-text-button" disabled={busy} onClick={() => { setIntent(row); setError(''); setSaved(false); }}>Pending photo {index + 1}</button>)}
+      {drafts.filter(row => row.request_id !== intent?.request_id).map((row, index) => <button key={row.request_id} type="button" className="cc-text-button" disabled={busy} onClick={() => { setIntent(row); setError(''); setSaved(null); }}>Pending photo {index + 1}</button>)}
     </details>}
   </section>;
 }
