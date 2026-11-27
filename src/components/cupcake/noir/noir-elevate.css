@@ -388,8 +388,10 @@
 
 /* The weekly chart doubles as the day selector. The full column is a touch target. */
 .cc-app[data-entry=account] .nx-steps-week { gap: 2px; }
+.cc-app[data-entry=account] .nx-steps-card h3 { scroll-margin-top: 100px; }
+.cc-app[data-entry=account] .nx-steps-card h3:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 4px; }
 .cc-app[data-entry=account] button.nx-steps-col {
-  appearance: none; min-width: 0; min-height: 66px; margin: 0; padding: 5px 0;
+  appearance: none; min-width: 0; min-height: 58px; margin: 0; padding: 6px 0; gap: 4px; align-content: center;
   border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer;
 }
 .cc-app[data-entry=account] .nx-steps-col[aria-pressed=true] {
@@ -399,9 +401,47 @@
 .cc-app[data-entry=account] .nx-steps-col:focus-visible { outline: 2px solid var(--nx-a); outline-offset: -2px; }
 .cc-app[data-entry=account] .nx-steps-col[aria-pressed=true] small { color: var(--nx-ink); font-weight: 650; }
 .cc-app[data-entry=account] .nx-steps-card[data-goal-met=true] .nx-steps-bar i,
-.cc-app[data-entry=account] .nx-steps-col[data-goal-met=true] .nx-steps-col-track i { background: var(--nx-warm); }
+.cc-app[data-entry=account] .nx-steps-col[data-goal-met=true] .nx-step-day-progress i { background: var(--nx-warm); }
 .cc-app[data-entry=account] .nx-steps-card[data-goal-met=true] .nx-steps-goal {
   display: inline-flex; align-items: center; gap: 3px; font-weight: 600; color: var(--nx-warm);
 }
 .cc-app[data-entry=account] .nx-steps-mini[data-goal-met=true] .nx-steps-mini-gauge { color: var(--nx-warm); }
 .cc-app[data-entry=account] .nx-steps-mini[data-goal-met=true] .nx-steps-mini-arc { stroke: var(--nx-warm); }
+
+.cc-app[data-entry=account] .nx-steps-col strong { font: 500 17px/1.1 var(--nx-display); font-variant-numeric: tabular-nums; color: var(--nx-ink); }
+.cc-app[data-entry=account] .nx-step-day-progress { width: min(60%, 22px); height: 3px; overflow: hidden; border-radius: 4px; background: var(--nx-hair); }
+.cc-app[data-entry=account] .nx-step-day-progress i { display: block; min-width: 2px; height: 100%; border-radius: inherit; background: var(--nx-a); }
+.cc-app[data-entry=account] .nx-steps-col[data-no-reading=true] .nx-step-day-progress { background: transparent; border-top: 1px dashed var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-step-history { min-width: 0; border-top: 1px solid var(--nx-hair); }
+.cc-app[data-entry=account] .nx-step-history > summary {
+  display: flex; gap: 8px; align-items: center; min-height: 48px; padding: 4px 0;
+  cursor: pointer; list-style: none; color: var(--nx-ink); font-size: 14px; font-weight: 600;
+}
+.cc-app[data-entry=account] .nx-step-history > summary::-webkit-details-marker { display: none; }
+.cc-app[data-entry=account] .nx-step-history > summary small { margin-left: auto; color: var(--nx-ink-3); font-size: 12px; font-weight: 400; }
+.cc-app[data-entry=account] .nx-step-history > summary svg { margin-left: auto; color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-step-history > summary small + svg { margin-left: 0; }
+.cc-app[data-entry=account] .nx-step-history[open] > summary small { display: none; }
+.cc-app[data-entry=account] .nx-step-history[open] > summary svg { margin-left: auto; transform: rotate(180deg); }
+.cc-app[data-entry=account] .nx-step-history-body { display: grid; gap: 12px; }
+.cc-app[data-entry=account] .nx-step-history-range { display: flex; gap: 4px; }
+.cc-app[data-entry=account] .nx-step-history-range button {
+  min-height: 44px; min-width: 60px; padding: 0 12px; border: 1px solid var(--nx-hair);
+  border-radius: 10px; background: transparent; color: var(--nx-ink-3); font: 500 13px var(--nx-text); cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-step-history-range button[aria-pressed=true] { background: var(--nx-surface-2); color: var(--nx-ink); border-color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-step-history-stat { display: grid; gap: 4px; }
+.cc-app[data-entry=account] .nx-step-history-stat span { color: var(--nx-ink-3); font: 500 12px var(--nx-text); }
+.cc-app[data-entry=account] .nx-step-history-stat strong { font: 400 30px/1.1 var(--nx-display); font-variant-numeric: tabular-nums; color: var(--nx-ink); }
+.cc-app[data-entry=account] .nx-step-history-stat small { font: 400 14px var(--nx-text); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-step-history-stat p, .cc-app[data-entry=account] .nx-step-history-note { margin: 0; font: 400 12px/1.45 var(--nx-text); color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-step-history-list { max-height: 16rem; overflow-y: auto; list-style: none; margin: 0; padding: 0; }
+.cc-app[data-entry=account] .nx-step-history-list button {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px;
+  min-height: 44px; width: 100%; padding: 6px 3px; background: transparent; border: 0;
+  border-top: 1px solid var(--nx-hair); color: var(--nx-ink); text-align: left; font: 400 13px var(--nx-text); cursor: pointer;
+}
+.cc-app[data-entry=account] .nx-step-history-list b { font-variant-numeric: tabular-nums; }
+.cc-app[data-entry=account] .nx-step-history-list svg { color: var(--nx-ink-3); }
+.cc-app[data-entry=account] .nx-step-history-list button[aria-pressed=true] { color: var(--nx-a); }
+.cc-app[data-entry=account] .nx-step-history :is(button, summary):focus-visible { outline: 2px solid var(--nx-a); outline-offset: -2px; }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Check, ChevronRight, Dumbbell, Footprints, RefreshCw, Scale } from 'lucide-react';
 import { ACCOUNT_SESSIONS } from '../accountMode';
 import { libraryRequest } from '../library';
@@ -32,6 +33,7 @@ import {
   type BodyWeightSummary,
   type WeightPage,
 } from '../weightApi';
+import { StepHistoryDisclosure } from './StepHistoryDisclosure';
 import { useStepsHistory } from './useStepsHistory';
 import { Sparkline } from '../design/Visuals';
 
@@ -112,6 +114,7 @@ export function FitnessWorkspace({
   const [items, setItems] = useState<FeedRow[] | null>(null);
 
   const stepsState = useStepsHistory(today, 30);
+  const stepsHeading = useRef<HTMLHeadingElement>(null);
   const [selectedStepDate, setSelectedStepDate] = useState<string | null>(null);
 
   const [weightState, setWeightState] = useState<{
@@ -195,7 +198,11 @@ export function FitnessWorkspace({
       return { date, day: byDate.get(date) || null };
     });
   }, [stepsState.days, today]);
-  const maxBar = useMemo(() => Math.max(DAILY_STEP_GOAL, ...recent7.map(r => r.day?.count ?? 0)), [recent7]);
+  function openHistoryDay(date: string) {
+    flushSync(() => setSelectedStepDate(date));
+    stepsHeading.current?.focus({ preventScroll: true });
+    stepsHeading.current?.scrollIntoView({ block: 'start' });
+  }
 
   const measurements = useMemo(() => normalizeWeightMeasurements(weightState.page), [weightState.page]);
   const headlineW = useMemo(() => resolveHeadlineWeight(weightState.page, weightState.body), [weightState.page, weightState.body]);
@@ -238,7 +245,7 @@ export function FitnessWorkspace({
     validSleepNight ||
     measurements.some(m => m.basis === 'health_connect' || m.source.toLowerCase().includes('health')),
   );
-  const emptyStepsLabel = selectedStepDate && latestSteps
+  const emptyStepsLabel = selectedStepDate
     ? `No step reading for ${stepsDayLabel(selectedStepDate)}.`
     : validSleepNight
       ? `Last synced ${shortMonthDay(validSleepNight.nightId)} · Check Health Connect in Settings`
@@ -267,7 +274,7 @@ export function FitnessWorkspace({
       <div className="nx-fitness-top">
       <article className="cc-card nx-steps-card" aria-label="Steps" data-goal-met={stepGoalMet}>
         <div className="cc-heading-row">
-          <h3 className="cc-card-title">
+          <h3 className="cc-card-title" ref={stepsHeading} tabIndex={-1}>
             <Footprints size={16} aria-hidden="true" />
             <span>{activeDate === today ? 'Steps today' : `Steps · ${stepsDayLabel(activeDate)}`}</span>
           </h3>
@@ -337,25 +344,29 @@ export function FitnessWorkspace({
           </>
         )}
 
-        {latestSteps && (
-          <div className="nx-steps-week" role="group" aria-label="Select a day from the last seven days">
-            {recent7.map(({ date, day }) => {
-              const label = date === today ? 'Today' : stepsDayLabel(date);
-              const weekday = date === today ? 'Today' : label.split(',')[0];
-              const reached = day !== null && day.count >= DAILY_STEP_GOAL;
-              return (
-                <button type="button" key={date} className="nx-steps-col"
-                  data-goal-met={reached} aria-pressed={date === activeDate}
-                  aria-label={`${label}, ${day ? `${fmtInt(day.count)} steps${reached ? ', goal reached' : ''}` : 'no reading'}`}
-                  onClick={() => setSelectedStepDate(date)}>
-                  <span className="nx-steps-col-track" aria-hidden="true">
-                    {day && day.count > 0 && <i style={{ height: `${Math.max(4, day.count / maxBar * 100)}%` }} />}
-                  </span>
-                  <small>{weekday}</small>
-                </button>
-              );
-            })}
-          </div>
+        {(latestSteps || stepsState.status === 'ready') && (
+          <>
+            <div className="nx-steps-week" role="group" aria-label="Select a day from the last seven days">
+              {recent7.map(({ date, day }) => {
+                const label = date === today ? 'Today' : stepsDayLabel(date);
+                const weekday = date === today ? 'Today' : label.split(',')[0];
+                const reached = day !== null && day.count >= DAILY_STEP_GOAL;
+                return (
+                  <button type="button" key={date} className="nx-steps-col"
+                    data-goal-met={reached} data-no-reading={!day} aria-pressed={date === activeDate}
+                    aria-label={`${label}, ${day ? `${fmtInt(day.count)} steps${reached ? ', goal reached' : ''}` : 'no reading'}`}
+                    onClick={() => setSelectedStepDate(date)}>
+                    <small>{weekday}</small>
+                    <strong aria-hidden="true">{Number(date.slice(-2))}</strong>
+                    <span className="nx-step-day-progress" aria-hidden="true">
+                      {day && day.count > 0 && <i style={{ width: `${Math.min(100, day.count / DAILY_STEP_GOAL * 100)}%` }} />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <StepHistoryDisclosure today={today} days={stepsState.days} selectedDate={activeDate} onSelect={openHistoryDay} />
+          </>
         )}
       </article>
 
