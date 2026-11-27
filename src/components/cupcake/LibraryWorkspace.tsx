@@ -233,7 +233,7 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork, arch
     setView(next); setFocusedView(next); setError('');
     const url = new URL(location.href); url.searchParams.set('tab', 'library'); url.searchParams.set('view', viewKeys[next]);
     const state = history.state && typeof history.state === 'object' ? history.state : {};
-    if (next !== 'Phone calls') url.searchParams.delete('callFilter');
+    if (next !== 'Phone calls') { url.searchParams.delete('callFilter'); url.searchParams.delete('call'); }
     if (next !== 'Receipts') for (const key of ['receipt','transaction','receiptTab']) url.searchParams.delete(key);
     if (url.href !== location.href) {
       history.replaceState({ ...state, scroll: window.scrollY }, '');

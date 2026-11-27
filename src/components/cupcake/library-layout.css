@@ -20,3 +20,22 @@
 .cc-call-history-filter { display: inline-flex; gap: .25rem; }
 .cc-call-history-filter .cc-text-button { padding: .55rem .65rem; }
 .cc-call-history-filter [aria-pressed="true"] { font-weight: 700; text-decoration: underline; text-underline-offset: .3em; }
+
+/* Phone call rows: title, facts, one line of the saved summary, then the outcome in words with an icon (never colour alone). */
+/* The card's own padding is the top space; the shared 20px heading margin left an empty band above "Phone calls". */
+:root .cc-app .cc-library-view-panel .cc-card.cc-call-archive > .cc-heading-row.cc-heading-row { margin-top: 0; }
+.cc-call-archive > .cc-heading-row h3 { margin: 0; }
+.cc-library-item.cc-call-row { align-items: flex-start; }
+.cc-library-item.cc-call-row > span:first-child { flex: 1; min-width: 0; }
+.cc-call-row-summary { display: block; margin-top: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; line-height: 1.4; color: var(--lx-ink-2, var(--cc-text-2, #d9cbd8)); }
+.cc-call-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 9px; }
+.cc-call-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid var(--lx-hair-2, var(--cc-line, #ffffff24)); border-radius: 999px; white-space: nowrap; font-size: 12px; font-weight: 500; line-height: 1.25; color: var(--lx-ink, var(--cc-text, #f4e8f0)); }
+.cc-call-chip svg { flex: none; }
+.cc-call-reason { font-size: 12px; line-height: 1.25; color: var(--lx-ink-3, var(--cc-text-3, #bbacbd)); }
+/* "Close" only folds the recap away, so it is neutral, not the pink used for actions. */
+:root .cc-app .cc-library-item.cc-call-row[aria-expanded="true"] > .cc-call-row-action { color: var(--lx-ink-2, var(--cc-text-2, #d9cbd8)); }
+
+/* The screen fade-in kept applying after it finished ("both"), which made the Library its own layer underneath the app
+   header, so the header covered "Back to library" on an open source or call transcript. Fill backwards only: the same
+   fade, and afterwards the sheet stacks above the header as it already does with reduced motion. */
+.cc-app[data-entry=account] .cc-shell > .cc-assistant-workspace.is-library { animation-fill-mode: backwards; }
