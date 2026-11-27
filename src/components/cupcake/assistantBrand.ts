@@ -9,7 +9,8 @@ export function publicAssistantBrand() {
 }
 
 export const assistantIcon = (persona: Persona) => persona === 'matthieu' ? '/matthieu-avatar.png' : '/cupcake-avatar.jpg';
-export const personalAssistantLabel = (name: string, owner: string) => `${name === 'Cupcake' ? 'MyCupcake' : name} — ${owner}`;
+export const personalAssistantName = (name: string) => name === 'Cupcake' ? 'MyCupcake' : name;
+export const personalAssistantLabel = (name: string, owner: string) => `${personalAssistantName(name)} — ${owner}`;
 
 /** Metadata contains the public assistant name/icon, never account identity or data. */
 export function useAssistantDocumentBrand(name: string, persona: Persona, enabled = true) {
