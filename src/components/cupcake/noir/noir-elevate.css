@@ -326,11 +326,11 @@
   color: var(--nx-ink-3); -webkit-tap-highlight-color: transparent;
 }
 .cc-app[data-entry=account] .nx-steps-mini:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 2px; border-radius: 8px; }
-.cc-app[data-entry=account] .nx-steps-mini-gauge { position: relative; width: 34px; height: 34px; display: grid; place-items: center; color: var(--nx-a); }
+.cc-app[data-entry=account] .nx-steps-mini-gauge { position: relative; width: 34px; height: 34px; display: grid; place-items: center; color: var(--step-ink, var(--nx-a)); }
 .cc-app[data-entry=account] .nx-steps-mini-gauge > svg:first-child { position: absolute; inset: 0; }
 .cc-app[data-entry=account] .nx-steps-mini-gauge > svg:not(:first-child) { position: relative; width: 14px; height: 14px; }
 .cc-app[data-entry=account] .nx-steps-mini-track { fill: none; stroke: color-mix(in oklab, var(--nx-ink) 12%, transparent); stroke-width: 2.6; }
-.cc-app[data-entry=account] .nx-steps-mini-arc { fill: none; stroke: var(--nx-a); stroke-width: 2.6; stroke-linecap: round; transition: stroke-dashoffset .35s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)); }
+.cc-app[data-entry=account] .nx-steps-mini-arc { fill: none; stroke: var(--step-ink, var(--nx-a)); stroke-width: 2.6; stroke-linecap: round; transition: stroke-dashoffset .35s var(--nx-ease, cubic-bezier(.22, 1, .36, 1)); }
 .cc-app[data-entry=account] .nx-steps-mini-copy { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 2px 10px; min-width: 0; }
 .cc-app[data-entry=account] .nx-steps-mini-copy small { font: 500 10px/1 var(--nx-text); letter-spacing: .12em; text-transform: uppercase; color: var(--nx-ink-3); white-space: nowrap; }
 .cc-app[data-entry=account] .nx-steps-mini-copy b { font: 300 20px/1 var(--nx-display); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--nx-ink); white-space: nowrap; }

@@ -1,8 +1,9 @@
 /** Today's multi-ring instrument. Several readings share one 270° dial: the selected one is the wide outer arc with its scale
  *  and the big number; the others stay as thin arcs just inside it. Tap the dial to move to the next reading, or pick one from
  *  the row beneath. Touching an arc is different from tapping the middle: the arc swells under the finger, comes to the front if it
- *  was a thin one, and opens a tray of facts with the way into its full page. More arc always means "doing better" for that reading. A reading with no data keeps its faint track only. */
+ *  was a thin one, and opens a tray of facts with the way into its full page. Each arc shows progress on its own scale. A reading with no data keeps its faint track only. */
 import { useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import type { DialState } from './metricProgress';
 import './noir-multidial.css';
 
 type DialTone = 'cal' | 'fast' | 'glucose' | 'sleep';
@@ -10,7 +11,8 @@ export type DialMetric = {
   key: DialTone; label: string; tone: DialTone;
   /** 0..1 of the arc to light. null = no data: the ring stays a faint track. */
   fraction: number | null;
-  /** Warm overshoot arc from zero (calories over target). */
+  state: DialState;
+  /** Overshoot arc from zero (calories over target). */
   over?: number;
   /** 0..1 position of a pace notch outside the arc. */
   notch?: number | null;
@@ -63,7 +65,7 @@ export function MultiDial({ metrics, selected, onSelect, size = 300 }: { metrics
   const [hx, hy] = pt(START + SWEEP * clamp(active.fraction ?? 0, 0, 1));
   const notch = active.notch !== null && active.notch !== undefined ? START + SWEEP * clamp(active.notch, 0, 1) : null;
 
-  return <div className="nx-md" data-tone={active.tone}>
+  return <div className="nx-md" data-tone={active.tone} data-state={active.state}>
     <div className="nx-md-dial">
     <button type="button" className="nx-md-face" onClick={tap} onPointerDown={press} onPointerUp={() => setPressed(null)} onPointerLeave={() => setPressed(null)} onPointerCancel={() => setPressed(null)} aria-label={`${active.spoken}. Show ${next.label.toLowerCase()}`}>
       <svg ref={svg} viewBox={`0 0 ${size} ${size * 0.86}`} aria-hidden="true">
@@ -75,7 +77,7 @@ export function MultiDial({ metrics, selected, onSelect, size = 300 }: { metrics
         <g key={`scale-${active.key}`} className="nx-md-scale">{active.scale.map((text, i) => { const [x, y] = pt(START + SWEEP * i / Math.max(1, active.scale.length - 1), R + size * 0.078); return <text key={i} x={x} y={y + 3} textAnchor="middle" className="nx-dial-scale">{text}</text>; })}</g>
         {metrics.map((m, i) => {
           const slot = slotOf(i), k = radius(slot) / R, w = (slot === 0 ? wide : thin) * (pressed === m.key ? (slot === 0 ? 1.35 : 2.4) : 1) / k, f = clamp(m.fraction ?? 0, 0, 1), stroke = m.tone === 'cal' ? `url(#${id}g)` : undefined;
-          return <g key={m.key} className={`nx-md-ring is-${m.tone}${slot === 0 ? ' is-primary' : ''}${m.fraction === null ? ' is-empty' : ''}${pressed === m.key ? ' is-pressed' : ''}`} style={{ transform: `scale(${k})`, transformOrigin: `${cx}px ${cy}px` }}>
+          return <g key={m.key} data-state={m.state} className={`nx-md-ring is-${m.tone}${slot === 0 ? ' is-primary' : ''}${m.fraction === null ? ' is-empty' : ''}${pressed === m.key ? ' is-pressed' : ''}`} style={{ transform: `scale(${k})`, transformOrigin: `${cx}px ${cy}px` }}>
             <path d={arc} className="nx-md-track" strokeWidth={w} />
             {slot === 0 && f > 0.004 && <path key={`glow-${touched}`} d={arc} pathLength={1} stroke={stroke} strokeWidth={w} strokeDasharray={`${f} 1`} className={`nx-md-glow${touched ? ' is-touched' : ''}`} filter={`url(#${id}b)`} />}
             {f > 0.004 && <path d={arc} pathLength={1} stroke={stroke} strokeWidth={w} strokeDasharray={`${f} 1`} className="nx-md-fill" />}
@@ -94,7 +96,7 @@ export function MultiDial({ metrics, selected, onSelect, size = 300 }: { metrics
     <button type="button" className="nx-md-drill" aria-expanded={open} aria-controls={`${id}t`} onClick={() => setOpen(o => !o)}>{open ? 'Less' : 'Details'}<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
     </div>
     <div className="nx-md-keys" role="tablist" aria-label="Reading on the dial">
-      {metrics.map(m => <button key={m.key} type="button" role="tab" aria-selected={m.key === active.key} className={`nx-md-key is-${m.tone}${m.fraction === null ? ' is-empty' : ''}`} onClick={() => onSelect(m.key)}>
+      {metrics.map(m => <button key={m.key} type="button" role="tab" data-state={m.state} aria-selected={m.key === active.key} className={`nx-md-key is-${m.tone}${m.fraction === null ? ' is-empty' : ''}`} onClick={() => onSelect(m.key)}>
         <i aria-hidden="true" /><span>{m.label}</span><b>{m.chip}</b>
       </button>)}
     </div>
