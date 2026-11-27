@@ -14,7 +14,10 @@
 .nx-scene-images {
   position: absolute;
   inset: 0;
-  mask-image: radial-gradient(ellipse 71% 100% at 53% 39%, black 39%, transparent 89%);
+  /* Feather the outer edges and leave a quieter pocket behind the active reading. */
+  mask-image: radial-gradient(ellipse 71% 100% at 53% 39%, black 39%, transparent 89%),
+    radial-gradient(ellipse 96px 78px at 50% 89%, transparent 14%, black 97%);
+  mask-composite: intersect;
 }
 .nx-scene-images img {
   position: absolute;
