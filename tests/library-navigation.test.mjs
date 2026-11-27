@@ -25,7 +25,7 @@ async function relationships(page) {
   const geometry = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth, files: [...document.querySelectorAll('input[type=file]')].map(el => ({left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right, parent:el.parentElement.getBoundingClientRect().right})), scrolling: [...document.querySelectorAll('body *')].filter(el=>el.scrollWidth>el.clientWidth+1).slice(0,12).map(el=>({className:el.className,client:el.clientWidth,scroll:el.scrollWidth})), outside: [...document.querySelectorAll('.cc-library-workspace *')].filter(el => { const r = el.getBoundingClientRect(); return !el.closest('.cc-library-tabs') && r.width && r.right > innerWidth + 1; }).map(el => ({ tag: el.tagName, className: el.className, right: el.getBoundingClientRect().right })) }));
   assert.ok(geometry.scroll <= geometry.width, 'No horizontal page overflow: ' + JSON.stringify(geometry));
 }
-let cases = 0, instanceCases = 0; const results = [], output = process.env.LIBRARY_NAVIGATION_OUTPUT;
+let cases = 0, instanceCases = 0, archiveCases = 0; const results = [], output = process.env.LIBRARY_NAVIGATION_OUTPUT;
 if (output) mkdirSync(output, { recursive: true });
 try {
   for (const browserName of (process.env.LIBRARY_BROWSER ? [process.env.LIBRARY_BROWSER] : ['chromium', 'webkit'])) {
@@ -63,8 +63,8 @@ try {
           await relationships(page); assert.equal(await tab('All context').getAttribute('aria-selected'), 'true'); assert.equal(new URL(page.url()).searchParams.get('view'), 'context');
           // Clear the project filter, retaining the full existing artifact list.
           await page.getByRole('combobox', { name: 'Context', exact: true }).selectOption('');
-          assert.equal(await page.locator('.cc-library-item').count(), 30);
-          await page.getByRole('button', { name: 'Load more', exact: true }).click(); assert.equal(await page.locator('.cc-library-item').count(), 34);
+          assert.equal(await page.locator('.cc-library-view-panel > .cc-library-item').count(), 30);
+          await page.getByRole('button', { name: 'Load more', exact: true }).click(); assert.equal(await page.locator('.cc-library-view-panel > .cc-library-item').count(), 34);
           if (entry === '/cupcake') {
             await page.getByRole('button', { name: 'Bring a conversation', exact: true }).click(); await page.getByLabel('Title', { exact: true }).waitFor();
             await page.getByRole('button', { name: 'Close import', exact: true }).click();
@@ -105,8 +105,37 @@ try {
       await page.goto(`${base}cupcake?two=1`); await page.getByRole('tablist').first().waitFor();
       const ids = await page.locator('[role=tab],[role=tabpanel]').evaluateAll(elements => elements.map(el => el.id)); assert.equal(new Set(ids).size, 28, 'Multiple workspace IDs must remain unique');
       instanceCases++; await context.close();
+      // Archived Talk conversations are reachable from Library (both entries), open in place and can be restored.
+      for (const entry of ['/cupcake', '/cupcake/account']) for (const width of [320, 390]) {
+        const archiveContext = await browser.newContext({ viewport: { width, height: 844 }, serviceWorkers: 'block' });
+        const view = await archiveContext.newPage(); view.setDefaultTimeout(8000);
+        await view.goto(`${base}${entry.slice(1)}?archived=1&view=context`);
+        const fold = view.locator('details.cc-library-archived');
+        await fold.locator('summary').filter({ hasText: 'Archived conversations (2)' }).first().click();
+        await fold.getByText('Synthetic archived talk', { exact: true }).click();
+        await fold.getByText('Synthetic archived line.').waitFor();
+        const restore = fold.getByRole('button', { name: 'Restore to Talk list', exact: true }).first();
+        assert.ok(await restore.evaluate(el => el.getBoundingClientRect().height >= 44), 'Restore is a 44 px target');
+        await restore.click();
+        await fold.locator('summary').filter({ hasText: 'Archived conversations (1)' }).first().waitFor();
+        assert.equal(await fold.getByText('Synthetic archived talk', { exact: true }).count(), 0);
+        await fold.getByText('Synthetic archived library talk', { exact: true }).click();
+        await fold.getByRole('button', { name: 'Open saved transcript', exact: true }).click();
+        await view.getByRole('dialog', { name: 'Conversation details' }).waitFor();
+        const fetched = await view.evaluate(() => window.libraryNavigationFixture.requests.filter(row => row.action === 'fetch').length);
+        assert.equal(fetched, 1, 'An archived talk saved to the library opens its saved transcript');
+        assert.ok(await view.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Archived fold must not overflow at ' + width);
+        archiveCases++; await archiveContext.close();
+      }
+      {
+        const emptyContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+        const view = await emptyContext.newPage(); view.setDefaultTimeout(8000);
+        await view.goto(`${base}cupcake?view=context`); await view.locator('.cc-library-item').first().waitFor();
+        assert.equal(await view.locator('details.cc-library-archived').count(), 0, 'No archive entry is drawn when the host passes no archive');
+        await emptyContext.close();
+      }
     } finally { await browser.close(); }
   }
   if (output) writeFileSync(path.join(output, 'validation.json'), JSON.stringify({ cases, instanceCases, results, syntheticOnly: true, deployment: false }, null, 2));
-  console.log(`PASS ${cases} real component/browser/transport/theme/width cases, plus ${instanceCases} multi-instance ID cases.`);
+  console.log(`PASS ${cases} real component/browser/transport/theme/width cases, plus ${instanceCases} multi-instance ID cases and ${archiveCases} archived-conversation cases.`);
 } finally { await server.close(); rmSync(cacheDir, { recursive: true, force: true }); }
