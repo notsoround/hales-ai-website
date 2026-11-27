@@ -16,5 +16,5 @@ export function todayLine(s: TodayState): TodayLine {
   if (s.pace !== null && s.pace > 0.12) return calm ? line(`${n(s.left)} left and ahead of pace. `, 'Ease into the evening', '.') : line(`${n(s.left)} left and you are running hot. `, 'Slow your roll', ' until dinner.');
   if (s.pace !== null && s.pace < -0.2) return calm ? line(`${n(s.left)} left, with room to eat. `, 'A proper meal', ' would serve you well.') : line(`${n(s.left)} left and you are under. `, 'Eat something real', ', not a handful of crackers.');
   if (s.hour >= 17) return calm ? line(`${n(s.left)} left for the evening. `, 'On pace', '.') : line(`${n(s.left)} left for tonight. `, 'Make dinner count', '.');
-  return calm ? line(`${n(s.left)} left, steady and `, 'on pace', '.') : line(`${n(s.left)} left and right on pace. `, 'Look at you', '.');
+  return calm ? line(`${n(s.left)} left, steady and `, 'on pace', '.') : line(`${n(s.left)} left, right on pace. `, 'Look at you', '.');
 }
