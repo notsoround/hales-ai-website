@@ -14,13 +14,14 @@ export function StepHistoryDisclosure({ today, days, selectedDate, onSelect }: {
   const rows = days.filter(day => day.date >= first && day.date < today);
   const average = rows.length ? Math.round(rows.reduce((total, day) => total + day.count, 0) / rows.length) : null;
   const hasRolling = rows.some(day => day.windowBasis === 'trailing_24h_previous_day');
+  const hasPastDay = rows.some(day => day.windowBasis === 'reported_past_day_snapshot');
   const multipleSources = new Set(rows.map(day => day.winningSource ?? day.source)).size > 1;
 
   return (
     <details className="nx-step-history">
       <summary>
         <span>Step history</span>
-        {average !== null && <small>{number(average)} avg · {period} days</small>}
+        {average !== null && <small>{number(average)} avg · {rows.length < period ? `${rows.length} of ${period}` : period} days</small>}
         <ChevronDown size={16} aria-hidden="true" />
       </summary>
       <div className="nx-step-history-body">
@@ -35,9 +36,11 @@ export function StepHistoryDisclosure({ today, days, selectedDate, onSelect }: {
         </div>
         {rows.length === 0 ? <p className="cc-muted">No step readings in this period.</p> : (
           <>
-            {(hasRolling || multipleSources) && (
+            {(hasRolling || hasPastDay || multipleSources) && (
               <p className="nx-step-history-note">
-                {hasRolling ? 'Includes rolling 24-hour readings. Select a date to see its source and time window.' : 'Step sources vary by date.'}
+                {hasRolling || hasPastDay
+                  ? `Includes ${hasRolling ? 'rolling 24-hour readings' : 'past-day snapshots'}. Select a date to see its source and time window.`
+                  : 'Step sources vary by date.'}
               </p>
             )}
             <ul className="nx-step-history-list" aria-label="Daily step readings">

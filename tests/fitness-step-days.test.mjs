@@ -77,7 +77,7 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   const history = card.locator('details.nx-step-history');
   const toggle = history.locator('summary');
-  assert.match(await toggle.innerText(), /4,000 avg · 7 days/);
+  assert.match(await toggle.innerText(), /4,000 avg · 2 of 7 days/);
   await toggle.click();
   await history.getByText('2 of 7 days logged · Through yesterday').waitFor();
   assert.equal(await history.getByRole('listitem').count(), 2);
