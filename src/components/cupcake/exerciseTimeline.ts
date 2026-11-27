@@ -34,3 +34,35 @@ export function mergeTimelineItems(feed: readonly PulseItem[], extra: readonly P
   }
   return out;
 }
+
+/** A workout the Timeline shows from the feed that the exercise log did not return. `kcal` is null when the row carries no burn figure. */
+export type FeedWorkout = { id: string; at: number; kcal: number | null; description: string };
+
+/**
+ * Workouts in the feed for [dayStart, dayEnd) that are not already in the exercise log, so the Energy card can count
+ * what the Timeline shows without counting a workout twice. A feed row is the same workout as a log entry when it
+ * carries that entry's id (`details.id`, or an item id ending `exercise-<id>`).
+ */
+type FeedRow = { id?: string; type?: string; title?: string; ts?: number; calories?: number | null; details?: Record<string, unknown> | null };
+export function feedOnlyWorkouts(items: readonly FeedRow[] | null | undefined, entries: readonly ExerciseEntry[], dayStart: number, dayEnd: number): FeedWorkout[] {
+  const logged = new Set(entries.map(e => e.id));
+  const seen = new Set<string>(), out: FeedWorkout[] = [];
+  for (const item of items || []) {
+    if (item.type !== 'exercise') continue;
+    const at = typeof item.ts === 'number' && Number.isFinite(item.ts) ? (item.ts < 1e12 ? item.ts * 1000 : item.ts) : NaN;
+    if (!(at >= dayStart && at < dayEnd)) continue;
+    const detailId = typeof item.details?.id === 'string' ? item.details.id : '';
+    const itemId = typeof item.id === 'string' ? item.id : '';
+    const fromLog = /(?:^|:)exercise-(.+)$/.exec(itemId)?.[1] || '';
+    if (logged.has(detailId) || logged.has(fromLog)) continue;
+    const id = itemId || detailId || `feed-exercise-${at}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    // The burn is the row's own figure: `details.kcal`, or a negative `calories` (energy out). Anything else is unknown, not zero.
+    const detailKcal = typeof item.details?.kcal === 'number' && Number.isFinite(item.details.kcal) ? Math.abs(item.details.kcal as number) : null;
+    const rowKcal = typeof item.calories === 'number' && Number.isFinite(item.calories) && item.calories < 0 ? -item.calories : null;
+    const kcal = detailKcal ?? rowKcal;
+    out.push({ id, at, kcal: kcal !== null && kcal > 0 ? Math.round(kcal) : null, description: item.title || 'Workout' });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}

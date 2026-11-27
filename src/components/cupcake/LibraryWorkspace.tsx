@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Check, ChevronLeft, ChevronRight, Copy, FolderKanban, Import, Layers, Loader2, Plus, RefreshCw, Search, Send, Sparkles, X } from 'lucide-react';
 import ConnectionCheck from './ConnectionCheck';
 import StrategyRequests from './StrategyRequests';
@@ -7,6 +7,8 @@ import ReceiptWorkspace from './ReceiptWorkspace';
 import PhoneCallArchive from './PhoneCallArchive';
 import ConversationPanel, { AnalysisCard } from './ConversationPanel';
 import VoiceUpdatesCard from './VoiceUpdatesCard';
+import LibraryFinder from './LibraryFinder';
+import type { SavedTalk } from './voiceHistory';
 import { libraryRequest, parseConversationImport, uploadLabel, type Analysis, type Conversation, type ImportCandidate, type Project, type Source } from './library';
 import './library-layout.css';
 import './noir/assistant/noir-library.css';
@@ -101,7 +103,12 @@ function groupSearchHits(items: SearchResult[]) {
   return groups;
 }
 
-export default function LibraryWorkspace({ active, onOpenRecording, onWork, savedAudio }: { active: boolean; onOpenRecording: (id: string) => void; onWork: (busy: boolean) => void; savedAudio?: ReactNode }) {
+export default function LibraryWorkspace({ active, onOpenRecording, onWork, archivedTalks, onRestoreTalk, savedAudio }: {
+  active: boolean; onOpenRecording: (id: string) => void; onWork: (busy: boolean) => void;
+  /** Talk conversations archived on this device (Assistant → Talk history), so Library can reach them too. */
+  archivedTalks?: SavedTalk[]; onRestoreTalk?: (talk: SavedTalk) => void;
+  savedAudio?: ReactNode;
+}) {
   const initialDocument=useRef(new URLSearchParams(location.search).get('document'));const initialAnalysis=useRef(new URLSearchParams(location.search).get('analysis'));const [openedAnalysis,setOpenedAnalysis]=useState<Analysis|null>(null);
   const [featureBusy,setFeatureBusy]=useState(false);
   const [counts, setCounts] = useState({browseTotal: 0, libraryTotal: 0});
@@ -130,7 +137,9 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork, save
   const [focusedView, setFocusedView] = useState<View>(initialView);
   const [tabOverflow, setTabOverflow] = useState({ before: false, after: false });
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [loading, setLoading] = useState(false); const [mutating, setMutating] = useState(false);
-  const [query, setQuery] = useState(''); const [filter, setFilter] = useState(''); const [recordLimit, setRecordLimit] = useState(30); const [results, setResults] = useState<SearchResult[] | null>(null); const [searching, setSearching] = useState(false); const searchId = useRef(0); const tabListRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState(''); const [filter, setFilter] = useState(''); const [recordLimit, setRecordLimit] = useState(30); const [results, setResults] = useState<SearchResult[] | null>(null); const [searching, setSearching] = useState(false);
+  // Account sign-in also searches receipts, bank purchases and phone calls (LibraryFinder), which the source search does not hold.
+  const [searchedTerm, setSearchedTerm] = useState<string | null>(null); const [extraMatches, setExtraMatches] = useState<number | null>(null); const [sourceSearchFailed, setSourceSearchFailed] = useState(false); const searchId = useRef(0); const tabListRef = useRef<HTMLDivElement>(null);
   const pendingRequest=useRef<{signature:string;id:string}|null>(null);
   const [question, setQuestion] = useState(''); const [asking, setAsking] = useState(false); const [answers, setAnswers] = useState<Analysis[]>([]); const [saved, setSaved] = useState<Analysis[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null); const [detailAsking, setDetailAsking] = useState(false); const [detailError, setDetailError] = useState('');
@@ -226,7 +235,7 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork, save
     setView(next); setFocusedView(next); setError('');
     const url = new URL(location.href); url.searchParams.set('tab', 'library'); url.searchParams.set('view', viewKeys[next]);
     const state = history.state && typeof history.state === 'object' ? history.state : {};
-    if (next !== 'Phone calls') url.searchParams.delete('callFilter');
+    if (next !== 'Phone calls') { url.searchParams.delete('callFilter'); url.searchParams.delete('call'); }
     if (next !== 'Receipts') for (const key of ['receipt','transaction','receiptTab']) url.searchParams.delete(key);
     if (url.href !== location.href) {
       history.replaceState({ ...state, scroll: window.scrollY }, '');
@@ -249,10 +258,13 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork, save
     const list = tabListRef.current;
     if (list) list.scrollBy({ left: direction * list.clientWidth * 0.75 });
   }
+  function clearSearch() { setResults(null); setSearchedTerm(null); setExtraMatches(null); setSourceSearchFailed(false); }
   async function search(e: React.FormEvent) {
-    e.preventDefault(); const generation = ++searchId.current; if (!query.trim()) { setResults(null); return; } setSearching(true); setError('');
+    e.preventDefault(); const generation = ++searchId.current; if (!query.trim()) { clearSearch(); return; } setSearching(true); setError('');
+    if (ACCOUNT_SESSIONS && searchedTerm !== query.trim()) { setExtraMatches(null); setSearchedTerm(query.trim()); }
+    setSourceSearchFailed(false);
     try { const d = await libraryRequest<{ results: SearchResult[] }>({ action: 'search', query: query.trim(), project: filter || undefined, limit: 20 }); if (generation === searchId.current) setResults(d.results || []); }
-    catch (e) { if (generation === searchId.current) setError((e as Error).message); } finally { if (generation === searchId.current) setSearching(false); }
+    catch (e) { if (generation === searchId.current) { setError((e as Error).message); if (ACCOUNT_SESSIONS) { setResults([]); setSourceSearchFailed(true); } } } finally { if (generation === searchId.current) setSearching(false); }
   }
   async function openDocument(id: string) {
     if (id.startsWith('rec_') && !ACCOUNT_SESSIONS) { onOpenRecording(id.slice(4)); return; }
@@ -316,7 +328,10 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork, save
     if (!hasCachedRows && artifactCursor) void readArtifacts('older', artifactCursor);
     setRecordLimit(count => count + 30);
   }
-  const searchGroups = results ? groupSearchHits(results) : [];
+  const searchGroups = useMemo(() => results ? groupSearchHits(results) : [], [results]);
+  const searchDocumentIds = useMemo(() => searchGroups.map(group => group.documentId), [searchGroups]);
+  // Receipts, purchases and calls carry no project, so they are listed only when no project filter is set.
+  const finderOn = ACCOUNT_SESSIONS && !filter;
   const askDetails = <details className="cc-library-ask"><summary>{view === 'Projects' ? 'Compare an idea' : 'Ask across my Library'}</summary>{ACCOUNT_SESSIONS ? <p className="cc-muted cc-small">Library questions and idea comparisons are not available for account sign-in yet. You can search saved sources, open their downloads, or use Assistant → Text for a conversation.</p> : <section className="cc-strategy-box"><span className="cc-eyebrow"><Sparkles size={14} />{view === 'Projects' ? 'TRIAGE THE NEXT IDEA' : 'ASK ACROSS YOUR LIBRARY'}</span><h3>{view === 'Projects' ? 'Before you build it again.' : 'Connect the dots.'}</h3><p className="cc-muted">{view === 'Projects' ? 'Compare an idea with what already exists. Find overlap, blockers, and the smallest useful next step.' : 'Ask about patterns, decisions, promises, or conflicting advice across your selected context.'}</p><form className="cc-ask" onSubmit={e => { e.preventDefault(); void askLibrary(); }}><textarea aria-label={view === 'Projects' ? 'Idea to compare with projects' : 'Question across your library'} value={question} onChange={e => setQuestion(e.target.value)} rows={3} maxLength={4000} disabled={asking} placeholder={view === 'Projects' ? 'I want to build… What do I already have, and should I extend, combine, or start fresh?' : 'What have I committed to, where am I duplicating effort, and what deserves my attention?'} /><button className="cc-primary" aria-label={view === 'Projects' ? 'Triage idea' : 'Ask across library'} disabled={asking || !question.trim()}>{asking ? <Loader2 className="cc-spin" size={18} /> : <Send size={18} />}</button></form>{asking && <p role="status" className="cc-thinking"><Loader2 className="cc-spin" size={17} />Searching your context and weighing the options…</p>}<StrategyRequests active={active} onAnswer={answer=>{setAnswers(current=>[answer,...current.filter(a=>a.id!==answer.id)]);setNotice('Saved answer opened below.');}}/>{answers.map((a, i) => <AnalysisCard analysis={a} key={a.id || i} />)}</section>}</details>;
   const selectedTranscript = selected
     ? (selected.transcript || ((selected.status === 'transcribed' || selected.status === 'ready') && (selected.kind === 'recording' || /^(?:rec_)?[a-f0-9]{32}$/.test(selected.id) || selected.sourceApp === 'Cupcake voice' || selected.sourceApp === 'Cupcake phone transcript') ? selected.text : '') || '').trim()
@@ -332,16 +347,17 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork, save
     {error && <div role="alert" className="cc-error">{error}<button onClick={() => setError('')} aria-label="Dismiss library error">×</button></div>}
     {notice && <div className="cc-notice" role="status"><Check size={18} />{notice}<button onClick={() => setNotice('')} aria-label="Dismiss confirmation"><X size={16} /></button></div>}
     <div role="tabpanel" id={`${tabId}-panel-${viewKeys[view]}`} aria-labelledby={`${tabId}-tab-${viewKeys[view]}`} tabIndex={0} className="cc-library-view-panel">
-    {isAllView(view) && <form className="cc-library-search" onSubmit={e => void search(e)}><Search size={18} /><input aria-label="Search library" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search phrases, decisions…" /><button className="cc-secondary" disabled={searching}>{searching ? <Loader2 className="cc-spin" size={16} /> : 'Search'}</button></form>}
+    {isAllView(view) && <form className="cc-library-search" onSubmit={e => void search(e)}><Search size={18} /><input aria-label="Search library" value={query} onChange={e => setQuery(e.target.value)} placeholder={ACCOUNT_SESSIONS ? 'Search stores, receipts, calls, phrases…' : 'Search phrases, decisions…'} /><button className="cc-secondary" disabled={searching}>{searching ? <Loader2 className="cc-spin" size={16} /> : 'Search'}</button></form>}
     {(isAllView(view) || view === 'Projects') && <>
-      {(!ACCOUNT_SESSIONS || contextNames.length > 0) && <div className="cc-library-tools"><label className="cc-filter">Context<select value={filter} onChange={e => { setFilter(e.target.value); setResults(null); setRecordLimit(30); }}><option value="">All projects</option>{contextNames.map(name => <option value={name} key={name}>{name}</option>)}</select></label>{!ACCOUNT_SESSIONS && <button className="cc-secondary" onClick={() => { setImporting(v => !v); setNotice(''); }}><Import size={17} />Bring a conversation</button>}</div>}
+      {(!ACCOUNT_SESSIONS || contextNames.length > 0) && <div className="cc-library-tools"><label className="cc-filter">Context<select value={filter} onChange={e => { setFilter(e.target.value); clearSearch(); setRecordLimit(30); }}><option value="">All projects</option>{contextNames.map(name => <option value={name} key={name}>{name}</option>)}</select></label>{!ACCOUNT_SESSIONS && <button className="cc-secondary" onClick={() => { setImporting(v => !v); setNotice(''); }}><Import size={17} />Bring a conversation</button>}</div>}
       {importing && !ACCOUNT_SESSIONS && <section className="cc-card cc-import-card"><div className="cc-heading-row"><h3>Bring only what you choose</h3><button className="cc-text-button" aria-label="Close import" onClick={() => setImporting(false)}><X size={18} /></button></div><p className="cc-muted">Choose a text, Markdown, or conversation JSON export. An archive opens a selection list; only the conversation shown below will be imported.</p><label className="cc-secondary cc-file"><Import size={16} />Choose export<input type="file" accept=".txt,.md,.markdown,.json,text/plain,application/json" onChange={e => { void readImport(e.target.files?.[0]); e.target.value = ''; }} /></label>{candidates.length > 1 && <label className="cc-label">Choose one conversation<select value={candidate} onChange={e => pickCandidate(Number(e.target.value))}>{candidates.map((c, i) => <option key={i} value={i}>{c.title}</option>)}</select></label>}<label className="cc-label">Title<input value={importTitle} maxLength={200} onChange={e => setImportTitle(e.target.value)} placeholder="The conversation I want to keep" /></label><div className="cc-two-fields"><label className="cc-label">From<select value={importApp} onChange={e => setImportApp(e.target.value)}>{['ChatGPT', 'Claude', 'Grok', 'Cursor', 'Other'].map(x => <option key={x}>{x}</option>)}</select></label><label className="cc-label">Project (optional)<input list="cc-project-names" value={importProject} onChange={e => setImportProject(e.target.value)} maxLength={120} placeholder="Personal, an idea, a project…" /></label></div><label className="cc-label">Topics, separated by commas<input value={importTags} onChange={e => setImportTags(e.target.value)} maxLength={400} placeholder="strategy, follow-up, product" /></label><label className="cc-label">Review the text before importing<textarea value={importText} onChange={e => setImportText(e.target.value)} rows={7} placeholder="Or paste one selected conversation here…" /></label><p className="cc-muted cc-small">Save only material you can use in your personal library. Saving stores it privately; asking a question sends relevant excerpts to the configured AI provider.</p><button className="cc-primary" disabled={mutating || !importTitle.trim() || !importText.trim()} onClick={() => void saveImport()}>{mutating ? <Loader2 className="cc-spin" size={17} /> : <Plus size={17} />}Import this conversation</button></section>}
     </>}
     {isAllView(view) && <>
       {results !== null ? <>
-        <div className="cc-heading-row"><h3>{results.length} {results.length === 1 ? 'match' : 'matches'} in {searchGroups.length} {searchGroups.length === 1 ? 'source' : 'sources'}</h3><button className="cc-text-button" onClick={() => { searchId.current++; setSearching(false); setResults(null); setQuery(''); }}>Clear search</button></div>
+        <div className="cc-heading-row"><h3 aria-live="polite">{!finderOn ? `${results.length} ${results.length === 1 ? 'match' : 'matches'} in ${searchGroups.length} ${searchGroups.length === 1 ? 'source' : 'sources'}` : extraMatches === null ? 'Searching receipts, purchases and calls…' : `${searchGroups.length + extraMatches} ${searchGroups.length + extraMatches === 1 ? 'match' : 'matches'}`}</h3><button className="cc-text-button" onClick={() => { searchId.current++; setSearching(false); clearSearch(); setQuery(''); }}>Clear search</button></div>
+        {sourceSearchFailed && <p className="cc-muted cc-small">Saved sources could not be searched this time. Receipts, purchases and calls are still searched below.</p>}
         {searchGroups.map(group => <button className="cc-search-result" key={group.documentId} onClick={() => void openDocument(group.documentId)}><span className="cc-kind">{group.sourceApp || group.kind || 'Conversation'}{group.project ? ` · ${group.project}` : ''}</span><strong>{group.title}</strong><p>{clipText(group.excerpts[0] || '', 180)}</p><span className="cc-muted cc-small">{group.excerpts.length} {group.excerpts.length === 1 ? 'match' : 'matches'} found</span><span className="cc-text-button">Open source <ArrowUpRight size={15} /></span></button>)}
-        {!results.length && <p className="cc-muted">Try a distinctive phrase or a broader project name.</p>}
+        {!results.length && (!finderOn || extraMatches === 0) && <p className="cc-muted">{finderOn ? 'Try a store name, a distinctive phrase or a broader project name.' : 'Try a distinctive phrase or a broader project name.'}</p>}
       </> : <>
         <div className="cc-heading-row"><h3>{documents !== null && orderedRecords.length ? (shownRecords.length < displayedTotal ? `${shownRecords.length} of ${displayedTotal} items` : `${shownRecords.length} ${shownRecords.length === 1 ? 'item' : 'items'}`) : 'Your source library'}</h3>{documents !== null && <span className="cc-muted cc-small">{counts.browseTotal} {counts.browseTotal === 1 ? 'artifact' : 'artifacts'} · {counts.libraryTotal} {counts.libraryTotal === 1 ? 'source' : 'sources'}</span>}</div>
         {documents === null ? (loading ? <p className="cc-muted">Loading your private library…</p> : libraryFailed ? <div className="cc-card"><p>Library couldn't load</p><button className="cc-secondary" onClick={() => void refresh()}>Retry</button></div> : <p className="cc-muted">Refresh to connect your library.</p>) : orderedRecords.length ? <>
@@ -349,6 +365,15 @@ export default function LibraryWorkspace({ active, onOpenRecording, onWork, save
         </> : filter ? <p className="cc-muted">{artifactCursor ? 'No items for this project in the loaded history.' : 'No items for this project.'}</p> : <div className="cc-card"><Layers size={26} /><h3>Start with a conversation that matters.</h3><p className="cc-muted">{ACCOUNT_SESSIONS ? 'Your chats, transcripts, and saved sources appear here automatically.' : 'Record or import audio, or bring a selected conversation from another assistant.'}</p></div>}
         {(hasCachedRows || artifactCursor) && <button className="cc-secondary" disabled={readingOlder} onClick={showMoreArtifacts}>{readingOlder ? 'Loading older items…' : hasCachedRows ? 'Load more' : 'Load older items'}</button>}
       </>}
+      {finderOn && <LibraryFinder active={active} term={results !== null ? searchedTerm : null} excludeDocumentIds={searchDocumentIds} onMatches={setExtraMatches} onOpenDocument={id => void openDocument(id)} onShowReceipts={() => selectView('Receipts')} onShowCalls={() => selectView('Phone calls')} />}
+      {archivedTalks && results === null && !filter && <details className="cc-fold cc-library-archived"><summary>Archived conversations ({archivedTalks.length})</summary>
+        <p className="cc-muted cc-small">Talk conversations archived on this device. Archiving only hides a conversation from the Talk list; nothing is deleted.</p>
+        {!archivedTalks.length && <p className="cc-muted">{ACCOUNT_SESSIONS ? 'Nothing is archived on this device. Account sign-in has no archive action yet, so everything you have saved stays in the lists above.' : 'Nothing is archived on this device. Archive a saved conversation from Assistant → Talk and it will be listed here.'}</p>}
+        {archivedTalks.map(talk => <details className="cc-card" key={talk.id}><summary><strong>{talk.title}</strong> · {new Date(talk.startedAt).toLocaleString()} · {talk.documentId ? 'Private library' : 'This device only'}</summary>
+          {talk.lines.length ? <div className="cc-transcript">{talk.lines.map((line, i) => <p key={i}><strong>{line.role}</strong>{line.text}</p>)}</div> : !talk.documentId && <p className="cc-muted cc-small">Its transcript is not loaded here. Open it from Assistant → Talk → Archived.</p>}
+          <div className="cc-action-row">{talk.documentId && <button type="button" className="cc-secondary" onClick={() => void openDocument(talk.documentId!)}>Open saved transcript</button>}{onRestoreTalk && <button type="button" className="cc-secondary" onClick={() => onRestoreTalk(talk)}>Restore to Talk list</button>}</div>
+        </details>)}
+      </details>}
       {!ACCOUNT_SESSIONS && askDetails}
     </>}
     {view === 'Projects' && <><div className="cc-heading-row"><h3>What you're building</h3><button className="cc-secondary" disabled={ACCOUNT_SESSIONS} onClick={() => {setProjectId(undefined);setProjectName('');setProjectDescription('');setProjectStatus('idea');setProjectUrl('');setProjectTags([]);setProjectForm(v => !v);}}><Plus size={16} />Add project</button></div>{ACCOUNT_SESSIONS && <p className="cc-muted cc-small">Project creation and editing are not available for account sign-in yet. You can explore context for saved projects.</p>}{projectForm && !ACCOUNT_SESSIONS && <section className="cc-card"><label className="cc-label">Project name<input value={projectName} maxLength={120} onChange={e => setProjectName(e.target.value)} /></label><label className="cc-label">What it does, what exists, and what's blocked<textarea value={projectDescription} onChange={e => setProjectDescription(e.target.value)} rows={5} maxLength={10000} /></label><div className="cc-two-fields"><label className="cc-label">Status<select value={projectStatus} onChange={e => setProjectStatus(e.target.value)}>{['idea', 'active', 'blocked', 'live', 'paused', 'archived'].map(s => <option key={s}>{s}</option>)}</select></label><label className="cc-label">Reference link (optional)<input type="url" value={projectUrl} onChange={e => setProjectUrl(e.target.value)} placeholder="https://…" /></label></div><button className="cc-primary" disabled={mutating || !projectName.trim()} onClick={() => void saveProject()}>Save project</button></section>}<div className="cc-project-grid">{projects.filter(p => !filter || p.name === filter).map(p => <article className="cc-card" key={p.id}><div className="cc-heading-row"><FolderKanban size={21} /><span className="cc-model-badge">{p.status || 'idea'}</span></div><h3>{p.name}</h3><p className="cc-muted">{clipText(p.description || '', 160) || 'Add context to make comparisons more useful.'}</p><button className="cc-text-button" disabled={ACCOUNT_SESSIONS} onClick={()=>{setProjectId(p.id);setProjectName(p.name);setProjectDescription(p.description||'');setProjectStatus(p.status||'idea');setProjectUrl(p.sourceUrl||'');setProjectTags([...(p.tags||[])]);setProjectForm(true);}}>Edit project</button><button className="cc-text-button" onClick={() => { setFilter(p.name); setRecordLimit(30); selectView(defaultView); }}>Explore context <ArrowUpRight size={15} /></button></article>)}</div>{!projects.length && <p className="cc-muted">{ACCOUNT_SESSIONS ? 'No saved projects in this account.' : 'Add concise project summaries so Cupcake can compare new ideas against your existing work.'}</p>}{askDetails}</>}

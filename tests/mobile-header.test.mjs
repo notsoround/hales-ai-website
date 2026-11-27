@@ -41,7 +41,7 @@ try {
     assert.equal(await page.locator('.cc-top .cc-version').count(), 0, 'no build string in the header');
     // Card 15: Spent today reads as tappable like Steps and Weight (chevron inside its open button), refresh kept.
     const spend = page.getByRole('group', { name: 'Spent today', exact: true });
-    assert.equal(await spend.getByRole('button', { name: /Open history$/ }).locator('svg.nx-spend-chevron').count(), 1);
+    assert.equal(await spend.getByRole('button', { name: /Open bank purchases$/ }).locator('svg.nx-spend-chevron').count(), 1);
     assert.equal(await spend.getByRole('button', { name: /^Refresh spending/ }).count(), 1);
     assert.equal(await spend.evaluate(el => el.scrollWidth <= el.clientWidth), true);
     // Card 14: in light mode the dial's minor rings reach 3:1 against the page and legend values are not faint.

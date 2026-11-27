@@ -59,8 +59,7 @@ try {
         await tab('Phone calls').click();
         assert.equal(new URL(page.url()).searchParams.get('view'), 'calls');
         const history = page.getByRole('region', { name:'Saved phone calls' });
-        await history.getByRole('button', {name:/Voicemail.*Recap/}).click();
-        await history.getByText('Synthetic voicemail recap.', {exact:true}).waitFor();
+        // The device voice is in place before the recap opens: the control checks for one when it appears.
         await page.evaluate(() => {
           const local = {lang:'en-US', localService:true};
           window.fixturePlayback = [];
@@ -70,12 +69,15 @@ try {
           }});
           Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable:true, value:class { constructor(text){this.text=text;} }});
         });
+        await history.getByRole('button', {name:/Synthetic phone call.*Missed · voicemail.*Recap/}).click();
+        await history.getByText('Synthetic voicemail recap.', {exact:true}).last().waitFor();
         await history.getByRole('button', {name:'Listen to recap'}).click();
         await history.getByRole('button', {name:'Stop',exact:true}).click();
         assert.deepEqual(await page.evaluate(()=>window.fixturePlayback.filter(Array.isArray)), [['Synthetic voicemail recap.',true]]);
         await history.getByRole('button', {name:'Open full transcript'}).click();
-        await details.getByRole('heading', {name:'Synthetic phone call'}).waitFor();
-        await details.getByRole('button', {name:'Back to library'}).click();
+        const callDetails = page.getByRole('dialog', { name: 'Phone call details', exact: true });
+        await callDetails.getByRole('heading', {name:'Synthetic phone call'}).waitFor();
+        await callDetails.getByRole('button', {name:'Back to library'}).click();
         await history.getByRole('button', {name:'Earlier calls'}).click();
         await history.getByText('Ended after silence').waitFor();
         await page.goBack();

@@ -9,6 +9,7 @@ import { cupcakeHref } from './accountMode';
 import { acquireMicrophone, microphoneConstraints, microphoneMessage, readInputDevice, saveInputDevice } from './voiceInput';
 import VoiceInputCheck from './VoiceInputCheck';
 import VoiceUpdatesCard from './VoiceUpdatesCard';
+import VoiceSaveCards from './VoiceSaveCards';
 import { closeVoiceTransport } from './voiceHistory';
 import './account-live-voice.css';
 import './noir/noir-voice.css';
@@ -278,6 +279,7 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
       : (result.transcript || '').trim())
     : '';
   const canReport = useLab('reply-reports') && active;
+  const voiceCards = useLab('voice-save-cards');
   return <section className="cc-account-voice" aria-label="Account live voice">
     <h2 className="cc-talk-heading">Live voice with {assistantName}</h2>
     {/* The facts that matter before you tap stay on screen in one line; the full wording is one tap away. */}
@@ -311,7 +313,9 @@ export default function AccountLiveVoice({ assistantName, active, keepMediaOnHid
         const line = <p className="cc-voice-line" key={key}><strong>{message.role === 'user' ? 'You' : assistantName}</strong>{message.message}</p>;
         return canReport && message.role !== 'user' && message.message.trim() ? <div key={key}>{line}<ReportReply reply={{ kind: 'voice', sessionId: opened.sessionId, lineIndex: index }} /></div> : line;
       }) : <p className="cc-voice-line">{result.transcript || 'No speech text was returned for this conversation.'}</p>}</> : <p className="cc-muted">No provider-fetched transcript is available for this ended conversation.</p>}
-      {liveTranscriptText && <VoiceUpdatesCard key={opened.sessionId} transcriptText={liveTranscriptText} />}
+      {liveTranscriptText && (voiceCards
+        ? <VoiceSaveCards key={opened.sessionId} sessionId={opened.sessionId} transcriptText={liveTranscriptText} />
+        : <VoiceUpdatesCard key={opened.sessionId} transcriptText={liveTranscriptText} />)}
       {opened.documentId && <a className="cc-text-button" href={cupcakeHref(`/cupcake?tab=library&document=${encodeURIComponent(opened.documentId)}`)}>View source transcript</a>}</article>}
     </section>
   </section>;

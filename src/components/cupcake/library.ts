@@ -3,6 +3,7 @@ import { appConfirm } from './appConfirm';
 import { privateAccessHeaders } from './privateAccess';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { accountData } from './accountSession';
+import { receiptWorkspaceUrl, type ReceiptRoute } from './receiptNavigation';
 
 export type Source = { id?: string; documentId?: string; title?: string; text?: string; url?: string; startSeconds?: number | null; sourceApp?: string };
 export type Exchange = { role: string; text?: string; content?: string; model?: string; createdAt?: string; sources?: Source[] };
@@ -26,6 +27,19 @@ export type Conversation = {
 export type Project = { id: string; name: string; description?: string; status?: string; tags?: string[]; sourceUrl?: string; updatedAt?: string };
 export type ImportCandidate = { title: string; text: string; sourceApp: string };
 export const accessHeaders = privateAccessHeaders;
+/** Open Library → Receipts & bank purchases at a receipt route from anywhere in the app (same history pattern as openMissedCalls). */
+export function openLibraryReceipts(route: ReceiptRoute = {}) {
+  const from = new URL(location.href);
+  from.searchParams.set('tab', 'library');
+  for (const key of ['callFilter', 'document', 'analysis']) from.searchParams.delete(key);
+  const href = receiptWorkspaceUrl(route, from.href);
+  const state = { scroll: 0 };
+  if (location.pathname + location.search !== href) {
+    history.replaceState({ ...history.state, scroll: window.scrollY }, '');
+    history.pushState(state, '', href);
+  }
+  window.dispatchEvent(new PopStateEvent('popstate', { state }));
+}
 export async function libraryRequest<T>(body: Record<string, unknown>, options?: { foodGesture?: boolean }): Promise<T> {
   if (ACCOUNT_SESSIONS) return accountData<T>(body);
   const send = async (payload: Record<string, unknown>): Promise<Record<string, unknown>> => {

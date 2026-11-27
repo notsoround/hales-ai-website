@@ -12,8 +12,8 @@ import {AssistantSuggestions} from './AssistantSuggestions';
 import {ReportReply} from './ReportReply';
 import type {ReportableReply} from './accountSession';
 import type {AssistantMode} from './AssistantShell';
-import {summarizeGroceryAndPantry} from './groceryChecklist';
-import {ACTIONS_MARK,MAX_WRAPPED_INPUT,compactMeals,compactPurchases,compactWorkouts,replyText,shownMessage,wrapMessage} from './assistantActionsModel';
+import {ACTIONS_MARK,MAX_WRAPPED_INPUT,replyText,shownMessage,wrapMessage} from './assistantActionsModel';
+import {currentAppState} from './assistantAppState';
 
 type Turn={id:string;text:string;status:string;response?:ChatReply;retryAfter:number;error?:string;alternatives?:{attemptId:string;response:ChatReply}[]};
 type Thread={id:string;title:string;turns:Turn[]};
@@ -35,34 +35,6 @@ const updateThreadUrl=(id:string|null)=>{const url=new URL(location.href);for(co
 
 const Answer:React.FC<{response:ChatReply;seed?:string;suggest?:boolean;report?:ReportableReply}>=({response,seed='',suggest=false,report})=><div className="cc-chat-reply mr-4 rounded-2xl bg-white/10 p-4 whitespace-pre-wrap break-words"><ReadAloudButton text={replyText(response.reply)} label="Play answer"/><p>{replyText(response.reply)}</p>{ACCOUNT_SESSIONS&&seed&&<AssistantSuggestions reply={response.reply} seed={seed} enabled={suggest}/>}<p className="cc-chat-reply-meta mt-2 text-xs text-white/50">AI response · {response.model} · interpretation, not verified fact</p>{report&&<ReportReply reply={report}/>}{unavailableNotice(response)&&<p className="text-xs text-amber-300">{unavailableNotice(response)}</p>}{response.sources?.map((s,i)=><p key={i} className="text-xs text-pink-200">Source: {s.url?.startsWith('https://')?<a href={cupcakeHref(s.url)} target="_blank" rel="noreferrer">{s.title||'Library evidence'}</a>:s.title||'Library evidence'}</p>)}</div>;
 
-/** Labs: the owner's own current app data, read just before sending, so the assistant can see it
- *  and name exact records. Each part that fails to load is marked unavailable, never guessed. */
-async function currentAppState(){
-  const now=Date.now(),day=(offset:number)=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date(now+offset*864e5));
-  type Row=Record<string,unknown>;
-  const [plan,meals,workouts,purchases,settings]=await Promise.allSettled([
-    libraryRequest<{plan:{meal_plan?:unknown;workout_template?:unknown}}>({action:'coach_plan_get'}),
-    libraryRequest<{meals?:Row[]}>({action:'food_list',limit:12}),
-    libraryRequest<{entries?:Row[]}>({action:'exercise_list',start:new Date(now-7*864e5).toISOString(),end:new Date(now+6e5).toISOString(),limit:100}),
-    libraryRequest<{links?:Row[]}>({action:'reconcile_list',start:day(-14),end:day(0)}),
-    libraryRequest<{settings?:Row}>({action:'food_settings_get'})]);
-  const gone='(could not be read just now)';
-  const rawMeals=meals.status==='fulfilled'?meals.value.meals||[]:[];
-  const rawMealPlan=plan.status==='fulfilled'?plan.value.plan?.meal_plan??null:null;
-  const groceryText=rawMealPlan&&typeof rawMealPlan==='object'&&!Array.isArray(rawMealPlan)&&typeof (rawMealPlan as Row).groceries==='string'?(rawMealPlan as Row).groceries as string:'';
-  const kitchen=summarizeGroceryAndPantry(groceryText,rawMeals as {description?:string;consumedAt?:string|null;createdAt?:string}[]);
-  const hasKitchen=kitchen.activeShoppingList.totalCount>0||kitchen.activeShoppingList.notes.length>0||kitchen.pantry.stocked.length>0||kitchen.pantry.runningLow.length>0;
-  const mealPlanValue=plan.status==='fulfilled'
-    ?(rawMealPlan&&typeof rawMealPlan==='object'&&!Array.isArray(rawMealPlan)
-      ?(hasKitchen?{...(rawMealPlan as Row),activeShoppingList:kitchen.activeShoppingList,pantry:kitchen.pantry}:rawMealPlan)
-      :(hasKitchen?{activeShoppingList:kitchen.activeShoppingList,pantry:kitchen.pantry}:rawMealPlan))
-    :(hasKitchen?{planStatus:gone,pantry:kitchen.pantry}:gone);
-  return{nutritionSettings:settings.status==='fulfilled'?{calorieTarget:settings.value.settings?.calorieTarget??null,since:settings.value.settings?.effectiveFrom??null}:gone,recentMeals:meals.status==='fulfilled'?compactMeals(rawMeals):gone,
-    recentWorkouts:workouts.status==='fulfilled'?compactWorkouts(workouts.value.entries||[]):gone,
-    purchases:purchases.status==='fulfilled'?compactPurchases(purchases.value.links||[]):gone,
-    mealPlan:mealPlanValue,
-    workoutPlan:plan.status==='fulfilled'?plan.value.plan?.workout_template??null:gone};
-}
 // Account app: tap to fill the message box (never sends on its own).
 const STARTERS=['How am I doing this week?','What should I eat for dinner?','Help me plan tomorrow'];
 export const QuickChat:React.FC<{speak:boolean;mediaBusy:boolean;active?:boolean;locked?:boolean;assistantName?:string;onMode?:(mode:AssistantMode)=>void;speakEnabled?:boolean;onSpeakChange?:(next:boolean)=>void}>=({speak,mediaBusy,active=true,locked=false,assistantName='Cupcake',onMode,speakEnabled,onSpeakChange})=>{
