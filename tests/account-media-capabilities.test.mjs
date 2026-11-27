@@ -105,6 +105,8 @@ try {
   console.log('PASS: stale pending row shows newly confirmed status and then leaves the queue, with the updated 175 kcal counted once');
 
   await page.getByRole('button', { name: 'Receipts preview', exact: true }).click();
+  // With saved receipts the upload card starts as one "Add receipt" button; open it to reach the capture controls.
+  await page.getByRole('button', { name: 'Add receipt', exact: true }).click();
   await page.getByText('Your photo will be saved to your account and sent to an AI provider to read the receipt. Compare it with your saved transactions afterward.', { exact: true }).waitFor();
   await page.getByLabel('Take receipt photo', { exact: true }).waitFor({state:'attached'});
   await page.getByLabel('Choose receipt image', { exact: true }).waitFor({state:'attached'});
