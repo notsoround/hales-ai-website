@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Dumbbell, Footprints, RefreshCw, Scale } from 'lucide-react';
+import { Check, ChevronRight, Dumbbell, Footprints, RefreshCw, Scale } from 'lucide-react';
 import { ACCOUNT_SESSIONS } from '../accountMode';
 import { libraryRequest } from '../library';
 import { feedRequest } from '../feedApi';
@@ -17,13 +17,12 @@ import {
   type RingconnNight,
 } from '../ringconnApi';
 import {
-  StepsUnavailableError,
-  listStepsDays,
+  DAILY_STEP_GOAL,
+  stepsWindowLabel,
   stepsDayLabel,
   stepsSourceLabel,
   stepsSourceSummary,
   stepsUpdatedLabel,
-  type StepsDay,
 } from '../stepsApi';
 import {
   loadWeightPage,
@@ -33,9 +32,10 @@ import {
   type BodyWeightSummary,
   type WeightPage,
 } from '../weightApi';
+import { useStepsHistory } from './useStepsHistory';
 import { Sparkline } from '../design/Visuals';
 
-const STEP_GOAL = 8000;
+
 const STALE_SYNC_MS = 36 * 3600000;
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
 const shortMonthDay = (dayIso: string) =>
@@ -111,10 +111,8 @@ export function FitnessWorkspace({
   const [logExerciseRequest, setLogExerciseRequest] = useState(0);
   const [items, setItems] = useState<FeedRow[] | null>(null);
 
-  const [stepsState, setStepsState] = useState<{
-    status: 'loading' | 'ready' | 'unavailable' | 'error';
-    days: StepsDay[];
-  }>({ status: 'loading', days: [] });
+  const stepsState = useStepsHistory(today, 30);
+  const [selectedStepDate, setSelectedStepDate] = useState<string | null>(null);
 
   const [weightState, setWeightState] = useState<{
     loading: boolean;
@@ -133,21 +131,6 @@ export function FitnessWorkspace({
   const [weighBusy, setWeighBusy] = useState(false);
   const [weighErr, setWeighErr] = useState('');
   const [weighSaved, setWeighSaved] = useState('');
-  const [nowMs, setNowMs] = useState(() => Date.now());
-
-  const loadSteps = useCallback(() => {
-    setNowMs(Date.now());
-    setStepsState(prev => ({ ...prev, status: 'loading' }));
-    listStepsDays(body => libraryRequest(body), addDays(today, -30), today)
-      .then(days => setStepsState({ status: 'ready', days }))
-      .catch(err =>
-        setStepsState(prev => ({
-          status: err instanceof StepsUnavailableError ? 'unavailable' : 'error',
-          days: err instanceof StepsUnavailableError ? [] : prev.days,
-        })),
-      );
-  }, [today]);
-
   const loadFeed = useCallback(() => {
     feedRequest({ start: today, end: today })
       .then(d => setItems((d.items || []) as FeedRow[]))
@@ -184,13 +167,11 @@ export function FitnessWorkspace({
   }, [today]);
 
   useEffect(() => {
-    loadSteps();
     loadFeed();
     loadWeight();
     loadSleep();
-  }, [loadSteps, loadFeed, loadWeight, loadSleep]);
+  }, [loadFeed, loadWeight, loadSleep]);
 
-  useDataChanged([], loadSteps);
   useDataChanged([], loadSleep);
   useDataChanged(['weight'], loadWeight);
   useDataChanged(['exercise', 'food', 'glucose'], loadFeed);
@@ -203,8 +184,10 @@ export function FitnessWorkspace({
       }
     : exercise;
 
-  const todaySteps = useMemo(() => stepsState.days.find(d => d.date === today) || null, [stepsState.days, today]);
-  const activeSteps = todaySteps || stepsState.days[0] || null;
+  const latestSteps = stepsState.days[0];
+  const activeDate = selectedStepDate ?? latestSteps?.date ?? today;
+  const activeSteps = stepsState.days.find(day => day.date === activeDate);
+  const windowLabel = activeSteps && stepsWindowLabel(activeSteps);
   const recent7 = useMemo(() => {
     const byDate = new Map(stepsState.days.map(d => [d.date, d]));
     return Array.from({ length: 7 }, (_, i) => {
@@ -212,7 +195,7 @@ export function FitnessWorkspace({
       return { date, day: byDate.get(date) || null };
     });
   }, [stepsState.days, today]);
-  const maxBar = useMemo(() => Math.max(STEP_GOAL, ...recent7.map(r => r.day?.count ?? 0)), [recent7]);
+  const maxBar = useMemo(() => Math.max(DAILY_STEP_GOAL, ...recent7.map(r => r.day?.count ?? 0)), [recent7]);
 
   const measurements = useMemo(() => normalizeWeightMeasurements(weightState.page), [weightState.page]);
   const headlineW = useMemo(() => resolveHeadlineWeight(weightState.page, weightState.body), [weightState.page, weightState.body]);
@@ -243,17 +226,25 @@ export function FitnessWorkspace({
     }
   };
 
-  const stepPct = activeSteps ? Math.min(100, Math.round((activeSteps.count / STEP_GOAL) * 100)) : 0;
-  const stepsStale = Boolean(activeSteps && isOlderThan36h(activeSteps.date, activeSteps.updatedAt, nowMs));
+  const nowMs = Date.now();
+  const stepPct = activeSteps ? Math.min(100, Math.floor(activeSteps.count / DAILY_STEP_GOAL * 100)) : 0;
+  const stepGoalMet = Boolean(activeSteps && activeSteps.count >= DAILY_STEP_GOAL);
+  const stepsStale = Boolean(!selectedStepDate && activeSteps && isOlderThan36h(activeSteps.date, activeSteps.updatedAt, nowMs));
   const sleepNight = sleepState.night;
   const validSleepNight = sleepNight && hasRingconnMetrics(sleepNight) ? sleepNight : null;
   const sleepStale = Boolean(validSleepNight && isOlderThan36h(validSleepNight.nightId, validSleepNight.capturedAt, nowMs));
   const hasConnectedHealthState = Boolean(
-    activeSteps ||
+    latestSteps ||
     validSleepNight ||
     measurements.some(m => m.basis === 'health_connect' || m.source.toLowerCase().includes('health')),
   );
-  const stepsMissingConnected = stepsState.status === 'ready' && !activeSteps && hasConnectedHealthState;
+  const emptyStepsLabel = selectedStepDate && latestSteps
+    ? `No step reading for ${stepsDayLabel(selectedStepDate)}.`
+    : validSleepNight
+      ? `Last synced ${shortMonthDay(validSleepNight.nightId)} · Check Health Connect in Settings`
+      : hasConnectedHealthState
+        ? 'No recent steps synced · Check Health Connect in Settings'
+        : 'No steps synced in the last 30 days. Connect Apple Health or Health Connect in Settings → Connections.';
   const sleepMissingConnected = sleepState.status === 'ready' && !validSleepNight && hasConnectedHealthState;
 
   return (
@@ -274,17 +265,17 @@ export function FitnessWorkspace({
       </header>
 
       <div className="nx-fitness-top">
-      <article className="cc-card nx-steps-card" aria-label="Steps">
+      <article className="cc-card nx-steps-card" aria-label="Steps" data-goal-met={stepGoalMet}>
         <div className="cc-heading-row">
           <h3 className="cc-card-title">
             <Footprints size={16} aria-hidden="true" />
-            <span>{todaySteps ? 'Steps today' : activeSteps ? `Steps · ${stepsDayLabel(activeSteps.date)}` : 'Steps today'}</span>
+            <span>{activeDate === today ? 'Steps today' : `Steps · ${stepsDayLabel(activeDate)}`}</span>
           </h3>
           <button
             type="button"
             className="cc-text-button"
             disabled={stepsState.status === 'loading'}
-            onClick={loadSteps}
+            onClick={stepsState.reload}
             aria-label="Refresh steps"
           >
             <RefreshCw size={14} aria-hidden="true" className={stepsState.status === 'loading' ? 'is-spinning' : undefined} />
@@ -292,42 +283,40 @@ export function FitnessWorkspace({
           </button>
         </div>
 
-        {stepsState.status === 'loading' && !activeSteps ? (
+        {stepsState.status === 'loading' && !latestSteps ? (
           <p className="cc-muted" role="status">Checking synced steps…</p>
         ) : stepsState.status === 'unavailable' ? (
           <p className="cc-muted">Steps sync isn’t enabled on this account yet. Connect Apple Health or Health Connect in Settings → Connections.</p>
-        ) : stepsState.status === 'error' && !activeSteps ? (
-          <InlineErrorLine message="Couldn't load steps right now." onRetry={loadSteps} />
+        ) : stepsState.status === 'error' && !latestSteps ? (
+          <InlineErrorLine message="Couldn't load steps right now." onRetry={stepsState.reload} />
         ) : !activeSteps ? (
           <div className="nx-steps-empty">
             <strong className="nx-steps-big">—</strong>
-            <p className="cc-muted">
-              {stepsMissingConnected
-                ? validSleepNight
-                  ? `Last synced ${shortMonthDay(validSleepNight.nightId)} · Check Health Connect in Settings`
-                  : 'No recent steps synced · Check Health Connect in Settings'
-                : 'No steps synced in the last 30 days. Connect Apple Health or Health Connect in Settings → Connections.'}
-            </p>
+            <p className="cc-muted">{emptyStepsLabel}</p>
           </div>
         ) : (
           <>
             <div className="nx-steps-hero">
-              <div>
+              <div aria-live="polite" aria-atomic="true">
                 <strong className="nx-steps-big">{fmtInt(activeSteps.count)}</strong>
-                <span className="nx-steps-goal">of {fmtInt(STEP_GOAL)} goal ({stepPct}%)</span>
+                <span className="nx-steps-goal">
+                  {stepGoalMet && <Check size={14} aria-hidden="true" />}
+                  {stepGoalMet ? `${fmtInt(DAILY_STEP_GOAL)} goal reached` : `of ${fmtInt(DAILY_STEP_GOAL)} goal (${stepPct}%)`}
+                </span>
               </div>
               <div className="nx-steps-meta">
                 <span className="nx-steps-source">{stepsSourceSummary(activeSteps)}</span>
                 <small>{stepsUpdatedLabel(activeSteps, nowMs)}</small>
+                {windowLabel && <small>{windowLabel}</small>}
               </div>
             </div>
 
-            <div className="nx-steps-bar" role="progressbar" aria-valuenow={activeSteps.count} aria-valuemin={0} aria-valuemax={STEP_GOAL} aria-label="Daily step progress">
+            <div className="nx-steps-bar" role="progressbar" aria-valuenow={Math.min(activeSteps.count, DAILY_STEP_GOAL)} aria-valuetext={`${fmtInt(activeSteps.count)} of ${fmtInt(DAILY_STEP_GOAL)} steps`} aria-valuemin={0} aria-valuemax={DAILY_STEP_GOAL} aria-label="Daily step progress">
               <i style={{ width: `${stepPct}%` }} />
             </div>
 
             {stepsState.status === 'error' && (
-              <InlineErrorLine message="Couldn't load steps right now." onRetry={loadSteps} />
+              <InlineErrorLine message="Couldn't load steps right now." onRetry={stepsState.reload} />
             )}
 
             {stepsStale && (
@@ -345,22 +334,28 @@ export function FitnessWorkspace({
                 ))}
               </div>
             )}
-
-            {stepsState.days.length > 1 && (
-              <div className="nx-steps-week" aria-label="Last 7 days steps">
-                {recent7.map(slot => {
-                  const h = slot.day ? Math.max(8, Math.round((slot.day.count / maxBar) * 100)) : 4;
-                  const shortDay = new Date(`${slot.date}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'narrow' });
-                  return (
-                    <div key={slot.date} className={`nx-steps-col${slot.date === today ? ' is-today' : ''}${slot.day ? '' : ' is-empty'}`} title={`${stepsDayLabel(slot.date)}: ${slot.day ? `${fmtInt(slot.day.count)} steps` : 'no data'}`}>
-                      <span className="nx-steps-col-track"><i style={{ height: `${h}%` }} /></span>
-                      <small>{shortDay}</small>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </>
+        )}
+
+        {latestSteps && (
+          <div className="nx-steps-week" role="group" aria-label="Select a day from the last seven days">
+            {recent7.map(({ date, day }) => {
+              const label = date === today ? 'Today' : stepsDayLabel(date);
+              const weekday = date === today ? 'Today' : label.split(',')[0];
+              const reached = day !== null && day.count >= DAILY_STEP_GOAL;
+              return (
+                <button type="button" key={date} className="nx-steps-col"
+                  data-goal-met={reached} aria-pressed={date === activeDate}
+                  aria-label={`${label}, ${day ? `${fmtInt(day.count)} steps${reached ? ', goal reached' : ''}` : 'no reading'}`}
+                  onClick={() => setSelectedStepDate(date)}>
+                  <span className="nx-steps-col-track" aria-hidden="true">
+                    {day && day.count > 0 && <i style={{ height: `${Math.max(4, day.count / maxBar * 100)}%` }} />}
+                  </span>
+                  <small>{weekday}</small>
+                </button>
+              );
+            })}
+          </div>
         )}
       </article>
 
