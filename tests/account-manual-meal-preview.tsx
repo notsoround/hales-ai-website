@@ -44,7 +44,8 @@ window.fetch = async (input, init) => {
     return response({ meal, created: !previous, duplicate: !!previous, matchesRequest: !previous || previous.request === request });
   }
   if (body.action === 'food_get') {
-    if (fixture.mode === 'readbackFail') { fixture.mode = 'normal'; throw TypeError('Synthetic readback unavailable'); }
+    if (fixture.mode === 'readbackFail') throw TypeError('Synthetic readback unavailable');
+    if (fixture.mode === 'readbackTransient') { fixture.mode = 'normal'; throw TypeError('Synthetic first readback lost'); }
     if (fixture.mode === 'holdGet') { fixture.mode = 'normal'; await new Promise<void>(resolve => { fixture.release = resolve; }); }
     return response({ meal: meals().find(meal => meal.id === body.mealId) });
   }

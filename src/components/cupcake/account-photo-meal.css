@@ -15,3 +15,20 @@
 
 .cc-account-photo-adjustments > div { display: grid; gap: .8rem; padding-top: 1rem; }
 .cc-account-photo summary { cursor: pointer; padding: .5rem 0; min-height: 44px; }
+
+/* The Food summary already opens the camera and manual entry. Keep secondary
+   photo choices together; a selected photo still gets the full status view. */
+.cc-app[data-entry=account] .nx-food-log-controls .cc-account-photo[data-compact]:not([data-active]) {
+  display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap;
+  column-gap: 16px; row-gap: 4px; padding: 0; margin: 0; border: none; background: none; box-shadow: none;
+}
+.cc-app[data-entry=account] .cc-account-photo[data-compact]:not([data-active]) .cc-snap-actions { display: flex; }
+.cc-app[data-entry=account] .cc-account-photo[data-compact]:not([data-active]) .cc-snap-actions .cc-secondary {
+  padding: 0 4px; border: none; background: none; color: var(--nx-a); min-height: 44px;
+}
+.cc-app[data-entry=account] .cc-account-photo[data-compact] .cc-account-photo-adjustments summary {
+  min-height: 44px; align-content: center; cursor: pointer;
+}
+.cc-account-photo[data-compact] .cc-account-photo-adjustments[open],
+.cc-account-photo[data-compact] > [role=status] { flex-basis: 100%; }
+.nx-food-manual-host { display: contents; }

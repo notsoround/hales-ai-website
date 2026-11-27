@@ -17,6 +17,12 @@ const meal = { id: 'meal_' + 'a'.repeat(32), status: 'ready', description: 'Synt
 const pending = { ...meal, id: 'meal_' + 'b'.repeat(32), description: 'Synthetic pending lunch', sheetLoggedAt: undefined, items: [{ id: 'synthetic-item', name: 'Saved item', nutrition: { calories: 500 }, provenance: 'visual_estimate' }] };
 const failed = { ...pending, id: 'meal_' + 'c'.repeat(32), description: 'Synthetic failed photo', status: 'analysis_failed' };
 const meals = [meal, pending, failed];
+const reviewMode = new URLSearchParams(location.search).has('review-tools');
+const target = { ...meal, id: 'meal_' + 'd'.repeat(32), description: 'Synthetic manual dinner', imageStored: false };
+const reviewRows = [pending, failed].map(item => ({
+  mealId: item.id, description: item.description, createdAt: now, reviewable: true,
+  resolution: null as 'attach' | 'not_food' | null, targetMealId: null as string | null,
+}));
 const receipts = [
   { id: 'receipt_' + 'a'.repeat(32), status: 'extracted', merchant: 'Synthetic unmatched receipt', createdAt: now, date: now.slice(0, 10), total: 12, currency: 'USD', tip: 1, tax: 0, lineItems: [], matchedTransactionId: null as string | null },
   { id: 'receipt_' + 'b'.repeat(32), status: 'extraction_failed', merchant: 'Synthetic failed receipt', createdAt: now, date: now.slice(0, 10), total: null, currency: null, tip: null, tax: null, lineItems: [], matchedTransactionId: null as string | null },
@@ -56,6 +62,19 @@ window.fetch = async (input, init) => {
   }
   fixture.requests.push(body);
   if (ACCOUNT_SESSIONS && body.action === 'bank_connection_status') return response({ configured: true, connections: [], uncertainRequests: [], resolvedRequests: [] });
+  if (body.action === 'food_review_list') {
+    if (!reviewMode) return Response.json({ ok: false, error: 'account_action_not_ready' }, { status: 503 });
+    return response({ photos: reviewRows, truncated: false });
+  }
+  if (reviewMode && body.action === 'food_review_resolve') {
+    const row = reviewRows.find(item => item.mealId === body.mealId);
+    if (!row) throw Error('Unknown fixture photo.');
+    if (body.resolution === 'attach' && body.targetMealId !== target.id) throw Error('Unknown fixture meal.');
+    row.resolution = body.resolution === 'undo' ? null : body.resolution;
+    row.targetMealId = row.resolution === 'attach' ? target.id : null;
+    target.imageStored = reviewRows.some(item => item.resolution === 'attach');
+    return response({ review: row });
+  }
   if (body.action === 'food_list') {
     if (uploaded) fixture.foodListReadsAfterUpload++;
     const recent = lateMeal ? [meal, lateMeal, failed] : meals;
@@ -63,7 +82,7 @@ window.fetch = async (input, init) => {
   }
   if (body.action === 'food_history') {
     // A retried read can return the same meal twice. Both copies retain the stable meal ID.
-    const history = lateMeal ? [meal, lateMeal] : [meal];
+    const history = reviewMode ? [meal, target] : lateMeal ? [meal, lateMeal] : [meal];
     return response({ meals: uploaded ? [uploaded, ...history, uploaded] : history,
       total: history.length + Number(!!uploaded), pendingCount: lateMeal ? 1 : 2, undatedLoggedCount: 0, hasMore: false });
   }

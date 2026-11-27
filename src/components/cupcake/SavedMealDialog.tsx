@@ -31,7 +31,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus,
   const legacy = historical && !historical.id.startsWith('meal_') ? historical : undefined;
   const currentMeal = meal?.id === mealId ? meal : null;
   const manual = currentMeal?.source === 'manual-entry' || !!currentMeal?.manualLoggedAt;
-  const noPhoto = manual || currentMeal?.imageStored === false;
+  const noPhoto = currentMeal?.imageStored === false || (manual && currentMeal?.imageStored !== true);
   const logged = !!currentMeal && mealIsCounted(currentMeal);
   useEffect(() => {
     let current = true;
@@ -99,7 +99,7 @@ export function SavedMealDialog({ mealId, meals, onSelect, onClose, returnFocus,
       </div>}
       {currentMeal.calorieRange && <p className="cc-muted">Estimated range: {currentMeal.calorieRange.low}–{currentMeal.calorieRange.high} kcal.</p>}
       {currentMeal.totalIsPartial && <p className="cc-error">{manual ? 'Partial entry' : 'Partial estimate'}: some nutrition is missing. This is not a complete meal total.</p>}
-      {manual && <p className="cc-muted">Manually entered meal · no photo. Nutrition values were entered by you; missing values remain unknown.</p>}
+      {manual && <p className="cc-muted">Manually entered meal{noPhoto ? ' · no photo' : ''}. Nutrition values were entered by you; missing values remain unknown.</p>}
       {legacy && <p className="cc-muted cc-small">This older food-log entry has no linked original photo.</p>}
       {photoBusy && <p role="status">Opening private photo…</p>}
       {photoError && <div role="alert"><p className="cc-error">{photoError}</p><button className="cc-secondary" onClick={() => setPhotoRetry(n => n + 1)}>Retry photo</button></div>}

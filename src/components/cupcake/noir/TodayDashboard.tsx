@@ -19,6 +19,8 @@ import './noir-today.css';
 import { WelcomeBack, type RecapFacts } from './WelcomeBack';
 import type { ReactNode } from 'react';
 import { MultiDial, type DialMetric } from './MultiDial';
+import { DialScene } from './DialScene';
+import { useDialMealPhotos } from './useDialMealPhotos';
 import { LivingSkyCanvas } from './LivingSkyCanvas';
 import { TodayCommitmentBar } from './TodayCommitmentBar';
 import { commitmentActionKind, commitmentSuggestions, isCommitmentSatisfied, resolveLivingSky } from './livingSky';
@@ -272,7 +274,8 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
     weightDeltaWeek: wDelta, glucoseAt: latestG ? latestG.at : null,
     sleepLastNight: !!lastNight && lastNight.nightId >= addDays(today, -1),
   } : null;
-  const [metric, setMetric] = useState('cal');
+  const [metric, setMetric] = useState<DialMetric['tone']>('cal');
+  const mealPhotos = useDialMealPhotos(nutrition.history, today, metric === 'cal');
   const pullArea = useRef<HTMLElement>(null);
   const [intakeScrub, setIntakeScrub] = useState<ChartScrub | null>(null);
   const [glucoseScrub, setGlucoseScrub] = useState<ChartScrub | null>(null);
@@ -410,6 +413,7 @@ export function TodayDashboard({ spend, name, assistantName, portrait, sassy, nu
     <QuickWeighSheet open={weighOpen} latestLb={headlineW?.valueLb ?? latestScaleW?.weightLb ?? null} deltaLb={wDelta} subtitle={weightSub} trend={w30} onClose={() => setWeighOpen(false)} onOpenHistory={openWeightHistory} />
     <div className="nx-today-top">
       <div className="nx-today-dial">
+        <DialScene tone={metric} photos={mealPhotos} />
         <MultiDial metrics={metrics} selected={metric} onSelect={setMetric} />
         {onOpenFitness && (
           <button

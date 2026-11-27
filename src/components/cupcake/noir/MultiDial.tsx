@@ -5,8 +5,9 @@
 import { useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import './noir-multidial.css';
 
+type DialTone = 'cal' | 'fast' | 'glucose' | 'sleep';
 export type DialMetric = {
-  key: string; label: string; tone: 'cal' | 'fast' | 'glucose' | 'sleep';
+  key: DialTone; label: string; tone: DialTone;
   /** 0..1 of the arc to light. null = no data: the ring stays a faint track. */
   fraction: number | null;
   /** Warm overshoot arc from zero (calories over target). */
@@ -22,7 +23,7 @@ export type DialMetric = {
 const START = 225, SWEEP = 270;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-export function MultiDial({ metrics, selected, onSelect, size = 300 }: { metrics: DialMetric[]; selected: string; onSelect: (key: string) => void; size?: number }) {
+export function MultiDial({ metrics, selected, onSelect, size = 300 }: { metrics: DialMetric[]; selected: DialTone; onSelect: (key: DialTone) => void; size?: number }) {
   const id = useId().replace(/:/g, '');
   const R = size * 0.385, cx = size / 2, cy = size / 2, wide = size * 0.032, thin = size * 0.011;
   const index = Math.max(0, metrics.findIndex(m => m.key === selected)), active = metrics[index]!;

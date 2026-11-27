@@ -27,7 +27,7 @@ function restoreIntent(): Intent | null {
 }
 
 /** Account-only entry. Pending requests remain immutable until explicitly replaced. */
-export function AccountManualMeal({ onSaved }: { onSaved: () => void }) {
+export function AccountManualMeal({ onSaved, compact = false }: { compact?: boolean; onSaved: () => void }) {
   const [store] = useState(() => personalStorage('sessionStorage'));
   const [intent, setIntent] = useState<Intent | null>(restoreIntent);
   const [description, setDescription] = useState(intent?.description || '');
@@ -73,10 +73,10 @@ export function AccountManualMeal({ onSaved }: { onSaved: () => void }) {
     setNotice(uncertain ? 'The previous save is unconfirmed. Check your food history first to avoid logging it twice. Your next save will be a separate meal.' : '');
     if (!uncertain) { setDescription(''); setConsumedAt(''); setValues({}); }
   };
-  return <section className="cc-card cc-manual-entry" aria-label="Manual meal entry">
-    <div><strong role="heading" aria-level={3}>Add a meal</strong><p className="cc-muted cc-small">Log what you ate. Enter nutrition only when you know it.</p></div>
-    <button ref={trigger} type="button" className="cc-primary" onClick={() => setOpen(true)}>{intent ? 'Resume meal save' : 'Add meal'}</button>
-    <MealDialog open={open} onClose={() => setOpen(false)} returnFocus={trigger} heading="Log a meal manually" closeLabel="Close manual meal">
+  return <section className={compact && !intent ? "nx-food-manual-host" : "cc-card cc-manual-entry"} aria-label="Manual meal entry">
+    {!compact && <div><strong role="heading" aria-level={3}>Add a meal</strong><p className="cc-muted cc-small">Log what you ate. Enter nutrition only when you know it.</p></div>}
+    {(!compact || intent) && <button ref={trigger} type="button" className="cc-primary" onClick={() => setOpen(true)}>{intent ? 'Resume meal save' : 'Add meal'}</button>}
+    <MealDialog open={open} onClose={() => setOpen(false)} returnFocus={compact ? undefined : trigger} heading="Log a meal manually" closeLabel="Close manual meal">
       {receipt ? <div className="cc-manual-receipt" role="status"><h3>Meal saved to your food log</h3><strong>{receipt.description}</strong><p>Eaten {new Date(receipt.consumedAt!).toLocaleString()}</p><p>Owner-entered nutrition. Blank values remain unknown.</p><small>Receipt: {receipt.id}</small><button type="button" className="cc-secondary" onClick={() => startNew(false)}>Add another meal</button></div> : <form className="cc-manual-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <p className="cc-muted">Your entry, with no photo estimate. Leave any nutrition you don’t know blank; unknown values are not zero.</p>
         {notice && <p role="status" className="cc-muted">{notice}</p>}

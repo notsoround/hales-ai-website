@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, ArrowUpRight, CalendarDays, Camera, ChevronLeft, ChevronRight, Clock3, Loader2, PenLine, Receipt, Settings2, Utensils } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ArrowUpRight, CalendarDays, Camera, ChevronLeft, ChevronRight, Clock3, Loader2, PenLine, Receipt, Settings2, Utensils } from 'lucide-react';
 import { dayLabel, elapsedLabel, lastLoggedMeal, loggedMeals, mealTimeLabel, moveNutritionPeriod, nutritionDay, nutritionDays, nutritionPeriod, periodNutrition, signedCalories, EMPTY_NUTRITION_SETTINGS, type FoodHistoryMeal, type NutritionDay, type NutritionHistory, type NutritionScale, type NutritionSettings, type NutritionSettingVersion } from './nutritionModel';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { requestFoodCamera } from './accountMealPhotoHandoff';
+import { AccountFoodReview } from './AccountFoodReview';
+import { DialScene } from './noir/DialScene';
+import { useDialMealPhotos } from './noir/useDialMealPhotos';
 import { OPEN_MANUAL_MEAL_EVENT } from './AccountManualMeal';
 import { useDataChanged } from './dataChanges';
 import { libraryRequest } from './library';
@@ -31,7 +34,7 @@ function countUnmatchedReceipts(receipts: ReceiptSummary[] | undefined): number 
 }
 
 type CommonProps = { history?: NutritionHistory | null; settings?: NutritionSettings; loading?: boolean; error?: string; onRetry?: () => void; onOpenMeal: (mealId: string) => void; now?: Date };
-export type NutritionWorkspaceProps = CommonProps & { onBack?: () => void; onOpenCapture?: () => void; onSaveSettings?: (settings: NutritionSettingVersion) => Promise<void>; unmatchedReceiptsCount?: number; onOpenReceipts?: () => void };
+export type NutritionWorkspaceProps = CommonProps & { foodLogActive?: boolean; logControls?: ReactNode; reviewQueue?: ReactNode; reviewFirst?: boolean; onBack?: () => void; onOpenCapture?: () => void; onSaveSettings?: (settings: NutritionSettingVersion) => Promise<void>; unmatchedReceiptsCount?: number; onOpenReceipts?: () => void };
 
 function useNutritionClock(fixed?: Date) {
   const [clock, setClock] = useState(() => new Date());
@@ -65,14 +68,17 @@ function LastMeal({ meals, now, onOpenMeal }: { meals: FoodHistoryMeal[]; now: D
 const DIAL_START = 225, DIAL_SWEEP = 270;
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
-function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal }: {
+function NoirFoodHero({ daySummary, isToday, active, history, loading, now, onOpenMeal, onOpenDay }: {
   daySummary: NutritionDay | null;
   isToday: boolean;
+  active: boolean;
   history: NutritionHistory | null | undefined;
   loading?: boolean;
   now: Date;
   onOpenMeal: CommonProps['onOpenMeal'];
+  onOpenDay: () => void;
 }) {
+  const photos = useDialMealPhotos(history ?? null, daySummary?.day ?? '', active && !!daySummary);
   const id = 'nxfd';
   const size = 244, R = size * 0.39, cx = size / 2, cy = size / 2, strokeW = size * 0.036;
   const pt = (deg: number, r = R) => { const rad = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)] as const; };
@@ -106,7 +112,6 @@ function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal }
   const macros = { protein: sumMacro('protein_g'), carbs: sumMacro('carbs_g'), fat: sumMacro('fat_g') };
 
   const last = history ? lastLoggedMeal(history.meals, now) : null;
-  const pendingCount = history?.pendingCount || 0;
   const eyebrow = isToday
     ? (target !== null ? (left! >= 0 ? 'Left today' : 'Over today') : 'Eaten today')
     : (target !== null ? (left! >= 0 ? 'Left on day' : 'Over target') : 'Logged on day');
@@ -125,12 +130,9 @@ function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal }
         ? `${daySummary.meals.length} ${daySummary.meals.length === 1 ? 'meal' : 'meals'} logged${daySummary.partial ? ' · partial' : ''}`
         : isToday ? 'No meals logged yet today' : 'No meals logged on this date';
 
-  const scrollToPending = () => {
-    document.querySelector('.cc-snap-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   return <section className="nx-food-hero" aria-label="Food summary">
     <div className="nx-food-hero-ring">
+      <DialScene tone="cal" photos={photos} />
       <div className="nx-food-dial" role="img" aria-label={`${eyebrow}: ${heroNumber} kilocalories. ${heroSub}`}>
         <svg viewBox={`0 0 ${size} ${size * 0.84}`} aria-hidden="true">
           <defs>
@@ -155,6 +157,7 @@ function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal }
         </div>
       </div>
 
+      {history && <button type="button" className="cc-text-button nx-food-day-drill" onClick={onOpenDay}>View meals <ChevronRight size={15} aria-hidden="true" /></button>}
       <div className="nx-food-hero-macros" aria-label="Daily nutrients">
         {([
           ['Protein', macros.protein, 150],
@@ -179,10 +182,7 @@ function NoirFoodHero({ daySummary, isToday, history, loading, now, onOpenMeal }
         <span><strong>Last meal</strong> · {elapsedLabel(now.getTime() - Date.parse(last.consumedAt!))} ago · <em>{last.description}</em></span>
         <ChevronRight size={15} aria-hidden="true" />
       </button> : <p className="nx-food-last-empty"><Clock3 size={14} aria-hidden="true" /> No timed meal logged yet</p>}
-      {pendingCount > 0 && <button type="button" className="nx-food-pending-pill" onClick={scrollToPending}>
-        <AlertCircle size={14} aria-hidden="true" />
-        <span>{pendingCount} {pendingCount === 1 ? 'photo' : 'photos'} to check</span>
-      </button>}
+
     </div>
   </section>;
 }
@@ -242,7 +242,7 @@ function NutritionSettingsForm({ settings, onSave }: { settings: NutritionSettin
   return <details className="cc-nutrition-settings"><summary><Settings2 size={17}/> Targets & estimates</summary><p>Both are optional. Your intake target is a food goal. Energy balance needs a separate estimate of calories your body uses per day.</p><form onSubmit={e => { e.preventDefault(); void save(); }}><label>Daily intake target · kcal<input inputMode="decimal" type="number" min="1" max="100000" step="any" value={target} onChange={e => setTarget(e.target.value)} placeholder="Not set"/></label><label>Estimated daily expenditure · kcal<input inputMode="decimal" type="number" min="1" max="100000" step="any" value={expenditure} onChange={e => setExpenditure(e.target.value)} placeholder="Not set"/></label><label>Apply from<input type="date" required min="2000-01-01" max={nutritionDay()} value={effective} onChange={e => setEffective(e.target.value)}/></label><button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save settings'}</button></form><p role="status">{message}</p><small>Leave a value blank to clear it from the chosen date. Earlier calendar dates keep their saved settings.</small></details>;
 }
 
-export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onBack, onOpenCapture, onSaveSettings, now: fixedNow, unmatchedReceiptsCount, onOpenReceipts }: NutritionWorkspaceProps) {
+export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTINGS, loading, error, onRetry, onOpenMeal, onBack, onOpenCapture, onSaveSettings, now: fixedNow, unmatchedReceiptsCount, onOpenReceipts, logControls, reviewQueue, reviewFirst, foodLogActive = true }: NutritionWorkspaceProps) {
   const now = useNutritionClock(fixedNow), today = nutritionDay(now);
   const [anchor, setAnchor] = useState(today), [scale, setScale] = useState<NutritionScale>('day');
   const [rangeView, setRangeView] = useState<'list' | 'calendar'>(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches ? 'list' : 'calendar');
@@ -274,8 +274,19 @@ export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTING
   const months = Array.from({ length: 12 }, (_, i) => `${anchor.slice(0, 4)}-${String(i + 1).padStart(2, '0')}`);
   const heroDay = scale === 'day' ? days[0] : nutritionDays(history?.meals || [], [today], settings, now)[0];
   const heroIsToday = scale !== 'day' || anchor === today;
+  const mealTimeline = useRef<HTMLDivElement>(null);
+  const openHeroDay = () => {
+    chooseDay(heroDay.day);
+    requestAnimationFrame(() => mealTimeline.current?.focus());
+  };
   return <section className="cc-nutrition-workspace" aria-label="Food calendar">
     {onBack && <button type="button" className="cc-nutrition-link cc-nutrition-back" onClick={onBack}><ChevronLeft size={17}/> Back to Today</button>}
+    {ACCOUNT_SESSIONS ? (
+      <NoirFoodHero daySummary={history ? heroDay : null} isToday={heroIsToday} active={foodLogActive} history={history} loading={loading} now={now} onOpenMeal={onOpenMeal} onOpenDay={openHeroDay} />
+    ) : (
+      <div className="cc-nutrition-heading"><div><span className="cc-nutrition-eyebrow">Your food log</span><h2>Food calendar</h2><p>Meals, timing, and the bigger picture.</p></div>{onOpenCapture && <button type="button" className="cc-nutrition-primary" onClick={onOpenCapture}>Add food photo</button>}</div>
+    )}
+    {ACCOUNT_SESSIONS && <AccountFoodReview history={history} fallback={reviewQueue} initiallyOpen={reviewFirst} />}
     {unmatchedCount > 0 && (
       <div className="nx-receipts-pill-row">
         <button type="button" className="nx-receipts-pill" onClick={openReceipts}>
@@ -284,16 +295,12 @@ export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTING
         </button>
       </div>
     )}
-    {ACCOUNT_SESSIONS ? (
-      <NoirFoodHero daySummary={history ? heroDay : null} isToday={heroIsToday} history={history} loading={loading} now={now} onOpenMeal={onOpenMeal} />
-    ) : (
-      <div className="cc-nutrition-heading"><div><span className="cc-nutrition-eyebrow">Your food log</span><h2>Food calendar</h2><p>Meals, timing, and the bigger picture.</p></div>{onOpenCapture && <button type="button" className="cc-nutrition-primary" onClick={onOpenCapture}>Add food photo</button>}</div>
-    )}
+    {logControls && <div className="nx-food-log-stack nx-food-log-controls">{logControls}</div>}
     <div className="cc-nutrition-controls"><div className="cc-nutrition-scale" role="group" aria-label="Calendar scale">{(['day', 'week', 'month', 'year'] as const).map(s => <button key={s} type="button" aria-pressed={scale === s} onClick={() => setScale(s)}>{s[0].toUpperCase() + s.slice(1)}</button>)}</div>{ACCOUNT_SESSIONS && <h3 className="cc-nutrition-period">{period.label}</h3>}<div className="cc-nutrition-arrows"><button type="button" aria-label={`Previous ${scale}`} onClick={() => setAnchor(moveNutritionPeriod(anchor, scale, -1))}><ChevronLeft size={20}/></button><button type="button" onClick={() => { setAnchor(today); setScale('day'); }}>Today</button><button type="button" aria-label={`Next ${scale}`} onClick={() => setAnchor(moveNutritionPeriod(anchor, scale, 1))} disabled={period.end >= today}><ChevronRight size={20}/></button></div></div>
     {!ACCOUNT_SESSIONS && <h3 className="cc-nutrition-period">{period.label}</h3>}
     {!history ? <LoadState loading={loading} error={error} onRetry={onRetry}/> : <>
       {error && <p role="alert" className="cc-nutrition-warning">{error} {onRetry && <button type="button" onClick={onRetry}>Try again</button>}</p>}
-      {scale === 'day' && ACCOUNT_SESSIONS && <div className="cc-nutrition-timeline"><div className="cc-nutrition-heading"><h3>Meals & timing</h3><span>{chosenMeals.length} logged</span></div>{chosenMeals.length === 0 ? <div className="cc-nutrition-empty"><CalendarDays size={22}/><p>No saved meals on this date.</p><small>Food eaten without a log will not appear here.</small></div> : chosenMeals.map(meal => { const prior = ordered[ordered.findIndex(m => m.id === meal.id) - 1]; const gap = prior?.consumedAt && meal.consumedAt ? Date.parse(meal.consumedAt) - Date.parse(prior.consumedAt) : null; return <div key={meal.id} className="cc-nutrition-timeline-item">{gap !== null && gap > 0 && <div className="cc-nutrition-gap"><Clock3 size={13}/>{elapsedLabel(gap)} between logged meals{nutritionDay(prior.consumedAt!) !== anchor ? ` · previous ${mealTimeLabel(prior.consumedAt)}` : ''}</div>}<button type="button" onClick={() => onOpenMeal(meal.id)}><span className="cc-nutrition-meal-time">{mealTimeLabel(meal.consumedAt, false)}</span><span className="cc-nutrition-meal-name"><strong>{meal.description}</strong><small>{meal.imageStored ? 'Saved photo · ' : ''}Logged{meal.totalIsPartial ? ' · partial estimate' : ''}</small></span><span className="cc-nutrition-meal-kcal">{typeof meal.total?.calories === 'number' ? Math.round(meal.total.calories).toLocaleString() : '—'}<small>est. kcal</small></span><ChevronRight size={18}/></button></div>; })}</div>}
+      {scale === 'day' && ACCOUNT_SESSIONS && <div className="cc-nutrition-timeline" ref={mealTimeline} tabIndex={-1} aria-label="Meals and timing"><div className="cc-nutrition-heading"><h3>Meals & timing</h3><span>{chosenMeals.length} logged</span></div>{chosenMeals.length === 0 ? <div className="cc-nutrition-empty"><CalendarDays size={22}/><p>No saved meals on this date.</p><small>Food eaten without a log will not appear here.</small></div> : chosenMeals.map(meal => { const prior = ordered[ordered.findIndex(m => m.id === meal.id) - 1]; const gap = prior?.consumedAt && meal.consumedAt ? Date.parse(meal.consumedAt) - Date.parse(prior.consumedAt) : null; return <div key={meal.id} className="cc-nutrition-timeline-item">{gap !== null && gap > 0 && <div className="cc-nutrition-gap"><Clock3 size={13}/>{elapsedLabel(gap)} between logged meals{nutritionDay(prior.consumedAt!) !== anchor ? ` · previous ${mealTimeLabel(prior.consumedAt)}` : ''}</div>}<button type="button" onClick={() => onOpenMeal(meal.id)}><span className="cc-nutrition-meal-time">{mealTimeLabel(meal.consumedAt, false)}</span><span className="cc-nutrition-meal-name"><strong>{meal.description}</strong><small>{meal.imageStored ? 'Saved photo · ' : ''}Logged{meal.totalIsPartial ? ' · partial estimate' : ''}</small></span><span className="cc-nutrition-meal-kcal">{typeof meal.total?.calories === 'number' ? Math.round(meal.total.calories).toLocaleString() : '—'}<small>est. kcal</small></span><ChevronRight size={18}/></button></div>; })}</div>}
       <div className="cc-nutrition-overview"><div className="cc-nutrition-intake"><span>{summary.partial ? 'Known calories · partial estimate' : 'Estimated calories logged'}</span><strong>{summary.knownCalorieCount ? Math.round(summary.calories).toLocaleString() : '—'}<small> kcal</small></strong><p>{summary.mealCount ? `${summary.mealCount} logged meal${summary.mealCount === 1 ? '' : 's'}${scale !== 'day' ? ` across ${summary.daysWithLogs} of ${summary.elapsedDays} elapsed days` : ''}` : 'No meals logged for this period. Intake is unknown.'}</p>{summary.target !== null && summary.mealCount > 0 && summary.daysWithLogs === summary.elapsedDays && !summary.partial && comparisonReady && <><div className="cc-nutrition-target-track" aria-hidden="true"><span style={{ width: `${Math.min(100, summary.calories / summary.target * 100)}%` }}/></div><small>{signedCalories(summary.calories - summary.target)} kcal vs {Math.round(summary.target).toLocaleString()} kcal intake target{scale !== 'day' ? ' for elapsed days' : ''}</small></>}</div>
         <div className="cc-nutrition-balance"><span>Estimated energy balance</span><strong>{comparisonReady && summary.balance !== null ? `${signedCalories(summary.balance)}` : '—'}<small>{comparisonReady && summary.balance !== null ? ' kcal' : ''}</small></strong><p>{!comparisonReady ? 'Resolve incomplete history, pending photos, or meals without dates before comparing.' : summary.expenditure === null ? 'Daily expenditure estimate not set for every date in this period.' : !summary.mealCount || summary.daysWithLogs < summary.elapsedDays ? 'Some dates have no logged meals. Intake is unknown.' : summary.partial ? 'Some meal calories are unresolved.' : 'Logged intake − estimated energy use.'}</p></div></div>
       <details className="cc-nutrition-method"><summary>How these numbers work</summary><p>Calories come from saved, confirmed parent meals, counted once on the date you ate them. Photo estimates can be inaccurate; meals you did not log are not included. An empty date means no saved log, never zero food eaten.</p><p>Your intake target is separate from expenditure. Estimated energy balance subtracts your configured daily expenditure estimate from logged intake. For today, expenditure is spread evenly across the elapsed Chicago day; previous days use the full daily estimate. This is a modelling assumption, not a measurement of energy use or fat loss. Comparisons are hidden when dates have no logs, estimates are unresolved, or loaded history is incomplete.</p><p>Settings apply from their saved start dates. Meal gaps measure time between logs. Elapsed time alone does not establish fasting, an empty stomach, or fat burning.</p></details>

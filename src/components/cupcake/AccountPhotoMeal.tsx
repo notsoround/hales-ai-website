@@ -16,7 +16,7 @@ const states = new Set(['queued', 'running', 'completed', 'failed', 'uncertain']
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'The photo save could not be confirmed. Check the same request again.';
 function validTime(value: string) { const now = Date.now(), time = Date.parse(value); return Number.isFinite(time) && time >= now - 400 * 86400000 && time <= now + 300000; }
 
-export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void; onOpenMeal?: (mealId: string) => void }) {
+export function AccountPhotoMeal({ onSaved, onOpenMeal, compact = false }: { compact?: boolean; onSaved: () => void; onOpenMeal?: (mealId: string) => void }) {
   const [store] = useState(photoDraftStore), [generation] = useState(() => sessionSnapshot().generation);
   const [drafts, setDrafts] = useState<PhotoIntent[]>([]), [intent, setIntent] = useState<PhotoIntent | null>(null);
   const [request, setRequest] = useState<PhotoRequest | null>(null), [receipt, setReceipt] = useState<FoodMeal | null>(null);
@@ -56,9 +56,9 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
 
   useEffect(() => {
     alive.current = true;
-    void reloadDrafts().then(saved => { if (saved.length) { const original = saved[saved.length - 1]; current.current = original; setIntent(original); void check(original); } }).catch(cause => { if (alive.current) setError(errorText(cause)); }).finally(() => { if (alive.current) setLoading(false); });
+    void reloadDrafts().catch(cause => { if (alive.current) setError(errorText(cause)); }).finally(() => { if (alive.current) setLoading(false); });
     return () => { alive.current = false; clearTimeout(timer.current); };
-  }, [reloadDrafts, check]);
+  }, [reloadDrafts]);
   useEffect(() => {
     if (intent && ['queued', 'running'].includes(request?.status || '') && !busy && !error) timer.current = setTimeout(() => { void check(intent); }, 2500);
     return () => clearTimeout(timer.current);
@@ -70,8 +70,11 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
     if (!pending.length) return;
     let cancelled = false;
     const scheduled = setTimeout(() => { void (async () => {
-      for (const original of pending.slice(0, 2)) {
+      // A long-running request must not keep later saved photos from being checked.
+      const start = (backgroundTick * 2) % pending.length;
+      for (let offset = 0; offset < Math.min(2, pending.length); offset++) {
         if (cancelled) return;
+        const original = pending[(start + offset) % pending.length];
         try { await accept(await accountData<PhotoResult>({ action: 'food_photo_status', request_id: original.request_id }), original, false); }
         catch (cause) { if (cause instanceof AccountRequestError && cause.code === 'photo_request_not_found') terminal.current.add(original.request_id); }
       }
@@ -120,11 +123,12 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
   };
   const input = (ref: typeof picker) => <input ref={ref} aria-label="Choose meal photo file" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void chooseFile(file); }}/>;
   const isActive = !!(intent || receipt || busy || error);
-  return <section className="cc-card cc-account-photo" data-active={isActive ? 'true' : undefined} aria-label="Photo meal logging">
-    <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>
+  const resumable = drafts.filter(row => row.request_id !== intent?.request_id);
+  return <section className="cc-card cc-account-photo" data-compact={compact || undefined} data-active={isActive ? 'true' : undefined} aria-label="Photo meal logging">
+    {(!compact || intent) && <div className="cc-account-photo-head"><h3>Log a food photo</h3>{!intent && !receipt && <p className="cc-muted cc-small">Snap it and you’re done. The whole plate is estimated and logged for you.</p>}</div>}
     {!intent && !receipt && <>
-      <div className="cc-snap-actions"><button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => setCameraOpen(true)}><Camera size={17}/>Take meal photo</button><button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
-      <details className="cc-account-photo-adjustments"><summary>Portions, meal time &amp; how it works</summary><div>
+      <div className="cc-snap-actions">{!compact && <button type="button" className="cc-primary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => setCameraOpen(true)}><Camera size={17}/>Take meal photo</button>}<button type="button" className="cc-secondary" disabled={busy || loading || !fileTime && !validTime(consumedAt)} onClick={() => picker.current?.click()}>Choose meal photo</button></div>
+      <details className="cc-account-photo-adjustments"><summary>{compact ? 'Portion & meal time' : 'Portions, meal time & how it works'}</summary><div>
         <p className="cc-muted cc-small">Full photo = full meal. Uses the photo’s file time by default. Nutrition is estimated; unknown values stay unknown.</p>
         <label className="cc-account-photo-option"><input type="checkbox" checked={fileTime} disabled={busy} onChange={event => setFileTime(event.target.checked)}/>Use photo file time for when I ate</label>
         <p className="cc-muted cc-small">File metadata is a time suggestion, not verified capture time.</p>
@@ -146,6 +150,9 @@ export function AccountPhotoMeal({ onSaved, onOpenMeal }: { onSaved: () => void;
       <button type="button" className="cc-secondary" disabled={busy} onClick={another}>{receipt ? 'Log another photo' : 'Keep this request and log another photo'}</button>
     </div>}
     {error && <p role="alert" className="cc-error">{error}</p>}
-    {drafts.filter(row => row.request_id !== intent?.request_id).length > 0 && <details><summary>Other saved photo requests ({drafts.filter(row => row.request_id !== intent?.request_id).length})</summary>{drafts.filter(row => row.request_id !== intent?.request_id).map(row => <button key={row.request_id} className="cc-text-button" disabled={busy} onClick={() => resume(row)}>Check meal photo · {new Date(row.consumed_at).toLocaleString()}</button>)}</details>}
+    {resumable.length > 0 && <details className="cc-account-photo-adjustments">
+      <summary>Resume saved photo requests ({resumable.length})</summary>
+      {resumable.map(row => <button key={row.request_id} className="cc-text-button" disabled={busy} onClick={() => resume(row)}>Check meal photo · {new Date(row.consumed_at).toLocaleString()}</button>)}
+    </details>}
   </section>;
 }

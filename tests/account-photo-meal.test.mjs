@@ -23,6 +23,13 @@ async function open() {
 const mode = (page, value) => page.evaluate(value => { window.photoFixture.mode = value; }, value);
 const uploads = page => page.evaluate(() => window.photoFixture.requests.filter(row => row.route.endsWith('/food/photo/analyze')));
 async function choose(page) { const data = await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 16; const context = canvas.getContext('2d'); context.fillStyle = '#4db6ac'; context.fillRect(0, 0, 16, 16); return canvas.toDataURL('image/png').split(',')[1]; }); await page.getByLabel('Choose meal photo file').setInputFiles({ name: 'meal.png', mimeType: 'image/png', buffer: Buffer.from(data, 'base64') }); }
+async function resume(page) {
+  const disclosure = page.getByText('Resume saved photo requests (1)', { exact: true });
+  await disclosure.waitFor();
+  assert.equal(await page.getByAltText('Selected meal photo').count(), 0, 'saved originals stay off the Food screen until opened');
+  await disclosure.click();
+  await page.getByRole('button', { name: /^Check meal photo ·/ }).click();
+}
 async function saved(page) { await page.getByRole('heading', { name: 'Meal saved to your food log', exact: true }).waitFor(); }
 try {
   const normal = await open(), page = normal.page;
@@ -47,7 +54,7 @@ try {
   for (const failure of ['lost', 'beforeUpload']) {
     const test = await open(), p = test.page; await mode(p, failure); await choose(p); await p.getByRole('alert').waitFor();
     const original = (await uploads(p))[0].body;
-    await p.reload();
+    await p.reload(); await resume(p);
     if (failure === 'beforeUpload') { await p.getByRole('button', { name: 'Retry same upload', exact: true }).click(); }
     await saved(p);
     const requests = await uploads(p); // Reload clears mock history, but IndexedDB retains immutable intent.
@@ -55,7 +62,7 @@ try {
     else assert.equal(requests.length, 0);
     assert.deepEqual(test.errors, []); await test.context.close();
   }
-  console.log('PASS: reload polls first; lost accepted upload is not resubmitted; absent request retries the exact durable payload');
+  console.log('PASS: reload keeps originals behind explicit resume; lost accepted upload is not resubmitted; absent request retries the exact durable payload');
 
   const uncertain = await open(), u = uncertain.page; await mode(u, 'uncertain'); await choose(u);
   await u.getByText('The estimate outcome is uncertain.', { exact: false }).waitFor();
@@ -65,7 +72,7 @@ try {
   await u.getByRole('button', { name: 'Take meal photo', exact: true }).waitFor();
   assert.equal(await u.getByAltText('Selected meal photo').count(), 0);
   assert.equal((await u.evaluate(() => window.photoFixture.drafts())).length, 0);
-  await u.evaluate(() => window.photoFixture.switchOwner('A'));
+  await u.evaluate(() => window.photoFixture.switchOwner('A')); await resume(u);
   await u.getByText('The estimate outcome is uncertain.', { exact: false }).waitFor();
   assert.equal((await uploads(u)).length, 1); assert.deepEqual(uncertain.errors, []); await uncertain.context.close();
   console.log('PASS: uncertain attempts are poll-only and account switches isolate local originals and recovery');
@@ -93,7 +100,7 @@ try {
   await l.waitForFunction(() => window.photoFixture.held === null);
   assert.equal(await l.getByAltText('Selected meal photo').count(), 0);
   assert.equal(await l.evaluate(() => window.photoFixture.savedCallbacks), 0);
-  await l.evaluate(() => window.photoFixture.switchOwner('A')); await saved(l);
+  await l.evaluate(() => window.photoFixture.switchOwner('A')); await resume(l); await saved(l);
   assert.equal((await uploads(l)).length, 1); assert.deepEqual(late.errors, []); await late.context.close();
   console.log('PASS: mismatched receipts never confirm a meal; late upload responses are discarded after an account switch');
 

@@ -38,7 +38,15 @@
   background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.014));
   border: 1px solid var(--nx-hair); font-family: var(--nx-text); color: var(--nx-ink);
 }
-.cc-app[data-entry=account] .nx-food-hero-ring { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; justify-items: center; min-width: 0; max-width: 100%; }
+.cc-app[data-entry=account] .nx-food-hero-ring { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; justify-items: center; min-width: 0; max-width: 100%; }
+/* Food has a smaller dial than Today. Fade the photograph before the value and the meal list link. */
+.cc-app[data-entry=account] .nx-food-hero-ring > .nx-dial-scene {
+  z-index: -1;
+  inset: -5px 0 auto;
+  max-width: 360px;
+  height: 152px;
+  mask-image: linear-gradient(to bottom, transparent, black 16%, black 40%, transparent 95%);
+}
 .cc-app[data-entry=account] .nx-food-dial { position: relative; width: 100%; max-width: 248px; margin: 0 auto; }
 .cc-app[data-entry=account] .nx-food-dial svg { display: block; width: 100%; height: auto; overflow: visible; }
 .cc-app[data-entry=account] .nx-food-tick { stroke: var(--nx-hair); stroke-width: 1; stroke-linecap: round; opacity: .7; }
@@ -113,6 +121,23 @@
   background: color-mix(in oklab, var(--nx-warm) 10%, transparent); color: var(--nx-warm);
   font: 500 12px/1 var(--nx-text); cursor: pointer; white-space: nowrap;
 }
+
+.cc-app[data-entry=account] .nx-food-day-drill { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--nx-a); }
+.cc-app[data-entry=account] .nx-food-review { margin: 12px 0; }
+.cc-app[data-entry=account] .nx-food-review > summary { min-height: 44px; list-style: none; }
+.cc-app[data-entry=account] .nx-food-review > summary::-webkit-details-marker { display: none; }
+.cc-app[data-entry=account] .nx-food-review[open] > summary svg:last-child { transform: rotate(90deg); }
+.cc-app[data-entry=account] .nx-food-review > .cc-snap-queue { margin-top: 8px; }
+.cc-app[data-entry=account] .nx-food-log-controls { margin-block: 12px; }
+.cc-app[data-entry=account] .cc-nutrition-timeline:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 3px; }
+
+.cc-app[data-entry=account] .nx-review-content { padding-block: 10px; }
+.cc-app[data-entry=account] .nx-review-content details > summary { cursor: pointer; padding: 10px 0; }
+.cc-app[data-entry=account] .nx-review-detail { display: grid; gap: 12px; }
+.cc-app[data-entry=account] .nx-review-detail p { margin: 0; }
+.cc-app[data-entry=account] .nx-review-detail label { display: grid; gap: 6px; }
+.cc-app[data-entry=account] .nx-review-detail select { min-width: 0; width: 100%; min-height: 44px; padding: 6px 10px; border-radius: 10px; background: var(--nx-surface-2); color: var(--nx-ink); border: 1px solid var(--nx-hair); font-size: 16px; }
+.cc-app[data-entry=account] .nx-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* ---------- Noir overrides for Food Calendar (Account only) ---------- */
 .cc-app[data-entry=account] .cc-nutrition-workspace { padding: 0 0 12px; color: var(--nx-ink); font-family: var(--nx-text); min-width: 0; max-width: 100%; }
