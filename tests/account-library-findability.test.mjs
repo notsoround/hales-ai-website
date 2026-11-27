@@ -112,7 +112,7 @@ try {
 
     // 5. "All bank purchases" and the call row land where they say.
     await finder.getByRole('button', { name: /Phone call.*Grocery check-in/ }).click();
-    await page.getByRole('dialog', { name: 'Conversation details' }).waitFor();
+    await page.getByRole('dialog', { name: 'Phone call details' }).waitFor();
     await page.goto(base + '/cupcake/account?tab=library&view=context&rich=1');
     await finder.getByRole('button', { name: 'All bank purchases', exact: true }).click();
     await receipts.getByRole('heading', { name: 'Saved bank purchases', exact: true }).waitFor();
