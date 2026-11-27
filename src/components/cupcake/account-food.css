@@ -123,6 +123,14 @@
 .cc-app[data-entry=account] .nx-food-log-controls { margin-block: 12px; }
 .cc-app[data-entry=account] .cc-nutrition-timeline:focus-visible { outline: 2px solid var(--nx-a); outline-offset: 3px; }
 
+.cc-app[data-entry=account] .nx-review-content { padding-block: 10px; }
+.cc-app[data-entry=account] .nx-review-content details > summary { cursor: pointer; padding: 10px 0; }
+.cc-app[data-entry=account] .nx-review-detail { display: grid; gap: 12px; }
+.cc-app[data-entry=account] .nx-review-detail p { margin: 0; }
+.cc-app[data-entry=account] .nx-review-detail label { display: grid; gap: 6px; }
+.cc-app[data-entry=account] .nx-review-detail select { min-width: 0; width: 100%; min-height: 44px; padding: 6px 10px; border-radius: 10px; background: var(--nx-surface-2); color: var(--nx-ink); border: 1px solid var(--nx-hair); font-size: 16px; }
+.cc-app[data-entry=account] .nx-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* ---------- Noir overrides for Food Calendar (Account only) ---------- */
 .cc-app[data-entry=account] .cc-nutrition-workspace { padding: 0 0 12px; color: var(--nx-ink); font-family: var(--nx-text); min-width: 0; max-width: 100%; }
 .cc-app[data-entry=account] .cc-nutrition-controls { margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; min-width: 0; max-width: 100%; }

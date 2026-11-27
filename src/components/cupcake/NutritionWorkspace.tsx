@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AlertCircle, ArrowUpRight, CalendarDays, Camera, ChevronLeft, ChevronRight, Clock3, Loader2, PenLine, Receipt, Settings2, Utensils } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Camera, ChevronLeft, ChevronRight, Clock3, Loader2, PenLine, Receipt, Settings2, Utensils } from 'lucide-react';
 import { dayLabel, elapsedLabel, lastLoggedMeal, loggedMeals, mealTimeLabel, moveNutritionPeriod, nutritionDay, nutritionDays, nutritionPeriod, periodNutrition, signedCalories, EMPTY_NUTRITION_SETTINGS, type FoodHistoryMeal, type NutritionDay, type NutritionHistory, type NutritionScale, type NutritionSettings, type NutritionSettingVersion } from './nutritionModel';
 import { ACCOUNT_SESSIONS } from './accountMode';
 import { requestFoodCamera } from './accountMealPhotoHandoff';
+import { AccountFoodReview } from './AccountFoodReview';
 import { OPEN_MANUAL_MEAL_EVENT } from './AccountManualMeal';
 import { useDataChanged } from './dataChanges';
 import { libraryRequest } from './library';
@@ -280,10 +281,7 @@ export function NutritionWorkspace({ history, settings = EMPTY_NUTRITION_SETTING
     ) : (
       <div className="cc-nutrition-heading"><div><span className="cc-nutrition-eyebrow">Your food log</span><h2>Food calendar</h2><p>Meals, timing, and the bigger picture.</p></div>{onOpenCapture && <button type="button" className="cc-nutrition-primary" onClick={onOpenCapture}>Add food photo</button>}</div>
     )}
-    {reviewQueue && <details className="nx-food-review" open={reviewFirst || undefined}>
-      <summary className="nx-food-pending-pill"><AlertCircle size={15} aria-hidden="true" />Photos to check <ChevronRight size={15} aria-hidden="true" /></summary>
-      {reviewQueue}
-    </details>}
+    {ACCOUNT_SESSIONS && <AccountFoodReview history={history} fallback={reviewQueue} initiallyOpen={reviewFirst} />}
     {unmatchedCount > 0 && (
       <div className="nx-receipts-pill-row">
         <button type="button" className="nx-receipts-pill" onClick={openReceipts}>
